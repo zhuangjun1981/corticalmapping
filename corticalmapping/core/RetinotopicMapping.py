@@ -3033,12 +3033,19 @@ class RetinotopicMappingTrial(object):
             altPosMap = altPosMap - altPosOrigin
             aziPosMap = aziPosMap - aziPosOrigin
             
-        
-        totalMask = self._generateTotalMask()
-        
-        altPosMap[totalMask==0]=np.nan
-        aziPosMap[totalMask==0]=np.nan
-        
+
+        if hasattr(self,'vasculatureMap') and type(self.vasculatureMap)!=type(None) and isPlottingBorder:
+            zoom = self.vasculatureMap.shape[0]/altPosMap.shape[0]
+            altPosMap = ni.zoom(altPosMap,zoom)
+            aziPosMap = ni.zoom(aziPosMap,zoom)
+            totalMask = ni.zoom(self._generateTotalMask().astype(np.float32),zoom)
+            altPosMap[totalMask<0.5]=np.nan
+            aziPosMap[totalMask<0.5]=np.nan
+        else:
+            totalMask = self._generateTotalMask()
+            altPosMap[totalMask==0]=np.nan
+            aziPosMap[totalMask==0]=np.nan
+
         X,Y = np.meshgrid(np.arange(altPosMap.shape[1]),
                           np.arange(altPosMap.shape[0]))
         
@@ -3065,7 +3072,7 @@ class RetinotopicMappingTrial(object):
                                        plotName=False,
                                        isTitle=False,
                                        isColor=False,
-                                       borderWidth=1,
+                                       borderWidth=lineWidth,
                                        interpolation='bilinear')
                                        
         altAxis.set_title('Altitute Positions')
@@ -3092,7 +3099,7 @@ class RetinotopicMappingTrial(object):
                                        plotName=False,
                                        isTitle=False,
                                        isColor=False,
-                                       borderWidth=1,
+                                       borderWidth=lineWidth,
                                        interpolation='bilinear')
                                        
                                        
@@ -3647,6 +3654,7 @@ if __name__ == "__main__":
 #----------------------------------------------------------------------------------------------
 
     testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTial_Ai93&Ai9630min.pkl")
+    # testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\20141120_M147861_Trial1_2_3_4.pkl")
     testTrial.plotContours()
     plt.show()   
     

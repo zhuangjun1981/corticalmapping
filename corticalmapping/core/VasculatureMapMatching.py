@@ -82,7 +82,7 @@ class AppForm(QMainWindow):
         if path:
             bigDict = {}
 
-            if self.ReferenceVasMap != None:
+            if type(self.ReferenceVasMap) != type(None):
                 bigDict.update({'ReferencePathList': str(self.textbrowser_RPath.toPlainText()).split(';'),
                                 'ReferenceMapHight': self.ReferenceVasMap.shape[0],
                                 'ReferenceMapWidth': self.ReferenceVasMap.shape[1]})
@@ -91,7 +91,7 @@ class AppForm(QMainWindow):
                                 'ReferenceMapHight': None,
                                 'ReferenceMapWidth': None})
 
-            if self.MatchingVasMap != None:
+            if type(self.MatchingVasMap) != type(None):
                 bigDict.update({'MatchingPathList': str(self.textbrowser_MPath.toPlainText()).split(';'),
                                 'MatchingMapHight': self.MatchingVasMap.shape[0],
                                 'MatchingMapWidth': self.MatchingVasMap.shape[1],
@@ -121,49 +121,6 @@ class AppForm(QMainWindow):
 
             self.statusBar().showMessage('Saved to %s' % path, 2000)
             self.currSaveFolder = os.path.split(path)[0]
-
-    # def save_alignment(self):
-    #
-    #     path = unicode(QFileDialog.getSaveFileName(self,
-    #                     'Save file', r'C:/',
-    #                     '*.txt'))
-    #     if path:
-    #         txt = '\n[VasculatureMapMatching]\n'
-    #
-    #         ## add code here to saving alignment
-    #         if self.ReferenceVasMap != None:
-    #             txt += 'referencePathList = %s\n' % unicode(self.textbrowser_RPath.toPlainText())
-    #             txt += 'referenceMapHight = %i\n' % self.ReferenceVasMap.shape[0]
-    #             txt += 'referenceMapWidth = %i\n' % self.ReferenceVasMap.shape[1]
-    #         else:
-    #             txt += 'referencePathList = None\n'
-    #             txt += 'referenceMapHight = None\n'
-    #             txt += 'referenceMapWidth = None\n'
-    #
-    #         if self.MatchingVasMap != None:
-    #             txt += 'matchingPathList = %s\n' % unicode(self.textbrowser_MPath.toPlainText())
-    #             txt += 'matchingMapHight = %i\n' % self.MatchingVasMap.shape[0]
-    #             txt += 'matchingMapWidth = %i\n' % self.MatchingVasMap.shape[1]
-    #             txt += 'zoom = %1.3f\n' % self.zoom
-    #             txt += 'rotation = %.0f\n' % self.rotation
-    #             txt += 'xOffset = %i\n' % self.Xoffset
-    #             txt += 'yOffset = %i\n' % self.Yoffset
-    #         else:
-    #             txt += 'matchingPathList = None\n'
-    #             txt += 'matchingMapHight = None\n'
-    #             txt += 'matchingMapWidth = None\n'
-    #             txt += 'zoom = None\n'
-    #             txt += 'rotation = None\n'
-    #             txt += 'xOffset = None\n'
-    #             txt += 'yOffset = None\n'
-    #
-    #         if path[-4:] != '.txt':
-    #             path=path+'.txt'
-    #
-    #         with open(path, 'w') as f:
-    #             f.write(txt)
-    #
-    #         self.statusBar().showMessage('Saved to %s' % path, 2000)
 
 
     def getAdjustment(self):
@@ -355,9 +312,9 @@ class AppForm(QMainWindow):
 
         self.getAdjustment()
 
-        if self.MatchingVasMap != None:
+        if type(self.MatchingVasMap) != type(None):
 
-            if self.ReferenceVasMap != None:
+            if type(self.ReferenceVasMap) != type(None):
                 width = self.ReferenceVasMap.shape[1]
                 height = self.ReferenceVasMap.shape[0]
             else:
@@ -376,30 +333,30 @@ class AppForm(QMainWindow):
 
         self.axes.clear()
 
-        if self.ReferenceVasMap != None:
+        if type(self.ReferenceVasMap) != type(None):
             width = self.ReferenceVasMap.shape[1]
             height = self.ReferenceVasMap.shape[0]
-        elif self.MatchingVasMapAfterChange != None:
+        elif type(self.MatchingVasMapAfterChange) != type(None):
             width = self.MatchingVasMapAfterChange.shape[1]
             height = self.MatchingVasMapAfterChange.shape[0]
-        elif self.MatchingVasMap != None:
+        elif type(self.MatchingVasMap) != type(None):
             width = self.MatchingVasMap.shape[1]
             height = self.MatchingVasMap.shape[0]
         else:
             width = 1344
             height = 1024
 
-        if (self.ReferenceVasMap != None) and (self.radiobutton_reference.isChecked() or self.radiobutton_both.isChecked()):
+        if (type(self.ReferenceVasMap) != type(None)) and (self.radiobutton_reference.isChecked() or self.radiobutton_both.isChecked()):
             greenChannel = ia.resizeImage(self.ReferenceVasMap, (height, width))
             greenChannel = (ia.arrayNor(greenChannel)*255).astype(np.uint8)
         else:
             greenChannel = np.zeros((height,width)).astype(np.uint8)
 
         if (self.radiobutton_matching.isChecked() or self.radiobutton_both.isChecked()):
-            if self.MatchingVasMapAfterChange != None:
+            if type(self.MatchingVasMapAfterChange) != type(None):
                 redChannel = ia.resizeImage(self.MatchingVasMapAfterChange, (height, width))
                 redChannel = (ia.arrayNor(redChannel)*255).astype(np.uint8)
-            elif self.MatchingVasMap != None:
+            elif type(self.MatchingVasMap) != type(None):
                 redChannel = ia.resizeImage(self.MatchingVasMap, (height, width))
                 redChannel = (ia.arrayNor(redChannel)*255).astype(np.uint8)
             else:
