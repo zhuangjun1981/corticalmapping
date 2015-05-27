@@ -27,8 +27,8 @@ import ImageAnalysis as ia
 import tifffile as tf
 import PlottingTools as pt
 
-try: import cv2
-except ImportError as e: print e
+try: import cv2; import ImageAnalysis.rigidTransform_cv2 as rigidTransform
+except ImportError as e: print e; import ImageAnalysis.rigidTransform as rigidTransform
 
 
 class AppForm(QMainWindow):
@@ -321,8 +321,7 @@ class AppForm(QMainWindow):
                 width = self.MatchingVasMap.shape[1]
                 height = self.MatchingVasMap.shape[0]
 
-            # self.MatchingVasMapAfterChange = ia.rigidTransform(self.MatchingVasMap,zoom=self.zoom,rotation = self.rotation,offset=(self.Xoffset,self.Yoffset),outputShape=(height,width))
-            self.MatchingVasMapAfterChange = ia.rigidTransform_cv2(self.MatchingVasMap,zoom=self.zoom,rotation = self.rotation,offset=(self.Xoffset,self.Yoffset),outputShape=(height,width))
+            self.MatchingVasMapAfterChange = rigidTransform(self.MatchingVasMap,zoom=self.zoom,rotation = self.rotation,offset=(self.Xoffset,self.Yoffset),outputShape=(height,width))
 
             self.on_draw()
 
