@@ -280,8 +280,8 @@ def moveImage(
               Xoffset,
               Yoffset,
               width,
-              height
-              ):
+              height,
+              borderValue=0.0):
     '''
     move image defined by Xoffset and Yoffset
 
@@ -294,15 +294,12 @@ def moveImage(
 
     M = np.float32([[1,0,Xoffset],[0,1,Yoffset]])
 
-    newImg = cv2.warpAffine(img,M,(width,height))
+    newImg = cv2.warpAffine(img,M,(width,height),borderValue=borderValue)
 
     return newImg
 
 
-def rotateImage(img,
-                angle,
-                borderValue=0,
-                ):
+def rotateImage(img,angle,borderValue=0.0):
     '''
     rotate an image conterclock wise by an angle defined by 'angle' in degree
 
@@ -379,22 +376,23 @@ def rigidTransform_cv2_2d(img, zoom=None, rotation=None, offset=None, outputShap
         raise LookupError, 'Input image is not a 2d or 3d array!'
 
     newImg = np.array(img).astype(np.float)
+    minValue = np.amin(newImg)
 
     if zoom:
         newImg = zoomImage(img,zoom=zoom)
 
     if rotation:
         newImg = expandImage_cv2(newImg)
-        newImg = rotateImage(newImg, rotation)
+        newImg = rotateImage(newImg, rotation,borderValue=minValue)
 
-    if (not outputShape) and (not offset):
+    if (outputShape is None) and (offset is None):
         return newImg
     else:
-        if not outputShape:
+        if outputShape is None:
             outputShape = newImg.shape
-        if not offset:
+        if offset is None:
             offset = (0,0)
-        newImg = moveImage(newImg, offset[0], offset[1], outputShape[1],outputShape[0])
+        newImg = moveImage(newImg, offset[0], offset[1], outputShape[1],outputShape[0],borderValue=minValue)
 
         return newImg.astype(img.dtype)
 

@@ -251,18 +251,18 @@ class AppForm(QMainWindow):
                 if filePath[-3:] == 'pkl': # mapping dictionary pkl file
 
                     self.trialDict = ft.loadFile(filePath)
-                    self.MatchingVasMap = pt.mergeNormalizedImages([self.trialDict['vasculatureMap']])
+                    self.MatchingVasMap = ia.arrayNor(pt.mergeNormalizedImages([self.trialDict['vasculatureMap']]))
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
                 elif filePath[-3:] == 'tif': # tiff file
-                    self.MatchingVasMap = pt.mergeNormalizedImages([tf.imread(filePath)])
+                    self.MatchingVasMap = ia.arrayNor(pt.mergeNormalizedImages([tf.imread(filePath)]))
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
                 else: # JCam file
                     currMap, _ = ft.importRawJCam(filePath)
-                    self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]])
+                    self.MatchingVasMap = ia.arrayNor(pt.mergeNormalizedImages([currMap[0]]))
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
@@ -291,7 +291,7 @@ class AppForm(QMainWindow):
                     self.MatchingVasMap = None
                     self.MatchingVasMapAfterChange = None
                 else:
-                    self.MatchingVasMap = pt.mergeNormalizedImages(mapList).astype(np.float32)
+                    self.MatchingVasMap = ia.arrayNor(pt.mergeNormalizedImages(mapList).astype(np.float32))
                     self.textbrowser_MPath.setText(displayText)
                     self.MatchingVasMapAfterChange = None
 
