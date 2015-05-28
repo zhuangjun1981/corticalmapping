@@ -197,7 +197,20 @@ def lookupImage(img, lookupI, lookupJ):
             
     return img2
     
-    
+def in_hull(p, hull):
+    """
+    Test if points in `p` are in `hull`
+
+    `p` should be a `NxK` coordinates of `N` points in `K` dimensions
+    `hull` is either a scipy.spatial.Delaunay object or the `MxK` array of the
+    coordinates of `M` points in `K`dimensions for which Delaunay triangulation
+    will be computed
+    """
+    from scipy.spatial import Delaunay
+    if not isinstance(hull,Delaunay):
+        hull = Delaunay(hull)
+
+    return hull.find_simplex(p)>=0
 
 class MonitorJun(object):
     '''
@@ -1634,6 +1647,66 @@ class FlashCircle(object):
                         'indicator':indicatordict}
                         
         return fullSequence, fullDictionary
+
+class SparseNoise(object):
+    '''
+    generate sparse noise stimulus integrates flashing indicator for photodiode
+    '''
+
+    def __init__(self,
+                 monitor,
+                 indicator,
+                 coordinate='degree', #'degree' or 'linear'
+                 background = 0., #back ground color [-1,1]
+                 gridSpace = (4.,4.), #(alt,azi)
+                 probeSize = (4.,4.), #size of flicker probes (height,width)
+                 probeOrientation = 0., #orientation of flicker probes
+                 squareDuration = 3, #number of frames for each square presentation
+                 subregion = (-40.,60.,-20.,120.), #[minAlt, maxAlt, minAzi, maxAzi]
+                 sign = 'ON-OFF', # 'On', 'OFF' or 'ON-OFF'
+                 iteration = 1,
+                 preGapFrame = 0,
+                 postGapFrame = 0):
+
+        self.stimName = 'SparseNoise'
+        self.monitor = monitor
+        self.indicator = indicator
+        self.coordinate = coordinate
+        self.background = background
+        self.gridSpace = gridSpace
+        self.probeSize = probeSize
+        self.probeOrientationt = probeOrientation
+        self.squareDuration = squareDuration
+        self.subregion = subregion
+        self.sign = sign
+        self.iteration = iteration
+        self.preGapFrame = preGapFrame
+        self.postGapFrame = postGapFrame
+
+
+    def generateGridPoints(self):
+        '''
+        generate all the grid points in display area (subregion and monitor coverage)
+        '''
+
+        rows = np.arange(self.subregion[0],self.subregion[1],self.gridSpace[0])
+        columns = np.arange(self.subregion[2],self.subregion[3],self.gridSpace[1])
+
+        xx,yy = np.meshgrid(columns,rows)
+
+        gridPoints = np.transpose(np.array[xx.flatten(),yy.flatten()])
+
+        #get all the visual points for each pixels on monitor
+        if self.coordinate == 'degree':monitorPoints = np.transpose(np.array[self.monitor.degCorX.flatten(),self.monitor.degCorY.flatten()])
+        if self.coordinate == 'linear':monitorPoints = np.transpose(np.array[self.monitor.linCorX.flatten(),self.monitor.linCorY.flatten()])
+
+        #get the grid points within the coverage of monitor
+        self.gridPoints = gridPoints[in_hull(gridPoints,monitorPoints)]
+
+#todo finish sparse noise stimulus
+
+
+
 
 
         
