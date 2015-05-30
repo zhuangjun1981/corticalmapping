@@ -7,6 +7,7 @@ import scipy.ndimage as ni
 import math
 from matplotlib import cm
 import matplotlib.colors as col
+import skimage.morphology as sm
 try: import cv2
 except ImportError as e: print e
 
@@ -88,34 +89,6 @@ def distance(p0, p1):
 
     return distance
 
-
-#def binning(array, binSize = 2):
-#    '''
-#    reducing scale of np.array at a constant ratio
-#    '''
-#
-#    array2 = array.astype(np.float32)
-#
-#    if len(array.shape) > 3:
-#        raise LookupError, 'Input array shold be 2-d or 3-d!'
-#
-#    if (array.shape[-1] % binSize != 0) or \
-#       (array.shape[-2] % binSize != 0):
-#           raise ValueError, 'The size of the input array should be divisible by binSize!'
-#
-#    if len(array2.shape) == 2:
-#        newArray = np.zeros([array.shape[0]/2,array.shape[1]/2])
-#        for i in xrange(newArray.shape[-2]):
-#            for j in xrange(newArray.shape[-1]):
-#                newArray[i,j] = array2[i*binSize:(i+1)*binSize,j*binSize:(j+1)*binSize].mean(-1).mean(-1)
-#
-#    if len(array2.shape) == 3:
-#        newArray = np.zeros([array2.shape[0],array.shape[1]/2,array.shape[2]/2])
-#        for i in xrange(newArray.shape[-2]):
-#            for j in xrange(newArray.shape[-1]):
-#                newArray[:,i,j] = array2[:,i*binSize:(i+1)*binSize,j*binSize:(j+1)*binSize].mean(-1).mean(-1)
-#
-#    return newArray
 
 def binarize(array, threshold):
     '''
@@ -220,6 +193,7 @@ def resizeImage(img, outputShape, fillValue = 0.):
         
     return newImg
 
+
 def expandImage_cv2(img):
 
     if len(img.shape) != 2:
@@ -232,6 +206,7 @@ def expandImage_cv2(img):
     M = np.float32([[1,0,(diagonal-cols)/2],[0,1,(diagonal-rows)/2]])
     newImg = cv2.warpAffine(img,M,(diagonal,diagonal))
     return newImg.astype(dtype)
+
 
 def expandImage(img):
 
@@ -258,6 +233,7 @@ def expandImage(img):
     else:
         raise ValueError, 'Input image should be 2d or 3d!'
 
+
 def zoomImage(img,zoom,interpolation = cv2.INTER_CUBIC):
     '''
     zoom a 2d image. if zoom is a single value, it will apply to both axes, if zoom has two values it will be applied to
@@ -275,13 +251,7 @@ def zoomImage(img,zoom,interpolation = cv2.INTER_CUBIC):
     return newImg
 
 
-def moveImage(
-              img, # original image, 2d ndarray
-              Xoffset,
-              Yoffset,
-              width,
-              height,
-              borderValue=0.0):
+def moveImage(img,Xoffset,Yoffset,width,height,borderValue=0.0):
     '''
     move image defined by Xoffset and Yoffset
 
@@ -316,6 +286,7 @@ def rotateImage(img,angle,borderValue=0.0):
     newImg = cv2.warpAffine(img,M,(cols,rows),borderValue=borderValue)
 
     return newImg
+
 
 def rigidTransform(img, zoom=None, rotation=None, offset=None, outputShape=None, mode='constant',cval=0.0):
 
@@ -439,7 +410,7 @@ def rigidTransform_cv2(img, zoom=None, rotation=None, offset=None, outputShape=N
         raise ValueError, 'Input image is not a 2d or 3d array!'
 
 
-def boxcartime_dff(data, 
+def boxcartime_dff(data,
                    window,# boxcar size in seconds
                    fs # sample rate in ms
                    ):
@@ -511,7 +482,6 @@ def normalizeMovie(movie,
     return averageImage, normalizedMovie, dFoverFMovie
 
 
-
 def temporalFilterMovie(mov, # array of movie
                         Fs, # sampling rate
                         Flow, # low cutoff frequency
@@ -553,12 +523,7 @@ def temporalFilterMovie(mov, # array of movie
     return movF
 
 
-
-def generateRectangleMask(movie,
-                          center, # index of the center pixel
-                          width,
-                          height,
-                          isplot = False):
+def generateRectangleMask(movie,center,width,height,isplot = False):
 
     mask = np.zeros((np.size(movie, -2), np.size(movie, -1)))
 
@@ -583,12 +548,7 @@ def generateRectangleMask(movie,
     return mask
 
 
-
-def generateOvalMask(movie,
-                     center, # index of the center pixel
-                     width,
-                     height,
-                     isplot = False):
+def generateOvalMask(movie,center,width,height,isplot = False):
 
     mask = np.zeros((np.size(movie, -2), np.size(movie, -1)))
 
@@ -619,7 +579,6 @@ def generateOvalMask(movie,
     return mask
 
 
-
 def getTrace(movie, mask):
     '''
     get a trace across a movie with averaged value in a mask
@@ -634,13 +593,7 @@ def getTrace(movie, mask):
     return np.array(trace)
 
 
-
-def getTrace2(movie,
-              center,
-              width,
-              height,
-              maskType = 'rect',
-              isplot = False):
+def getTrace2(movie,center,width,height,maskType = 'rect',isplot = False):
 
     if maskType == 'rect':
         mask = generateRectangleMask(movie,center,width,height)
@@ -657,6 +610,7 @@ def getTrace2(movie,
 
     return trace
 
+
 def hitOrMiss(cor, mask):
     mask = mask.astype(np.int8)
     corMask = np.zeros(mask.shape, dtype = np.int8)
@@ -665,6 +619,7 @@ def hitOrMiss(cor, mask):
         return True
     if np.sum(np.multiply(corMask, mask)) == 0:
         return False
+
 
 def harAmp(f, # function value
            period, # how many fundamental harmonic periods inside the function
@@ -741,6 +696,7 @@ def seedPixel(markers):
 
     return newMarkers
 
+
 def isAdjacent(array1, array2, borderWidth = 2):
     '''
     decide if two patches are adjacent within border width
@@ -754,12 +710,8 @@ def isAdjacent(array1, array2, borderWidth = 2):
     else:
         return False
 
-def plotMask(mask,
-             plotAxis=None,
-             color='#ff0000',
-             zoom=1,
-             borderWidth = None,
-             closingIteration = None):
+
+def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closingIteration = None):
     '''
     plot mask borders in a given color
     '''
@@ -793,20 +745,154 @@ def plotMask(mask,
 
     return currfig
 
+def removeSmallPatches(mask,areaThr=100,structure=[[1,1,1],[1,1,1],[1,1,1]]):
+    '''
+    remove small isolated patches
+    '''
+
+    if mask.dtype == np.bool:pass
+    elif issubclass(mask.dtype.type, np.integer):
+        if np.amin(mask)<0 or np.amax(mask)>1:raise ValueError, 'Values of input image should be either 0 or 1.'
+    else: raise TypeError, 'Data type of input image should be either np.bool or integer.'
+
+    patches, n = ni.label(mask,structure)
+    newMask = np.zeros(mask.shape,dtype=np.uint8)
+
+    if n==0: return newMask
+    else:
+        for i in range(1,n+1):
+            currPatch = np.zeros(mask.shape,dtype=np.uint8)
+            currPatch[patches==i]=1
+            if np.sum(currPatch.flatten())>=areaThr:newMask += currPatch
+
+    return newMask.astype(np.bool)
+
+
+def getAreaEdges(img,
+                 firstGaussianSigma=50.,
+                 medianFilterWidth=100.,
+                 areaThr=(0.1,0.9),
+                 edgeThrRange=(5,16),
+                 secondGaussianSigma=10.,
+                 thr=0.2,
+                 borderWidth=2,
+                 lengthThr=20,
+                 isPlot=True):
+    '''
+    get binary edge of areas
+    '''
+
+    img=img.astype(np.float)
+    imgFlat = img - ni.filters.gaussian_filter(img,firstGaussianSigma)
+    imgMedianFiltered = arrayNor(ni.filters.median_filter(imgFlat,medianFilterWidth))
+    imgPatch=np.array(imgMedianFiltered)
+    imgPatch[imgMedianFiltered<areaThr[0]]=areaThr[0];imgPatch[imgMedianFiltered>areaThr[1]]=areaThr[1]
+    imgPatch=(arrayNor(imgPatch)*255).astype(np.uint8)
+
+    cuttingStep = np.arange(edgeThrRange[0],edgeThrRange[1])
+    cuttingStep = np.array([cuttingStep[0:-1],cuttingStep[1:]]).transpose()
+    edge_cv2 = np.zeros(img.shape).astype(np.uint8)
+    for i in range(cuttingStep.shape[0]):
+        currEdge = cv2.Canny(imgPatch,cuttingStep[i,0],cuttingStep[i,1])/255
+        edge_cv2 += currEdge
+        if isPlot:
+            if i==1: firstEdgeSet=currEdge
+            if i==cuttingStep.shape[0]-1: lastEdgeSet=currEdge
+
+    edgesF=ni.filters.gaussian_filter(edge_cv2.astype(np.float),secondGaussianSigma)
+
+    edgesThr = np.zeros(edgesF.shape).astype(np.uint8)
+    edgesThr[edgesF<thr]=0;edgesThr[edgesF>=thr]=1
+
+    edgesThin = sm.skeletonize(edgesThr)
+
+    edgesThin = removeSmallPatches(edgesThin,lengthThr)
+    if borderWidth>1: edgesThick=ni.binary_dilation(edgesThin,iterations=borderWidth-1)
+    else: edgesThick=edgesThin
+
+    if isPlot:
+        displayEdges = np.zeros((edgesThick.shape[0],edgesThick.shape[1],4)).astype(np.uint8)
+        displayEdges[edgesThick==1]=np.array([255,0,0,255]).astype(np.uint8)
+        displayEdges[edgesThick==0]=np.array([0,0,0,0]).astype(np.uint8)
+
+        f,ax=plt.subplots(2,5,figsize=(15,5))
+        ax[0,0].imshow(img,cmap='gray');ax[0,0].set_title('original image');ax[0,0].axis('off')
+        ax[0,1].imshow(imgFlat,cmap='gray');ax[0,1].set_title('flattened image');ax[0,1].axis('off')
+        ax[0,2].imshow(imgPatch,cmap='gray');ax[0,2].set_title('image for edge detection');ax[0,2].axis('off')
+        ax[0,3].imshow(firstEdgeSet,cmap='gray');ax[0,3].set_title('first edge set');ax[0,3].axis('off')
+        ax[0,4].imshow(lastEdgeSet,cmap='gray');ax[0,4].set_title('last edge set');ax[0,4].axis('off')
+        ax[1,0].imshow(edgesF,cmap='hot');ax[1,0].set_title('filtered edges sum');ax[1,0].axis('off')
+        ax[1,1].imshow(edgesThr,cmap='gray');ax[1,1].set_title('binary thresholded edges');ax[1,1].axis('off')
+        ax[1,2].imshow(edgesThick,cmap='gray');ax[1,2].set_title('binary edges');ax[1,2].axis('off')
+        ax[1,3].imshow(img,cmap='gray');ax[1,3].imshow(displayEdges);ax[1,3].set_title('original image with edges');ax[1,3].axis('off')
+        ax[1,4].imshow(imgPatch,cmap='gray');ax[1,4].imshow(displayEdges);ax[1,4].set_title('blurred image with edges');ax[1,4].axis('off')
+        plt.tight_layout()
+        return edgesThick.astype(np.bool), f
+
+    else: return edgesThick.astype(np.bool)
+
+
+#def binning(array, binSize = 2):
+#    '''
+#    reducing scale of np.array at a constant ratio
+#    '''
+#
+#    array2 = array.astype(np.float32)
+#
+#    if len(array.shape) > 3:
+#        raise LookupError, 'Input array shold be 2-d or 3-d!'
+#
+#    if (array.shape[-1] % binSize != 0) or \
+#       (array.shape[-2] % binSize != 0):
+#           raise ValueError, 'The size of the input array should be divisible by binSize!'
+#
+#    if len(array2.shape) == 2:
+#        newArray = np.zeros([array.shape[0]/2,array.shape[1]/2])
+#        for i in xrange(newArray.shape[-2]):
+#            for j in xrange(newArray.shape[-1]):
+#                newArray[i,j] = array2[i*binSize:(i+1)*binSize,j*binSize:(j+1)*binSize].mean(-1).mean(-1)
+#
+#    if len(array2.shape) == 3:
+#        newArray = np.zeros([array2.shape[0],array.shape[1]/2,array.shape[2]/2])
+#        for i in xrange(newArray.shape[-2]):
+#            for j in xrange(newArray.shape[-1]):
+#                newArray[:,i,j] = array2[:,i*binSize:(i+1)*binSize,j*binSize:(j+1)*binSize].mean(-1).mean(-1)
+#
+#    return newArray
+
 if __name__ == '__main__':
 
-    #-----------------------------------------------------------
+    #============================================================
     # a = np.random.rand(100,100)
     # mask = generateOvalMask(a,[45,58],20,30,isplot=True)
     # plt.show()
 
-    #-----------------------------------------------------------
-    a = np.arange(400).reshape((20,20))
-    b = rigidTransform(a,2,30,(1,5),(30,25))
+    #============================================================
+    # a = np.arange(400).reshape((20,20))
+    # b = rigidTransform(a,2,30,(1,5),(30,25))
+    # f,ax=plt.subplots(1,2)
+    # ax[0].imshow(a,interpolation='nearest')
+    # ax[1].imshow(b,interpolation='nearest')
+    # plt.show()
+    #============================================================
+
+    #============================================================
+    # import tifffile as tf
+    # imgPath = r"E:\data2\2015-05-28-Average-Ai93-Rorb-Scnn1a-map\AverageVasMap_Ai93.tif"
+    # img = tf.imread(imgPath)
+    # edges = getAreaEdges(img)
+    # plt.show()
+    #============================================================
+    aa=np.zeros((15,15),dtype=np.uint8)
+    aa[4,5]=1
+    aa[5,6]=1
+    aa[12:15,8:13]=1
+    bb=removeSmallPatches(aa,5)
     f,ax=plt.subplots(1,2)
-    ax[0].imshow(a,interpolation='nearest')
-    ax[1].imshow(b,interpolation='nearest')
+    ax[0].imshow(aa,interpolation='nearest');ax[1].imshow(bb,interpolation='nearest')
     plt.show()
+
+    print 'for debug'
 
 
 

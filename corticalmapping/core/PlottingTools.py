@@ -17,6 +17,46 @@ import tifffile as tf
 import ImageAnalysis as ia
 
 
+def getRGB(colorStr):
+    '''
+    get R,G,B int value from a color string
+    '''
+    return int(colorStr[1:3],16),int(colorStr[3:5],16),int(colorStr[5:7],16)
+
+
+def binary2RGBA(img,foreGroundColor='#ff0000',backGroundColor='#000000',foreGroundAlpha=255,backGroundAlpha=0):
+    '''
+    generate display image in (RGBA).(np.uint8) format which can be displayed by imshow
+    :param img: input image, should be a binary array (np.bool, or np.(u)int
+    :param foreGroundColor: color for 1 in the array, RGB str, i.e. '#ff0000'
+    :param backGroundColor: color for 0 in the array, RGB str, i.e. '#ff00ff'
+    :param foreGroundAlpha: alpha for 1 in the array, int, 0-255
+    :param backGroundAlpha: alpha for 1 in the array, int, 0-255
+    :return: displayImg, (RGBA).(np.uint8) format, ready for imshow
+    '''
+
+    if img.dtype == np.bool:pass
+    elif issubclass(img.dtype.type, np.integer):
+        if np.amin(img)<0 or np.amax(img)>1:raise ValueError, 'Values of input image should be either 0 or 1.'
+    else: raise TypeError, 'Data type of input image should be either np.bool or integer.'
+
+    if type(foreGroundAlpha) is int:
+        if foreGroundAlpha<0 or foreGroundAlpha>255:raise ValueError, 'Value of foreGroundAlpha should be between 0 and 255.'
+    else: raise TypeError, 'Data type of foreGroundAlpha should be integer.'
+
+    if type(backGroundAlpha) is int:
+        if backGroundAlpha<0 or backGroundAlpha>255:raise ValueError, 'Value of backGroundAlpha should be between 0 and 255.'
+    else: raise TypeError, 'Data type of backGroundAlpha should be integer.'
+
+    fR,fG,fB=getRGB(foreGroundColor)
+    bR,bG,bB=getRGB(backGroundColor)
+
+    displayImg = np.zeros((img.shape[0],img.shape[1],4)).astype(np.uint8)
+    displayImg[img==1]=np.array([fR,fG,fB,foreGroundAlpha]).astype(np.uint8)
+    displayImg[img==0]=np.array([bR,bG,bB,backGroundAlpha]).astype(np.uint8)
+
+    return displayImg
+
 
 def barGraph(left,
              height,
@@ -139,11 +179,7 @@ def showMovie(path, #tif file path or numpy arrary of the movie
     return mov
 
 
-
-def standaloneColorBar(vmin,
-                       vmax,
-                       cmap,
-                       sectionNum=10):
+def standaloneColorBar(vmin,vmax,cmap,sectionNum=10):
     '''
     plot a stand alone color bar.
     '''
@@ -157,18 +193,8 @@ def standaloneColorBar(vmin,
     cbar = plt.colorbar()
     cbar.set_ticks(np.linspace(vmin,vmax,num=sectionNum+1))
     
-    
 
-def alphaBlending(image,
-                  alphaData,
-                  vmin,
-                  vmax,
-                  cmap = 'Paired',
-                  sectionNum = 10,
-                  background = -1,
-                  interpolation = 'nearest',
-                  isSave = False,
-                  savePath = None):
+def alphaBlending(image,alphaData,vmin,vmax,cmap = 'Paired',sectionNum = 10,background = -1,interpolation = 'nearest',isSave = False,savePath = None):
     '''
     Generate image with transparency weighted by another matrix.
     
@@ -222,13 +248,7 @@ def alphaBlending(image,
     return colorImage
 
 
-
-def plotMask(mask,
-             plotAxis=None,
-             color='#ff0000',
-             zoom=1,
-             borderWidth = None,
-             closingIteration = None):
+def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closingIteration = None):
     '''
     plot mask borders in a given color
     '''
@@ -284,6 +304,7 @@ def gridAxis(rowNum,columnNum,totalPlotNum,figSize=(10,10)):
         axisHandles.append(currAxis)
         
     return figureHandles, axisHandles
+
     
 def saveFigureWithoutBorders(f,
                              savePath,
@@ -347,11 +368,23 @@ if __name__=='__main__':
     
     
 #----------------------------------------------------
-    mask = np.zeros((100,100))
-    mask[30:50,20:60]=1
-    mask[mask==0]=np.nan
-    
-    plotMask(mask)
-    plt.show()
+    # mask = np.zeros((100,100))
+    # mask[30:50,20:60]=1
+    # mask[mask==0]=np.nan
+    #
+    # plotMask(mask)
+    # plt.show()
      
 #----------------------------------------------------
+
+    aa=np.random.rand(20,20)
+    mask = np.zeros((20,20),dtype=np.bool)
+    mask[4:7,13:16]=True
+    displayMask = binary2RGBA(mask)
+    plt.figure()
+    plt.imshow(aa)
+    plt.imshow(displayMask,interpolation='nearest')
+    plt.show()
+#----------------------------------------------------
+
+    print 'for debug'

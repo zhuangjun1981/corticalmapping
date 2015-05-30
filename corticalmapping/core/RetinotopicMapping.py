@@ -2618,6 +2618,7 @@ class RetinotopicMappingTrial(object):
     def plotFinalPatchBorders(self,
                               plotAxis = None,
                               plotName=True,
+                              plotVasMap=True,
                               isTitle=True,
                               isColor=True,
                               borderWidth=2,
@@ -2637,8 +2638,9 @@ class RetinotopicMappingTrial(object):
             f=plt.figure(figsize=(10,10))
             plotAxis=f.add_subplot(111)
 
-        try:plotAxis.imshow(self.vasculatureMap, cmap = 'gray', interpolation = 'nearest')
-        except:pass
+        if plotVasMap:
+            try:plotAxis.imshow(self.vasculatureMap, cmap = 'gray', interpolation = 'nearest')
+            except AttributeError:pass
 
         for key, patch in finalPatches.iteritems():
             mask = patch.getMask()
