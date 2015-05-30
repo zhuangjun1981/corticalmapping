@@ -122,12 +122,7 @@ def findPhaseIndex(trace, harmonic=1):
 
 
 
-def generatePhaseMap(movie,
-                     cycles = 1,
-                     isReverse = False,
-                     isFilter = False,
-                     sigma = 3.,
-                     isplot = False):
+def generatePhaseMap(movie,cycles = 1,isReverse = False,isFilter = False,sigma = 3.,isplot = False):
     '''
     generating phase map of a 3-d movie, on the frequency defined by cycles.
 
@@ -175,10 +170,7 @@ def generatePhaseMap(movie,
     return phaseMap % (2*np.pi), powerMap #value from -pi to pi
 
 
-def generatePhaseMap2(movie,
-                      cycles,
-                      isReverse = False,
-                      isPlot = False):
+def generatePhaseMap2(movie,cycles,isReverse = False,isPlot = False):
     '''
     generating phase map of a 3-d movie, on the frequency defined by cycles.
     the movie should have the same length of 'cycles' number of cycles.
@@ -210,7 +202,6 @@ def generatePhaseMap2(movie,
         plt.colorbar()
 
     return phaseMap, powerMap
-
 
 
 def phasePosition(phaseMap, displayLog):
@@ -280,9 +271,7 @@ def phasePosition(phaseMap, displayLog):
     return positionMap
 
 
-
-def visualSignMap(phasemap1,
-                  phasemap2):
+def visualSignMap(phasemap1,phasemap2):
     '''
     calculate visual sign map from two orthogonally oriented phase maps
     '''
@@ -315,9 +304,7 @@ def visualSignMap(phasemap1,
     return areamap
 
 
-def dilationPatches(rawPatches,
-                    smallPatchThr = 5,
-                    borderWidth = 1): #pixel width of the border after dilation
+def dilationPatches(rawPatches,smallPatchThr = 5,borderWidth = 1): #pixel width of the border after dilation
 
     '''
     dilation patched in a given area untill the border between them are as
@@ -359,9 +346,7 @@ def dilationPatches(rawPatches,
     return newPatches
 
 
-def dilationPatches2(rawPatches,
-                     dilationIter = 20,
-                     borderWidth = 1): #pixel width of the border after dilation
+def dilationPatches2(rawPatches,dilationIter = 20,borderWidth = 1): #pixel width of the border after dilation
 
     '''
     dilation patched in a given area untill the border between them are as
@@ -567,7 +552,6 @@ def plotVisualSpace(visualSpace,
     ax.set_xticklabels(xtickLabel)
     ax.set_yticks(ytickInd)
     ax.set_yticklabels(ytickLabel)
-    
 
 
 def localMin(eccMap, binSize):
@@ -606,8 +590,7 @@ def localMin(eccMap, binSize):
     return marker
 
 
-def adjacentPairs(patches,
-                  borderWidth = 2):
+def adjacentPairs(patches,borderWidth = 2):
 
     '''
     return all the patch pairs with same visual sign and sharing border
@@ -640,7 +623,6 @@ def mergePatches(array1, array2, borderWidth = 2):
         raise LookupError, 'this two patches are too far apart!!!'
     else:
         return spc
-
 
 
 def eccentricityMap(altMap, aziMap, altCenter, aziCenter):
@@ -677,7 +659,6 @@ def eccentricityMap(altMap, aziMap, altCenter, aziCenter):
     return eccMap
 
 
-
 def sortPatches(patchDict):
     '''
     from a patch dictionary generate an new dictionary with patches sorted by there area
@@ -701,11 +682,8 @@ def sortPatches(patchDict):
 
     return newPatchDict
 
-def plotPatches(patches,
-                plotaxis = None,
-                zoom = 1,
-                alpha = 0.5,
-                markersize = 5):
+
+def plotPatches(patches,plotaxis = None,zoom = 1,alpha = 0.5,markersize = 5):
     '''
     plot a patches in a patch dictionary
     '''
@@ -732,15 +710,8 @@ def plotPatches(patches,
     return imageHandle
 
 
-def plotPatchBorders(patches,
-                     plotaxis = None,
-                     borderWidth = 2,
-                     color='#ff0000',
-                     zoom = 1,
-                     isPlotCenter = True,
-                     isCenter = True, #if center at V1
-                     rotationAngle = 0 # rotation of map in degrees, counter-clockwise
-                     ):
+def plotPatchBorders(patches,plotaxis = None,borderWidth = 2,color='#ff0000',zoom = 1,isPlotCenter = True,isCenter = True,
+                     rotationAngle = 0 ):# rotation of map in degrees, counter-clockwise
 
     #generating plot axis
     if plotaxis == None:
@@ -835,7 +806,6 @@ def plotPatchBorders(patches,
     imageHandle = plotaxis.imshow(borderR, vmin=0, vmax=1, cmap='temp', interpolation = 'nearest')
 
     return imageHandle
-
 
 
 def plotPatchBorders2(patches,
@@ -960,7 +930,6 @@ def plotPatchBorders2(patches,
     plotAxis.get_xaxis().set_visible(False)
     plotAxis.get_yaxis().set_visible(False)
     return forPlotting
-
 
 
 def plotPatchBorders3(patches,
@@ -1097,7 +1066,6 @@ def plotPatchBorders3(patches,
     plotAxis.get_yaxis().set_visible(False)
 
 
-
 def plotPairedPatches(patch1,
                       patch2,
                       altMap,
@@ -1169,6 +1137,7 @@ def plotPairedPatches(patch1,
     f_122.set_yticks(ytick)
     f_122.set_yticklabels(yticklabel)
 
+
 class RetinotopicMappingTrial(object):
 
 
@@ -1235,6 +1204,7 @@ class RetinotopicMappingTrial(object):
             trialName += '_Awake'
 
         return trialName
+
 
     def _getSignMap(self, isReverse = False, isPlot = False, isFixedRange = True):
 
@@ -1615,6 +1585,7 @@ class RetinotopicMappingTrial(object):
 
         return patches
 
+
     def _mergePatches(self, isPlot=False):
 
         if not hasattr(self, 'patchesAfterSplit'):
@@ -1878,7 +1849,6 @@ class RetinotopicMappingTrial(object):
         return traces
 
 
-
     def cleanMaps(self):
 
         try:
@@ -1941,6 +1911,7 @@ class RetinotopicMappingTrial(object):
         except AttributeError:
             pass
 
+
     def cleanTraces(self):
 
         try:
@@ -1993,6 +1964,7 @@ class RetinotopicMappingTrial(object):
         except:
             pass
 
+
     def generateTrialDict(self,
                           keysToRetain = ('altPosMap',
                                           'aziPosMap',
@@ -2038,6 +2010,7 @@ class RetinotopicMappingTrial(object):
 
         return trialDict
 
+
     def generatePosOverlay(self):
 
         if (not hasattr(self, 'altPosMapf')) or (not hasattr(self, 'aziPosMapf')):
@@ -2067,10 +2040,8 @@ class RetinotopicMappingTrial(object):
         ax2.axis('off')
         ax2.set_title('azimuth position')
 
-    def generateStandardOutput(self,
-                               traces = None,
-                               isSave = False,
-                               saveFolder = None):
+
+    def generateStandardOutput(self,traces = None,isSave = False,saveFolder = None):
 
         if not hasattr(self, 'finalPatches'):
             self.processTrial()
@@ -2176,11 +2147,7 @@ class RetinotopicMappingTrial(object):
             del f
 
 
-    def generateNormalizedMaps(self,
-                               centerPatchKey = 'patch01',
-                               mapSize = 512,
-                               isPlot = False,
-                               borderValue=0.):
+    def generateNormalizedMaps(self,centerPatchKey = 'patch01',mapSize = 512,isPlot = False,borderValue=0.):
 
         if not hasattr(self, 'finalPatches'):
             self.processTrial()
@@ -2266,8 +2233,8 @@ class RetinotopicMappingTrial(object):
 
         return altPosMapNor, aziPosMapNor, altPowerMapNor, aziPowerMapNor, signMapNor, signMapfNor
 
-    def getNormalizeTransform(self,
-                              centerPatchKey = 'patch01'):
+
+    def getNormalizeTransform(self,centerPatchKey = 'patch01'):
 
         if not hasattr(self, 'aziPosMapf'):
             self._getSignMap()
@@ -2289,11 +2256,7 @@ class RetinotopicMappingTrial(object):
         return centerPixel, rotationAngle
 
 
-    def normalize(self,
-                  centerPatchKey = 'patch01',
-                  mapSize = 800,
-                  isPlot = False,
-                  borderValue=0.):
+    def normalize(self,centerPatchKey = 'patch01',mapSize = 800,isPlot = False,borderValue=0.):
 
         '''
         Generate normalized vasculature map and normalized final patches
@@ -2378,12 +2341,7 @@ class RetinotopicMappingTrial(object):
         return vasMapNor, patchesNor
 
 
-    def plotNormalizedPatchCenter(self,
-                                  centerPatchKey = 'patch01',
-                                  mapSize = 512,
-                                  plotAxis = None,
-                                  markerSize = 5.,
-                                  markerEdgeWidth = 2.):
+    def plotNormalizedPatchCenter(self,centerPatchKey = 'patch01',mapSize = 512,plotAxis = None,markerSize = 5.,markerEdgeWidth = 2.):
 
         if not plotAxis:
             f=plt.figure()
@@ -2440,10 +2398,7 @@ class RetinotopicMappingTrial(object):
         plotAxis.set_axis_off()
 
 
-
-    def plotTrial(self,
-                  isSave = False,
-                  saveFolder = None):
+    def plotTrial(self,isSave = False,saveFolder = None):
 
         if not hasattr(self, 'finalPatches'):
             self.processTrial()
@@ -2614,16 +2569,7 @@ class RetinotopicMappingTrial(object):
         plotAxis.set_title(name)
 
 
-
-    def plotFinalPatchBorders(self,
-                              plotAxis = None,
-                              plotName=True,
-                              plotVasMap=True,
-                              isTitle=True,
-                              isColor=True,
-                              borderWidth=2,
-                              fontSize=15,
-                              interpolation='bilinear'):
+    def plotFinalPatchBorders(self,plotAxis = None,plotName=True,plotVasMap=True,isTitle=True,isColor=True,borderWidth=2,fontSize=15,interpolation='bilinear'):
 
         if hasattr(self,'finalPatchesMarked'):finalPatches=self.finalPatchesMarked
         elif hasattr(self, 'finalPatches'):finalPatches=self.finalPatches
@@ -2756,11 +2702,10 @@ class RetinotopicMappingTrial(object):
         return meanPowerDict
 
 
-    def getCorticalArea(self,
-                        pixelSize = 0.0129, #mm
-                        ):
+    def getCorticalArea(self,pixelSize = 0.0129):
         '''
         get area of each visual area (mm^2)
+        unit of pixelSize is mm
         '''
 
         try:
@@ -2779,13 +2724,10 @@ class RetinotopicMappingTrial(object):
         return areaDict
 
 
-    def getMagnification(self,
-                         pixelSize = 0.0129, #mm
-                         isFilter = False,
-                         erodeIter = None,
-                         ):
+    def getMagnification(self,pixelSize = 0.0129, isFilter = False,erodeIter = None,):
         '''
         get magnification of each visual area (mm^2/deg^2)
+        unit of pixelSize is mm
         '''
 
         if not hasattr(self,'determinantMap'):
@@ -2866,11 +2808,10 @@ class RetinotopicMappingTrial(object):
         return altPosOrigin, aziPosOrigin
 
 
-    def plotMagnificationMap(self,
-                             pixelSize = 0.0129, # mm
-                             plotAxis = None,
-                             isFilter = False):
-
+    def plotMagnificationMap(self,pixelSize = 0.0129,plotAxis = None,isFilter = False):
+        '''
+        param pixelSize:  mm
+        '''
         if not hasattr(self,'determinantMap'):
             _ = self._getDeterminantMap()
 
@@ -2920,15 +2861,7 @@ class RetinotopicMappingTrial(object):
         return mask.astype(np.int8)
 
 
-    def plotRetinotopicLocation(self,
-                                plotAxis=None,
-                                location=(0.,50.),
-                                color='#ff0000',
-                                searchRange=3.,
-                                borderWidth=1,
-                                closeIter=3,
-                                openIter=3
-                                ):
+    def plotRetinotopicLocation(self,plotAxis=None,location=(0.,50.),color='#ff0000',searchRange=3.,borderWidth=1,closeIter=3,openIter=3):
 
         if not plotAxis:
             f = plt.figure()
@@ -3100,20 +3033,16 @@ class RetinotopicMappingTrial(object):
         aziAxis.set_title('Azimuth Positions')
         
         return altAxis, aziAxis
-        
-        
-        
 
 
 class Patch(object):
 
-    def __init__(self,
-                 patchArray,
-                 sign):
+    def __init__(self,patchArray,sign):
         self.array = patchArray.astype(np.int8)
         self.array[self.array > 0] = 1
         self.array[self.array == 0] = 0
         self.sign = sign
+
 
     def getCenter(self):
         '''
@@ -3131,6 +3060,7 @@ class Patch(object):
         '''
         return np.sum(self.array[:])
 
+
     def getMask(self):
         '''
         generating ploting mask for the patch
@@ -3139,6 +3069,7 @@ class Patch(object):
         mask[mask == 0] = np.nan
         return mask
 
+
     def getSignedMask(self):
         '''
         generating ploting mask with visual sign for the patch
@@ -3146,6 +3077,7 @@ class Patch(object):
         signedMask = np.array(self.array * self.sign, dtype = np.float32)
         signedMask[signedMask == 0] = np.nan
         return signedMask
+
 
     def isTouching(self, patch2, distance = 1):
         '''
@@ -3163,13 +3095,8 @@ class Patch(object):
         else:
             return False
 
-    def getVisualSpace(self,
-                       altMap,
-                       aziMap,
-                       visualFieldOrigin = None,
-                       pixelSize = 1.,
-                       closeIter = None,
-                       isplot = False):
+
+    def getVisualSpace(self,altMap,aziMap,visualFieldOrigin = None,pixelSize = 1.,closeIter = None,isplot = False):
         '''
         get the visual response space, visual response space center unique area and
         eccentricity map of a cortical patch
@@ -3439,6 +3366,7 @@ class Patch(object):
 
         return newPatchDict
 
+
     def getBorder(self, borderWidth = 2):
         '''
         return boder of this patch with boder width defined by "borderWidth"
@@ -3454,8 +3382,7 @@ class Patch(object):
 
         return border
         
-    def getCorticalPixelForVisualSpaceCenter(self,
-                                             eccMap):
+    def getCorticalPixelForVisualSpaceCenter(self,eccMap):
         '''
         return the coordinates of the pixel representing the center of the 
         visual space of the patch
@@ -3468,7 +3395,6 @@ class Patch(object):
         
         return cor
                                              
-
 
 if __name__ == "__main__":
     

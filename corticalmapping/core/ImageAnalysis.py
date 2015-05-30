@@ -745,6 +745,7 @@ def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closin
 
     return currfig
 
+
 def removeSmallPatches(mask,areaThr=100,structure=[[1,1,1],[1,1,1],[1,1,1]]):
     '''
     remove small isolated patches
