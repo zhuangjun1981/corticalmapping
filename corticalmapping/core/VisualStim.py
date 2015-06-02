@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import time
 from PIL import Image
 import cPickle as pickle
+from random import shuffle
 
 import socket
 import tifffile as tf
@@ -605,7 +606,9 @@ class KSstimJun(object):
         first element: gap:0 or display:1
         second element: square polarity, 1: not reversed; -1: reversed
         third element: sweeps, index in sweep table
-        forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
+        forth element: color of indicator
+                       synchronized: gap:0, then alternating between -1 and 1 for each sweep
+                       non-synchronized: alternating between -1 and 1 at defined frequency
         for gap frames the second and third elements should be 'None'
         '''
         
@@ -1702,7 +1705,59 @@ class SparseNoise(object):
 
         return gridPoints
 
-#todo finish sparse noise stimulus
+    def _getGridPointsSequence(self):
+        '''
+        generate pseudorandomized grid point sequence. if ON-OFF, continuous frame shold not
+        present stimulus at same location
+        :return: list of [gridPoint, sign]
+        '''
+
+        gridPoints = self._generateGridPoints()
+
+        if self.sign == 'ON':
+            gridPoints = [[x,1] for x in gridPoints]
+            return shuffle(gridPoints)
+        elif self.sign == 'OFF':
+            gridPoints = [[x,-1] for x in gridPoints]
+            return shuffle(gridPoints)
+        elif self.sign == 'ON-OFF':
+            allGridPoints = [[x,1] for x in gridPoints] + [[x,-1] for x in gridPoints]
+            shuffle(allGridPoints)
+            # remove coincident hit of same location by continuous frames
+            print 'removing coincident hit of same location with continuous frames:'
+            while True:
+                iteration = 0
+                coincidentHitNum = 0
+                for i, gridPoint in enumerate(allGridPoints[:-3]):
+                    if (allGridPoints[i][0] == allGridPoints[i+1][0]).all():
+                        allGridPoints[i+1], allGridPoints[i+2] = allGridPoints[i+2], allGridPoints[i+1]
+                        coincidentHitNum += 1
+                iteration += 1
+                print 'iteration:',iteration,'  continous hits number:',coincidentHitNum
+                if coincidentHitNum == 0:
+                    break
+            return allGridPoints
+
+
+
+    def generate_frames(self):
+        '''
+        function to generate all the frames needed for SparseNoiseStimu
+
+        returning a list of information of all frames, list of tuples
+
+        for each frame:
+
+        first element: gap:0 or display:1
+        second element: tuple, retinotopic location of the center of current square
+        third element: polarity of current square, 1: bright, -1: dark
+        forth element: color of indicator
+                       synchronized: gap:0, 1 for onset frame for each square, -1 for the rest
+                       non-synchronized: alternating between -1 and 1 at defined frequency
+        for gap frames the second and third elements should be 'None'
+        '''
+
+        pass
 
         
    
@@ -2163,13 +2218,28 @@ if __name__ == "__main__":
     # plt.show()
     #==============================================================================================================================
 
+    #==============================================================================================================================
+    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
+    # monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
+    # indicator=IndicatorJun(mon)
+    # SparseNoiseStim=SparseNoise(mon,indicator, subregion=(-20.,20.,40.,60.))
+    # gridPoints = SparseNoiseStim._generateGridPoints()
+    # plt.plot(monitorPoints[:,0],monitorPoints[:,1],'or',mec='#ff0000',mfc='none')
+    # plt.plot(gridPoints[:,0],gridPoints[:,1],'.k')
+    # plt.show()
+    #==============================================================================================================================
+
+    #==============================================================================================================================
     mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
     monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
     indicator=IndicatorJun(mon)
     SparseNoiseStim=SparseNoise(mon,indicator, subregion=(-20.,20.,40.,60.))
-    gridPoints = SparseNoiseStim._generateGridPoints()
-    plt.plot(monitorPoints[:,0],monitorPoints[:,1],'or',mec='#ff0000',mfc='none')
-    plt.plot(gridPoints[:,0],gridPoints[:,1],'.k')
-    plt.show()
+    gridPoints = SparseNoiseStim._getGridPointsSequence()
+
+
+
+
+
+
 
     print 'for debug...'
