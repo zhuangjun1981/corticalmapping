@@ -231,7 +231,7 @@ def getWarpedFrameWithSquare(degCorX,degCorY,center,width,height,ori,foregroundC
     disW = np.abs((k1*degCorX - degCorY + center[1] - k1 * center[0]) / np.sqrt(k1**2 +1))
     disH = np.abs((k2*degCorX - degCorY + center[1] - k2 * center[0]) / np.sqrt(k2**2 +1))
 
-    frame[np.logical_and(disW<=width/2.,disH<=height/2.)] = 1.
+    frame[np.logical_and(disW<=width/2.,disH<=height/2.)] = foregroundColor
 
     return frame
 
@@ -1683,11 +1683,11 @@ class SparseNoise(object):
                  indicator,
                  coordinate='degree', #'degree' or 'linear'
                  background = 0., #back ground color [-1,1]
-                 gridSpace = (4.,4.), #(alt,azi)
-                 probeSize = (4.,4.), #size of flicker probes (height,width)
+                 gridSpace = (10.,10.), #(alt,azi)
+                 probeSize = (10.,10.), #size of flicker probes (width,height)
                  probeOrientation = 0., #orientation of flicker probes
-                 squareFrameNum = 3, #number of frames for each square presentation
-                 subregion = (-40.,60.,-20.,120.), #[minAlt, maxAlt, minAzi, maxAzi]
+                 probeFrameNum = 3, #number of frames for each square presentation
+                 subregion = None, #[minAlt, maxAlt, minAzi, maxAzi]
                  sign = 'ON-OFF', # 'On', 'OFF' or 'ON-OFF'
                  iteration = 1,
                  preGapFrame = 0,
@@ -1701,17 +1701,26 @@ class SparseNoise(object):
         self.gridSpace = gridSpace
         self.probeSize = probeSize
         self.probeOrientationt = probeOrientation
-        self.squareFrameNum = squareFrameNum
+        self.probeFrameNum = probeFrameNum
         self.subregion = subregion
         self.sign = sign
         self.iteration = iteration
         self.preGapFrame = preGapFrame
         self.postGapFrame = postGapFrame
 
+        if self.subregion is None:
+            if coordinate == 'degree':
+                self.subregion=[np.amin(self.monitor.degCorY),np.amax(self.monitor.degCorY),
+                                np.amin(self.monitor.degCorX),np.amax(self.monitor.degCorX)]
+            if coordinate == 'linear':
+                self.subregion=[np.amin(self.monitor.linCorY),np.amax(self.monitor.linCorY),
+                                np.amin(self.monitor.linCorX),np.amax(self.monitor.linCorX)]
+
 
     def _getGridPoints(self):
         '''
         generate all the grid points in display area (subregion and monitor coverage)
+        [azi, alt]
         '''
 
         rows = np.arange(self.subregion[0],self.subregion[1],self.gridSpace[0])
@@ -1730,6 +1739,7 @@ class SparseNoise(object):
 
         return gridPoints
 
+
     def _getGridPointsSequence(self):
         '''
         generate pseudorandomized grid point sequence. if ON-OFF, continuous frame shold not
@@ -1741,10 +1751,12 @@ class SparseNoise(object):
 
         if self.sign == 'ON':
             gridPoints = [[x,1] for x in gridPoints]
-            return shuffle(gridPoints)
+            shuffle(gridPoints)
+            return gridPoints
         elif self.sign == 'OFF':
             gridPoints = [[x,-1] for x in gridPoints]
-            return shuffle(gridPoints)
+            shuffle(gridPoints)
+            return gridPoints
         elif self.sign == 'ON-OFF':
             allGridPoints = [[x,1] for x in gridPoints] + [[x,-1] for x in gridPoints]
             shuffle(allGridPoints)
@@ -1765,7 +1777,6 @@ class SparseNoise(object):
             return allGridPoints
 
 
-
     def generateFramesList(self):
         '''
         function to generate all the frames needed for SparseNoiseStimu
@@ -1775,7 +1786,7 @@ class SparseNoise(object):
         for each frame:
 
         first element: gap:0 or display:1
-        second element: tuple, retinotopic location of the center of current square
+        second element: tuple, retinotopic location of the center of current square,[azi,alt]
         third element: polarity of current square, 1: bright, -1: dark
         forth element: color of indicator
                        synchronized: gap:0, 1 for onset frame for each square, -1 for the rest
@@ -1793,8 +1804,8 @@ class SparseNoise(object):
 
             for gridPoint in iterGridPoints:
                 self.frames += [[1,gridPoint[0],gridPoint[1],1]]
-                if self.squareFrameNum > 1:
-                    self.frames += [[1,gridPoint[0],gridPoint[1],-1]] * (self.squareFrameNum-1)
+                if self.probeFrameNum > 1:
+                    self.frames += [[1,gridPoint[0],gridPoint[1],-1]] * (self.probeFrameNum-1)
 
             if self.postGapFrame>0: self.frames += [[0,None,None,-1]]*self.postGapFrame
 
@@ -1805,20 +1816,57 @@ class SparseNoise(object):
                 else:self.frames[m][3] = -1
 
 
-    def _generateFrames(self):
-        '''
-        for each item in frameList generate a frame matrix for display
-        '''
-
-        pass
-
     def generateMovie(self):
         '''
         generate movie for display
         '''
-        pass
 
-        
+        self.generateFramesList()
+
+        if self.coordinate=='degree':corX=self.monitor.degCorX;corY=self.monitor.degCorY
+        if self.coordinate=='linear':corX=self.monitor.linCorX;corY=self.monitor.linCorY
+
+        indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
+        indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
+        indicatorHmin=self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
+        indicatorHmax=self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
+
+        fullSequence = np.zeros((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.uint8)
+
+        for i, currFrame in enumerate(self.frames):
+            if i == 1 or \
+               (currFrame[1]!=self.frames[i-1][1]).any() or \
+               currFrame[2]!=self.frames[i-1][2]:
+                currDisplayMatrix = getWarpedFrameWithSquare(corX,
+                                                             corY,
+                                                             center = currFrame[1],
+                                                             width=self.probeSize[0],
+                                                             height=self.probeSize[1],
+                                                             ori=self.probeOrientationt,
+                                                             foregroundColor=currFrame[2],
+                                                             backgroundColor=self.background)
+
+            #add sync square for photodiode
+            currDisplayMatrix[indicatorHmin:indicatorHmax, indicatorWmin:indicatorWmax]=currFrame[3]
+
+            #assign current display matrix to full sequence
+            fullSequence[i] = ((((currDisplayMatrix+1)/2))*255).astype(np.uint8)
+
+            print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+
+        #generate log dictionary
+        mondict=dict(self.monitor.__dict__)
+        indicatordict=dict(self.indicator.__dict__)
+        indicatordict.pop('monitor')
+        SNdict=dict(self.__dict__)
+        SNdict.pop('monitor')
+        SNdict.pop('indicator')
+        fulldictionary={'stimulation':SNdict,
+                        'monitor':mondict,
+                        'indicator':indicatordict}
+
+        return fullSequence, fulldictionary
+
    
 class IndicatorJun(object):
     '''
@@ -1991,7 +2039,7 @@ class DisplaySequence(object):
         self.sequence, self.sequenceLog = stim.generateMovie()
         self.clear
 
-    
+
     def triggerDisplay(self):
         
         if self.sequence == None:
@@ -2024,30 +2072,23 @@ class DisplaySequence(object):
             
             if self.triggerType == 'LowLevel':
                 lastTTL = DI.Read()[self.triggerNILine]
-                while lastTTL != 0:
-                    lastTTL = DI.Read()[self.triggerNILine]
+                while lastTTL != 0:lastTTL = DI.Read()[self.triggerNILine]
             elif self.triggerType == 'HighLevel':
                 lastTTL = DI.Read()[self.triggerNILine]
-                while lastTTL != 1:
-                    lastTTL = DI.Read()[self.triggerNILine]
+                while lastTTL != 1:lastTTL = DI.Read()[self.triggerNILine]
             elif self.triggerType == 'NegativeEdge':
                 lastTTL = DI.Read()[self.triggerNILine]
                 while True:
                     currentTTL = DI.Read()[self.triggerNILine]
-                    if (lastTTL == 1) and (currentTTL == 0):
-                        break
-                    else:
-                        lastTTL = int(currentTTL)
+                    if (lastTTL == 1) and (currentTTL == 0):break
+                    else:lastTTL = int(currentTTL)
             elif self.triggerType == 'PositiveEdge':
                 lastTTL = DI.Read()[self.triggerNILine]
                 while True:
                     currentTTL = DI.Read()[self.triggerNILine]
-                    if (lastTTL == 0) and (currentTTL == 1):
-                        break
-                    else:
-                        lastTTL = int(currentTTL)
-            else:
-                raise NameError, 'trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!'
+                    if (lastTTL == 0) and (currentTTL == 1):break
+                    else:lastTTL = int(currentTTL)
+            else:raise NameError, 'trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!'
             
             DI.StopTask()
             
@@ -2113,8 +2154,7 @@ class DisplaySequence(object):
         #clear display data
         self.clear()
         
-        
-        
+
     def _display(self, window, stim):
         
         if self.sequence == None:
@@ -2152,11 +2192,9 @@ class DisplaySequence(object):
         
         for i in range(singleRunFrames * iteration):
             
-            if order == 1:
-                frameNum = i % singleRunFrames
+            if order == 1:frameNum = i % singleRunFrames
                 
-            if order == -1:
-                frameNum = singleRunFrames - (i % singleRunFrames) -1
+            if order == -1:frameNum = singleRunFrames - (i % singleRunFrames) -1
                 
             currFrame=Image.fromarray(self.sequence[frameNum])
             stim.setImage(currFrame)
@@ -2165,27 +2203,22 @@ class DisplaySequence(object):
             
             #check keyboard input 'q' or 'escape'
             keyList = event.getKeys(['q','escape'])
-            if len(keyList) > 0:
-                self.fileName = self.fileName + '-incomplete'
-                break
+            if len(keyList) > 0:self.fileName = self.fileName + '-incomplete';break
             
             #set syncPuls signal
-            if self.isSyncPulse:
-                syncPulse.WriteBit(self.syncPulseNILine,1)
+            if self.isSyncPulse:syncPulse.WriteBit(self.syncPulseNILine,1)
             
             #show visual stim
             window.flip()
             
             #set syncPuls signal
-            if self.isSyncPulse:
-                syncPulse.WriteBit(self.syncPulseNILine,0)
+            if self.isSyncPulse:syncPulse.WriteBit(self.syncPulseNILine,0)
             
         timeStamp.append(time.clock()-startTime)
         stopTime = time.clock()
         window.close()
         
-        if self.isSyncPulse:
-                syncPulse.StopTask()
+        if self.isSyncPulse:syncPulse.StopTask()
         
         self.timeStamp = np.array(timeStamp)
         self.displayLength = stopTime-startTime
@@ -2199,10 +2232,8 @@ class DisplaySequence(object):
     
     def setDisplayIteration(self, displayIteration):
         
-        if displayIteration % 1 == 0:
-            self.displayIteration = displayIteration
-        else:
-            raise ArithmeticError, "displayIteration should be a whole number."
+        if displayIteration % 1 == 0:self.displayIteration = displayIteration
+        else:raise ArithmeticError, "displayIteration should be a whole number."
         self.clear()
         
     
@@ -2214,9 +2245,7 @@ class DisplaySequence(object):
         
         #set up log object
         directory = self.logdir + '\sequence_display_log'
-        if not(os.path.isdir(directory)):
-            os.makedirs(directory)
-        
+        if not(os.path.isdir(directory)):os.makedirs(directory)
         
         logFile = dict(self.sequenceLog)
         displayLog = dict(self.__dict__)
@@ -2236,8 +2265,7 @@ class DisplaySequence(object):
         
         if self.backupdir:
             backupfolder = self.backupdir + r'\sequence_display_log'
-            if not(os.path.isdir(backupfolder)):
-                os.makedirs(backupfolder)
+            if not(os.path.isdir(backupfolder)):os.makedirs(backupfolder)
             backuppath = os.path.join(backupfolder,filename)
             backupoutput = open(backuppath,'wb')
             pickle.dump(logFile,backupoutput)
@@ -2296,11 +2324,22 @@ if __name__ == "__main__":
     #==============================================================================================================================
 
     #==============================================================================================================================
-    mon = MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
-    frame = getWarpedFrameWithSquare(mon.degCorX,mon.degCorY,(20.,25.),4.,4.,0.,foregroundColor=1,backgroundColor=0)
-    plt.imshow(frame,cmap='gray',vmin=-1,vmax=1,interpolation='nearest')
-    plt.show()
+    # mon = MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
+    # frame = getWarpedFrameWithSquare(mon.degCorX,mon.degCorY,(20.,25.),4.,4.,0.,foregroundColor=1,backgroundColor=0)
+    # plt.imshow(frame,cmap='gray',vmin=-1,vmax=1,interpolation='nearest')
+    # plt.show()
+    #==============================================================================================================================
 
+    #==============================================================================================================================
+    mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
+    monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
+    indicator=IndicatorJun(mon)
+    SparseNoiseStim=SparseNoise(mon,indicator)
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=False,isSyncPulse=False,isVideoRecord=False)
+    ds.setStim(SparseNoiseStim)
+    ds.triggerDisplay()
+    plt.show()
+    #==============================================================================================================================
 
 
 
