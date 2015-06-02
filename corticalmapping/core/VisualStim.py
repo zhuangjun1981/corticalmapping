@@ -212,6 +212,31 @@ def in_hull(p, hull):
     return hull.find_simplex(p)>=0
 
 
+def getWarpedFrameWithSquare(degCorX,degCorY,center,width,height,ori,foregroundColor=1,backgroundColor=0):
+    '''
+    generate a frame (matrix) with single square defined by center, width, height and orientation in degress
+    visual degree value of each pixel is defined by degCorX, and degCorY
+    dtype = np.float32, color space, -1:black, 1:white
+
+    ori: angle in degree, should be 0~180
+    '''
+
+    frame = np.ones(degCorX.shape,dtype=np.float32)*backgroundColor
+
+    if ori < 0. or ori > 180.: raise ValueError, 'ori should be between 0 and 180.'
+
+    k1 = np.tan(ori*np.pi/180.)
+    k2 = np.tan((ori+90.)*np.pi/180.)
+
+    disW = np.abs((k1*degCorX - degCorY + center[1] - k1 * center[0]) / np.sqrt(k1**2 +1))
+    disH = np.abs((k2*degCorX - degCorY + center[1] - k2 * center[0]) / np.sqrt(k2**2 +1))
+
+    frame[np.logical_and(disW<=width/2.,disH<=height/2.)] = 1.
+
+    return frame
+
+
+
 class MonitorJun(object):
     '''
     monitor object created by Jun, has the method "remap" to generate the 
@@ -1661,7 +1686,7 @@ class SparseNoise(object):
                  gridSpace = (4.,4.), #(alt,azi)
                  probeSize = (4.,4.), #size of flicker probes (height,width)
                  probeOrientation = 0., #orientation of flicker probes
-                 squareDuration = 3, #number of frames for each square presentation
+                 squareFrameNum = 3, #number of frames for each square presentation
                  subregion = (-40.,60.,-20.,120.), #[minAlt, maxAlt, minAzi, maxAzi]
                  sign = 'ON-OFF', # 'On', 'OFF' or 'ON-OFF'
                  iteration = 1,
@@ -1676,7 +1701,7 @@ class SparseNoise(object):
         self.gridSpace = gridSpace
         self.probeSize = probeSize
         self.probeOrientationt = probeOrientation
-        self.squareDuration = squareDuration
+        self.squareFrameNum = squareFrameNum
         self.subregion = subregion
         self.sign = sign
         self.iteration = iteration
@@ -1684,7 +1709,7 @@ class SparseNoise(object):
         self.postGapFrame = postGapFrame
 
 
-    def _generateGridPoints(self):
+    def _getGridPoints(self):
         '''
         generate all the grid points in display area (subregion and monitor coverage)
         '''
@@ -1712,7 +1737,7 @@ class SparseNoise(object):
         :return: list of [gridPoint, sign]
         '''
 
-        gridPoints = self._generateGridPoints()
+        gridPoints = self._getGridPoints()
 
         if self.sign == 'ON':
             gridPoints = [[x,1] for x in gridPoints]
@@ -1736,11 +1761,12 @@ class SparseNoise(object):
                 print 'iteration:',iteration,'  continous hits number:',coincidentHitNum
                 if coincidentHitNum == 0:
                     break
+
             return allGridPoints
 
 
 
-    def generate_frames(self):
+    def generateFramesList(self):
         '''
         function to generate all the frames needed for SparseNoiseStimu
 
@@ -1757,6 +1783,39 @@ class SparseNoise(object):
         for gap frames the second and third elements should be 'None'
         '''
 
+        self.frames = []
+
+        for i in range(self.iteration):
+
+            if self.preGapFrame>0: self.frames += [[0,None,None,-1]]*self.preGapFrame
+
+            iterGridPoints = self._getGridPointsSequence()
+
+            for gridPoint in iterGridPoints:
+                self.frames += [[1,gridPoint[0],gridPoint[1],1]]
+                if self.squareFrameNum > 1:
+                    self.frames += [[1,gridPoint[0],gridPoint[1],-1]] * (self.squareFrameNum-1)
+
+            if self.postGapFrame>0: self.frames += [[0,None,None,-1]]*self.postGapFrame
+
+        if self.indicator.isSync == False:
+            indicatorFrame = self.indicator.frameNum
+            for m in range(len(self.frames)):
+                if np.floor(m // indicatorFrame) % 2 == 0:self.frames[m][3] = 1
+                else:self.frames[m][3] = -1
+
+
+    def _generateFrames(self):
+        '''
+        for each item in frameList generate a frame matrix for display
+        '''
+
+        pass
+
+    def generateMovie(self):
+        '''
+        generate movie for display
+        '''
         pass
 
         
@@ -1862,7 +1921,10 @@ class DisplaySequence(object):
                  syncPulseNILine = 2,
                  triggerType = "NegativeEdge", # should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"
                  displayScreen = 1,
-                 initialBackgroundColor = 0):
+                 initialBackgroundColor = 0,
+                 eyetracker = True,
+                 eyetrackerIP = 'localhost',
+                 eyetrackerPort = '10000'):
                      
         self.sequence = None
         self.sequenceLog = {}             
@@ -1878,6 +1940,8 @@ class DisplaySequence(object):
         self.syncPulseNILine = syncPulseNILine
         self.displayScreen = displayScreen
         self.initialBackgroundColor = initialBackgroundColor
+        self.eyetrackerIP = eyetrackerIP
+        self.eyetrackerPort = eyetrackerPort
         
         if displayIteration % 1 == 0:
             self.displayIteration = displayIteration
@@ -2009,14 +2073,9 @@ class DisplaySequence(object):
             except:
                 self.fileNumber = None    
 #------------------This piece of code needs to be improved--------------------
-            
-        
-        else:
-            self.fileNumber = None
-            
-     
-            
-            
+
+        else:self.fileNumber = None
+
         #generate file name
         try:
             self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
@@ -2031,31 +2090,22 @@ class DisplaySequence(object):
                             '-' + 'customStim' + '-mouse' + self.mouseid + '-' + \
                             self.userid
         
-        if self.isTriggered:
-            self.fileName = self.fileName + '-' + str(int(self.fileNumber))
-            
-        
-        if self.isVideoRecord:
-            #from DW
-            self.sock.sendto("1"+self.fileName, ("localhost", 10000))        
+        if self.isTriggered: self.fileName = self.fileName + '-' + str(int(self.fileNumber))
+
+        #start eyetracker
+        if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.eyetrackerIP, self.eyetrackerPort))
         
         #display sequence
         self._display(window, stim)
-        
-        
-        if self.isVideoRecord:
-            #from DW
-            self.sock.sendto("0"+self.fileName,("localhost",10000))
-        
+
+        #end eyetracker
+        if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.eyetrackerIP,self.eyetrackerPort))
         
         #analyze frames
-        try:
-            self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, 
-                                                                 refreshRate = self.sequenceLog['monitor']['refreshRate'])
+        try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
         except KeyError:
             print "No monitor refresh rate information, assuming 60Hz."
-            self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, 
-                                                                 refreshRate = 60.)
+            self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = 60.)
         
         #write log file
         self.saveLog()
@@ -2230,11 +2280,26 @@ if __name__ == "__main__":
     #==============================================================================================================================
 
     #==============================================================================================================================
-    mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
-    monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
-    indicator=IndicatorJun(mon)
-    SparseNoiseStim=SparseNoise(mon,indicator, subregion=(-20.,20.,40.,60.))
-    gridPoints = SparseNoiseStim._getGridPointsSequence()
+    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
+    # monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
+    # indicator=IndicatorJun(mon)
+    # SparseNoiseStim=SparseNoise(mon,indicator,subregion=(-20.,20.,40.,60.))
+    # gridPoints = SparseNoiseStim._getGridPointsSequence()
+    #==============================================================================================================================
+
+    #==============================================================================================================================
+    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
+    # monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
+    # indicator=IndicatorJun(mon)
+    # SparseNoiseStim=SparseNoise(mon,indicator,subregion=(-20.,20.,40.,60.))
+    # SparseNoiseStim.generateFramesList()
+    #==============================================================================================================================
+
+    #==============================================================================================================================
+    mon = MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
+    frame = getWarpedFrameWithSquare(mon.degCorX,mon.degCorY,(20.,25.),4.,4.,0.,foregroundColor=1,backgroundColor=0)
+    plt.imshow(frame,cmap='gray',vmin=-1,vmax=1,interpolation='nearest')
+    plt.show()
 
 
 
