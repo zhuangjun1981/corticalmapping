@@ -26,6 +26,7 @@ except ImportError as e:
     try: import aibs.iodaq as iodaq
     except ImportError as er: print er
 
+
 #def showRGBSequence(path):
 #    mov = np.load(path)
 #    tf.imshow(mov)
@@ -234,7 +235,6 @@ def getWarpedFrameWithSquare(degCorX,degCorY,center,width,height,ori,foregroundC
     frame[np.logical_and(disW<=width/2.,disH<=height/2.)] = foregroundColor
 
     return frame
-
 
 
 class MonitorJun(object):
@@ -1970,9 +1970,8 @@ class DisplaySequence(object):
                  triggerType = "NegativeEdge", # should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"
                  displayScreen = 1,
                  initialBackgroundColor = 0,
-                 eyetracker = True,
-                 eyetrackerIP = 'localhost',
-                 eyetrackerPort = '10000'):
+                 videoRecordIP = 'localhost',
+                 videoRecordPort = '10000'):
                      
         self.sequence = None
         self.sequenceLog = {}             
@@ -1988,8 +1987,8 @@ class DisplaySequence(object):
         self.syncPulseNILine = syncPulseNILine
         self.displayScreen = displayScreen
         self.initialBackgroundColor = initialBackgroundColor
-        self.eyetrackerIP = eyetrackerIP
-        self.eyetrackerPort = eyetrackerPort
+        self.videoRecordIP = videoRecordIP
+        self.videoRecordPort = videoRecordPort
         
         if displayIteration % 1 == 0:
             self.displayIteration = displayIteration
@@ -2062,11 +2061,11 @@ class DisplaySequence(object):
         if self.isTriggered:
             self._waitForTrigger()
 
-        if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.eyetrackerIP, self.eyetrackerPort)) #start eyetracker
+        if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
 
         self._display(window, stim) #display sequence
 
-        if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.eyetrackerIP,self.eyetrackerPort)) #end eyetracker
+        if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
         
         #analyze frames
         try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2079,6 +2078,7 @@ class DisplaySequence(object):
         
         #clear display data
         self.clear()
+
 
     def _waitForTrigger(self):
         '''
