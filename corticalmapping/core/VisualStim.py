@@ -2042,105 +2042,31 @@ class DisplaySequence(object):
 
     def triggerDisplay(self):
         
-        if self.sequence == None:
-            raise LookupError, "Please set the sequence to be displayed!!"
+        if self.sequence == None: raise LookupError, "Please set the sequence to be displayed!!"
         
-        try:                   
-            resolution = self.sequenceLog['monitor']['resolution'][::-1]
-        except KeyError:
-            resolution = (800,600)
+        try: resolution = self.sequenceLog['monitor']['resolution'][::-1]
+        except KeyError: resolution = (800,600)
            
-        window = visual.Window(size=resolution, 
-                               fullscr=True, 
-                               screen = self.displayScreen, 
-                               color = self.initialBackgroundColor)
+        window = visual.Window(size=resolution, fullscr=True, screen = self.displayScreen, color = self.initialBackgroundColor)
         stim = visual.ImageStim(window, size=(2,2))
         
-        try:
-            refreshRate = self.sequenceLog['monitor']['refreshRate']
-        except Exception:
+        try: refreshRate = self.sequenceLog['monitor']['refreshRate']
+        except KeyError:
             print "No monitor refresh rate information, assuming 60Hz."
-            refreshRate = 60. 
+            refreshRate = 60.
+
         displayTime = float(self.sequence.shape[0]) * self.displayIteration / refreshRate
         
         print '\n Expected display time: ', displayTime, ' seconds' 
         
         if self.isTriggered:
-            #check NI signal
-            DI = iodaq.DigitalInput(self.triggerNIDev, self.triggerNIPort)
-            DI.StartTask()
-            
-            if self.triggerType == 'LowLevel':
-                lastTTL = DI.Read()[self.triggerNILine]
-                while lastTTL != 0:lastTTL = DI.Read()[self.triggerNILine]
-            elif self.triggerType == 'HighLevel':
-                lastTTL = DI.Read()[self.triggerNILine]
-                while lastTTL != 1:lastTTL = DI.Read()[self.triggerNILine]
-            elif self.triggerType == 'NegativeEdge':
-                lastTTL = DI.Read()[self.triggerNILine]
-                while True:
-                    currentTTL = DI.Read()[self.triggerNILine]
-                    if (lastTTL == 1) and (currentTTL == 0):break
-                    else:lastTTL = int(currentTTL)
-            elif self.triggerType == 'PositiveEdge':
-                lastTTL = DI.Read()[self.triggerNILine]
-                while True:
-                    currentTTL = DI.Read()[self.triggerNILine]
-                    if (lastTTL == 0) and (currentTTL == 1):break
-                    else:lastTTL = int(currentTTL)
-            else:raise NameError, 'trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!'
-            
-            DI.StopTask()
-            
-            
-#------------------This piece of code needs to be improved--------------------
-            try:
-                #generate synchronized file number to write into the file name
-                #file nmuber is coded as binary from digital input 
-                #port0 line0-7 and port1 line 0-2
-                DI0 = iodaq.DigitalInput('Dev1', 0)
-                DI1 = iodaq.DigitalInput('Dev1', 1)
-                DI0.StartTask()
-                DI1.StartTask()
-                array0 = DI0.Read()
-                array1 = DI1.Read()
-                #reverse binary string of digital input port0 line0-7
-                str0 = ''.join(map(str,array0))[::-1]
-                #reverse binary string of digital input port1 line0-2
-                str1 = ''.join(map(str,array1))[-2::-1]
-                self.fileNumber = int(str1 + str0,2)
-                DI0.StopTask()
-                DI1.StopTask()
-            except:
-                self.fileNumber = None    
-#------------------This piece of code needs to be improved--------------------
+            self._waitForTrigger()
 
-        else:self.fileNumber = None
+        if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.eyetrackerIP, self.eyetrackerPort)) #start eyetracker
 
-        #generate file name
-        try:
-            self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
-                            '-' + \
-                            self.sequenceLog['stimulation']['stimName'] + \
-                            '-mouse' + \
-                            self.mouseid + \
-                            '-' + \
-                            self.userid
-        except KeyError:
-            self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
-                            '-' + 'customStim' + '-mouse' + self.mouseid + '-' + \
-                            self.userid
-        
-        if self.isTriggered: self.fileName = self.fileName + '-' + str(int(self.fileNumber))
+        self._display(window, stim) #display sequence
 
-        #start eyetracker
-        if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.eyetrackerIP, self.eyetrackerPort))
-        
-        #display sequence
-        self._display(window, stim)
-
-        #end eyetracker
-        if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.eyetrackerIP,self.eyetrackerPort))
+        if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.eyetrackerIP,self.eyetrackerPort)) #end eyetracker
         
         #analyze frames
         try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2153,7 +2079,89 @@ class DisplaySequence(object):
         
         #clear display data
         self.clear()
-        
+
+    def _waitForTrigger(self):
+        '''
+        time place holder for waiting for trigger
+        '''
+
+        #check NI signal
+        DI = iodaq.DigitalInput(self.triggerNIDev, self.triggerNIPort)
+        DI.StartTask()
+
+        if self.triggerType == 'LowLevel':
+            lastTTL = DI.Read()[self.triggerNILine]
+            while lastTTL != 0:lastTTL = DI.Read()[self.triggerNILine]
+        elif self.triggerType == 'HighLevel':
+            lastTTL = DI.Read()[self.triggerNILine]
+            while lastTTL != 1:lastTTL = DI.Read()[self.triggerNILine]
+        elif self.triggerType == 'NegativeEdge':
+            lastTTL = DI.Read()[self.triggerNILine]
+            while True:
+                currentTTL = DI.Read()[self.triggerNILine]
+                if (lastTTL == 1) and (currentTTL == 0):break
+                else:lastTTL = int(currentTTL)
+        elif self.triggerType == 'PositiveEdge':
+            lastTTL = DI.Read()[self.triggerNILine]
+            while True:
+                currentTTL = DI.Read()[self.triggerNILine]
+                if (lastTTL == 0) and (currentTTL == 1):break
+                else:lastTTL = int(currentTTL)
+        else:raise NameError, 'trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!'
+
+        DI.StopTask()
+
+
+    def _getFileName(self):
+        '''
+        generate the file name of log file
+        '''
+
+        try:
+            self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
+                            '-' + \
+                            self.sequenceLog['stimulation']['stimName'] + \
+                            '-mouse' + \
+                            self.mouseid + \
+                            '-' + \
+                            self.userid
+        except KeyError:
+            self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
+                            '-' + 'customStim' + '-mouse' + self.mouseid + '-' + \
+                            self.userid
+
+        if self.isTriggered: self._getFileName(); self.fileName += '-' + str(self.fileNumber)
+        else: self.fileName += '-notTriggered'
+
+
+    def _getFileNumber(self):
+        '''
+        get synced file number for log file name
+        '''
+
+
+        #------------------This piece of code needs to be improved--------------------
+        try:
+            #generate synchronized file number to write into the file name
+            #file nmuber is coded as binary from digital input
+            #port0 line0-7 and port1 line 0-2
+            DI0 = iodaq.DigitalInput('Dev1', 0)
+            DI1 = iodaq.DigitalInput('Dev1', 1)
+            DI0.StartTask()
+            DI1.StartTask()
+            array0 = DI0.Read()
+            array1 = DI1.Read()
+            #reverse binary string of digital input port0 line0-7
+            str0 = ''.join(map(str,array0))[::-1]
+            #reverse binary string of digital input port1 line0-2
+            str1 = ''.join(map(str,array1))[-2::-1]
+            self.fileNumber = int(str1 + str0,2)
+            DI0.StopTask()
+            DI1.StopTask()
+        except:
+            self.fileNumber = None
+        #------------------This piece of code needs to be improved--------------------
+
 
     def _display(self, window, stim):
         
@@ -2165,10 +2173,8 @@ class DisplaySequence(object):
         
         try:
             sequenceFrames = self.sequenceLog['stimulation']['frames']
-            #refreshRate = self.sequenceLog['monitor']['refreshRate']
             
-            if order == -1:
-                sequenceFrames = sequenceFrames[::-1]
+            if order == -1: sequenceFrames = sequenceFrames[::-1]
             
             # generate display Frames
             displayFrames=()
@@ -2340,10 +2346,6 @@ if __name__ == "__main__":
     ds.triggerDisplay()
     plt.show()
     #==============================================================================================================================
-
-
-
-
 
 
     print 'for debug...'
