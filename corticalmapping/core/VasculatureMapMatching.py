@@ -129,11 +129,13 @@ class AppForm(QMainWindow):
         self.rotation = self.spinbox_rotation.value()
         self.zoom = self.doubleSpinbox_zoom.value()
 
+
     def setZero(self):
         self.spinbox_Xoffset.setValue(0.)
         self.spinbox_Yoffset.setValue(0.)
         self.spinbox_rotation.setValue(0.)
         self.doubleSpinbox_zoom.setValue(1.)
+
 
     def on_about(self):
         msg = """ match two vasculature maps to get alignment:
@@ -308,6 +310,7 @@ class AppForm(QMainWindow):
         self.setZero()
         self.currMatchingFolder = os.path.split(fnames[0])[0]
 
+
     def adjustVasMap(self):
 
         self.getAdjustment()
@@ -373,7 +376,6 @@ class AppForm(QMainWindow):
         self.axes.invert_yaxis()
 
         self.canvas.draw()
-
 
 
     def create_main_frame(self):
@@ -510,9 +512,11 @@ class AppForm(QMainWindow):
         self.main_frame.setLayout(hbox)
         self.setCentralWidget(self.main_frame)
 
+
     def create_status_bar(self):
         self.status_text = QLabel("This is a demo")
         self.statusBar().addWidget(self.status_text, 1)
+
 
     def create_menu(self):
         self.file_menu = self.menuBar().addMenu("&File")
@@ -534,6 +538,7 @@ class AppForm(QMainWindow):
 
         self.add_actions(self.help_menu, (about_action,))
 
+
     def add_actions(self, target, actions):
         for action in actions:
             if action is None:
@@ -542,9 +547,7 @@ class AppForm(QMainWindow):
                 target.addAction(action)
 
 
-    def create_action(  self, text, slot=None, shortcut=None,
-                        icon=None, tip=None, checkable=False,
-                        signal="triggered()"):
+    def create_action(self, text, slot=None, shortcut=None,icon=None, tip=None, checkable=False,signal="triggered()"):
         action = QAction(text, self)
         if icon is not None:
             action.setIcon(QIcon(":/%s.png" % icon))
