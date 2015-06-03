@@ -619,7 +619,8 @@ class KSstimJun(object):
                 del temp
                 
         return sweeps.astype(np.bool), sweepTable
-          
+
+
     def generate_frames(self):
         '''
         function to generate all the frames needed for KS stimulation
@@ -754,7 +755,8 @@ class KSstimJun(object):
     def reset(self):
         self.sweepTable = None
         self.frames = None
-    
+
+
     def setDirection(self,direction):
         
         if direction == "B2U" or direction == "U2B" or direction == "L2R" or direction == "R2L":
@@ -762,21 +764,24 @@ class KSstimJun(object):
             self.reset()
         else:
             raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
-            
+
+
     def setSweepSigma(self,sweepSigma):
         self.sweepSigma = sweepSigma
         self.reset()
-        
+
+
     def setSweepWidth(self,sweepWidth):
         self.sweepWidth = sweepWidth
         self.reset()
-        
+
+
     def setGapFrame(self,preGapFrame,postGapFrame):
         self.preGapFrame = preGapFrame
         self.postGapFrame = postGapFrame
         self.reset()
 
-    
+
 class NoiseKSstimJun(object):
     '''
     generate Kalatsky & Stryker stimulation but with noise movie not flashing 
@@ -1815,6 +1820,8 @@ class SparseNoise(object):
                 if np.floor(m // indicatorFrame) % 2 == 0:self.frames[m][3] = 1
                 else:self.frames[m][3] = -1
 
+        self.frames=tuple(self.frames)
+
 
     def generateMovie(self):
         '''
@@ -2041,7 +2048,7 @@ class DisplaySequence(object):
 
     def triggerDisplay(self):
         
-        if self.sequence == None: raise LookupError, "Please set the sequence to be displayed!!"
+        if self.sequence is None: raise LookupError, "Please set the sequence to be displayed!!"
         
         try: resolution = self.sequenceLog['monitor']['resolution'][::-1]
         except KeyError: resolution = (800,600)
@@ -2060,6 +2067,8 @@ class DisplaySequence(object):
         
         if self.isTriggered:
             self._waitForTrigger()
+
+        self._getFileName()
 
         if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
 
@@ -2130,7 +2139,7 @@ class DisplaySequence(object):
                             '-' + 'customStim' + '-mouse' + self.mouseid + '-' + \
                             self.userid
 
-        if self.isTriggered: self._getFileName(); self.fileName += '-' + str(self.fileNumber)
+        if self.isTriggered: self.fileName += '-' + str(self.fileNumber)
         else: self.fileName += '-notTriggered'
 
 
@@ -2165,7 +2174,7 @@ class DisplaySequence(object):
 
     def _display(self, window, stim):
         
-        if self.sequence == None:
+        if self.sequence is None:
             raise LookupError, "Please set the sequence to be displayed!!"
         
         iteration = self.displayIteration
@@ -2181,7 +2190,8 @@ class DisplaySequence(object):
             for i in range(iteration):
                 displayFrames += sequenceFrames
             self.displayFrames = displayFrames
-        except:
+        except Exception as e:
+            print e
             print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'."
             self.displayFrames = None
         
