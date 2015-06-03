@@ -2014,7 +2014,7 @@ class DisplaySequence(object):
         
         self.clear()
 
-        
+
     def setAnyArray(self, anyArray, logDict = None):
         '''
         to display any numpy 3-d array.
@@ -2037,7 +2037,7 @@ class DisplaySequence(object):
             self.sequenceLog = {}
         self.clear()
     
-    
+
     def setStim(self, stim):
         '''
         to display defined stim object
@@ -2099,21 +2099,21 @@ class DisplaySequence(object):
         DI.StartTask()
 
         if self.triggerType == 'LowLevel':
-            lastTTL = DI.Read()[self.triggerNILine]
-            while lastTTL != 0:lastTTL = DI.Read()[self.triggerNILine]
+            lastTTL = DI.read()[self.triggerNILine]
+            while lastTTL != 0:lastTTL = DI.read()[self.triggerNILine]
         elif self.triggerType == 'HighLevel':
-            lastTTL = DI.Read()[self.triggerNILine]
-            while lastTTL != 1:lastTTL = DI.Read()[self.triggerNILine]
+            lastTTL = DI.read()[self.triggerNILine]
+            while lastTTL != 1:lastTTL = DI.read()[self.triggerNILine]
         elif self.triggerType == 'NegativeEdge':
-            lastTTL = DI.Read()[self.triggerNILine]
+            lastTTL = DI.read()[self.triggerNILine]
             while True:
-                currentTTL = DI.Read()[self.triggerNILine]
+                currentTTL = DI.read()[self.triggerNILine]
                 if (lastTTL == 1) and (currentTTL == 0):break
                 else:lastTTL = int(currentTTL)
         elif self.triggerType == 'PositiveEdge':
-            lastTTL = DI.Read()[self.triggerNILine]
+            lastTTL = DI.read()[self.triggerNILine]
             while True:
-                currentTTL = DI.Read()[self.triggerNILine]
+                currentTTL = DI.read()[self.triggerNILine]
                 if (lastTTL == 0) and (currentTTL == 1):break
                 else:lastTTL = int(currentTTL)
         else:raise NameError, 'trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!'
@@ -2138,8 +2138,10 @@ class DisplaySequence(object):
             self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
                             '-' + 'customStim' + '-mouse' + self.mouseid + '-' + \
                             self.userid
-
-        if self.isTriggered: self.fileName += '-' + str(self.fileNumber)
+        
+        fileNumber = self._getFileNumber()
+        
+        if self.isTriggered: self.fileName += '-' + str(fileNumber)
         else: self.fileName += '-notTriggered'
 
 
@@ -2158,19 +2160,21 @@ class DisplaySequence(object):
             DI1 = iodaq.DigitalInput('Dev1', 1)
             DI0.StartTask()
             DI1.StartTask()
-            array0 = DI0.Read()
-            array1 = DI1.Read()
+            array0 = DI0.read()
+            array1 = DI1.read()
             #reverse binary string of digital input port0 line0-7
             str0 = ''.join(map(str,array0))[::-1]
             #reverse binary string of digital input port1 line0-2
             str1 = ''.join(map(str,array1))[-2::-1]
-            self.fileNumber = int(str1 + str0,2)
+            fileNumber = int(str1 + str0,2)
             DI0.StopTask()
             DI1.StopTask()
         except:
-            self.fileNumber = None
+            fileNumber = None
         #------------------This piece of code needs to be improved--------------------
-
+            
+        return fileNumber
+        
 
     def _display(self, window, stim):
         
@@ -2239,20 +2243,20 @@ class DisplaySequence(object):
         self.timeStamp = np.array(timeStamp)
         self.displayLength = stopTime-startTime
     
-    
+
     def setDisplayOrder(self, displayOrder):
         
         self.displayOrder = displayOrder
         self.clear()
     
-    
+
     def setDisplayIteration(self, displayIteration):
         
         if displayIteration % 1 == 0:self.displayIteration = displayIteration
         else:raise ArithmeticError, "displayIteration should be a whole number."
         self.clear()
         
-    
+
     def saveLog(self):
         
         if self.displayLength == None:
@@ -2288,7 +2292,7 @@ class DisplaySequence(object):
             backupoutput.close()
             print ".pkl backup file generate successfully"
             
-    
+
     def clear(self):
         ''' clear display information. '''
         self.displayLength = None
@@ -2297,7 +2301,6 @@ class DisplaySequence(object):
         self.displayFrames = None
         self.frameStats = None
         self.fileName = None
-        self.fileNum = None
 
 
 if __name__ == "__main__":
