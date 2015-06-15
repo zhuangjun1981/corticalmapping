@@ -2934,7 +2934,6 @@ class RetinotopicMappingTrial(object):
         return figList, axList
 
 
-
     def plotContours(self,
                      isNormalize = True, #is resetting the origin of visual field
                      altLevels = np.arange(-30.,50.,5.),

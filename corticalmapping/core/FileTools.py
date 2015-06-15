@@ -8,10 +8,8 @@ import ImageAnalysis as ia
 import tifffile as tf
 
 
-try:
-    import cv2
-except ImportError as e:
-    print e
+try: import cv2
+except ImportError as e: print 'can not import OpenCV. ' + e
 
 
 def saveFile(path,data):
@@ -439,6 +437,21 @@ def importRawJCamF(path,
     
     return mov, header, tailer
 
+def int2str(num,length=None):
+    '''
+    generate a string representation for a integer with a given length
+    :param num: input number
+    :param length: length of the string
+    :return: string represetation of the integer
+    '''
+
+    rawstr = str(int(num))
+    if length is None or length == len(rawstr):return rawstr
+    elif length < len(rawstr): raise ValueError, 'Length of the number is longer then defined display length!'
+    elif length > len(rawstr): return '0'*(length-len(rawstr)) + rawstr
+
+
+
 
 #==============================  obsolete  =========================================
 #
@@ -508,6 +521,11 @@ if __name__=='__main__':
     # generateAVI(r'C:\JunZhuang\labwork\data\python_temp_folder','tempMov',mov)
 
     #----------------------------------------------------------------------------
+    print int2str(5)
+    print int2str(5,2)
+    print int2str(155,6)
+    #----------------------------------------------------------------------------
+
 
     print 'well done!'
 

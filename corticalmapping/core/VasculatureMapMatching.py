@@ -27,8 +27,11 @@ import ImageAnalysis as ia
 import tifffile as tf
 import PlottingTools as pt
 
-try: import cv2; import ImageAnalysis.rigidTransform_cv2 as rigidTransform
-except ImportError as e: print e; import ImageAnalysis.rigidTransform as rigidTransform
+# try: import cv2; import ImageAnalysis.rigidTransform_cv2 as rigidTransform
+# except ImportError as e: print e; import ImageAnalysis.rigidTransform as rigidTransform
+
+try: import cv2; from ImageAnalysis import rigidTransform_cv2 as rigidTransform
+except ImportError as e: print e; from ImageAnalysis import rigidTransform as rigidTransform
 
 
 class AppForm(QMainWindow):
@@ -116,8 +119,14 @@ class AppForm(QMainWindow):
             with open(path_surfix+'_VasculatureMapMatchingParameters.json', 'w') as f:
                 json.dump(bigDict,f,sort_keys=True,indent=4, separators=(',',': '))
 
-            tf.imsave(path_surfix+'_VasculatureMapBeforeMatching.tif',self.MatchingVasMap)
-            tf.imsave(path_surfix+'_VasculatureMapAfterMatching.tif',self.MatchingVasMapAfterChange)
+            if self.MatchingVasMapRaw is not None:
+                tf.imsave(path_surfix+'_VasculatureMapBeforeMatching.tif',self.MatchingVasMapRaw)
+                MatchVasMapAfterChange = rigidTransform(self.MatchingVasMapRaw,
+                                                        zoom=self.zoom,
+                                                        rotation = self.rotation,
+                                                        offset=(self.Xoffset,self.Yoffset),
+                                                        outputShape=(self.ReferenceVasMap.shape[0],self.ReferenceVasMap.shape[1]))
+                tf.imsave(path_surfix+'_VasculatureMapAfterMatching.tif',MatchVasMapAfterChange)
 
             self.statusBar().showMessage('Saved to %s' % path, 2000)
             self.currSaveFolder = os.path.split(path)[0]
@@ -246,6 +255,7 @@ class AppForm(QMainWindow):
                 print "no file is chosen! Setting matching map as None..."
                 self.textbrowser_MPath.clear()
                 self.MatchingVasMap = None
+                self.MatchingVasMapRaw = None
                 self.MatchingVasMapAfterChange = None
 
             elif len(fnames) == 1: # only one file is chosen
@@ -253,18 +263,21 @@ class AppForm(QMainWindow):
                 if filePath[-3:] == 'pkl': # mapping dictionary pkl file
 
                     self.trialDict = ft.loadFile(filePath)
-                    self.MatchingVasMap = ia.arrayNor(pt.mergeNormalizedImages([self.trialDict['vasculatureMap']]))
+                    self.MatchingVasMap = pt.mergeNormalizedImages([self.trialDict['vasculatureMap']])
+                    self.MatchingVasMapRaw = pt.mergeNormalizedImages([self.trialDict['vasculatureMap']],isFilter=False)
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
                 elif filePath[-3:] == 'tif': # tiff file
-                    self.MatchingVasMap = ia.arrayNor(pt.mergeNormalizedImages([tf.imread(filePath)]))
+                    self.MatchingVasMap = pt.mergeNormalizedImages([tf.imread(filePath)])
+                    self.MatchingVasMapRaw = pt.mergeNormalizedImages([tf.imread(filePath)],isFilter=False)
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
                 else: # JCam file
                     currMap, _ = ft.importRawJCam(filePath)
-                    self.MatchingVasMap = ia.arrayNor(pt.mergeNormalizedImages([currMap[0]]))
+                    self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]])
+                    self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]],isFilter=False)
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
@@ -291,9 +304,11 @@ class AppForm(QMainWindow):
                     print "no file can be read! Setting matching map as None..."
                     self.textbrowser_MPath.clear()
                     self.MatchingVasMap = None
+                    self.MatchingVasMapRaw = None
                     self.MatchingVasMapAfterChange = None
                 else:
-                    self.MatchingVasMap = ia.arrayNor(pt.mergeNormalizedImages(mapList).astype(np.float32))
+                    self.MatchingVasMap = pt.mergeNormalizedImages(mapList,dtype=np.float32)
+                    self.MatchingVasMapRaw = pt.mergeNormalizedImages(mapList,dtype=np.float32,isFilter=False)
                     self.textbrowser_MPath.setText(displayText)
                     self.MatchingVasMapAfterChange = None
 
@@ -302,6 +317,7 @@ class AppForm(QMainWindow):
             print 'Can not load matching Map! Setting it as None...'
             self.textbrowser_MPath.clear()
             self.MatchingVasMap = None
+            self.MatchingVasMapRaw = None
             self.MatchingVasMapAfterChange = None
 
 

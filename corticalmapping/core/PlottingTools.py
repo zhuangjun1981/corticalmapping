@@ -321,7 +321,7 @@ def saveFigureWithoutBorders(f,
     f.supertitle = None
     f.savefig(savePath,pad_inches = 0,bbox_inches='tight',**kwargs)
 
-def mergeNormalizedImages(imgList,sigma=50,mergeMethod='mean',dtype=np.float32):
+def mergeNormalizedImages(imgList,isFilter=True,sigma=50,mergeMethod='mean',dtype=np.float32):
 
     '''
     merge images in a list in to one, for each image, local intensity variability will be removed by subtraction of
@@ -342,9 +342,10 @@ def mergeNormalizedImages(imgList,sigma=50,mergeMethod='mean',dtype=np.float32):
     elif mergeMethod == 'median':
         mergedImg = np.median(np.array(imgList2),axis=0)
 
-    mergedImgf = ni.filters.gaussian_filter(mergedImg.astype(np.float),sigma=sigma)
-
-    return ia.arrayNor(mergedImg - mergedImgf).astype(dtype)
+    if isFilter:
+        mergedImgf = ni.filters.gaussian_filter(mergedImg.astype(np.float),sigma=sigma)
+        return ia.arrayNor(mergedImg - mergedImgf).astype(dtype)
+    else: return ia.arrayNor(mergedImg).astype(dtype)
 
 
 
