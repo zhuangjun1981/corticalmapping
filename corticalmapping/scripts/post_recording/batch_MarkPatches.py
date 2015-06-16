@@ -5,7 +5,7 @@ Created on Thu Oct 30 14:46:38 2014
 @author: junz
 """
 import os
-import corticalmapping.core.ImageAnalysis as ia
+import corticalmapping.core.FileTools as ft
 
 trialName = '20150116_M156569_Trial1_2_3_4.pkl'
 
@@ -31,7 +31,7 @@ os.chdir(currFolder)
 
 trialPath = os.path.join(currFolder,trialName)
 
-trialDict = ia.loadFile(trialPath)
+trialDict = ft.loadFile(trialPath)
 
 finalPatches = dict(trialDict['finalPatches'])
 
@@ -42,4 +42,4 @@ for i, namePair in enumerate(names):
     
 trialDict.update({'finalPatchesMarked':finalPatches})
 
-ia.saveFile(trialPath,trialDict)
+ft.saveFile(trialPath,trialDict)

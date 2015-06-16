@@ -27,6 +27,7 @@ for trialName in trialList:
     f = plt.figure(figsize=(10,10))
     ax = f.add_subplot(111)
     trial.plotFinalPatchBorders(plotAxis = ax,borderWidth=4)
+    plt.show()
     f.savefig(trialName[0:-4]+'_borders.pdf',dpi=600)
     f.savefig(trialName[0:-4]+'_borders.png',dpi=300)
     
