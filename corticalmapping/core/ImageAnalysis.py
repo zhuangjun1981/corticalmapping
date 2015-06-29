@@ -790,6 +790,14 @@ def getAreaEdges(img,
     imgPatch[imgMedianFiltered<areaThr[0]]=areaThr[0];imgPatch[imgMedianFiltered>areaThr[1]]=areaThr[1]
     imgPatch=(arrayNor(imgPatch)*255).astype(np.uint8)
 
+
+    # plt.imshow(imgPatch,vmin=0,vmax=255,cmap='gray')
+    # plt.show()
+
+#    import tifffile as tf
+#    tf.imsave('Rorb_example_vasMap_filtered.tif',arrayNor(imgPatch.astype(np.float32)))
+
+
     cuttingStep = np.arange(edgeThrRange[0],edgeThrRange[1])
     cuttingStep = np.array([cuttingStep[0:-1],cuttingStep[1:]]).transpose()
     edge_cv2 = np.zeros(img.shape).astype(np.uint8)
@@ -831,6 +839,29 @@ def getAreaEdges(img,
         return edgesThick.astype(np.bool), f
 
     else: return edgesThick.astype(np.bool)
+
+def zDownsample(img,downSampleRate):
+    '''
+    downsample input image in z direction
+    '''
+
+    if len(img.shape) != 3:
+        raise ValueError, 'Input array shoud be 3D!'
+
+
+    newFrameNum = (img.shape[0] - (img.shape[0]%downSampleRate))/downSampleRate
+    newImg = np.empty((newFrameNum,img.shape[1],img.shape[2]),dtype=img.dtype)
+
+    print 'Start downsampling...'
+    for i in range(newFrameNum):
+#            print (float(i)*100/newFrameNum),'%'
+        currChunk = img[i*downSampleRate:(i+1)*downSampleRate,:,:].astype(np.float)
+        currFrame = np.mean(currChunk,axis=0)
+        newImg[i,:,:]=currFrame.astype(img.dtype)
+    print 'End of downsampling.'
+    return newImg
+
+
 
 
 #def binning(array, binSize = 2):

@@ -283,7 +283,7 @@ def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closin
     return currfig
 
 
-def gridAxis(rowNum,columnNum,totalPlotNum,figSize=(10,10)):
+def gridAxis(rowNum,columnNum,totalPlotNum,**kwarg):
     '''
     return figure handles and axis handels for multiple subplots and figures
     '''
@@ -293,7 +293,7 @@ def gridAxis(rowNum,columnNum,totalPlotNum,figSize=(10,10)):
     figureHandles = []
     
     for i in range(figureNum):
-        f=plt.figure(figsize=figSize)
+        f=plt.figure(**kwarg)
         figureHandles.append(f)
     
     axisHandles = []    

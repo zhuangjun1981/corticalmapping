@@ -281,6 +281,9 @@ def visualSignMap(phasemap1,phasemap2):
 
     gradmap1 = np.gradient(phasemap1)
     gradmap2 = np.gradient(phasemap2)
+    
+#    gradmap1 = ni.filters.median_filter(gradmap1,100.)
+#    gradmap2 = ni.filters.median_filter(gradmap2,100.)
 
     graddir1 = np.zeros(np.shape(gradmap1[0]))
 #    gradmag1 = np.zeros(np.shape(gradmap1[0]))
@@ -1195,8 +1198,9 @@ class RetinotopicMappingTrial(object):
         trialName = str(self.dateRecorded)+\
                     '_M'+str(self.mouseID)+\
                     '_Trial' + str(self.trialNum)+\
-                    '_' + str(self.visualStimType)+\
-                    '_' + str(self.visualStimBackground)
+                    '_'+self.mouseType.split('-')[0]+';'+self.mouseType.split(';')[-1][0:4]
+#                    '_' + str(self.visualStimType)+\
+#                    '_' + str(self.visualStimBackground)
 
         if self.isAnesthetized:
             trialName += '_Anesth'
@@ -1270,13 +1274,13 @@ class RetinotopicMappingTrial(object):
             f2=plt.figure(figsize=(12,4))
             f2_121 = f2.add_subplot(121)
             if altPowerMapf is not None:
-                currfig = f2_121.imshow(altPowerMapf,cmap = 'hot', vmin = 0, vmax=1, interpolation='nearest')
+                currfig = f2_121.imshow(ia.arrayNor(self.altPowerMap),cmap = 'hot', vmin = 0, vmax=1, interpolation='nearest')
                 f2.colorbar(currfig)
                 f2_121.set_title('alt power map')
                 f2_121.set_axis_off()
             f2_122 = f2.add_subplot(122)
             if aziPowerMapf is not None:
-                currfig = f2_122.imshow(aziPowerMapf,cmap = 'hot', vmin = 0, vmax=1, interpolation='nearest')
+                currfig = f2_122.imshow(ia.arrayNor(self.aziPowerMap),cmap = 'hot', vmin = 0, vmax=1, interpolation='nearest')
                 f2.colorbar(currfig)
                 f2_122.set_title('azi power map')
                 f2_122.set_axis_off()
@@ -1851,73 +1855,47 @@ class RetinotopicMappingTrial(object):
 
     def cleanMaps(self):
 
-        try:
-            del self.altPosMapf
-        except AttributeError:
-            pass
+        try:del self.altPosMapf
+        except AttributeError:pass
 
-        try:
-            del self.aziPosMapf
-        except AttributeError:
-            pass
+        try:del self.aziPosMapf
+        except AttributeError:pass
 
-        try:
-            del self.signMap
-        except AttributeError:
-            pass
+        try:del self.signMap
+        except AttributeError:pass
 
-        try:
-            del self.signMapf
-        except AttributeError:
-            pass
+        try:del self.signMapf
+        except AttributeError:pass
 
-        try:
-            del self.rawPatchMap
-        except AttributeError:
-            pass
+        try:del self.rawPatchMap
+        except AttributeError:pass
 
-        try:
-            del self.rawPatches
-        except AttributeError:
-            pass
+        try:del self.rawPatches
+        except AttributeError:pass
 
-        try:
-            del self.eccentricityMap
-        except AttributeError:
-            pass
+        try:del self.eccentricityMap
+        except AttributeError:pass
 
-        try:
-            del self.eccentricityMapf
-        except AttributeError:
-            pass
+        try:del self.eccentricityMapf
+        except AttributeError:pass
 
-        try:
-            del self.determinantMap
-        except AttributeError:
-            pass
+        try:del self.determinantMap
+        except AttributeError:pass
 
-        try:
-            del self.patchesAfterSplit
-        except AttributeError:
-            pass
+        try:del self.patchesAfterSplit
+        except AttributeError:pass
 
-        try:
-            del self.patchesAfterMerge
-        except AttributeError:
-            pass
+        try:del self.patchesAfterMerge
+        except AttributeError:pass
 
-        try:
-            del self.finalPatches
-        except AttributeError:
-            pass
+        try:del self.finalPatches
+        except AttributeError:pass
 
 
     def cleanTraces(self):
 
-        try:
-            del self.traces
-        except AttributeError:
-            pass
+        try:del self.traces
+        except AttributeError:pass
 
 
     def processTrial(self, isPlot = False):
