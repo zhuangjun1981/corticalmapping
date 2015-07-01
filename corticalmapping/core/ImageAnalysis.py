@@ -882,11 +882,12 @@ def getMasks(labeled,minArea=None,maxArea=None,isSort=True,keyPrefix = None,labe
         currMask = np.zeros(labeled.shape,dtype=np.uint8)
         currMask[labeled==i]=1
 
-        if minArea is not None and np.sum(currMask.flatten()) < minArea: break
-        if maxArea is not None and np.sum(currMask.flatten()) > maxArea: break
-        if keyPrefix is not None: currKey = keyPrefix+'.'+ft.int2str(i,labelLength)
-        else: currKey = ft.int2str(i,labelLength)
-        masks.update({currKey:currMask})
+        if minArea is not None and np.sum(currMask.flatten()) < minArea: pass
+        elif maxArea is not None and np.sum(currMask.flatten()) > maxArea: pass
+        else:
+            if keyPrefix is not None: currKey = keyPrefix+'.'+ft.int2str(i,labelLength)
+            else: currKey = ft.int2str(i,labelLength)
+            masks.update({currKey:currMask})
 
     if isSort:
         masks = sortMasks(masks,keyPrefix = keyPrefix, labelLength=labelLength)
