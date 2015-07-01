@@ -121,7 +121,6 @@ def findPhaseIndex(trace, harmonic=1):
     return index
 
 
-
 def generatePhaseMap(movie,cycles = 1,isReverse = False,isFilter = False,sigma = 3.,isplot = False):
     '''
     generating phase map of a 3-d movie, on the frequency defined by cycles.
@@ -282,14 +281,14 @@ def visualSignMap(phasemap1,phasemap2):
     gradmap1 = np.gradient(phasemap1)
     gradmap2 = np.gradient(phasemap2)
     
-#    gradmap1 = ni.filters.median_filter(gradmap1,100.)
-#    gradmap2 = ni.filters.median_filter(gradmap2,100.)
+    # gradmap1 = ni.filters.median_filter(gradmap1,100.)
+    # gradmap2 = ni.filters.median_filter(gradmap2,100.)
 
     graddir1 = np.zeros(np.shape(gradmap1[0]))
-#    gradmag1 = np.zeros(np.shape(gradmap1[0]))
+    # gradmag1 = np.zeros(np.shape(gradmap1[0]))
 
     graddir2 = np.zeros(np.shape(gradmap2[0]))
-#    gradmag2 = np.zeros(np.shape(gradmap2[0]))
+    # gradmag2 = np.zeros(np.shape(gradmap2[0]))
 
     for i in  range(phasemap1.shape[0]):
         for j in range(phasemap2.shape[1]):
@@ -297,8 +296,8 @@ def visualSignMap(phasemap1,phasemap2):
             graddir1[i,j] = math.atan2(gradmap1[1][i,j],gradmap1[0][i,j])
             graddir2[i,j] = math.atan2(gradmap2[1][i,j],gradmap2[0][i,j])
 
-#            gradmag1[i,j] = np.sqrt((gradmap1[1][i,j]**2)+(gradmap1[0][i,j]**2))
-#            gradmag2[i,j] = np.sqrt((gradmap2[1][i,j]**2)+(gradmap2[0][i,j]**2))
+            # gradmag1[i,j] = np.sqrt((gradmap1[1][i,j]**2)+(gradmap1[0][i,j]**2))
+            # gradmag2[i,j] = np.sqrt((gradmap2[1][i,j]**2)+(gradmap2[0][i,j]**2))
 
     vdiff = np.multiply(np.exp(1j * graddir1),np.exp(-1j * graddir2))
 

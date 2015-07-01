@@ -8,6 +8,7 @@ import math
 from matplotlib import cm
 import matplotlib.colors as col
 import skimage.morphology as sm
+import FileTools as ft
 try: import cv2
 except ImportError as e: print e
 
@@ -861,6 +862,55 @@ def zDownsample(img,downSampleRate):
     print 'End of downsampling.'
     return newImg
 
+
+def getMasks(labeled,minArea=None,maxArea=None,isSort=True,keyPrefix = None,labelLength=3):
+    '''
+    get mask dictionary from labeled maps (labeled by scipy.ndimage.label function)
+
+    area range of each mask was defined by minArea and maxArea
+
+    isSort: if True, sort masks by areas, big to small
+
+    keyPrefix: the prefix of key
+
+    labelLength: the number of characters of key
+    '''
+
+    maskNum = np.max(labeled.flatten())
+    masks = {}
+    for i in range(1,maskNum+1):
+        currMask = np.zeros(labeled.shape,dtype=np.uint8)
+        currMask[labeled==i]=1
+
+        if minArea is not None and np.sum(currMask.flatten()) < minArea: break
+        if maxArea is not None and np.sum(currMask.flatten()) > maxArea: break
+        if keyPrefix is not None: currKey = keyPrefix+'.'+ft.int2str(i,labelLength)
+        else: currKey = ft.int2str(i,labelLength)
+        masks.update({currKey:currMask})
+
+    if isSort:
+        masks = sortMasks(masks,keyPrefix = keyPrefix, labelLength=labelLength)
+
+    return masks
+
+def sortMasks(masks,keyPrefix='',labelLength=3):
+    '''
+    sort a dictionary of binary masks, big to small
+    '''
+
+    maskNum = len(masks.keys())
+    order = []
+    for key, mask in masks.iteritems():
+        order.append([key,np.sum(mask.flatten())])
+
+    order = sorted(order, key=lambda a:a[1], reverse=True)
+
+    newMasks = {}
+    for i in range(len(order)):
+        if keyPrefix is not None: currKey = keyPrefix+'.'+ft.int2str(i,labelLength)
+        else: currKey = ft.int2str(i,labelLength)
+        newMasks.update({currKey:masks[order[i][0]]})
+    return newMasks
 
 
 

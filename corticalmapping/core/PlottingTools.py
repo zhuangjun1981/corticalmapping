@@ -58,6 +58,26 @@ def binary2RGBA(img,foreGroundColor='#ff0000',backGroundColor='#000000',foreGrou
     return displayImg
 
 
+def binary2RGBA2(img,color='#ff0000'):
+    '''
+    generate display a image in (RGBA).(np.uint8) format which can be displayed by imshow
+    alpha is defined by values in the img
+    :param img: input image
+    :param alphaMatrix: matrix of alpha
+    :param foreGroundColor: color for 1 in the array, RGB str, i.e. '#ff0000'
+    :return: displayImg, (RGBA).(np.uint8) format, ready for imshow
+    '''
+
+    R,G,B=getRGB(color)
+
+    alphaMatrix = (ia.arrayNor(img.astype(np.float32))*255).astype(np.uint8)
+
+    displayImg = np.zeros((img.shape[0],img.shape[1],4)).astype(np.uint8)
+    displayImg[:,:,0]=R;displayImg[:,:,1]=G;displayImg[:,:,2]=B;displayImg[:,:,3]=alphaMatrix
+
+    return displayImg
+
+
 def barGraph(left,
              height,
              error,
@@ -354,38 +374,45 @@ def mergeNormalizedImages(imgList,isFilter=True,sigma=50,mergeMethod='mean',dtyp
 if __name__=='__main__':
     
     plt.ioff()
-#----------------------------------------------------    
-#    ax = barGraph(0.5,1,0.1,label='xx')
-#    ax.legend()
-#    plt.show()
-#----------------------------------------------------
+    #----------------------------------------------------
+    # ax = barGraph(0.5,1,0.1,label='xx')
+    # ax.legend()
+    # plt.show()
+    #----------------------------------------------------
     
-#----------------------------------------------------
-#    figures, axises = gridAxis(2,3,20)
-#    for i, ax in enumerate(axises):
-#        ax.imshow(np.random.rand(5,5))        
-#    plt.show()
-#----------------------------------------------------
+    #----------------------------------------------------
+    # figures, axises = gridAxis(2,3,20)
+    # for i, ax in enumerate(axises):
+    #     ax.imshow(np.random.rand(5,5))
+    # plt.show()
+    #----------------------------------------------------
     
     
-#----------------------------------------------------
+    #----------------------------------------------------
     # mask = np.zeros((100,100))
     # mask[30:50,20:60]=1
     # mask[mask==0]=np.nan
     #
     # plotMask(mask)
     # plt.show()
-     
-#----------------------------------------------------
+    #----------------------------------------------------
 
-    aa=np.random.rand(20,20)
-    mask = np.zeros((20,20),dtype=np.bool)
-    mask[4:7,13:16]=True
-    displayMask = binary2RGBA(mask)
-    plt.figure()
-    plt.imshow(aa)
-    plt.imshow(displayMask,interpolation='nearest')
+    #----------------------------------------------------
+    # aa=np.random.rand(20,20)
+    # mask = np.zeros((20,20),dtype=np.bool)
+    # mask[4:7,13:16]=True
+    # displayMask = binary2RGBA(mask)
+    # plt.figure()
+    # plt.imshow(aa)
+    # plt.imshow(displayMask,interpolation='nearest')
+    # plt.show()
+    #----------------------------------------------------
+
+    #----------------------------------------------------
+    b=np.random.rand(5,5)
+    displayImg = binary2RGBA2(b)
+    plt.imshow(displayImg,interpolation='nearest')
     plt.show()
-#----------------------------------------------------
+    #----------------------------------------------------
 
     print 'for debug'
