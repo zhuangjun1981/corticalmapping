@@ -30,8 +30,8 @@ import core.PlottingTools as pt
 # try: import cv2; import ImageAnalysis.rigidTransform_cv2 as rigidTransform
 # except ImportError as e: print e; import ImageAnalysis.rigidTransform as rigidTransform
 
-try: import cv2; from ImageAnalysis import rigidTransform_cv2 as rigidTransform
-except ImportError as e: print e; from ImageAnalysis import rigidTransform as rigidTransform
+try: import cv2; from core.ImageAnalysis import rigidTransform_cv2 as rigidTransform
+except ImportError as e: print e; from core.ImageAnalysis import rigidTransform as rigidTransform
 
 
 class AppForm(QMainWindow):
