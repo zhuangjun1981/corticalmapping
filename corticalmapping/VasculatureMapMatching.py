@@ -22,10 +22,10 @@ from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar2QT
 from matplotlib.figure import Figure
 
-import FileTools as ft
-import ImageAnalysis as ia
-import tifffile as tf
-import PlottingTools as pt
+import core.FileTools as ft
+import core.ImageAnalysis as ia
+import core.tifffile as tf
+import core.PlottingTools as pt
 
 # try: import cv2; import ImageAnalysis.rigidTransform_cv2 as rigidTransform
 # except ImportError as e: print e; import ImageAnalysis.rigidTransform as rigidTransform

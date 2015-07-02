@@ -5,7 +5,7 @@ Created on Thu Mar 26 22:03:36 2015
 @author: junz
 """
 
-import corticalmapping.core.RetinotopicMapping as rm
+import corticalmapping.RetinotopicMapping as rm
 import os
 import matplotlib.pyplot as plt
 import corticalmapping.core.tifffile as tf

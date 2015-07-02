@@ -5,7 +5,7 @@ Created on Thu Jun 26 15:03:04 2014
 @author: junz
 """
 
-import corticalmapping.core.VisualStim as vs
+import corticalmapping.VisualStim as vs
 import matplotlib.pyplot as plt
 
 

@@ -7,8 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import corticalmapping.core.tifffile as tf
 from corticalmapping.core.FileTools import loadFile, saveFile
-from corticalmapping.core.RetinotopicMapping import generatePhaseMap2,phasePosition
-
+from corticalmapping.RetinotopicMapping import generatePhaseMap2,phasePosition
 
 
 

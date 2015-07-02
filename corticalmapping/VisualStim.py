@@ -17,7 +17,7 @@ import cPickle as pickle
 from random import shuffle
 
 import socket
-import tifffile as tf
+import core.tifffile as tf
 
 try: import toolbox.IO.nidaq as iodaq
 except ImportError as e:

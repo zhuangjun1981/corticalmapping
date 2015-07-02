@@ -14,10 +14,10 @@ import cv2
 import matplotlib.colors as col
 from matplotlib import cm
 
-import FileTools as ft
-import ImageAnalysis as ia
-import PlottingTools as pt
-import tifffile as tf
+import core.FileTools as ft
+import core.ImageAnalysis as ia
+import core.PlottingTools as pt
+import core.tifffile as tf
 
 
 def loadTrial(trialPath):

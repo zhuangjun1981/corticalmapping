@@ -6,7 +6,7 @@ Created on Tue Nov 18 14:23:59 2014
 """
 
 from corticalmapping.core.FileTools import loadFile, saveFile
-from corticalmapping.core.RetinotopicMapping import phasePosition,generatePhaseMap2
+from corticalmapping.RetinotopicMapping import phasePosition,generatePhaseMap2
 from corticalmapping.core.ImageAnalysis import normalizeMovie
 import corticalmapping.core.tifffile as tf
 import os

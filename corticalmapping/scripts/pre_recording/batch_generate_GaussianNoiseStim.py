@@ -7,7 +7,7 @@ Created on Thu Dec 05 17:18:26 2013
 
 #version 15
 
-import corticalmapping.core.VisualStim as vs
+import corticalmapping.VisualStim as vs
 import numpy as np
 
 mon=vs.MonitorJun(resolution=(1080, 1920),

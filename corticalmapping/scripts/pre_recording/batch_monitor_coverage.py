@@ -5,8 +5,8 @@ Created on Wed Apr 08 12:49:08 2015
 @author: junz
 """
 
-import corticalmapping.core.VisualStim as vs
-import corticalmapping.core.RetinotopicMapping as rm
+import corticalmapping.VisualStim as vs
+import corticalmapping.RetinotopicMapping as rm
 import matplotlib.pyplot as plt
 import numpy as np
 

@@ -1,7 +1,7 @@
 __author__ = 'junz'
 
 
-import corticalmapping.core.VisualStim as vs
+import corticalmapping.VisualStim as vs
 from corticalmapping.core.FileTools import saveFile
 import numpy as np
 import os

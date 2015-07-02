@@ -5,7 +5,7 @@ import os
 import matplotlib.pyplot as plt
 
 from corticalmapping.core.FileTools import loadFile, saveFile
-from corticalmapping.core.RetinotopicMapping import RetinotopicMappingTrial
+from corticalmapping.RetinotopicMapping import RetinotopicMappingTrial
 
 
 trialNum = '1_2_3_4'
