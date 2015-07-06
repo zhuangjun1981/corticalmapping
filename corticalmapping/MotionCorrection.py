@@ -1,6 +1,6 @@
 __author__ = 'junz'
 
-
+import os
 import numpy as np
 import core.tifffile as tf
 import core.ImageAnalysis as ia
@@ -80,39 +80,141 @@ def getDistanceList(img, imgRef, normFunc=ia.arrayDiff, isPlot = False):
     return distanceList
 
 
-def alignSingleMovie(mov, imgRef, badFramdDistanceThr=100, maxDisplacement=10, normFunc=ia.arrayDiff):
+def alignSingleMovie(mov,imgRef,badFrameDistanceThr=100,maxDisplacement=10,normFunc=ia.arrayDiff,verbose=False,alignOrder=1):
     '''
     align the frames in a single movie to the imgRef
 
     the frame with distance from mean projection larger than badFramdDistanceThr will not be used to update current
     offset, nor will be included in calculation of new mean projection
 
+    if order is 1: alignment goes from the first frame to the last
+    if order is -1: alignment goes from the last frame to the first, this is faster in the alignSingleMovieLoop function
+
     return: offsetList, alignedMov, meanFrame
     '''
 
     dataType = mov.dtype
+    imgRefNor = imgRef - np.mean(imgRef.flatten())
     currOffset = np.array([0,0]).astype(np.int)
     offsetList = []
     alignedMov = np.empty(mov.shape,dtype=dataType)
     validFrameNum = []
 
-    for i in range(mov.shape[0]):
+    if alignOrder == 1: iterFrames = range(mov.shape[0])
+    if alignOrder == -1: iterFrames = range(mov.shape[0])[::-1]
 
-        if normFunc(mov[i,:,:],imgRef)<=badFramdDistanceThr:
+    for i in iterFrames:
+        if normFunc(mov[i,:,:],imgRef)<=badFrameDistanceThr:
             initCurrFrame = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
-            additionalOffset, hitFlag = iamstupid(initCurrFrame,imgRef,maxDisplacement=maxDisplacement,normFunc=normFunc)
+            initCurrFrame = initCurrFrame - np.mean(initCurrFrame.flatten())
+            additionalOffset, hitFlag = iamstupid(initCurrFrame,imgRefNor,maxDisplacement=maxDisplacement,normFunc=normFunc)
             currOffset = currOffset+additionalOffset
             alignedMov[i,:,:] = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
             offsetList.append(currOffset)
             validFrameNum.append(i)
-            print 'Frame'+ft.int2str(i,5)+'\tgood Frame'+'\tOffset:'+str(currOffset)
+            if verbose:
+                print 'Frame'+ft.int2str(i,5)+'\tdistance:'+str(normFunc(mov[i,:,:],imgRef))+'\tgood Frame'+'\tOffset:'+str(currOffset)
         else:
             alignedMov[i,:,:] = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
             offsetList.append(currOffset)
-            print 'Frame'+ft.int2str(i,5)+'\tbad  Frame'+'\tOffset:'+str(currOffset)
+            if verbose:
+                print 'Frame'+ft.int2str(i,5)+'\tdistance:'+str(normFunc(mov[i,:,:],imgRef))+'\tbad  Frame'+'\tOffset:'+str(currOffset)
 
     meanFrame = np.mean(alignedMov[np.array(validFrameNum),:,:],axis=0)
+    if alignOrder == -1: offsetList = offsetList[::-1]
     return offsetList, alignedMov, meanFrame
+
+
+def alignSingleMovieLoop(mov,iterations=2,badFrameDistanceThr=100,maxDisplacement=10,normFunc=ia.arrayDiff,verbose=False):
+    '''
+    align a single movie with iterations, every time it will use mean frame from last iteration as imgRef
+
+    For every iteration it calls MotionCorrection.alignSingleMovie function
+
+    the imgRef for first iteration is the last frame of the movie
+    '''
+
+    if iterations < 1: raise ValueError, 'Iterations should be an integer larger than 0!'
+
+    else:
+        offsetList, alignedMov, meanFrame = alignSingleMovie(mov,mov[-1,:,:],badFrameDistanceThr=badFrameDistanceThr,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose,alignOrder=-1)
+
+        if iterations == 1:
+            return offsetList, alignedMov, meanFrame
+        else:
+            allOffsetList = np.array(offsetList)
+            for i in range(iterations-1):
+                offsetList, alignedMov, meanFrame = alignSingleMovie(alignedMov,meanFrame,badFrameDistanceThr=badFrameDistanceThr,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
+                allOffsetList += offsetList
+            return allOffsetList, alignedMov,meanFrame
+
+
+def alignMultipleTiffs(paths,
+                       iterations=2,
+                       badFrameDistanceThr=100,
+                       maxDisplacement=10,
+                       normFunc=ia.arrayDiff,
+                       verbose=False,
+                       output=False,
+                       saveFolder=None,
+                       fileNameSurfix='corrected',
+                       cameraBias=0):
+    '''
+    motion correction of mulitiple tif file by using rigid plane transformation. Motion correction will be applied both
+    within and across tif files
+
+    paths: paths of input tif files
+    iterations: number of iterations to perform motion correction
+    badFrameDistanceThr: the threshold of distance to define a good or bad frame, if a frame has distance from reference
+                         framebigger than this value, it will be defined as bad frame, it will not be included in mean
+                         frame calculation
+    normFunc: function to calculate distance between two frames.
+              options: corticalmapping.core.ImageAnalysis.arrayDiff (mean of absolute difference across all pixels)
+                       corticalmapping.core.ImageAnalysis.distance (Frobenius distance or Euclidean norm)
+
+    verbose: if True, print alignment information for each frame
+    output: if True, generate and save motion corrected tif files
+    saveFolder: if None, corrected files will be saved in the same folder of original data
+    fileNameSurfix: surfix of corrected file names
+    '''
+
+    offsets = []
+    meanFrames = []
+    for path in paths:
+        print '\nStart alignment of file:', path,'...'
+        currMov = tf.imread(path)
+        currOffset, _, currMeanFrame = alignSingleMovieLoop(currMov,iterations=iterations,badFrameDistanceThr=badFrameDistanceThr,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
+        offsets.append(currOffset)
+        meanFrames.append(currMeanFrame)
+        print 'End of alignment.'
+
+    if len(paths) > 1:
+        print '\nStart alignment across files...'
+        fileOffset, _, allMeanFrame = alignSingleMovieLoop(np.array(meanFrames),iterations=iterations,badFrameDistanceThr=badFrameDistanceThr,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
+        for i in range(len(paths)):
+            offsets[i] = offsets[i] + fileOffset[i,:]
+        print 'End of alignment'
+    else: print '\nThere is only one file in the list. No need to align across files'; allMeanFrame = meanFrames[0]
+
+    if output:
+        for i, path in enumerate(paths):
+            print '\nGenerating output file for '+path
+            fileFolder, fileName = os.path.split(path)
+            newFileName = ('_'+fileNameSurfix).join(os.path.splitext(fileName))
+            if saveFolder is None: newPath = os.path.join(fileFolder,newFileName)
+            else: newPath = os.path.join(saveFolder,newFileName)
+            mov = tf.imread(path)
+            for j in range(mov.shape[0]):
+                mov[j,:,:] = ia.rigidTransform_cv2(mov[j,:,:],offset=offsets[i][j,:])
+            tf.imsave(newPath, mov-cameraBias)
+
+    return offsets, allMeanFrame
+
+
+
+
+
+
 
 
 
@@ -137,10 +239,10 @@ if __name__=='__main__':
 
     #======================================================================================================
     # imgPath = r'Z:\Jun\150610-M160809\KSStim_B2U_10Sweeps\KSStim_B2U_10sweeps_001_001.tif'
-    imgPath = r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif"
-    img = tf.imread(imgPath)
-    distanceList = getDistanceList(img,img[0,:,:],isPlot=True)
-    #======================================================================================================
+    # imgPath = r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif"
+    # img = tf.imread(imgPath)
+    # distanceList = getDistanceList(img,img[0,:,:],isPlot=True)
+    # #======================================================================================================
 
     #======================================================================================================
     # imgPath = r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif"
@@ -152,13 +254,58 @@ if __name__=='__main__':
     #======================================================================================================
     # imgPath = r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif"
     # img = tf.imread(imgPath)
-    # offsetList, alignedMov, meanFrame = alignSingleMovie(img,img[0,:,:],badFramdDistanceThr=110)
+    # offsetList, alignedMov, meanFrame = alignSingleMovie(img,img[0,:,:],badFrameDistanceThr=110)
+    #
+    # tf.imshow(np.dstack((img,alignedMov)),cmap='gray')
+    # plt.show()
+    #======================================================================================================
+
+    #======================================================================================================
+    # imgPath = r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif"
+    # img = tf.imread(imgPath)
+    # offsetList, alignedMov, meanFrame = alignSingleMovie(img,img[0,:,:],badFrameDistanceThr=110)
     #
     # img2Path = r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_002.tif"
     # img2 = tf.imread(img2Path)
-    # offsetList2, alignedMov2, meanFrame2 = alignSingleMovie(img2,img2[0,:,:],badFramdDistanceThr=110)
+    # offsetList2, alignedMov2, meanFrame2 = alignSingleMovie(img2,img2[0,:,:],badFrameDistanceThr=110)
     #
     # print np.hstack((offsetList,offsetList2))
     #======================================================================================================
+
+    #======================================================================================================
+    # imgPath = r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif"
+    # img = tf.imread(imgPath)
+    # offsetList, alignedMov, meanFrame = alignSingleMovieLoop(img,badFrameDistanceThr=110)
+    # print offsetList
+    #======================================================================================================
+
+    #======================================================================================================
+    # imgPath = r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif"
+    # img = tf.imread(imgPath)
+    # offsetList, alignedMov, meanFrame = alignSingleMovie(img,img[-1,:,:],badFrameDistanceThr=110,alignOrder=1)
+    # offsetList2, alignedMov2, meanFrame2 = alignSingleMovie(img,img[-1,:,:],badFrameDistanceThr=110,alignOrder=-1)
+    # print np.hstack((offsetList,offsetList2))
+    # tf.imshow(np.dstack((img,alignedMov,alignedMov2)),cmap='gray')
+    # plt.show()
+    #======================================================================================================
+
+    #======================================================================================================
+    # paths=[
+    #        r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif",
+    #        r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_002.tif"
+    #        ]
+    # offsets, allMeanFrame = alignMultipleTiffs(paths,
+    #                                            iterations=2,
+    #                                            badFrameDistanceThr=100,
+    #                                            maxDisplacement=10,
+    #                                            normFunc=ia.arrayDiff,
+    #                                            verbose=True,
+    #                                            output=True,
+    #                                            saveFolder=None,
+    #                                            fileNameSurfix='corrected')
+    #
+    # print offsets[0]-offsets[1]
+    #======================================================================================================
+
 
     print 'for debug...'
