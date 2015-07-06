@@ -195,8 +195,8 @@ def alignMultipleTiffs(paths,
         print '\nStart alignment across files...'
         fileOffset, _, allMeanFrame = alignSingleMovieLoop(meanFrames,iterations=5,badFrameDistanceThr=65535,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
         if verbose:
-            print '\nPlotting mean frame of each corrected file in the path list ...'
-            tf.imshow(_, cmap='gray'); plt.show()
+            print '\nPlotting mean frame of each file before and after cross file alignment ...'
+            tf.imshow(np.dstack((meanFrames,_)), cmap='gray'); plt.show()
         for i in range(len(paths)):
             offsets[i] = offsets[i] + fileOffset[i,:]
         print 'End of alignment'
@@ -308,7 +308,8 @@ if __name__=='__main__':
     #                                            verbose=True,
     #                                            output=True,
     #                                            saveFolder=None,
-    #                                            fileNameSurfix='corrected')
+    #                                            fileNameSurfix='corrected',
+    #                                            cameraBias=0)
     #
     # print offsets[0]-offsets[1]
     #======================================================================================================
