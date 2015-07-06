@@ -76,8 +76,8 @@ def getDistanceList(img, imgRef, normFunc=ia.arrayDiff, isPlot = False):
         f = plt.figure(figsize=(15,8))
         ax1 = f.add_subplot(211); ax1.plot(distanceList), ax1.set_ylim([0,200]);ax1.set_title('distance from mean for each frame')
         ax2 = f.add_subplot(212); _ = ax2.hist(distanceList, bins=50, range=(40,200)); ax2.set_title('distribution of distances')
-        plt.show()
-    return distanceList
+        return distanceList, f
+    else: return distanceList
 
 
 def alignSingleMovie(mov,imgRef,badFrameDistanceThr=100,maxDisplacement=10,normFunc=ia.arrayDiff,verbose=False,alignOrder=1):
@@ -94,7 +94,6 @@ def alignSingleMovie(mov,imgRef,badFrameDistanceThr=100,maxDisplacement=10,normF
     '''
 
     dataType = mov.dtype
-    imgRefNor = imgRef - np.mean(imgRef.flatten())
     currOffset = np.array([0,0]).astype(np.int)
     offsetList = []
     alignedMov = np.empty(mov.shape,dtype=dataType)
@@ -106,8 +105,7 @@ def alignSingleMovie(mov,imgRef,badFrameDistanceThr=100,maxDisplacement=10,normF
     for i in iterFrames:
         if normFunc(mov[i,:,:],imgRef)<=badFrameDistanceThr:
             initCurrFrame = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
-            initCurrFrame = initCurrFrame - np.mean(initCurrFrame.flatten())
-            additionalOffset, hitFlag = iamstupid(initCurrFrame,imgRefNor,maxDisplacement=maxDisplacement,normFunc=normFunc)
+            additionalOffset, hitFlag = iamstupid(initCurrFrame,imgRef,maxDisplacement=maxDisplacement,normFunc=normFunc)
             currOffset = currOffset+additionalOffset
             alignedMov[i,:,:] = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
             offsetList.append(currOffset)
@@ -154,7 +152,7 @@ def alignMultipleTiffs(paths,
                        badFrameDistanceThr=100,
                        maxDisplacement=10,
                        normFunc=ia.arrayDiff,
-                       verbose=False,
+                       verbose=True,
                        output=False,
                        saveFolder=None,
                        fileNameSurfix='corrected',
@@ -188,9 +186,17 @@ def alignMultipleTiffs(paths,
         meanFrames.append(currMeanFrame)
         print 'End of alignment.'
 
+    meanFrames = np.array(meanFrames)
     if len(paths) > 1:
+        if verbose:
+            print '\nPlotting distance distribution acrose mean frames of each file ...'
+            _, f = getDistanceList(meanFrames,meanFrames[0,:,:],normFunc=normFunc,isPlot=True)
+            f.suptitle('Distances across files'); plt.show()
         print '\nStart alignment across files...'
-        fileOffset, _, allMeanFrame = alignSingleMovieLoop(np.array(meanFrames),iterations=iterations,badFrameDistanceThr=badFrameDistanceThr,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
+        fileOffset, _, allMeanFrame = alignSingleMovieLoop(meanFrames,iterations=5,badFrameDistanceThr=65535,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
+        if verbose:
+            print '\nPlotting mean frame of each corrected file in the path list ...'
+            tf.imshow(_, cmap='gray'); plt.show()
         for i in range(len(paths)):
             offsets[i] = offsets[i] + fileOffset[i,:]
         print 'End of alignment'
