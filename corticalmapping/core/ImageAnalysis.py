@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import interpolate
 import scipy.ndimage as ni
-import math
 from matplotlib import cm
 import matplotlib.colors as col
 import skimage.morphology as sm
@@ -80,15 +79,29 @@ def distance(p0, p1):
     p0 and p1 should be a 1d array, with each element for each dimension
     '''
 
-    if (len(p0.shape) > 1) or (len(p1.shape) > 1):
-        raise LookupError, 'Both input arrays should be 1d array!!'
 
-    if p0.shape != p1.shape:
-        raise LookupError, 'The two input arrays should have same dimensions.'
+    #old code======================================================================
+    # if (len(p0.shape) > 1) or (len(p1.shape) > 1):
+    #     raise LookupError, 'Both input arrays should be 1d array!!'
+    #
+    # if p0.shape != p1.shape:
+    #     raise LookupError, 'The two input arrays should have same dimensions.'
+    #
+    # distance = math.sqrt(np.sum(((p0.astype(np.float)-p1.astype(np.float))**2)))
+    #===============================================================================
 
-    distance = math.sqrt(np.sum(((p0.astype(np.float)-p1.astype(np.float))**2)))
+    if not isinstance(p0, np.ndarray):p0 = np.array(p0)
+    if not isinstance(p1, np.ndarray):p1 = np.array(p1)
+    return np.sqrt(np.sum(np.square(p0-p1).flatten()))
 
-    return distance
+
+def arrayDiff(a0,a1):
+    '''
+    calculate the sum of pixel-wise difference between two arrays
+    '''
+    if not isinstance(a0, np.ndarray):a0 = np.array(a0)
+    if not isinstance(a1, np.ndarray):a1 = np.array(a1)
+    return np.mean(np.abs(a0-a1).flatten())
 
 
 def binarize(array, threshold):
@@ -105,7 +118,6 @@ def binarize(array, threshold):
     newArray = newArray.astype(array.dtype)
     
     return newArray
-
 
 
 def centerImage(img, # original image, 2d ndarray
@@ -391,6 +403,7 @@ def rigidTransform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputShap
     
     return newImg
 
+
 def rigidTransform_cv2(img, zoom=None, rotation=None, offset=None, outputShape=None):
 
     '''
@@ -450,7 +463,8 @@ def boxcartime_dff(data,
             # use moving average as f0 for df/f
             mov_dff[:,y,x] = (data[(win/2):data.shape[0]-(win/2),y,x] - mov_ave)/mov_ave
             
-    return mov_dff 
+    return mov_dff
+
 
 def normalizeMovie(movie,
                    baselinePic = None, # picture for baseline
@@ -841,6 +855,7 @@ def getAreaEdges(img,
 
     else: return edgesThick.astype(np.bool)
 
+
 def zDownsample(img,downSampleRate):
     '''
     downsample input image in z direction
@@ -894,6 +909,7 @@ def getMasks(labeled,minArea=None,maxArea=None,isSort=True,keyPrefix = None,labe
 
     return masks
 
+
 def sortMasks(masks,keyPrefix='',labelLength=3):
     '''
     sort a dictionary of binary masks, big to small
@@ -914,34 +930,6 @@ def sortMasks(masks,keyPrefix='',labelLength=3):
     return newMasks
 
 
-
-#def binning(array, binSize = 2):
-#    '''
-#    reducing scale of np.array at a constant ratio
-#    '''
-#
-#    array2 = array.astype(np.float32)
-#
-#    if len(array.shape) > 3:
-#        raise LookupError, 'Input array shold be 2-d or 3-d!'
-#
-#    if (array.shape[-1] % binSize != 0) or \
-#       (array.shape[-2] % binSize != 0):
-#           raise ValueError, 'The size of the input array should be divisible by binSize!'
-#
-#    if len(array2.shape) == 2:
-#        newArray = np.zeros([array.shape[0]/2,array.shape[1]/2])
-#        for i in xrange(newArray.shape[-2]):
-#            for j in xrange(newArray.shape[-1]):
-#                newArray[i,j] = array2[i*binSize:(i+1)*binSize,j*binSize:(j+1)*binSize].mean(-1).mean(-1)
-#
-#    if len(array2.shape) == 3:
-#        newArray = np.zeros([array2.shape[0],array.shape[1]/2,array.shape[2]/2])
-#        for i in xrange(newArray.shape[-2]):
-#            for j in xrange(newArray.shape[-1]):
-#                newArray[:,i,j] = array2[:,i*binSize:(i+1)*binSize,j*binSize:(j+1)*binSize].mean(-1).mean(-1)
-#
-#    return newArray
 
 if __name__ == '__main__':
 
@@ -966,14 +954,28 @@ if __name__ == '__main__':
     # edges = getAreaEdges(img)
     # plt.show()
     #============================================================
-    aa=np.zeros((15,15),dtype=np.uint8)
-    aa[4,5]=1
-    aa[5,6]=1
-    aa[12:15,8:13]=1
-    bb=removeSmallPatches(aa,5)
-    f,ax=plt.subplots(1,2)
-    ax[0].imshow(aa,interpolation='nearest');ax[1].imshow(bb,interpolation='nearest')
-    plt.show()
+
+    #============================================================
+    # aa=np.zeros((15,15),dtype=np.uint8)
+    # aa[4,5]=1
+    # aa[5,6]=1
+    # aa[12:15,8:13]=1
+    # bb=removeSmallPatches(aa,5)
+    # f,ax=plt.subplots(1,2)
+    # ax[0].imshow(aa,interpolation='nearest');ax[1].imshow(bb,interpolation='nearest')
+    # plt.show()
+    #============================================================
+
+    #============================================================
+    a=5; b=7
+    print distance(a,b)
+
+    c=[5,6]; d=[8,2]
+    print distance(c,d)
+
+    e=np.random.rand(5,6); f=np.random.rand(5,6)
+    print distance(e,f)
+    #============================================================
 
     print 'for debug'
 
