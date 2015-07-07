@@ -179,6 +179,11 @@ def alignMultipleTiffs(paths,
     fileNameSurfix: surfix of corrected file names
     '''
 
+    if saveFolder is not None:
+        fileNameList = [os.path.split(p)[0] for p in paths]
+        if len(set(fileNameList))<len(fileNameList):
+            raise ValueError, 'If a save folder is declared, file names in paths should be unique!'
+
     offsets = []
     meanFrames = []
     for path in paths:
