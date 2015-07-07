@@ -182,32 +182,30 @@ def alignMultipleTiffs(paths,
     offsets = []
     meanFrames = []
     for path in paths:
-        print '\n\nStart alignment of file:', path,'...\n'
+        print '\nStart alignment of file:', path,'...'
         currMov = tf.imread(path)
         currOffset, _, currMeanFrame = alignSingleMovieLoop(currMov,iterations=iterations,badFrameDistanceThr=badFrameDistanceThr,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
         offsets.append(currOffset)
         meanFrames.append(currMeanFrame)
 
         # temporally save results
-        print '\nSaving temporary motion correction results for file:', path
+        print 'Saving temporary motion correction results for file:', path
         fileFolder, fileName = os.path.split(path)
         newFileName = os.path.splitext(fileName)[0]+'_correction_results.pkl'
         if saveFolder is not None: savePath = os.path.join(saveFolder,newFileName)
         else: savePath = os.path.join(fileFolder,newFileName)
         ft.saveFile(savePath,{'offset':currOffset,'meanFrame':currMeanFrame})
-        print '\nEnd of alignment for file:',path
+        print 'End of alignment for file:',path
 
     meanFrames = np.array(meanFrames)
     if len(paths) > 1:
-        if verbose:
-            print '\n\nPlotting distance distribution across mean frames of each file ...'
-            _, f = getDistanceList(meanFrames,meanFrames[0,:,:],normFunc=normFunc,isPlot=True)
-            f.suptitle('Distances across files'); plt.show()
-        print '\nStart alignment across files...\n'
+        print '\nPlotting distance distribution across mean frames of each file ...'
+        _, f = getDistanceList(meanFrames,meanFrames[0,:,:],normFunc=normFunc,isPlot=True)
+        f.suptitle('Distances across files'); plt.show()
+        print 'Start alignment across files...'
         fileOffset, allMeanFrames, aveMeanFrame = alignSingleMovieLoop(meanFrames,iterations=5,badFrameDistanceThr=65535,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
-        if verbose:
-            print '\nPlotting mean frame of each file before and after cross file alignment ...\n'
-            tf.imshow(np.dstack((meanFrames, allMeanFrames)), cmap='gray'); plt.show()
+        print 'Plotting mean frame of each file before and after cross file alignment ...'
+        tf.imshow(np.dstack((meanFrames, allMeanFrames)), cmap='gray'); plt.show()
 
         for i, path in enumerate(paths):
             offsets[i] = offsets[i] + fileOffset[i,:]
@@ -217,7 +215,7 @@ def alignMultipleTiffs(paths,
             if saveFolder is not None: savePath = os.path.join(saveFolder,newFileName)
             else: savePath = os.path.join(fileFolder,newFileName)
             ft.saveFile(savePath,{'offset':offsets[i],'meanFrame':allMeanFrames[i,:,:]})
-        print '\nEnd of cross file alignment.\n'
+        print 'End of cross file alignment.\n'
     else: print '\nThere is only one file in the list. No need to align across files\n'; aveMeanFrame = meanFrames[0]
 
     if output:
@@ -324,7 +322,7 @@ if __name__=='__main__':
                                                badFrameDistanceThr=100,
                                                maxDisplacement=10,
                                                normFunc=ia.arrayDiff,
-                                               verbose=True,
+                                               verbose=False,
                                                output=True,
                                                saveFolder=None,
                                                fileNameSurfix='corrected',
