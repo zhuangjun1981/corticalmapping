@@ -36,7 +36,9 @@ def iamstupid(imgMat,imgRef,maxDisplacement=10,normFunc=ia.arrayDiff):
     tryList = [[-1, 0], [0, -1], [1, 0], [0, 1]]
     currDisList = np.array([normFunc(imgRef, ia.rigidTransform(imgMat,offset=o,outputShape=imgRef.shape)) for o in tryList])
     currDis = np.min(currDisList)
-    currOffset = tryList[np.where(currDisList == currDis)[0]]
+    minInd = np.where(currDisList == currDis)[0]
+    if len(minInd)>0: minInd = minInd[0]
+    currOffset = tryList[minInd]
 
     while currDis < prevDis:
         prevDis = currDis; prevOffset = currOffset
@@ -104,7 +106,8 @@ def alignSingleMovie(mov,imgRef,badFrameDistanceThr=100,maxDisplacement=10,normF
 
     for i in iterFrames:
         if normFunc(mov[i,:,:],imgRef)<=badFrameDistanceThr:
-            initCurrFrame = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
+            if np.array_equal(currOffset,np.array([0,0])):initCurrFrame = mov[i,:,:]
+            else: initCurrFrame = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
             additionalOffset, hitFlag = iamstupid(initCurrFrame,imgRef,maxDisplacement=maxDisplacement,normFunc=normFunc)
             currOffset = currOffset+additionalOffset
             alignedMov[i,:,:] = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
@@ -162,7 +165,7 @@ def alignMultipleTiffs(paths,
     within and across tif files
 
     paths: paths of input tif files
-    iterations: number of iterations to perform motion correction
+    iterations: number of iterations to perform motion correction8
     badFrameDistanceThr: the threshold of distance to define a good or bad frame, if a frame has distance from reference
                          framebigger than this value, it will be defined as bad frame, it will not be included in mean
                          frame calculation
@@ -179,42 +182,58 @@ def alignMultipleTiffs(paths,
     offsets = []
     meanFrames = []
     for path in paths:
-        print '\nStart alignment of file:', path,'...'
+        print '\n\nStart alignment of file:', path,'...\n'
         currMov = tf.imread(path)
         currOffset, _, currMeanFrame = alignSingleMovieLoop(currMov,iterations=iterations,badFrameDistanceThr=badFrameDistanceThr,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
         offsets.append(currOffset)
         meanFrames.append(currMeanFrame)
-        print 'End of alignment.'
+
+        # temporally save results
+        print '\nSaving temporary motion correction results for file:', path
+        fileFolder, fileName = os.path.split(path)
+        newFileName = os.path.splitext(fileName)[0]+'_correction_results.pkl'
+        if saveFolder is not None: savePath = os.path.join(saveFolder,newFileName)
+        else: savePath = os.path.join(fileFolder,newFileName)
+        ft.saveFile(savePath,{'offset':currOffset,'meanFrame':currMeanFrame})
+        print '\nEnd of alignment for file:',path
 
     meanFrames = np.array(meanFrames)
     if len(paths) > 1:
         if verbose:
-            print '\nPlotting distance distribution acrose mean frames of each file ...'
+            print '\n\nPlotting distance distribution across mean frames of each file ...'
             _, f = getDistanceList(meanFrames,meanFrames[0,:,:],normFunc=normFunc,isPlot=True)
             f.suptitle('Distances across files'); plt.show()
-        print '\nStart alignment across files...'
-        fileOffset, _, allMeanFrame = alignSingleMovieLoop(meanFrames,iterations=5,badFrameDistanceThr=65535,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
+        print '\nStart alignment across files...\n'
+        fileOffset, allMeanFrames, aveMeanFrame = alignSingleMovieLoop(meanFrames,iterations=5,badFrameDistanceThr=65535,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
         if verbose:
-            print '\nPlotting mean frame of each file before and after cross file alignment ...'
-            tf.imshow(np.dstack((meanFrames,_)), cmap='gray'); plt.show()
-        for i in range(len(paths)):
+            print '\nPlotting mean frame of each file before and after cross file alignment ...\n'
+            tf.imshow(np.dstack((meanFrames, allMeanFrames)), cmap='gray'); plt.show()
+
+        for i, path in enumerate(paths):
             offsets[i] = offsets[i] + fileOffset[i,:]
-        print 'End of alignment'
-    else: print '\nThere is only one file in the list. No need to align across files'; allMeanFrame = meanFrames[0]
+            print 'Saving motion correction results for file:', path
+            fileFolder, fileName = os.path.split(path)
+            newFileName = os.path.splitext(fileName)[0]+'_correction_results.pkl'
+            if saveFolder is not None: savePath = os.path.join(saveFolder,newFileName)
+            else: savePath = os.path.join(fileFolder,newFileName)
+            ft.saveFile(savePath,{'offset':offsets[i],'meanFrame':allMeanFrames[i,:,:]})
+        print '\nEnd of cross file alignment.\n'
+    else: print '\nThere is only one file in the list. No need to align across files\n'; aveMeanFrame = meanFrames[0]
 
     if output:
         for i, path in enumerate(paths):
-            print '\nGenerating output file for '+path
+            print 'Generating output image file for '+path
             fileFolder, fileName = os.path.split(path)
             newFileName = ('_'+fileNameSurfix).join(os.path.splitext(fileName))
             if saveFolder is None: newPath = os.path.join(fileFolder,newFileName)
             else: newPath = os.path.join(saveFolder,newFileName)
             mov = tf.imread(path)
             for j in range(mov.shape[0]):
-                mov[j,:,:] = ia.rigidTransform_cv2(mov[j,:,:],offset=offsets[i][j,:])
+                if not np.array_equal(offsets[i][j,:], np.array([0,0])):
+                    mov[j,:,:] = ia.rigidTransform_cv2(mov[j,:,:],offset=offsets[i][j,:])
             tf.imsave(newPath, mov-cameraBias)
 
-    return offsets, allMeanFrame
+    return offsets, aveMeanFrame
 
 
 
@@ -296,23 +315,22 @@ if __name__=='__main__':
     #======================================================================================================
 
     #======================================================================================================
-    # paths=[
-    #        r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif",
-    #        r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_002.tif"
-    #        ]
-    # offsets, allMeanFrame = alignMultipleTiffs(paths,
-    #                                            iterations=2,
-    #                                            badFrameDistanceThr=100,
-    #                                            maxDisplacement=10,
-    #                                            normFunc=ia.arrayDiff,
-    #                                            verbose=True,
-    #                                            output=True,
-    #                                            saveFolder=None,
-    #                                            fileNameSurfix='corrected',
-    #                                            cameraBias=0)
-    #
-    # print offsets[0]-offsets[1]
-    #======================================================================================================
+    paths=[
+           r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif",
+           r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_002.tif"
+           ]
+    offsets, meanFrame = alignMultipleTiffs(paths,
+                                               iterations=2,
+                                               badFrameDistanceThr=100,
+                                               maxDisplacement=10,
+                                               normFunc=ia.arrayDiff,
+                                               verbose=True,
+                                               output=True,
+                                               saveFolder=None,
+                                               fileNameSurfix='corrected',
+                                               cameraBias=0)
 
+    print offsets[0]-offsets[1]
+    #======================================================================================================
 
     print 'for debug...'
