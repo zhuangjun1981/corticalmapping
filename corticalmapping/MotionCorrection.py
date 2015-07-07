@@ -199,7 +199,7 @@ def alignMultipleTiffs(paths,
         newFileName = os.path.splitext(fileName)[0]+'_correction_results.pkl'
         if saveFolder is not None: savePath = os.path.join(saveFolder,newFileName)
         else: savePath = os.path.join(fileFolder,newFileName)
-        ft.saveFile(savePath,{'offset':currOffset,'meanFrame':currMeanFrame})
+        ft.saveFile(savePath,{'offset':currOffset,'meanFrame':currMeanFrame.astype(np.float32),'path':path,'status':'single_file'})
         print 'End of alignment for file:',path
 
     meanFrames = np.array(meanFrames)
@@ -219,7 +219,7 @@ def alignMultipleTiffs(paths,
             newFileName = os.path.splitext(fileName)[0]+'_correction_results.pkl'
             if saveFolder is not None: savePath = os.path.join(saveFolder,newFileName)
             else: savePath = os.path.join(fileFolder,newFileName)
-            ft.saveFile(savePath,{'offset':offsets[i],'meanFrame':allMeanFrames[i,:,:]})
+            ft.saveFile(savePath,{'offset':offsets[i],'meanFrame':allMeanFrames[i,:,:].astype(np.float32),'path':path,'status':'cross_files'})
         print 'End of cross file alignment.\n'
     else: print '\nThere is only one file in the list. No need to align across files\n'; aveMeanFrame = meanFrames[0]
 
@@ -318,22 +318,22 @@ if __name__=='__main__':
     #======================================================================================================
 
     #======================================================================================================
-    paths=[
-           r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif",
-           r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_002.tif"
-           ]
-    offsets, meanFrame = alignMultipleTiffs(paths,
-                                               iterations=2,
-                                               badFrameDistanceThr=100,
-                                               maxDisplacement=10,
-                                               normFunc=ia.arrayDiff,
-                                               verbose=False,
-                                               output=True,
-                                               saveFolder=None,
-                                               fileNameSurfix='corrected',
-                                               cameraBias=0)
-
-    print offsets[0]-offsets[1]
+    # paths=[
+    #        r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_001.tif",
+    #        r"E:\data2\2015-06-11-python-2P-analysis-test\motion_correction_test\for_Jun\test_002.tif"
+    #        ]
+    # offsets, meanFrame = alignMultipleTiffs(paths,
+    #                                            iterations=2,
+    #                                            badFrameDistanceThr=100,
+    #                                            maxDisplacement=10,
+    #                                            normFunc=ia.arrayDiff,
+    #                                            verbose=False,
+    #                                            output=True,
+    #                                            saveFolder=None,
+    #                                            fileNameSurfix='corrected',
+    #                                            cameraBias=0)
+    #
+    # print offsets[0]-offsets[1]
     #======================================================================================================
 
     print 'for debug...'

@@ -27,9 +27,6 @@ import core.ImageAnalysis as ia
 import core.tifffile as tf
 import core.PlottingTools as pt
 
-# try: import cv2; import ImageAnalysis.rigidTransform_cv2 as rigidTransform
-# except ImportError as e: print e; import ImageAnalysis.rigidTransform as rigidTransform
-
 try: import cv2; from core.ImageAnalysis import rigidTransform_cv2 as rigidTransform
 except ImportError as e: print e; from core.ImageAnalysis import rigidTransform as rigidTransform
 
@@ -264,20 +261,20 @@ class AppForm(QMainWindow):
 
                     self.trialDict = ft.loadFile(filePath)
                     self.MatchingVasMap = pt.mergeNormalizedImages([self.trialDict['vasculatureMap']])
-                    self.MatchingVasMapRaw = pt.mergeNormalizedImages([self.trialDict['vasculatureMap']],isFilter=False)
+                    self.MatchingVasMapRaw = self.trialDict['vasculatureMap']
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
                 elif filePath[-3:] == 'tif': # tiff file
                     self.MatchingVasMap = pt.mergeNormalizedImages([tf.imread(filePath)])
-                    self.MatchingVasMapRaw = pt.mergeNormalizedImages([tf.imread(filePath)],isFilter=False)
+                    self.MatchingVasMapRaw = tf.imread(filePath)
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
                 else: # JCam file
                     currMap, _ = ft.importRawJCam(filePath)
                     self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]])
-                    self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]],isFilter=False)
+                    self.MatchingVasMapRaw = currMap[0]
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 

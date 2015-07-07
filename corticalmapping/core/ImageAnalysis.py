@@ -66,10 +66,35 @@ def arrayNor(A):
     '''
 
     B=A.astype(np.float)
-
     B = (B-np.amin(B))/(np.amax(B)-np.amin(B))
-
     return B.astype(A.dtype)
+
+
+def arrayNorMedian(A):
+    '''
+    normalize array by minus median, data type will be switch to np.float
+    '''
+    A=A.astype(np.float)
+    B=A-np.median(A.flatten())
+    return B
+
+
+def  arrayNorMean(A):
+    '''
+    normalize array by minus mean, data type will be switch to np.float
+    '''
+    A=A.astype(np.float)
+    B=A-np.mean(A.flatten())
+    return B
+
+
+def arrayNorMeanStd(A):
+    '''
+    normalize array by minus mean and then devided by standard deviation, data type will be switch to np.float
+    '''
+    A=A.astype(np.float)
+    B=(A-np.mean(A.flatten()))/np.std(A.flatten())
+    return B
 
 
 def distance(p0, p1):

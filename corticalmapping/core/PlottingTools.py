@@ -341,6 +341,7 @@ def saveFigureWithoutBorders(f,
     f.supertitle = None
     f.savefig(savePath,pad_inches = 0,bbox_inches='tight',**kwargs)
 
+
 def mergeNormalizedImages(imgList,isFilter=True,sigma=50,mergeMethod='mean',dtype=np.float32):
 
     '''
