@@ -24,14 +24,14 @@ def getRGB(colorStr):
     return int(colorStr[1:3],16),int(colorStr[3:5],16),int(colorStr[5:7],16)
 
 
-def binary2RGBA(img,foreGroundColor='#ff0000',backGroundColor='#000000',foreGroundAlpha=255,backGroundAlpha=0):
+def binary2RGBA(img,foregroundColor='#ff0000',backgroundColor='#000000',foregroundAlpha=255,backgroundAlpha=0):
     '''
     generate display image in (RGBA).(np.uint8) format which can be displayed by imshow
     :param img: input image, should be a binary array (np.bool, or np.(u)int
-    :param foreGroundColor: color for 1 in the array, RGB str, i.e. '#ff0000'
-    :param backGroundColor: color for 0 in the array, RGB str, i.e. '#ff00ff'
-    :param foreGroundAlpha: alpha for 1 in the array, int, 0-255
-    :param backGroundAlpha: alpha for 1 in the array, int, 0-255
+    :param foregroundColor: color for 1 in the array, RGB str, i.e. '#ff0000'
+    :param backgroundColor: color for 0 in the array, RGB str, i.e. '#ff00ff'
+    :param foregroundAlpha: alpha for 1 in the array, int, 0-255
+    :param backgroundAlpha: alpha for 1 in the array, int, 0-255
     :return: displayImg, (RGBA).(np.uint8) format, ready for imshow
     '''
 
@@ -40,25 +40,25 @@ def binary2RGBA(img,foreGroundColor='#ff0000',backGroundColor='#000000',foreGrou
         if np.amin(img)<0 or np.amax(img)>1:raise ValueError, 'Values of input image should be either 0 or 1.'
     else: raise TypeError, 'Data type of input image should be either np.bool or integer.'
 
-    if type(foreGroundAlpha) is int:
-        if foreGroundAlpha<0 or foreGroundAlpha>255:raise ValueError, 'Value of foreGroundAlpha should be between 0 and 255.'
+    if type(foregroundAlpha) is int:
+        if foregroundAlpha<0 or foregroundAlpha>255:raise ValueError, 'Value of foreGroundAlpha should be between 0 and 255.'
     else: raise TypeError, 'Data type of foreGroundAlpha should be integer.'
 
-    if type(backGroundAlpha) is int:
-        if backGroundAlpha<0 or backGroundAlpha>255:raise ValueError, 'Value of backGroundAlpha should be between 0 and 255.'
+    if type(backgroundAlpha) is int:
+        if backgroundAlpha<0 or backgroundAlpha>255:raise ValueError, 'Value of backGroundAlpha should be between 0 and 255.'
     else: raise TypeError, 'Data type of backGroundAlpha should be integer.'
 
-    fR,fG,fB=getRGB(foreGroundColor)
-    bR,bG,bB=getRGB(backGroundColor)
+    fR,fG,fB=getRGB(foregroundColor)
+    bR,bG,bB=getRGB(backgroundColor)
 
     displayImg = np.zeros((img.shape[0],img.shape[1],4)).astype(np.uint8)
-    displayImg[img==1]=np.array([fR,fG,fB,foreGroundAlpha]).astype(np.uint8)
-    displayImg[img==0]=np.array([bR,bG,bB,backGroundAlpha]).astype(np.uint8)
+    displayImg[img==1]=np.array([fR,fG,fB,foregroundAlpha]).astype(np.uint8)
+    displayImg[img==0]=np.array([bR,bG,bB,backgroundAlpha]).astype(np.uint8)
 
     return displayImg
 
 
-def binary2RGBA2(img,color='#ff0000'):
+def scalar2RGBA(img,color='#ff0000'):
     '''
     generate display a image in (RGBA).(np.uint8) format which can be displayed by imshow
     alpha is defined by values in the img
@@ -70,10 +70,14 @@ def binary2RGBA2(img,color='#ff0000'):
 
     R,G,B=getRGB(color)
 
+    RMatrix = int(R * ia.arrayNor(img.astype(np.float32)))
+    GMatrix = int(G * ia.arrayNor(img.astype(np.float32)))
+    BMatrix = int(B * ia.arrayNor(img.astype(np.float32)))
+
     alphaMatrix = (ia.arrayNor(img.astype(np.float32))*255).astype(np.uint8)
 
     displayImg = np.zeros((img.shape[0],img.shape[1],4)).astype(np.uint8)
-    displayImg[:,:,0]=R;displayImg[:,:,1]=G;displayImg[:,:,2]=B;displayImg[:,:,3]=alphaMatrix
+    displayImg[:,:,0]=RMatrix; displayImg[:,:,1]=GMatrix; displayImg[:,:,2]=BMatrix; displayImg[:,:,3]=alphaMatrix
 
     return displayImg
 
@@ -411,7 +415,7 @@ if __name__=='__main__':
 
     #----------------------------------------------------
     b=np.random.rand(5,5)
-    displayImg = binary2RGBA2(b)
+    displayImg = scalar2RGBA(b)
     plt.imshow(displayImg,interpolation='nearest')
     plt.show()
     #----------------------------------------------------

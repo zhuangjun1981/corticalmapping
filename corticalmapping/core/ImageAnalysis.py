@@ -955,6 +955,25 @@ def sortMasks(masks,keyPrefix='',labelLength=3):
     return newMasks
 
 
+def tempDownSample(A, rate, verbose=False):
+    '''
+    down sample a 3-d array in 0 direction
+    '''
+
+    if len(A.shape) != 3: raise ValueError, 'input array should be 3-d.'
+    rate = int(rate)
+    dataType = A.dtype
+    newZDepth = (A.shape[0] - (A.shape[0]%rate))/rate
+    newA = np.empty((newZDepth,A.shape[1],A.shape[2]),dtype=dataType)
+
+    for i in range(newZDepth):
+        if verbose:
+            print (float(i)*100/newZDepth),'%'
+            currChunk = A[i*3:(i+1)*3,:,:].astype(np.float)
+            currFrame = np.mean(currChunk,axis=0)
+            newA[i,:,:]=currFrame.astype(dataType)
+    return newA
+
 
 if __name__ == '__main__':
 
