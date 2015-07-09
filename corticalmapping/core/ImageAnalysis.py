@@ -117,7 +117,7 @@ def distance(p0, p1):
 
     if not isinstance(p0, np.ndarray):p0 = np.array(p0)
     if not isinstance(p1, np.ndarray):p1 = np.array(p1)
-    return np.sqrt(np.sum(np.square(p0-p1).flatten()))
+    return np.sqrt(np.mean(np.square(p0-p1).flatten()))
 
 
 def arrayDiff(a0,a1):

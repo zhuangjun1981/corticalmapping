@@ -70,9 +70,9 @@ def scalar2RGBA(img,color='#ff0000'):
 
     R,G,B=getRGB(color)
 
-    RMatrix = int(R * ia.arrayNor(img.astype(np.float32)))
-    GMatrix = int(G * ia.arrayNor(img.astype(np.float32)))
-    BMatrix = int(B * ia.arrayNor(img.astype(np.float32)))
+    RMatrix = (R * ia.arrayNor(img.astype(np.float32))).astype(np.uint8)
+    GMatrix = (G * ia.arrayNor(img.astype(np.float32))).astype(np.uint8)
+    BMatrix = (B * ia.arrayNor(img.astype(np.float32))).astype(np.uint8)
 
     alphaMatrix = (ia.arrayNor(img.astype(np.float32))*255).astype(np.uint8)
 

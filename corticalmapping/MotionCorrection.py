@@ -30,6 +30,12 @@ def iamstupid(imgMat,imgRef,maxDisplacement=10,normFunc=ia.arrayDiff):
         columnMaxDisplacement = int(abs(maxDisplacement[1]))
     except TypeError: rowMaxDisplacement = columnMaxDisplacement = int(abs(maxDisplacement))
 
+    #temporary code
+    # imgMat[imgMat<150]=0
+    # imgRef[imgRef<150]=0
+    # imgMat[imgMat>400]=400
+    # imgRef[imgRef>400]=400
+
     prevDis = normFunc(imgRef,imgMat)
     prevOffset = [0, 0]
     hitLimitFlag = [0, 0]
@@ -75,9 +81,11 @@ def getDistanceList(img, imgRef, normFunc=ia.arrayDiff, isPlot = False):
     for i in range(img.shape[0]):
         distanceList[i] = normFunc(img[i,:,:], imgRef)
     if isPlot:
+        disMedian = np.median(distanceList)
+        disStd = np.std(distanceList)
         f = plt.figure(figsize=(15,8))
         ax1 = f.add_subplot(211); ax1.plot(distanceList), ax1.set_ylim([0,200]);ax1.set_title('distance from mean for each frame')
-        ax2 = f.add_subplot(212); _ = ax2.hist(distanceList, bins=50, range=(40,200)); ax2.set_title('distribution of distances')
+        ax2 = f.add_subplot(212); _ = ax2.hist(distanceList, bins=50, range=(disMedian-3*disStd,disMedian+3*disStd)); ax2.set_title('distribution of distances')
         return distanceList, f
     else: return distanceList
 
@@ -180,7 +188,7 @@ def alignMultipleTiffs(paths,
     '''
 
     if saveFolder is not None:
-        fileNameList = [os.path.split(p)[0] for p in paths]
+        fileNameList = [os.path.split(p)[1] for p in paths]
         if len(set(fileNameList))<len(fileNameList):
             raise ValueError, 'If a save folder is declared, file names in paths should be unique!'
 
@@ -210,7 +218,7 @@ def alignMultipleTiffs(paths,
         print 'Start alignment across files...'
         fileOffset, allMeanFrames, aveMeanFrame = alignSingleMovieLoop(meanFrames,iterations=5,badFrameDistanceThr=65535,maxDisplacement=maxDisplacement,normFunc=normFunc,verbose=verbose)
         print 'Plotting mean frame of each file before and after cross file alignment ...'
-        tf.imshow(np.dstack((meanFrames, allMeanFrames)), cmap='gray'); plt.show()
+        tf.imshow(np.dstack((np.array(meanFrames), np.array(allMeanFrames))),photometric='miniswhite', cmap='gray'); plt.show()
 
         for i, path in enumerate(paths):
             offsets[i] = offsets[i] + fileOffset[i,:]
