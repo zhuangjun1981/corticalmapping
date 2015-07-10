@@ -65,20 +65,40 @@ class ROI(object):
         '''
         return trace of this ROI in a given movie
         '''
-        binMask = self.generateBinaryMask()
-        trace = np.multiply(mov,np.array([binMask])).sum(axis=1).sum(axis=1)
+        binaryMask = self.getBinaryMask()
+        trace = np.multiply(mov,np.array([binaryMask])).sum(axis=1).sum(axis=1)
         return trace
 
 
-    def getDisplayImg(self,color='#ff0000',isPlot=False):
+    def plotBinaryMask(self,plotAxis=None,color='#ff0000',alpha=1):
         '''
-        return display image (RGBA uint8 format) which can be plotted by plt.imshow
+        return display image (RGBA uint8 format) which can be plotted by plt.imshow, alpha: transparency 0-1
         '''
         mask = self.getBinaryMask()
-        displayImg = pt.binary2RGBA2(mask,color=color)
-        if isPlot: plt.imshow(displayImg,interpolation='nearest'); plt.show()
+        displayImg = pt.binary2RGBA(mask,foregroundColor=color,backgroundColor='#000000',foregroundAlpha=int(alpha*255),backgroundAlpha=0)
+        if plotAxis is None: f=plt.figure();plotAxis=f.add_subplot(111);plotAxis.imshow(displayImg,interpolation='nearest')
         return displayImg
 
+
+    def plotBinaryMaskBorder(self,**kwargs):
+        pt.plotMask(self.getNanMask(),**kwargs)
+
+
+    def getH5Group(self, h5Group):
+        '''
+        add attributes and dataset to a h5 data group
+        '''
+        h5Group.attrs['dimension'] = self.dimension
+        if self.pixelSize is None: h5Group.attrs['pixelSize'] = 'None'
+        else: h5Group.attrs['pixelSize'] = self.pixelSize
+        if self.pixelSizeUnit is None: h5Group.attrs['pixelSizeUnit'] = 'None'
+        else: h5Group.attrs['pixelSizeUnit'] = self.pixelSizeUnit
+
+        dataDict = dict(self.__dict__)
+        _ = dataDict.pop('dimension');_ = dataDict.pop('pixelSize');_ = dataDict.pop('pixelSizeUnit')
+        for key, value in dataDict.iteritems():
+            if value is None: h5Group.create_dataset(key,data='None')
+            else: h5Group.create_dataset(key,data=value)
 
 
 
@@ -116,19 +136,32 @@ class WeightedROI(ROI):
         return trace
 
 
-    def getDisplayImg(self,color='#ff0000',isPlot=False):
+    def plotWeightedMask(self,plotAxis=None,color='#ff0000'):
         '''
         return display image (RGBA uint8 format) which can be plotted by plt.imshow
         '''
         mask = self.getWeightedMask()
-        displayImg = pt.binary2RGBA2(mask,color=color)
-        if isPlot: plt.imshow(displayImg,interpolation='nearest'); plt.show()
+        displayImg = pt.scalar2RGBA(mask,color=color)
+        if plotAxis is None: f=plt.figure(); plotAxis=f.add_subplot(111); plotAxis.imshow(displayImg,interpolation='nearest')
         return displayImg
+
+
+    def getTrace(self,mov):
+        '''
+        return trace of this ROI in a given movie
+        '''
+        weightedMask = self.getWeightedMask()
+        trace = np.multiply(mov,np.array([weightedMask])).sum(axis=1).sum(axis=1)
+        return trace
+
+
 
 
 
 
 if __name__=='__main__':
+
+    plt.ioff()
 
     #=====================================================================
     # a = np.zeros((5,5))
@@ -163,9 +196,13 @@ if __name__=='__main__':
     # aa = np.zeros((50,50))
     # aa[15:20,30:35] = np.random.rand(5,5)
     # roi1 = ROI(aa)
-    # _ = roi1.getDisplayImg(isPlot=True)
+    # _ = roi1.plotBinaryMaskBorder()
+    # _ = roi1.plotBinaryMask()
     # roi2 = WeightedROI(aa)
-    # _ = roi2.getDisplayImg(isPlot=True)
+    # _ = roi2.plotBinaryMaskBorder()
+    # _ = roi2.plotBinaryMask()
+    # _ = roi2.plotWeightedMask()
+    # plt.show()
     #=====================================================================
 
 

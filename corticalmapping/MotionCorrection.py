@@ -249,7 +249,7 @@ def alignMultipleTiffs(paths,
 
 
 
-
+#todo: added open cv phase correlation method and make motion correction class.
 
 
 
