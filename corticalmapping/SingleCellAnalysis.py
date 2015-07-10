@@ -5,6 +5,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 import core.PlottingTools as pt
 
+def loadROIFromH5(h5Group):
+    '''
+    load ROI (either ROI or WeightedROI) class from a hdf5 data group
+    '''
+
+    dimension = h5Group.attrs['dimension']
+    pixelSize = h5Group.attrs['pixelSize']
+    if pixelSize == 'None': pixelSize = None
+    pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
+    if pixelSizeUnit == 'None': pixelSizeUnit = None
+    pixels = h5Group['pixels'].value
+
+    if 'weights' in h5Group.keys():
+        weights = h5Group['weights'].value
+        mask = np.zeros(dimension,dtype=np.float32); mask[pixels]=weights
+        return WeightedROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
+    else:
+        mask = np.zeros(dimension,dtype=np.uint8); mask[pixels]=1
+        return ROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
+
+
 class ROI(object):
     '''
     class of binary ROI
@@ -99,6 +120,7 @@ class ROI(object):
         for key, value in dataDict.iteritems():
             if value is None: h5Group.create_dataset(key,data='None')
             else: h5Group.create_dataset(key,data=value)
+
 
 
 
