@@ -4,6 +4,7 @@ __author__ = 'junz'
 import numpy as np
 import matplotlib.pyplot as plt
 import core.PlottingTools as pt
+import core.FileTools as ft
 
 def loadROIFromH5(h5Group):
     '''
@@ -19,11 +20,52 @@ def loadROIFromH5(h5Group):
 
     if 'weights' in h5Group.keys():
         weights = h5Group['weights'].value
-        mask = np.zeros(dimension,dtype=np.float32); mask[pixels]=weights
+        mask = np.zeros(dimension,dtype=np.float32); mask[tuple(pixels)]=weights
         return WeightedROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
     else:
-        mask = np.zeros(dimension,dtype=np.uint8); mask[pixels]=1
+        mask = np.zeros(dimension,dtype=np.uint8); mask[tuple(pixels)]=1
         return ROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
+
+
+def getSparseNoiseOnsetIndex(sparseNoiseDisplayLog):
+    '''
+    return the indices of visual display frames for each square in a sparse noise display
+
+    return:
+    allOnsetInd: the indices of frames for each square, list
+    onOnsetInd: indices of frames for each white square, list with element structure [[alt, azi], [list of indices]]
+    OffOnsetInd: indices of frames for each white square, list with element structure [[alt, azi], [list of indices]]
+    '''
+
+    framesSingleIter = sparseNoiseDisplayLog['stimulation']['frames']
+
+    frames = framesSingleIter * sparseNoiseDisplayLog['presentation']['displayIteration']
+
+    allOnsetFrames = [[i,frame[1],frame[2]] for i, frame in enumerate(frames) if frame[0]==1 and frame[3]==1]
+
+    allOnsetInd = [x[0] for x in allOnsetFrames]
+
+    allOnSquares = list(set([tuple(x[1]) for x in framesSingleIter if x[2]==1])) #unique coordinates of retinotopic locations of all white squares
+    allOffSquares = list(set([tuple(x[1]) for x in framesSingleIter if x[2]==-1])) #unique coordinates of retinotopic locations of all white squares
+
+    print 'Number of ON sampled locations:', len(allOnSquares)
+    print 'Number of OFF sampled locations:', len(allOffSquares)
+
+    if allOnSquares:
+        onOnsetInd = [[np.array(point),[]] for point in allOnSquares]
+        for i, loc in enumerate(onOnsetInd):
+            loc[1] = [frame[0] for frame in allOnsetFrames if np.array_equal(loc[0],frame[1]) and frame[2]==1]
+    else: onOnsetInd = None
+
+    if allOffSquares:
+        offOnsetInd = [[np.array(point),[]] for point in allOffSquares]
+        for i, loc in enumerate(offOnsetInd):
+            loc[1] = [frame[0] for frame in allOnsetFrames if np.array_equal(loc[0],frame[1]) and frame[2]==-1]
+    else: offOnsetInd = None
+
+    return allOnsetInd, onOnsetInd, offOnsetInd
+
+
 
 
 class ROI(object):
@@ -227,5 +269,12 @@ if __name__=='__main__':
     # plt.show()
     #=====================================================================
 
+    #=====================================================================
+    pklPath = r"Z:\Jun\150610-M160809\SparseNoise_5x5_003\150610174646-SparseNoise-mouse160809-Jun-notTriggered.pkl"
+    allOnsetInd, onOnsetInd, offOnsetInd = getSparseNoiseOnsetIndex(ft.loadFile(pklPath))
 
+    print allOnsetInd[0:5]
+    print onOnsetInd[0:2]
+    print offOnsetInd[0:2]
+    #=====================================================================
     print 'for debug...'

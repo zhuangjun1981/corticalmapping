@@ -10,6 +10,7 @@ Created on Fri Oct 31 11:07:20 2014
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import colorsys
 import matplotlib.colors as col
 import scipy.ndimage as ni
 
@@ -19,9 +20,20 @@ import ImageAnalysis as ia
 
 def getRGB(colorStr):
     '''
-    get R,G,B int value from a color string
+    get R,G,B int value from a hex color string
     '''
     return int(colorStr[1:3],16),int(colorStr[3:5],16),int(colorStr[5:7],16)
+
+
+def getColorStr(R,G,B):
+    '''
+    get hex color string from R,G,B value (integer with uint8 format)
+    '''
+    if not (isinstance(R,(int,long)) and isinstance(G,(int,long)) and isinstance(G,(int,long))):
+        raise TypeError, 'Input R, G and B should be integer!'
+
+    if not ((0<=R<=255) and (0<=G<=255) and (0<=B<=255)): raise ValueError, 'Input R, G and B should between 0 and 255!'
+    return '#'+''.join(map(chr, (R,G,B))).encode('hex')
 
 
 def binary2RGBA(img,foregroundColor='#ff0000',backgroundColor='#000000',foregroundAlpha=255,backgroundAlpha=0):
@@ -307,6 +319,9 @@ def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closin
     return currfig
 
 
+#todo: new plot mask function using contour and return mask border as vector graph
+
+
 def gridAxis(rowNum,columnNum,totalPlotNum,**kwarg):
     '''
     return figure handles and axis handels for multiple subplots and figures
@@ -332,17 +347,16 @@ def gridAxis(rowNum,columnNum,totalPlotNum,**kwarg):
     
 def saveFigureWithoutBorders(f,
                              savePath,
-                             removeAxisTitle = True,
                              removeSuperTitle = True,
                              **kwargs):
     '''
     remove borders of a figure
     '''
-    
     f.gca().get_xaxis().set_visible(False)
     f.gca().get_yaxis().set_visible(False)
     f.gca().set_title('')
-    f.supertitle = None
+    if removeSuperTitle:
+        f.suptitle('')
     f.savefig(savePath,pad_inches = 0,bbox_inches='tight',**kwargs)
 
 
@@ -371,6 +385,20 @@ def mergeNormalizedImages(imgList,isFilter=True,sigma=50,mergeMethod='mean',dtyp
         mergedImgf = ni.filters.gaussian_filter(mergedImg.astype(np.float),sigma=sigma)
         return ia.arrayNor(mergedImg - mergedImgf).astype(dtype)
     else: return ia.arrayNor(mergedImg).astype(dtype)
+
+
+def hue2RGB(hue):
+    '''
+    get the RGB value as format as hex string from the decimal ratio of hue (from 0 to 1)
+    color model as described in:
+    https://en.wikipedia.org/wiki/Hue
+    '''
+    color = colorsys.hsv_to_rgb(hue,1,1)
+    color = [int(x*255) for x in color]
+    return getColorStr(*color)
+
+
+
 
 
 
@@ -414,10 +442,24 @@ if __name__=='__main__':
     #----------------------------------------------------
 
     #----------------------------------------------------
-    b=np.random.rand(5,5)
-    displayImg = scalar2RGBA(b)
-    plt.imshow(displayImg,interpolation='nearest')
-    plt.show()
+    # b=np.random.rand(5,5)
+    # displayImg = scalar2RGBA(b)
+    # plt.imshow(displayImg,interpolation='nearest')
+    # plt.show()
+    #----------------------------------------------------
+
+    #----------------------------------------------------
+    # print hue2RGB((2./3.))
+    # assert hue2RGB((2./3.)) == '#0000ff'
+    #----------------------------------------------------
+
+    #----------------------------------------------------
+    f=plt.figure()
+    f.suptitle('test')
+    ax=f.add_subplot(111)
+    ax.imshow(np.random.rand(20,20))
+    saveFigureWithoutBorders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_title.png',removeSuperTitle=False,dpi=300)
+    saveFigureWithoutBorders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_notitle.png',removeSuperTitle=True,dpi=300)
     #----------------------------------------------------
 
     print 'for debug'
