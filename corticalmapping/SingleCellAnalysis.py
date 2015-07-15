@@ -1,14 +1,15 @@
 __author__ = 'junz'
 
 
+import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import core.PlottingTools as pt
 import core.FileTools as ft
 
-def loadROIFromH5(h5Group):
+def load_ROI_FromH5(h5Group):
     '''
-    load ROI (either ROI or WeightedROI) class from a hdf5 data group
+    load ROI (either ROI or WeightedROI) object from a hdf5 data group
     '''
 
     dimension = h5Group.attrs['dimension']
@@ -25,6 +26,27 @@ def loadROIFromH5(h5Group):
     else:
         mask = np.zeros(dimension,dtype=np.uint8); mask[tuple(pixels)]=1
         return ROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
+
+
+def load_STRF_FromH5(h5Group):
+    '''
+    load SpatialTemporalReceptiveField object from a hdf5 data group
+    '''
+
+    time = h5Group.attrs['time']
+    locations = []
+    tracesON = []
+    tracesOFF = []
+    for key, traceItem in h5Group.iteritems():
+        locations.append(np.array([traceItem.attrs['altitude'],traceItem.attrs['azimuth']]))
+        currTraceON = list(traceItem['traces_ON'].value)
+        currTraceOFF = list(traceItem['traces_OFF'].value)
+        if currTraceON: tracesON.append(currTraceON)
+        else: tracesON.append(None)
+        if currTraceOFF: tracesOFF.append(currTraceOFF)
+        else: tracesOFF.append(None)
+
+    return SpatialTemporalReceptiveField(locations,tracesON,tracesOFF,time)
 
 
 def getSparseNoiseOnsetIndex(sparseNoiseDisplayLog):
@@ -147,7 +169,7 @@ class ROI(object):
         pt.plotMask(self.getNanMask(),**kwargs)
 
 
-    def getH5Group(self, h5Group):
+    def toH5Group(self, h5Group):
         '''
         add attributes and dataset to a h5 data group
         '''
@@ -221,6 +243,132 @@ class WeightedROI(ROI):
 
 
 
+class SpatialTemporalReceptiveField(object):
+    '''
+    class of spatial temporal receptive field represented by traces for each specified retinotopic location
+    '''
+
+    def __init__(self,locations,tracesON,tracesOFF,time):
+        '''
+        locations: list of retinotopic locations mapped, [(altitude, azimuth)]
+        tracesON: ON response traces for each retinotopic location (can be multiple for each location), should be same length of locations
+                  list of 2-d array, each row: a single trace, each column: a single time point
+        tracesOF: OFF response traces for each retinotopic location (can be multiple for each location), should be same length of locations
+                  list of 2-d array, each row: a single trace, each column: a single time point
+        time: time axis for trace
+        '''
+
+        self.time = time
+        dtype = [('altitude',float),('azimuth',float),('tracesON',list),('tracesOFF',list)]
+
+        if tracesON is not None and tracesOFF is not None:
+            values = [ (location[0], location[1],tracesON[i], tracesOFF[i]) for i, location in enumerate(locations)]
+        if tracesON is not None and tracesOFF is None:
+            values = [ (location[0], location[1],tracesON[i], None) for i, location in enumerate(locations)]
+        if tracesON is None and tracesOFF is not None:
+            values = [ (location[0], location[1],None, tracesOFF[i]) for i, location in enumerate(locations)]
+        if tracesON is None and tracesOFF is not None: raise ValueError, 'Input traces can not both be None!'
+
+
+        self.data = np.array(values,dtype=dtype)
+        self.sortData()
+
+
+    def mergeDuplication(self):
+        #todo: merge traces with same retinotopic loacation
+        pass
+
+
+    def sortData(self):
+        self.data = np.sort(self.data,order=['altitude','azimuth'])
+
+
+    def getDataType(self):
+        return self.data.dtype
+
+
+    def getLocations(self):
+        return np.array([self.data['altitude'],self.data['azimuth']]).transpose()
+
+
+    def addTraces(self,locations,tracesON,tracesOFF):
+
+        '''
+        add traces to existing receptive field
+        '''
+
+        dtype = [('altitude',float),('azimuth',float),('tracesON',list),('tracesOFF',list)]
+
+        if tracesON is not None and tracesOFF is not None:
+            values = [ (location[0], location[1],tracesON[i], tracesOFF[i]) for i, location in enumerate(locations)]
+        if tracesON is not None and tracesOFF is None:
+            values = [ (location[0], location[1],tracesON[i], None) for i, location in enumerate(locations)]
+        if tracesON is None and tracesOFF is not None:
+            values = [ (location[0], location[1],None, tracesOFF[i]) for i, location in enumerate(locations)]
+        if tracesON is None and tracesOFF is not None: raise ValueError, 'Input traces can not both be None!'
+
+        traceTuplesNeedToBeAdded = []
+
+        for i, location in enumerate(locations):
+            newTraceTuple = values[i]
+            findSameLocation = False
+            objLocations = np.array(self.getLocations())
+
+            for j, objLocation in enumerate(objLocations):
+
+                if np.array_equal(location,objLocation):
+                    findSameLocation = True
+                    objTraceItem = self.data[j]
+                    if newTraceTuple[2] is not None and objTraceItem['tracesON'] is None:
+                        objTraceItem['tracesON'] = list(newTraceTuple[2])
+                    if newTraceTuple[2] is not None and objTraceItem['tracesON'] is not None:
+                        objTraceItem['tracesON'] = objTraceItem['tracesON'] + newTraceTuple[2]
+                    if newTraceTuple[3] is not None and objTraceItem['tracesOFF'] is None:
+                        objTraceItem['tracesOFF'] = list(newTraceTuple[3])
+                    if newTraceTuple[3] is not None and objTraceItem['tracesOFF'] is not None:
+                        objTraceItem['tracesOFF'] = objTraceItem['tracesOFF'] + newTraceTuple[3]
+
+            if (findSameLocation == False) and (newTraceTuple[2] is not None or newTraceTuple[3] is not None):
+                traceTuplesNeedToBeAdded.append(tuple(newTraceTuple))
+
+
+        if traceTuplesNeedToBeAdded:
+            self.data = np.concatenate((self.data,np.array(traceTuplesNeedToBeAdded,dtype=dtype)),axis=0)
+
+        self.sortData()
+
+
+    def toH5Group(self, h5Group):
+
+        h5Group.attrs['time'] = self.time
+        h5Group.attrs['time_unit'] = 'second'
+        h5Group.attrs['retinotopic_location_unit'] = 'degree'
+        h5Group.attrs['trace_data_type'] = 'dF_over_F'
+        h5Group.attrs['trace_data_unit'] = '%'
+        h5Group.attrs['trace_representation_axis'] = 0
+        h5Group.attrs['trace_time_point_axis'] = 1
+
+        for i in range(len(self.data)):
+            locationName = 'location'+ft.int2str(i,4)
+            locationGroup = h5Group.create_group(locationName)
+            locationGroup.attrs['altitude'] = self.data[i]['altitude']
+            locationGroup.attrs['azimuth'] = self.data[i]['azimuth']
+            if self.data[i]['tracesON'] is not None:
+                   locationGroup.create_dataset('traces_ON', data = self.data[i]['tracesON'], dtype='f')
+            else: locationGroup.create_dataset('traces_ON', (0,), dtype='f')
+            if self.data[i]['tracesOFF'] is not None:
+                   locationGroup.create_dataset('traces_OFF', data = self.data[i]['tracesOFF'], dtype='f')
+            else: locationGroup.create_dataset('traces_OFF', (0,), dtype='f')
+
+
+
+
+
+
+
+
+
+
 
 
 if __name__=='__main__':
@@ -270,11 +418,43 @@ if __name__=='__main__':
     #=====================================================================
 
     #=====================================================================
-    pklPath = r"Z:\Jun\150610-M160809\SparseNoise_5x5_003\150610174646-SparseNoise-mouse160809-Jun-notTriggered.pkl"
-    allOnsetInd, onOnsetInd, offOnsetInd = getSparseNoiseOnsetIndex(ft.loadFile(pklPath))
-
-    print allOnsetInd[0:5]
-    print onOnsetInd[0:2]
-    print offOnsetInd[0:2]
+    # pklPath = r"Z:\Jun\150610-M160809\SparseNoise_5x5_003\150610174646-SparseNoise-mouse160809-Jun-notTriggered.pkl"
+    # allOnsetInd, onOnsetInd, offOnsetInd = getSparseNoiseOnsetIndex(ft.loadFile(pklPath))
+    #
+    # print allOnsetInd[0:5]
+    # print onOnsetInd[0:2]
+    # print offOnsetInd[0:2]
     #=====================================================================
+
+    #=====================================================================
+    # locations = [[3.0, 4.0], [3.0, 5.0], [2.0, 4.0], [2.0, 5.0]]
+    # tracesON=[[np.arange(4)],[np.arange(1,5)],[np.arange(2,6)],[np.arange(3,7)]]
+    # tracesOFF=[[np.arange(5,9)],[np.arange(6,10)],[np.arange(7,11)],[np.arange(8,12)]]
+    # time = np.arange(4,8)
+    #
+    # STRF = SpatialTemporalReceptiveField(locations,tracesON,tracesOFF,time)
+    #
+    # print STRF.data
+    # print STRF.getLocations()
+    #
+    # newLocations = [[location[0]+1,location[1]+1] for location in locations]
+    # STRF.addTraces(newLocations,tracesON,None)
+    #
+    # print STRF.data
+    #
+    # testFile = h5py.File(r"C:\JunZhuang\labwork\data\python_temp_folder\test.hdf5")
+    # STRFGroup = testFile.create_group('spatial_temporal_receptive_field')
+    # STRF.toH5Group(STRFGroup)
+    # testFile.close()
+    #=====================================================================
+
+    #=====================================================================
+    # filePath = r"C:\JunZhuang\labwork\data\python_temp_folder\test.hdf5"
+    # h5File = h5py.File(filePath)
+    # STRF = load_STRF_FromH5(h5File['spatial_temporal_receptive_field'])
+    # h5File.close()
+    # print STRF.data
+    #=====================================================================
+
+
     print 'for debug...'
