@@ -344,7 +344,23 @@ def gridAxis(rowNum,columnNum,totalPlotNum,**kwarg):
         
     return figureHandles, axisHandles
 
-    
+
+def tileAxis(f,rowNum,columnNum,topDownMargin=0.05,leftRightMargin=0.05,rowSpacing=0.05,columnSpacing=0.05):
+
+    if 2*topDownMargin+((rowNum-1)*rowSpacing) >= 1: raise ValueError, 'Top down margin or row spacing are too big!'
+    if 2*leftRightMargin+((columnNum-1)*columnSpacing) >= 1: raise ValueError, 'Left right margin or column spacing are too big!'
+
+    height = (1-(2*topDownMargin)-(rowNum-1)*rowSpacing)/rowNum
+    width = (1-(2*leftRightMargin)-(columnNum-1)*columnSpacing)/columnNum
+
+    xStarts = np.arange(leftRightMargin,1-leftRightMargin,(width+columnSpacing))
+    yStarts = np.arange(topDownMargin,1-topDownMargin,(height+rowSpacing))[::-1]
+
+    axisList = [[f.add_axes([xStart,yStart,width,height]) for xStart in xStarts] for yStart in yStarts]
+
+    return axisList
+
+
 def saveFigureWithoutBorders(f,
                              savePath,
                              removeSuperTitle = True,
@@ -454,12 +470,19 @@ if __name__=='__main__':
     #----------------------------------------------------
 
     #----------------------------------------------------
-    f=plt.figure()
-    f.suptitle('test')
-    ax=f.add_subplot(111)
-    ax.imshow(np.random.rand(20,20))
-    saveFigureWithoutBorders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_title.png',removeSuperTitle=False,dpi=300)
-    saveFigureWithoutBorders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_notitle.png',removeSuperTitle=True,dpi=300)
+    # f=plt.figure()
+    # f.suptitle('test')
+    # ax=f.add_subplot(111)
+    # ax.imshow(np.random.rand(20,20))
+    # saveFigureWithoutBorders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_title.png',removeSuperTitle=False,dpi=300)
+    # saveFigureWithoutBorders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_notitle.png',removeSuperTitle=True,dpi=300)
+    #----------------------------------------------------
+
+    #----------------------------------------------------
+    f=plt.figure(figsize=(12,9))
+    axisList = tileAxis(f,4,3,0.05,0.05,0.05,0.05)
+    print np.array(axisList).shape
+    plt.show()
     #----------------------------------------------------
 
     print 'for debug'

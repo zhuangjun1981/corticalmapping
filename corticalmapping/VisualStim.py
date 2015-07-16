@@ -2047,6 +2047,8 @@ class DisplaySequence(object):
 
 
     def triggerDisplay(self):
+
+        #todo: make _display more light weighted, and make the initial frame with indicator for photodiode
         
         if self.sequence is None: raise LookupError, "Please set the sequence to be displayed!!"
         

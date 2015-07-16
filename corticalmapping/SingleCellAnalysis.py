@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import core.PlottingTools as pt
 import core.FileTools as ft
+import itertools
 
 def load_ROI_FromH5(h5Group):
     '''
@@ -34,15 +35,16 @@ def load_STRF_FromH5(h5Group):
     '''
 
     time = h5Group.attrs['time']
+    name = h5Group.parent.name[1:]+'.'+h5Group.parent.attrs['name']
     locations = []
     signs = []
     traces = []
     for key, traceItem in h5Group.iteritems():
         locations.append(np.array([traceItem.attrs['altitude'],traceItem.attrs['azimuth']]))
         signs.append((traceItem.attrs['sign']))
-        traces.append(traceItem.value)
+        traces.append(list(traceItem.value))
 
-    return SpatialTemporalReceptiveField(locations,signs,traces,time)
+    return SpatialTemporalReceptiveField(locations,signs,traces,time,name)
 
 
 def getSparseNoiseOnsetIndex(sparseNoiseDisplayLog):
@@ -235,7 +237,7 @@ class SpatialTemporalReceptiveField(object):
     class of spatial temporal receptive field represented by traces for each specified retinotopic location
     '''
 
-    def __init__(self,locations,signs,traces,time):
+    def __init__(self,locations,signs,traces,time,name=None):
         '''
         locations: list of retinotopic locations mapped, array([altitude, azimuth])
         signs: list of signs for each location
@@ -245,6 +247,7 @@ class SpatialTemporalReceptiveField(object):
         '''
 
         self.time = time
+        self.name = name
         dtype = [('altitude',float),('azimuth',float),('sign',int),('traces',list)]
         values = [ (location[0], location[1], signs[i], traces[i]) for i, location in enumerate(locations)]
         if not values: raise ValueError, 'Can not find input traces!'
@@ -325,6 +328,62 @@ class SpatialTemporalReceptiveField(object):
             trace.attrs['sign'] = self.data[i]['sign']
 
 
+    def plotRawTraces(self,f=None,figSize=(10,10),yRange=(0,20),**kwargs):
+
+        indexLists, axisLists = self._getAxisLayout(f,figSize,yRange,**kwargs)
+
+        for i, axisList in enumerate(axisLists):
+            for j, axis in enumerate(axisList):
+                indexList = indexLists[i][j]
+                # axis.set_axis_off()
+                axis.set_xticks([]);axis.set_yticks([])
+                for pos in ['top','bottom','left','right']:
+                    axis.spines[pos].set_linewidth(0.5)
+                    axis.spines[pos].set_color('#888888')
+                axis.plot([0,0],yRange,'--',color='#888888',lw=0.5)
+
+                for index in indexList:
+                    if index:
+                        traces = self.data[index]['traces']
+                        meanTrace = np.mean(traces,axis=0)
+                        stdTrace = np.mean(traces,axis=0)
+                        if self.data[index]['sign'] == 1: color = '#ff0000'
+                        if self.data[index]['sign'] == -1: color = '#0000ff'
+                        axis.fill_between(self.time,meanTrace-stdTrace,meanTrace+stdTrace,facecolor=color,linewidth=0,alpha=0.5)
+                        axis.plot(self.time,meanTrace,'-',color=color,lw=1)
+
+        return f
+
+
+    def _getAxisLayout(self,f=None,figSize=(10,10),yRange=(0,20),**kwargs):
+
+        locations = np.array(self.getLocations())
+        altPositions = np.sort(np.unique(locations[:,0]))[::-1]; aziPositions = np.sort(np.unique(locations[:,1]))
+        indexLists = [ [[] for aziPosition in aziPositions] for altPosition in altPositions]
+
+        if f is None: f=plt.figure(figsize=figSize)
+        f.suptitle('cell:'+str(self.name)+'; xrange:['+str(self.time[0])[0:6]+','+str(self.time[-1])[0:6]+']; yrange:'+str(yRange))
+
+        axisLists = pt.tileAxis(f,len(altPositions),len(aziPositions),**kwargs)
+
+        for i, altPosition in enumerate(altPositions):
+            for j, aziPosition in enumerate(aziPositions):
+                axisLists[i][j].text(self.time[0],yRange[1],str(altPosition)+';'+str(aziPosition),ha='left',va='top',fontsize=10)
+                axisLists[i][j].set_xlim([self.time[0],self.time[-1]])
+                axisLists[i][j].set_ylim(yRange)
+
+                for k, location in enumerate(locations):
+                    if location[0] == altPosition and location[1] == aziPosition:
+                        indexLists[i][j].append(k)
+
+
+        return indexLists, axisLists
+
+
+
+
+
+
 
 
 
@@ -381,10 +440,10 @@ if __name__=='__main__':
     #=====================================================================
 
     #=====================================================================
-    pklPath = r"Z:\Jun\150610-M160809\SparseNoise_5x5_003\150610174646-SparseNoise-mouse160809-Jun-notTriggered.pkl"
-    allOnsetInd, onsetIndWithLocationSign = getSparseNoiseOnsetIndex(ft.loadFile(pklPath))
-    print allOnsetInd[0:10]
-    print onsetIndWithLocationSign[0:3]
+    # pklPath = r"Z:\Jun\150610-M160809\SparseNoise_5x5_003\150610174646-SparseNoise-mouse160809-Jun-notTriggered.pkl"
+    # allOnsetInd, onsetIndWithLocationSign = getSparseNoiseOnsetIndex(ft.loadFile(pklPath))
+    # print allOnsetInd[0:10]
+    # print onsetIndWithLocationSign[0:3]
     #=====================================================================
 
     #=====================================================================
@@ -404,6 +463,11 @@ if __name__=='__main__':
     #
     # print STRF.data
     #
+    # _ = STRF.plotRawTraces()
+    # plt.show()
+    #=====================================================================
+
+    #=====================================================================
     # testFile = h5py.File(r"C:\JunZhuang\labwork\data\python_temp_folder\test.hdf5")
     # STRFGroup = testFile.create_group('spatial_temporal_receptive_field')
     # STRF.toH5Group(STRFGroup)
@@ -416,6 +480,13 @@ if __name__=='__main__':
     # STRF = load_STRF_FromH5(h5File['spatial_temporal_receptive_field'])
     # h5File.close()
     # print STRF.data
+    #=====================================================================
+
+    #=====================================================================
+    f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
+    STRF = load_STRF_FromH5(f['cell0040']['spatial_temporal_receptive_field'])
+    STRF.plotRawTraces(figSize=(15,10),yRange=[-5,50],columnSpacing=0.002,rowSpacing=0.002)
+    plt.show()
     #=====================================================================
 
 
