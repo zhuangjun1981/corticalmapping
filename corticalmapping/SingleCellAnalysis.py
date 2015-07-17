@@ -5,7 +5,9 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import core.PlottingTools as pt
+import core.ImageAnalysis as ia
 import core.FileTools as ft
+import scipy.ndimage as ni
 import itertools
 
 def load_ROI_FromH5(h5Group):
@@ -82,6 +84,45 @@ def getSparseNoiseOnsetIndex(sparseNoiseDisplayLog):
     return allOnsetInd, onsetIndWithLocationSign
 
 
+def getPeakWeightedROI(arr, thr):
+    '''
+    return: a WeightROI object representing the mask which contains the peak of arr and cut by the threshold (thr)
+    '''
+    if thr<=0: raise ValueError, 'Threshold too low!'
+    nanLabel = np.isnan(arr)
+    arr2=arr.copy();arr2[nanLabel]=0
+    labeled,_=ni.label(arr2>=thr)
+    peakCoor = np.array(np.where(arr2==np.amax(arr2))).transpose()[0]
+    peakMask = ia.getMarkedMask(labeled,peakCoor)
+    if peakMask is None: raise LookupError, 'Threshold too high!'
+    else: return WeightedROI(arr2*peakMask)
+
+
+def plot2DReceptiveField(mapArray,altPos,aziPos,plotAxis=None,**kwargs):
+    '''
+    plot a 2-d receptive field in a given axis
+
+    :param mapArray: 2-d array, should be in the same coordinate system as meshgrid(altPos, aziPos)
+    :param altPos: 1-d array, list of sample altitude positions, sorted from high to low
+    :param aziPos: 1-d array, list of sample azimuth position, sorted from low to high
+    :param plotAxis:
+    :param kwargs: input to matplotlib.pyplot.imshow() function
+    :return: plotAxis
+    '''
+
+    if plotAxis == None: f=plt.figure(figsize=(10,10)); plotAxis=f.add_subplot(111)
+    plotAxis.imshow(mapArray,**kwargs)
+    plotAxis.set_yticks(np.arange(len(altPos)))
+    plotAxis.set_xticks(np.arange(len(aziPos)))
+    plotAxis.set_yticklabels(altPos.astype(np.int))
+    plotAxis.set_xticklabels(aziPos.astype(np.int))
+    return plotAxis
+
+
+
+
+
+
 
 class ROI(object):
     '''
@@ -90,7 +131,7 @@ class ROI(object):
 
     def __init__(self, mask, pixelSize = None, pixelSizeUnit = None):
         '''
-        :param mask: 2-d array, if not binary, non-zero pixel will be included in mask,
+        :param mask: 2-d array, if not binary, non-zero and non-nan pixel will be included in mask,
                      zero-pixel will be considered as background
         :param pixelSize: float, can be None, one value (square pixel) or (width, height) for non-square pixel
         :param pixelSizeUnit: str, the unit of pixel size
@@ -99,7 +140,7 @@ class ROI(object):
         if len(mask.shape)!=2: raise ValueError, 'Input mask should be 2d.'
 
         self.dimension = mask.shape
-        self.pixels = np.where(mask!=0)
+        self.pixels = np.where(np.logical_and(mask!=0, ~np.isnan(mask)))
 
         self.pixelSize = pixelSize
         if pixelSize is None: self.pixelSizeUnit=None
@@ -204,6 +245,16 @@ class WeightedROI(ROI):
         pixelCor = np.array(self.pixels,dtype=np.float)
         center = np.sum(np.multiply(pixelCor,np.array(self.weights)),axis=1)/np.sum(self.weights)
         return center
+
+    def getWeightedCenterInCoordinate(self,yCor,xCor):
+        '''
+        return weighted center of the ROI in the coordinate system defined by np.meshgrid(xCor, yCor)
+        '''
+        weightMask = self.getWeightedMask()
+        xMap, yMap = np.meshgrid(xCor, yCor)
+        xCenter = np.sum((xMap*weightMask).flatten())/np.sum(weightMask.flatten())
+        yCenter = np.sum((yMap*weightMask).flatten())/np.sum(weightMask.flatten())
+        return [yCenter, xCenter]
 
 
     def getWeightedTrace(self, mov):
@@ -328,7 +379,7 @@ class SpatialTemporalReceptiveField(object):
             trace.attrs['sign'] = self.data[i]['sign']
 
 
-    def plotRawTraces(self,f=None,figSize=(10,10),yRange=(0,20),**kwargs):
+    def plotTraces(self,f=None,figSize=(10,10),yRange=(0,20),**kwargs):
 
         indexLists, axisLists = self._getAxisLayout(f,figSize,yRange,**kwargs)
 
@@ -346,10 +397,10 @@ class SpatialTemporalReceptiveField(object):
                     if index:
                         traces = self.data[index]['traces']
                         meanTrace = np.mean(traces,axis=0)
-                        stdTrace = np.mean(traces,axis=0)
+                        semTrace = np.std(traces,axis=0)/np.sqrt(float(len(traces)))
                         if self.data[index]['sign'] == 1: color = '#ff0000'
                         if self.data[index]['sign'] == -1: color = '#0000ff'
-                        axis.fill_between(self.time,meanTrace-stdTrace,meanTrace+stdTrace,facecolor=color,linewidth=0,alpha=0.5)
+                        axis.fill_between(self.time,meanTrace-semTrace,meanTrace+semTrace,facecolor=color,linewidth=0,alpha=0.5)
                         axis.plot(self.time,meanTrace,'-',color=color,lw=1)
 
         return f
@@ -380,6 +431,96 @@ class SpatialTemporalReceptiveField(object):
         return indexLists, axisLists
 
 
+    def getAmplitudeMap(self,timeWindow=(0,0.5)):
+        '''
+        return 2d receptive field map and altitude and azimuth coordinates
+        each pixel in the map represent mean amplitute of traces within the window defined by timeWindow
+        '''
+
+        windowIndex = np.logical_and(self.time>=timeWindow[0], self.time<=timeWindow[1])
+
+        indON,indOFF,allAltPos,allAziPos = self._sortIndex()
+
+        ampON = np.zeros(indON.shape); ampON[:]=np.nan; ampOFF = ampON.copy()
+
+        for i in np.ndindex(indON.shape):
+            traceIndON = indON[i]; traceIndOFF = indOFF[i]
+            if traceIndON is not None: ampON[i] = np.mean(np.mean(self.data[traceIndON]['traces'],axis=0)[windowIndex])
+            if traceIndOFF is not None: ampOFF[i] = np.mean(np.mean(self.data[traceIndOFF]['traces'],axis=0)[windowIndex])
+
+        return ampON, ampOFF, allAltPos, allAziPos
+
+
+    def getZscoreMap(self,timeWindow=(0,0.5)):
+        '''
+        return 2d receptive field and altitude and azimuth coordinates
+        each pixel in the map represent Z score of mean amplitute of traces within the window defined by timeWindow
+        '''
+
+        ampON, ampOFF, allAltPos, allAziPos = self.getAmplitudeMap(timeWindow)
+        return ia.zscore(ampON), ia.zscore(ampOFF), allAltPos, allAziPos
+
+
+    def getZscoreROIs(self,timeWindow=(0,0.5),zscoreThr=2):
+        '''
+        return ON, OFF and combined receptive field rois in the format of WeightedROI object
+
+        Amplitude for each pixel was calculated as mean dF over F signal trace within the timeWindow
+        mask of ON and OFF receptive field was generated by cutting zscore map by zscoreThr
+        Tombined mask is the sum of ON and OFF weighted mask
+
+        The sampled altitude positions and azimuth positions are also returned. The receptive field space coordinates
+        were defined as np.meshgrid(allAltPos,allAziPos)
+        '''
+        zscoreON, zscoreOFF, allAltPos, allAziPos = self.getZscoreMap(timeWindow)
+        zscoreROION = getPeakWeightedROI(zscoreON,zscoreThr)
+        zscoreROIOFF = getPeakWeightedROI(zscoreOFF,zscoreThr)
+        zscoreROIALL = WeightedROI(zscoreROION.getWeightedMask()+zscoreROIOFF.getWeightedMask())
+
+        return zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos
+
+
+    def getZscoreROICenters(self,timeWindow=(0,0.5),zscoreThr=2):
+        '''
+        return retinotopic location of ON subfield, OFF subfield and combined receptive field
+
+        zscore ROIs was generated by the method getZscoreROIs()
+        '''
+        zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos = self.getZscoreROIs(timeWindow,zscoreThr)
+        centerON = zscoreROION.getWeightedCenterInCoordinate(allAltPos,allAziPos)
+        centerOFF = zscoreROIOFF.getWeightedCenterInCoordinate(allAltPos,allAziPos)
+        centerALL = zscoreROIALL.getWeightedCenterInCoordinate(allAltPos,allAziPos)
+        return centerON, centerOFF, centerALL
+
+    def _sortIndex(self):
+        '''
+        return ON and OFF index matrices for all combination of sampled retinotopic locations along with retinotopic
+        coordinates
+        '''
+
+        allAltPos = np.array(sorted(list(set(list(self.data['altitude'])))))[::-1]
+        allAziPos = np.array(sorted(list(set(list(self.data['azimuth'])))))
+
+        indON = [[None for azi in allAziPos] for alt in allAltPos]; indOFF = [[None for azi in allAziPos] for alt in allAltPos]
+
+        for i, traceItem in enumerate(self.data):
+            alt = traceItem['altitude'];azi = traceItem['azimuth'];sign = traceItem['sign']
+            for j, altPos in enumerate(allAltPos):
+                for k, aziPos in enumerate(allAziPos):
+                    if alt==altPos and azi==aziPos:
+                        if sign==1:
+                            if indON[j][k] is not None: raise LookupError, 'Duplication of trace items found at location:'+str([alt, azi])+'; sign: 1!'
+                            else: indON[j][k]=i
+
+                        if sign==-1:
+                            if indOFF[j][k] is not None: raise LookupError, 'Duplication of trace items found at location:'+str([alt, azi])+'; sign:-1!'
+                            else: indOFF[j][k]=i
+
+        indON = np.array([np.array(x) for x in indON]); indOFF = np.array([np.array(x) for x in indOFF])
+
+        return indON,indOFF,allAltPos,allAziPos
+
+
 
 
 
@@ -398,10 +539,12 @@ if __name__=='__main__':
     plt.ioff()
 
     #=====================================================================
-    # a = np.zeros((5,5))
-    # a[0,4]=1
-    # a[2,3]=1
+    # a = np.zeros((10,10))
+    # a[5:7,3:6]=1
+    # a[8:9,7:10]=np.nan
     # roi = ROI(a)
+    # plt.imshow(roi.getBinaryMask(),interpolation='nearest')
+    # plt.show()
     # print roi.getCenter()
     #=====================================================================
 
@@ -437,6 +580,17 @@ if __name__=='__main__':
     # _ = roi2.plotBinaryMask()
     # _ = roi2.plotWeightedMask()
     # plt.show()
+    #=====================================================================
+
+    #=====================================================================
+    # aa = np.zeros((5,5))
+    # aa[1:3,2:4] = 0.5
+    # plt.imshow(aa, interpolation='nearest')
+    # plt.show()
+    #
+    # roi = WeightedROI(aa)
+    # print roi.getWeightedCenter()
+    # print roi.getWeightedCenterInCoordinate(range(2,7),range(1,6))
     #=====================================================================
 
     #=====================================================================
@@ -483,10 +637,39 @@ if __name__=='__main__':
     #=====================================================================
 
     #=====================================================================
+    # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
+    # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    # STRF.plotTraces(figSize=(15,10),yRange=[-5,50],columnSpacing=0.002,rowSpacing=0.002)
+    # plt.show()
+    #=====================================================================
+
+    #=====================================================================
+    # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
+    # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    # ampON, ampOFF, altPos, aziPos = STRF.getAmplitudeMap()
+    # plot2DReceptiveField(ampON,altPos,aziPos,cmap='gray_r',interpolation='nearest')
+    # plt.show()
+    #=====================================================================
+
+    #=====================================================================
+    # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
+    # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    # zscoreON, zscoreOFF, altPos, aziPos = STRF.getZscoreMap()
+    # plot2DReceptiveField(zscoreON,altPos,aziPos,cmap='gray_r',vmin=-1,vmax=3,interpolation='nearest')
+    # plt.show()
+    #=====================================================================
+
+    #=====================================================================
     f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
-    STRF = load_STRF_FromH5(f['cell0040']['spatial_temporal_receptive_field'])
-    STRF.plotRawTraces(figSize=(15,10),yRange=[-5,50],columnSpacing=0.002,rowSpacing=0.002)
+    STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos = STRF.getZscoreROIs()
+    fig = plt.figure(figsize=(15,4))
+    ax1 = fig.add_subplot(131);plot2DReceptiveField(zscoreROION.getWeightedMask(),allAltPos,allAziPos,ax1,cmap='gray_r',vmin=0,vmax=3,interpolation='nearest')
+    ax2 = fig.add_subplot(132);plot2DReceptiveField(zscoreROIOFF.getWeightedMask(),allAltPos,allAziPos,ax2,cmap='gray_r',vmin=0,vmax=3,interpolation='nearest')
+    ax3 = fig.add_subplot(133);plot2DReceptiveField(zscoreROIALL.getWeightedMask(),allAltPos,allAziPos,ax3,cmap='gray_r',vmin=0,vmax=3,interpolation='nearest')
     plt.show()
+
+    print STRF.getZscoreROICenters()
     #=====================================================================
 
 

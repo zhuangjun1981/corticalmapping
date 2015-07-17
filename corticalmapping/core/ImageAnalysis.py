@@ -97,6 +97,15 @@ def arrayNorMeanStd(A):
     return B
 
 
+def zscore(A):
+    '''
+    return Z score of an array.
+    '''
+
+    if np.isnan(A).any(): return (A-np.nanmean(A.flatten()))/np.nanstd(A.flatten())
+    else: A = A.astype(np.float); return (A-np.mean(A.flatten()))/np.std(A.flatten())
+
+
 def distance(p0, p1):
     '''
     calculate distance between two points, can be multi-dimensinal
@@ -651,10 +660,15 @@ def getTrace2(movie,center,width,height,maskType = 'rect',isplot = False):
     return trace
 
 
-def hitOrMiss(cor, mask):
+def hitOrMiss(coor, mask):
+    '''
+    check if a cooridnate (coor) is in a mask, input mask can be int or float, nan and zero will considered as outside, any
+    non-nan, non-zero pixel will be considered as inside. Mask does not need to be continuous.
+    '''
+    mask[np.isnan(mask)] = 0; mask[mask>0] = 1
     mask = mask.astype(np.int8)
     corMask = np.zeros(mask.shape, dtype = np.int8)
-    corMask[np.round(cor[0]),np.round(cor[1])] = 1
+    corMask[np.round(coor[0]),np.round(coor[1])] = 1
     if np.sum(np.multiply(corMask, mask)) > 0:
         return True
     if np.sum(np.multiply(corMask, mask)) == 0:
@@ -906,13 +920,9 @@ def zDownsample(img,downSampleRate):
 def getMasks(labeled,minArea=None,maxArea=None,isSort=True,keyPrefix = None,labelLength=3):
     '''
     get mask dictionary from labeled maps (labeled by scipy.ndimage.label function)
-
     area range of each mask was defined by minArea and maxArea
-
     isSort: if True, sort masks by areas, big to small
-
     keyPrefix: the prefix of key
-
     labelLength: the number of characters of key
     '''
 
@@ -934,6 +944,17 @@ def getMasks(labeled,minArea=None,maxArea=None,isSort=True,keyPrefix = None,labe
 
     return masks
 
+
+def getMarkedMask(labeled, markCoor):
+    '''
+    return one binary masks which contain the marked coordinate
+    labeled (maps labeled by scipy.ndimage.label function)
+    '''
+
+    masks = getMasks(labeled)
+    for key, value in masks.iteritems():
+        if hitOrMiss(markCoor,value): return value; break
+    return None
 
 def sortMasks(masks,keyPrefix='',labelLength=3):
     '''
@@ -1011,14 +1032,25 @@ if __name__ == '__main__':
     #============================================================
 
     #============================================================
-    a=5; b=7
-    print distance(a,b)
+    # a=5; b=7
+    # print distance(a,b)
+    #
+    # c=[5,6]; d=[8,2]
+    # print distance(c,d)
+    #
+    # e=np.random.rand(5,6); f=np.random.rand(5,6)
+    # print distance(e,f)
+    #============================================================
 
-    c=[5,6]; d=[8,2]
-    print distance(c,d)
-
-    e=np.random.rand(5,6); f=np.random.rand(5,6)
-    print distance(e,f)
+    #============================================================
+    # a=np.array(range(15)+range(10)[::-1]).reshape((5,5))
+    # print a
+    # labeled,_ = ni.label(a>7)
+    # peakCoor = np.array(np.where(a==np.amax(a))).transpose()[0]
+    # print peakCoor
+    # peakMask = getMarkedMask(labeled,peakCoor)
+    # plt.imshow(peakMask,interpolation='nearest')
+    # plt.show()
     #============================================================
 
     print 'for debug'
