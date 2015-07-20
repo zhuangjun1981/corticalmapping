@@ -409,6 +409,8 @@ def hue2RGB(hue):
     color model as described in:
     https://en.wikipedia.org/wiki/Hue
     '''
+    if hue < 0: hue = 0
+    if hue > 1: hue = 1
     color = colorsys.hsv_to_rgb(hue,1,1)
     color = [int(x*255) for x in color]
     return getColorStr(*color)
