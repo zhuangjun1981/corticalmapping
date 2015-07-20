@@ -8,7 +8,9 @@ import core.PlottingTools as pt
 import core.ImageAnalysis as ia
 import core.FileTools as ft
 import scipy.ndimage as ni
-import itertools
+
+
+
 
 def load_ROI_FromH5(h5Group):
     '''
@@ -506,7 +508,7 @@ class SpatialTemporalReceptiveField(object):
     def _sortIndex(self):
         '''
         return ON and OFF index matrices for all combination of sampled retinotopic locations along with retinotopic
-        coordinates
+        coordinates, the retinotopic visual was defined by np.meshgrid(allAltPos,allAziPos)
         '''
 
         allAltPos = np.array(sorted(list(set(list(self.data['altitude'])))))[::-1]
