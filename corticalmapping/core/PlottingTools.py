@@ -416,6 +416,17 @@ def hue2RGB(hue):
     return getColorStr(*color)
 
 
+def hot2RGB(hot):
+    '''
+    get the RGB value as format as hex string from the decimal ratio of hot colormap (from 0 to 1)
+    '''
+    if hot<0: hot = 0
+    if hot>1: hot = 1
+    cmap_hot = plt.get_cmap('hot')
+    color=cmap_hot(hot)[0:3];color = [int(x*255) for x in color]
+    return getColorStr(*color)
+
+
 
 
 
