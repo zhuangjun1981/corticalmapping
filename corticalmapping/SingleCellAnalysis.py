@@ -325,7 +325,6 @@ class WeightedROI(ROI):
 
 
 
-
 class SpatialReceptiveField(WeightedROI):
     '''
     Object for spatial receptive field, a subclass of WeightedROI object
@@ -374,11 +373,6 @@ class SpatialReceptiveField(WeightedROI):
                               method=method,fill_value=fill_value)
 
         self.__init__(newMask,newAltPos,newAziPos,self.sign,self.temporalWindow,self.pixelSizeUnit,self.dataType,self.isThresholded,self.threshold)
-
-
-
-
-
 
 
 

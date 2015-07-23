@@ -500,17 +500,6 @@ def labelPatches(patchmap, signMap, connectivity=4):
     return patches
 
 
-#def patchCenter(patch):
-#    '''
-#    return the coordinates of the center of a patch
-#    '''
-#    pixels = np.argwhere(patch)
-#    center = np.mean(pixels, axis = 0)
-##    center = np.around(center)
-##    center = np.array(center, dtype = np.int)
-#    return center
-
-
 def phaseFilter(phaseMap,
                 filterType = 'Gaussian', # 'Gaussian' of 'uniform'
                 filterSize = 3,

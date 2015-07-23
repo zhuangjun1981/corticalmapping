@@ -27,50 +27,6 @@ except ImportError as e:
     except ImportError as er: print er
 
 
-#def showRGBSequence(path):
-#    mov = np.load(path)
-#    tf.imshow(mov)
-#    plt.show()
-    
-
-#def gray2rgb(frame, 
-#             backgroundColor = np.array([0,0,0]).astype(np.uint8),
-#             foregroundColor = np.array([0,0,255]).astype(np.uint8)):
-#    '''
-#    convert gray scale frame to an array with RGB format
-#    '''
-#    
-#    flatFrame = frame.flatten()
-#    
-#    currRGB = np.zeros((len(flatFrame), 3)).astype(np.uint8)
-#    
-#    for i in xrange(len(flatFrame)):
-#        if np.isnan(flatFrame[i]):
-#            currRGB[i] = backgroundColor
-#        else:
-#            currRGB[i] = (flatFrame[i] + 1) / 2 * foregroundColor
-#    
-#    currRGB = currRGB.reshape([frame.shape[0], frame.shape[1], 3])
-#    
-#    return currRGB
-#    
-
-#def gray2rgb2(frame, 
-#              backgroundColor = np.array([0,0,0]).astype(np.uint8),
-#              foregroundColor = np.array([0,0,255]).astype(np.uint8)):
-#
-#    currRGB = np.zeros((np.size(frame, 0), np.size(frame, 1), 3))
-#    
-#    for i in range(np.size(frame, 0)):
-#        for j in range(np.size(frame, 1)):
-#            if np.isnan(frame[i,j]):
-#                currRGB[i,j,0:3] = backgroundColor
-#            else:
-#                currRGB[i,j,0:3] = (frame[i,j]+1)/2*foregroundColor
-#    
-#    return np.uint8(currRGB)
-
-
 
 def gaussian(x, mu=0, sig=1):
     
