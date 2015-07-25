@@ -141,6 +141,14 @@ def test_SpatialTemporalReceptiveField_getZscoreReceptiveField():
     assert(zscoreRFON.sign==1);assert(zscoreRFOFF.sign==-1)
     assert(zscoreRFOFF.getWeightedMask()[7,9]-1.3324414<1e-7)
 
+def test_SpatialTemporalReceptiveField_shrink():
+    f = h5py.File(STRFDataPath)
+    STRF = sca.load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    STRF.shrink([-10,10],None)
+    assert(np.array_equal(np.unique(np.array(STRF.getLocations())[:,0]),np.array([-10.,-5.,0.,5.,10.])))
+    STRF.shrink(None,[0,20])
+    assert(np.array_equal(np.unique(np.array(STRF.getLocations())[:,1]),np.array([0.,5.,10.,15.,20.])))
+
 def test_SpatialReceptiveField():
     SRF = sca.SpatialReceptiveField(np.arange(9).reshape((3,3)),np.arange(3),np.range(3))
     assert(np.array_equal(SRF.weights,np.arange(1,9)))

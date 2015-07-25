@@ -156,6 +156,8 @@ class AppForm(QMainWindow):
 
     def get_RPath(self):
 
+        #todo: make it able to read images acquired by flash camera
+
         self.axes.clear()
         self.canvas.draw()
 

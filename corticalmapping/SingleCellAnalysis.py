@@ -473,19 +473,19 @@ class SpatialTemporalReceptiveField(object):
             trace.attrs['sign'] = self.data[i]['sign']
 
 
-    def plotTraces(self,f=None,figSize=(10,10),yRange=(0,20),**kwargs):
+    def plotTraces(self,f=None,figSize=(10,10),yRange=(0,20),altRange=None,aziRange=None,**kwargs):
 
-        indexLists, axisLists = self._getAxisLayout(f,figSize,yRange,**kwargs)
+        indexLists, axisLists = self._getAxisLayout(f,figSize,yRange,altRange,aziRange,**kwargs)
 
         for i, axisList in enumerate(axisLists):
             for j, axis in enumerate(axisList):
                 indexList = indexLists[i][j]
-                # axis.set_axis_off()
+                axis.set_axis_off()
                 axis.set_xticks([]);axis.set_yticks([])
                 for pos in ['top','bottom','left','right']:
                     axis.spines[pos].set_linewidth(0.5)
                     axis.spines[pos].set_color('#888888')
-                axis.plot([0,0],yRange,'--',color='#888888',lw=0.5)
+                axis.plot([0,0],[yRange[0],yRange[1]*0.5],'--',color='#888888',lw=0.5)
 
                 for index in indexList:
                     traces = self.data[index]['traces']
@@ -500,10 +500,16 @@ class SpatialTemporalReceptiveField(object):
         return f
 
 
-    def _getAxisLayout(self,f=None,figSize=(10,10),yRange=(0,20),**kwargs):
+    def _getAxisLayout(self,f=None,figSize=(10,10),yRange=(0,20),altRange=None,aziRange=None,**kwargs):
 
         locations = np.array(self.getLocations())
-        altPositions = np.sort(np.unique(locations[:,0]))[::-1]; aziPositions = np.sort(np.unique(locations[:,1]))
+
+        altPositions = np.sort(np.unique(locations[:,0]))[::-1]
+        if altRange is not None: altPositions = np.array([x for x in altPositions if (x>=altRange[0] and x<=altRange[1])])
+
+        aziPositions = np.sort(np.unique(locations[:,1]))
+        if aziRange is not None: aziPositions = np.array([x for x in aziPositions if (x>=aziRange[0] and x<=aziRange[1])])
+
         indexLists = [ [[] for aziPosition in aziPositions] for altPosition in altPositions]
 
         if f is None: f=plt.figure(figsize=figSize)
@@ -513,7 +519,7 @@ class SpatialTemporalReceptiveField(object):
 
         for i, altPosition in enumerate(altPositions):
             for j, aziPosition in enumerate(aziPositions):
-                axisLists[i][j].text(self.time[0],yRange[1],str(altPosition)+';'+str(aziPosition),ha='left',va='top',fontsize=10)
+                axisLists[i][j].text(0,yRange[1],str(int(altPosition))+';'+str(int(aziPosition)),ha='left',va='top',fontsize=10)
                 axisLists[i][j].set_xlim([self.time[0],self.time[-1]])
                 axisLists[i][j].set_ylim(yRange)
 
@@ -660,6 +666,23 @@ class SpatialTemporalReceptiveField(object):
         return indON,indOFF,allAltPos,allAziPos
 
 
+    def shrink(self,altRange=None,aziRange=None):
+        '''
+        shrink the current spatial temporal receptive field into the
+        '''
+
+        if altRange is None and aziRange is None: raise LookupError, 'At least one of altRange and aziRange should be defined!'
+
+        if altRange is not None: indAlt = np.logical_and(self.data['altitude']>=altRange[0],self.data['altitude']<=altRange[1])
+        else: indAlt = np.ones(len(self.data),dtype=np.bool)
+        if aziRange is not None: indAzi = np.logical_and(self.data['azimuth']>=aziRange[0],self.data['azimuth']<=aziRange[1])
+        else: indAzi = np.ones(len(self.data),dtype=np.bool)
+        ind = np.logical_and(indAlt,indAzi)
+        self.data = self.data[ind]
+
+
+
+
 
 
 
@@ -711,6 +734,14 @@ if __name__=='__main__':
     # plt.show()
     #=====================================================================
 
+    #=====================================================================
+    # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
+    # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    # STRF.shrink([-10,10],None)
+    # print np.unique(np.array(STRF.getLocations())[:,0])
+    # STRF.shrink(None,[0,20])
+    # print np.unique(np.array(STRF.getLocations())[:,1])
+    #=====================================================================
 
 
     print 'for debug...'
