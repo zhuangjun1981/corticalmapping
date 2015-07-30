@@ -403,19 +403,19 @@ def mergeNormalizedImages(imgList,isFilter=True,sigma=50,mergeMethod='mean',dtyp
     else: return ia.arrayNor(mergedImg).astype(dtype)
 
 
-def hue2RGB(hue):
-    '''
-    get the RGB value as format as hex string from the decimal ratio of hue (from 0 to 1)
-    color model as described in:
-    https://en.wikipedia.org/wiki/Hue
-    '''
-    if hue < 0: hue = 0
-    if hue > 1: hue = 1
-    color = colorsys.hsv_to_rgb(hue,1,1)
-    color = [int(x*255) for x in color]
-    return getColorStr(*color)
-
-
+# def hue2RGB(hue):
+#     '''
+#     get the RGB value as format as hex string from the decimal ratio of hue (from 0 to 1)
+#     color model as described in:
+#     https://en.wikipedia.org/wiki/Hue
+#     '''
+#     if hue < 0: hue = 0
+#     if hue > 1: hue = 1
+#     color = colorsys.hsv_to_rgb(hue,1,1)
+#     color = [int(x*255) for x in color]
+#     return getColorStr(*color)
+#
+#
 def hot2RGB(hot):
     '''
     get the RGB value as format as hex string from the decimal ratio of hot colormap (from 0 to 1)
@@ -424,6 +424,17 @@ def hot2RGB(hot):
     if hot>1: hot = 1
     cmap_hot = plt.get_cmap('hot')
     color=cmap_hot(hot)[0:3];color = [int(x*255) for x in color]
+    return getColorStr(*color)
+
+
+def value2RGB(value,cmap):
+    '''
+    get the RGB value as format as hex string from the decimal ratio of a given colormap (from 0 to 1)
+    '''
+    if value<0: value=0
+    if value>1: value=1
+    cmap = plt.get_cmap(cmap)
+    color = cmap(value)[0:3]; color = [int(x*255) for x in color]
     return getColorStr(*color)
 
 
@@ -492,10 +503,14 @@ if __name__=='__main__':
     #----------------------------------------------------
 
     #----------------------------------------------------
-    f=plt.figure(figsize=(12,9))
-    axisList = tileAxis(f,4,3,0.05,0.05,0.05,0.05)
-    print np.array(axisList).shape
-    plt.show()
+    # f=plt.figure(figsize=(12,9))
+    # axisList = tileAxis(f,4,3,0.05,0.05,0.05,0.05)
+    # print np.array(axisList).shape
+    # plt.show()
+    #----------------------------------------------------
+
+    #----------------------------------------------------
+    assert(hot2RGB(0.5) == value2RGB(0.5,'hot'))
     #----------------------------------------------------
 
     print 'for debug'

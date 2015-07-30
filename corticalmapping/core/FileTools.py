@@ -3,6 +3,7 @@ __author__ = 'junz'
 import numpy as np
 import pickle
 import os
+import shutil
 import struct
 import ImageAnalysis as ia
 import tifffile as tf
@@ -23,6 +24,56 @@ def loadFile(path):
     data = pickle.load(f)
     f.close()
     return data
+
+def copy(src, dest):
+    '''
+    copy everything from one path to another path. Work for both direcory and file.
+    if src is a file, it will be copied into dest
+    if src is a directory, the dest will have the same content as src
+    '''
+
+    if os.path.isfile(src):
+        print 'Source is a file. Starting copy...'
+        try: shutil.copy(src,dest); print 'End of copy.'
+        except Exception as e: print e
+
+    elif os.path.isdir(src):
+        print 'Source is a directory. Starting copy...'
+        try: shutil.copytree(src, dest); print 'End of copy.'
+        except Exception as e: print e
+
+    else: raise IOError, 'Source is neither a file or a directory. Can not be copied!'
+
+
+def batchCopy(pathList, destinationFolder):
+    '''
+    copy everything in the pathList into destinationFolder
+    return a list of paths which can not be copied.
+    '''
+
+    if not os.path.isdir(destinationFolder): os.mkdir(destinationFolder)
+
+    unCopied=[]
+
+    for path in pathList:
+        print 'Start copying '+path+' ...'
+        if os.path.isfile(path):
+            print 'This path is a file. Keep copying...'
+            try: shutil.copy(path,destinationFolder); print 'End of copying.\n'
+            except Exception as e: unCopied.append(path);print 'Can not copy this file.\nError message:\n'+e+'\n'
+
+        elif os.path.isdir(path):
+            print 'This path is a directory. Keep copying...'
+            try:
+                _, folderName = os.path.split(path)
+                shutil.copytree(path,os.path.join(destinationFolder,folderName))
+                print 'End of copying.\n'
+            except Exception as e: unCopied.append(path);print 'Can not copy this directory.\nError message:\n'+e+'\n'
+        else:
+            unCopied.append(path)
+            print 'This path is neither a file or a directory. Skip!\n'
+
+    return unCopied
 
 
 def importRawJCam(path,

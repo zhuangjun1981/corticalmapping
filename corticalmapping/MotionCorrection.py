@@ -8,6 +8,10 @@ import core.FileTools as ft
 import matplotlib.pyplot as plt
 
 
+try: import cv2; from core.ImageAnalysis import rigidTransform_cv2 as rigidTransform
+except ImportError as e: print e; from core.ImageAnalysis import rigidTransform as rigidTransform
+
+
 plt.ioff()
 
 def iamstupid(imgMat,imgRef,maxDisplacement=10,normFunc=ia.arrayDiff):
@@ -40,7 +44,7 @@ def iamstupid(imgMat,imgRef,maxDisplacement=10,normFunc=ia.arrayDiff):
     prevOffset = [0, 0]
     hitLimitFlag = [0, 0]
     tryList = [[-1, 0], [0, -1], [1, 0], [0, 1]]
-    currDisList = np.array([normFunc(imgRef, ia.rigidTransform(imgMat,offset=o,outputShape=imgRef.shape)) for o in tryList])
+    currDisList = np.array([normFunc(imgRef, rigidTransform(imgMat,offset=o,outputShape=imgRef.shape)) for o in tryList])
     currDis = np.min(currDisList)
     minInd = np.where(currDisList == currDis)[0]
     if len(minInd)>0: minInd = minInd[0]
@@ -63,7 +67,7 @@ def iamstupid(imgMat,imgRef,maxDisplacement=10,normFunc=ia.arrayDiff):
         else: hitLimitFlag[1] = 1
 
         if len(tryList)>0:
-            currDisList = np.array([normFunc(imgRef, ia.rigidTransform(imgMat,offset=o,outputShape=imgRef.shape)) for o in tryList])
+            currDisList = np.array([normFunc(imgRef, rigidTransform(imgMat,offset=o,outputShape=imgRef.shape)) for o in tryList])
             currDis = np.min(currDisList)
             currOffset = tryList[np.where(currDisList == currDis)[0]]
         else:break
@@ -115,16 +119,16 @@ def alignSingleMovie(mov,imgRef,badFrameDistanceThr=100,maxDisplacement=10,normF
     for i in iterFrames:
         if normFunc(mov[i,:,:],imgRef)<=badFrameDistanceThr:
             if np.array_equal(currOffset,np.array([0,0])):initCurrFrame = mov[i,:,:]
-            else: initCurrFrame = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
+            else: initCurrFrame = rigidTransform(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
             additionalOffset, hitFlag = iamstupid(initCurrFrame,imgRef,maxDisplacement=maxDisplacement,normFunc=normFunc)
             currOffset = currOffset+additionalOffset
-            alignedMov[i,:,:] = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
+            alignedMov[i,:,:] = rigidTransform(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
             offsetList.append(currOffset)
             validFrameNum.append(i)
             if verbose:
                 print 'Frame'+ft.int2str(i,5)+'\tdistance:'+str(normFunc(mov[i,:,:],imgRef))+'\tgood Frame'+'\tOffset:'+str(currOffset)
         else:
-            alignedMov[i,:,:] = ia.rigidTransform_cv2(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
+            alignedMov[i,:,:] = rigidTransform(mov[i,:,:],offset=currOffset,outputShape=imgRef.shape)
             offsetList.append(currOffset)
             if verbose:
                 print 'Frame'+ft.int2str(i,5)+'\tdistance:'+str(normFunc(mov[i,:,:],imgRef))+'\tbad  Frame'+'\tOffset:'+str(currOffset)
@@ -241,7 +245,7 @@ def alignMultipleTiffs(paths,
             mov = tf.imread(path)
             for j in range(mov.shape[0]):
                 if not np.array_equal(offsets[i][j,:], np.array([0,0])):
-                    mov[j,:,:] = ia.rigidTransform_cv2(mov[j,:,:],offset=offsets[i][j,:])
+                    mov[j,:,:] = rigidTransform(mov[j,:,:],offset=offsets[i][j,:])
             tf.imsave(newPath, mov-cameraBias)
 
     return offsets, aveMeanFrame

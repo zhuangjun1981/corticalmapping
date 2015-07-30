@@ -508,15 +508,13 @@ class KSstimJun(object):
         return squares
         
         
-        
     def plot_squares(self):
         '''
         plot checkerboare squares
         '''
         plt.figure()
         plt.imshow(self.squares)
-        
-        
+
         
     def generate_sweeps(self):
         '''
@@ -662,8 +660,9 @@ class KSstimJun(object):
         '''
         
         sweeps, _ = self.generate_sweeps()
-        
-        frames = self.frames
+
+        if self.frames is not None:frames = self.frames
+        else: frames=self.generate_frames()
         
         fullSequence = np.zeros((len(frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.uint8)
         
