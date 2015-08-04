@@ -20,7 +20,8 @@ def read(*filenames, **kwargs):
 long_description = read('README.md')
 
 def prepend_find_packages(*roots):
-    ''' Recursively traverse nested packages under the root directories
+    '''
+    Recursively traverse nested packages under the root directories
     '''
     packages = []
 
@@ -52,7 +53,7 @@ setup(
     url='http://stash.corp.alleninstitute.org/users/junz/repos/corticalmapping/',
     author='Jun Zhuang',
     tests_require=['pytest'],
-    install_requires=[],
+    install_requires=['numpy','scipy'],
     cmdclass={'test': PyTest},
     author_email='junz@alleninstitute.org',
     description='cortical mapping tools',

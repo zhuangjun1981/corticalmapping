@@ -35,17 +35,17 @@ def copy(src, dest):
     if os.path.isfile(src):
         print 'Source is a file. Starting copy...'
         try: shutil.copy(src,dest); print 'End of copy.'
-        except Exception as e: print e
+        except Exception as error: print error
 
     elif os.path.isdir(src):
         print 'Source is a directory. Starting copy...'
         try: shutil.copytree(src, dest); print 'End of copy.'
-        except Exception as e: print e
+        except Exception as error: print error
 
     else: raise IOError, 'Source is neither a file or a directory. Can not be copied!'
 
 
-def batchCopy(pathList, destinationFolder):
+def batchCopy(pathList, destinationFolder, isDelete=False):
     '''
     copy everything in the pathList into destinationFolder
     return a list of paths which can not be copied.
@@ -56,19 +56,31 @@ def batchCopy(pathList, destinationFolder):
     unCopied=[]
 
     for path in pathList:
-        print 'Start copying '+path+' ...'
+        print '\nStart copying '+path+' ...'
         if os.path.isfile(path):
-            print 'This path is a file. Keep copying...'
-            try: shutil.copy(path,destinationFolder); print 'End of copying.\n'
-            except Exception as e: unCopied.append(path);print 'Can not copy this file.\nError message:\n'+e+'\n'
+            print 'This path is a file. Keep copying ...'
+            try:
+                shutil.copy(path,destinationFolder)
+                print 'End of copying.'
+                if isDelete:
+                    print 'Deleting this file ...'
+                    try: os.remove(path); print 'End of deleting.\n'
+                    except Exception as error: print 'Can not delete this file.\nError message:\n'+str(error)+'\n'
+                else: print ''
+            except Exception as error: unCopied.append(path);print 'Can not copy this file.\nError message:\n'+str(error)+'\n'
 
         elif os.path.isdir(path):
-            print 'This path is a directory. Keep copying...'
+            print 'This path is a directory. Keep copying ...'
             try:
                 _, folderName = os.path.split(path)
                 shutil.copytree(path,os.path.join(destinationFolder,folderName))
-                print 'End of copying.\n'
-            except Exception as e: unCopied.append(path);print 'Can not copy this directory.\nError message:\n'+e+'\n'
+                print 'End of copying.'
+                if isDelete:
+                    print 'Deleting this directory ...'
+                    try: shutil.rmtree(path); print 'End of deleting.\n'
+                    except Exception as error: print 'Can not delete this directory.\nError message:\n'+str(error)+'\n'
+                else: print ''
+            except Exception as error: unCopied.append(path);print 'Can not copy this directory.\nError message:\n'+str(error)+'\n'
         else:
             unCopied.append(path)
             print 'This path is neither a file or a directory. Skip!\n'
@@ -102,14 +114,14 @@ def importRawJCam(path,
     columnNum = np.int(imageFile[columnNumIndex])
     rowNum = np.int(imageFile[rowNumIndex])
 
-    if decimation != None:
-        columnNum = columnNum/decimation
-        rowNum =rowNum/decimation
+    if decimation is not None:
+        columnNum /= decimation
+        rowNum /= decimation
 
     frameNum = np.int(imageFile[frameNumIndex])
 
     if frameNum == 0: # if it is a single frame image
-        frameNum = frameNum +1
+        frameNum += 1
 
 
     exposureTime = np.float(imageFile[exposureTimeIndex])
@@ -174,7 +186,7 @@ def readBinaryFile3(f,
 def importRawJPhys(path,
                    dtype = np.dtype('>f'),
                    headerLength = 96, # length of the header for each channel
-                   channels = ['photodiode2','read','trigger','photodiode'],# name of all channels
+                   channels = ('photodiode2','read','trigger','photodiode'),# name of all channels
                    sf = 10000): # sampling rate, Hz
     '''
     import raw JPhys files into np.array
@@ -208,7 +220,7 @@ def importRawJPhys(path,
 def importRawNewJPhys(path,
                       dtype = np.dtype('>f'),
                       headerLength = 96, # length of the header for each channel
-                      channels = ['photodiode2',
+                      channels = ('photodiode2',
                                   'read',
                                   'trigger',
                                   'photodiode',
@@ -217,7 +229,7 @@ def importRawNewJPhys(path,
                                   'runningRef',
                                   'runningSig',
                                   'reward',
-                                  'licking'],# name of all channels
+                                  'licking'),# name of all channels
                       sf = 10000): # sampling rate, Hz
     '''
     import new style raw JPhys files into np.array
@@ -259,7 +271,7 @@ def importRawJPhys2(path,
                     photodiodeThr = .95, #threshold of photo diode signal,
                     dtype = np.dtype('>f'),
                     headerLength = 96, # length of the header for each channel
-                    channels = ['photodiode2','read','trigger','photodiode'],# name of all channels
+                    channels = ('photodiode2','read','trigger','photodiode'),# name of all channels
                     sf = 10000.): # sampling rate, Hz
     '''
     extract important information from JPhys file
@@ -321,7 +333,7 @@ def importRawNewJPhys2(path,
                        photodiodeThr = .95, #threshold of photo diode signal,
                        dtype = np.dtype('>f'),
                        headerLength = 96, # length of the header for each channel
-                       channels = ['photodiode2',
+                       channels = ('photodiode2',
                                    'read',
                                    'trigger',
                                    'photodiode',
@@ -330,7 +342,7 @@ def importRawNewJPhys2(path,
                                    'runningRef',
                                    'runningSig',
                                    'reward',
-                                   'licking'],# name of all channels
+                                   'licking'),# name of all channels
                        sf = 10000.): # sampling rate, Hz
     '''
     extract important information from new style JPhys file
@@ -364,7 +376,7 @@ def importRawNewJPhys2(path,
     # generate time stamp for each image frame
     imageFrameTS = []
     for i in range(1,len(read)):
-        if read[i-1] < 3.0 and read[i] >= 3.0:
+        if (read[i-1] < 3.0) and (read[i] >= 3.0):
             imageFrameTS.append(i*(1./sf))
 
     if len(imageFrameTS) < imageFrameNum:
@@ -419,8 +431,9 @@ def generateAVI(saveFolder,
     if len(matrix.shape) == 4:
         if matrix.shape[3] == 3:
             r, g, b = np.rollaxis(matrix, axis = -1)
-        if matrix.shape[3] == 4:
+        elif matrix.shape[3] == 4:
             r, g, b, a = np.rollaxis(matrix, axis = -1)
+        else: raise IndexError, 'The depth of matrix is not 3 or 4. Can not get RGB color!'
         r = r.reshape(r.shape[0],r.shape[1],r.shape[2],1)
         g = g.reshape(g.shape[0],g.shape[1],g.shape[2],1)
         b = b.reshape(b.shape[0],b.shape[1],b.shape[2],1)
@@ -430,12 +443,13 @@ def generateAVI(saveFolder,
         s = (ia.arrayNor(matrix)*255).astype(np.uint8)
         s = s.reshape(s.shape[0],s.shape[1],s.shape[2],1)
         newMatrix = np.concatenate((s,s,s),axis=3)
+    else: raise IndexError, 'The matrix dimension is neither 3 or 4. Can not get RGB color!'
 
 
     fourcc = cv2.cv.CV_FOURCC(*encoder)
 
     if fileName[-4:] != '.avi':
-        fileName = fileName + '.avi'
+        fileName += '.avi'
 
     size = (int(newMatrix.shape[1]*zoom),int(newMatrix.shape[2]*zoom))
 
