@@ -633,13 +633,15 @@ def getTrace(movie, mask):
     get a trace across a movie with averaged value in a mask
     '''
 
-    pixelInMask = np.nansum(mask)
+    if np.isnan(mask).any():
+        totalWeight = np.nansum(mask)
+        trace =  np.array([np.nansum(np.multiply(frame, mask)) for frame in movie])
+    else:
+        totalWeight = np.sum(mask.flatten())
+        trace = np.sum(np.multiply(movie,mask),(1,2))
+    trace = trace.astype(np.float) / totalWeight
 
-    trace = [np.nansum(np.multiply(frame, mask)) for frame in movie]
-
-    trace = trace / pixelInMask
-
-    return np.array(trace)
+    return trace
 
 
 def getTrace2(movie,center,width,height,maskType = 'rect',isplot = False):

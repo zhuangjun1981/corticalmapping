@@ -3111,6 +3111,12 @@ class Patch(object):
         signedMask[signedMask == 0] = np.nan
         return signedMask
 
+    def getTrace(self,mov):
+        '''
+        return trace of this patch in a certain movie
+        '''
+        return ia.getTrace(mov,self.array)
+
 
     def isTouching(self, patch2, distance = 1):
         '''

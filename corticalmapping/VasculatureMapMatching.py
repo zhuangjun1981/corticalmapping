@@ -84,16 +84,16 @@ class AppForm(QMainWindow):
 
             if type(self.ReferenceVasMap) != type(None):
                 bigDict.update({'ReferencePathList': str(self.textbrowser_RPath.toPlainText()).split(';'),
-                                'ReferenceMapHight': self.ReferenceVasMap.shape[0],
+                                'ReferenceMapHeight': self.ReferenceVasMap.shape[0],
                                 'ReferenceMapWidth': self.ReferenceVasMap.shape[1]})
             else:
                 bigDict.update({'ReferencePathList': None,
-                                'ReferenceMapHight': None,
+                                'ReferenceMapHeight': None,
                                 'ReferenceMapWidth': None})
 
             if type(self.MatchingVasMap) != type(None):
                 bigDict.update({'MatchingPathList': str(self.textbrowser_MPath.toPlainText()).split(';'),
-                                'MatchingMapHight': self.MatchingVasMap.shape[0],
+                                'MatchingMapHeight': self.MatchingVasMap.shape[0],
                                 'MatchingMapWidth': self.MatchingVasMap.shape[1],
                                 'Zoom': float(self.zoom),
                                 'Rotation': float(self.rotation),
@@ -101,7 +101,7 @@ class AppForm(QMainWindow):
                                 'Yoffset': self.Yoffset})
             else:
                 bigDict.update({'MatchingPathList': None,
-                                'MatchingMapHight': None,
+                                'MatchingMapHeight': None,
                                 'MatchingMapWidth': None,
                                 'Zoom': None,
                                 'Rotation': None,
