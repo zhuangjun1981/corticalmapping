@@ -156,8 +156,6 @@ class AppForm(QMainWindow):
 
     def get_RPath(self):
 
-        #todo: make it able to read images acquired by flash camera
-
         self.axes.clear()
         self.canvas.draw()
 
@@ -189,10 +187,21 @@ class AppForm(QMainWindow):
                     self.ReferenceVasMap = pt.mergeNormalizedImages([tf.imread(filePath)])
                     self.textbrowser_RPath.setText(filePath)
 
-                else: # JCam file
-                    currMap, _ = ft.importRawJCam(filePath)
-                    self.ReferenceVasMap = pt.mergeNormalizedImages([currMap[0]])
-                    self.textbrowser_RPath.setText(filePath)
+                else: # Raw binary file
+                    fileFolder,fileName = os.path.split(filePath)
+                    if 'JCamF' in fileName:
+                        currMap, _, _= ft.importRawJCamF(filePath,column=1024,row=1024)
+                        self.ReferenceVasMap = pt.mergeNormalizedImages([currMap[0]])
+                        self.textbrowser_RPath.setText(filePath)
+                    elif 'JCam' in fileName:
+                        currMap, _ = ft.importRawJCam(filePath)
+                        self.ReferenceVasMap = pt.mergeNormalizedImages([currMap[0]])
+                        self.textbrowser_RPath.setText(filePath)
+                    else:
+                        print 'Can not read reference map '+filePath
+                        self.textbrowser_RPath.clear()
+                        self.ReferenceVasMap = None
+
 
             else: # more than one file is chosen
 
@@ -204,14 +213,16 @@ class AppForm(QMainWindow):
                     if filePath[-3:] == 'tif': # tiff file
                         mapList.append(tf.imread(filePath))
 
-                    else: # JCam file
-                        try:
+                    else: # raw binary file
+                        fileFolder,fileName = os.path.split(filePath)
+                        if 'JCamF' in fileName:
+                            currMap, _, _ = ft.importRawJCamF(filePath,column=1024,row=1024)
+                        elif 'JCam' in fileName:
                             currMap, _ = ft.importRawJCam(filePath)
-                            mapList.append(currMap[0].astype(np.float32))
-                        except IOError, e:
-                            print '\n\n',e,'\n\n'
-                            print 'Can not read ', filePath
-                            pass
+                        else:
+                            print 'Can not read '+filePath
+
+                        mapList.append(currMap[0].astype(np.float32))
 
                 if len(mapList) == 0:
                     print "no file can be read! Setting reference map as None..."
@@ -273,11 +284,22 @@ class AppForm(QMainWindow):
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
-                else: # JCam file
-                    currMap, _ = ft.importRawJCam(filePath)
-                    self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]])
-                    self.MatchingVasMapRaw = currMap[0]
-                    self.textbrowser_MPath.setText(filePath)
+                else: # raw binary file
+                    fileFolder,fileName = os.path.split(filePath)
+                    if 'JCamF' in fileName:
+                        currMap, _, _ = ft.importRawJCamF(filePath,column=1024,row=1024)
+                        self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]])
+                        self.MatchingVasMapRaw = currMap[0]
+                        self.textbrowser_MPath.setText(filePath)
+                    elif 'JCam' in fileName:
+                        currMap, _ = ft.importRawJCam(filePath)
+                        self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]])
+                        self.MatchingVasMapRaw = currMap[0]
+                        self.textbrowser_MPath.setText(filePath)
+                    else:
+                        print 'Can not read matching map '+filePath
+                        self.textbrowser_MPath.clear()
+                        self.MatchingVasMap = None
                     self.MatchingVasMapAfterChange = None
 
             else: # more than one file is chosen
@@ -290,14 +312,16 @@ class AppForm(QMainWindow):
                     if filePath[-3:] == 'tif': # tiff file
                         mapList.append(tf.imread(filePath))
 
-                    else: # JCam file
-                        try:
+                    else: # raw binary file
+                        fileFolder,fileName = os.path.split(filePath)
+                        if 'JCamF' in fileName:
+                            currMap, _ , _= ft.importRawJCamF(filePath,column=1024,row=1024)
+                        elif 'JCam' in fileName:
                             currMap, _ = ft.importRawJCam(filePath)
-                            mapList.append(currMap[0].astype(np.float32))
-                        except IOError, e:
-                            print '\n\n',e,'\n\n'
-                            print 'Can not read ', filePath
-                            pass
+                        else:
+                            print 'Can not read '+filePath
+
+                        mapList.append(currMap[0].astype(np.float32))
 
                 if len(mapList) == 0:
                     print "no file can be read! Setting matching map as None..."
