@@ -28,8 +28,8 @@ trialList = [
 for k, trialName in enumerate(trialList):
 
     trialPath = os.path.join(currFolder,trialName)
-
-    finalPatches = ft.loadFile(trialPath)[patchesToShow]
+    trial, _ = rm.loadTrial(trialPath)
+    finalPatches = getattr(trial,patchesToShow)
     numOfPatches = len(finalPatches.keys())
     rowNum = numOfPatches // columnNum + 1
     f = plt.figure(figsize=(10,10))
