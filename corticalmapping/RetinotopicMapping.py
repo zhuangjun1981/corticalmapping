@@ -68,12 +68,20 @@ def loadTrial(trialPath):
         pass
     
     try:
-        trial.finalPatches = trialDict['finalPatches']
+        if isinstance(trialDict['finalPatches'].values()[0],dict):
+            trial.finalPatches = {}
+            for area,patchDict in trialDict['finalPatches'].iteritems():
+                trial.finalPatches.update({area:Patch(patchDict['array'],patchDict['sign'])})
+        else: trial.finalPatches = trialDict['finalPatches']
     except KeyError:
         pass
 
     try:
-        trial.finalPatchesMarked = trialDict['finalPatchesMarked']
+        if isinstance(trialDict['finalPatchesMarked'].values()[0],dict):
+            trial.finalPatchesMarked = {}
+            for area,patchDict in trialDict['finalPatchesMarked'].iteritems():
+                trial.finalPatchesMarked.update({area:Patch(patchDict['array'],patchDict['sign'])})
+        else: trial.finalPatchesMarked = trialDict['finalPatches']
     except KeyError:
         pass
     
@@ -1196,6 +1204,8 @@ def plotPairedPatches(patch1,
     f_122.set_yticks(ytick)
     f_122.set_yticklabels(yticklabel)
 
+def getPatchDict(patch):
+    return {'array':patch.array,'sign':patch.sign}
 
 class RetinotopicMappingTrial(object):
 
@@ -2009,6 +2019,7 @@ class RetinotopicMappingTrial(object):
                                           'rawPatchMap',
                                           'eccentricityMapf',
                                           'finalPatches',
+                                          'finalPathcesMarked',
                                           'mouseID',
                                           'dateRecorded',
                                           'trialNum',
@@ -2033,11 +2044,26 @@ class RetinotopicMappingTrial(object):
         for key in self.__dict__.iterkeys():
 
             if key in keysToRetain:
-                try:
-                    trialDict.update({key:self.__dict__[key]})
-                    keysLeft.remove(key)
-                except AttributeError:
-                    pass
+                if key=='finalPatches':
+                    finalPatches = {}
+                    for area,patch in self.finalPatches.iteritems():
+                        finalPatches.update({area:getPatchDict(patch)})
+                    trialDict.update({'finalPatches':finalPatches})
+                    keysLeft.remove('finalPatches')
+
+                elif key == 'finalPathcesMarked':
+                    finalPatchesMarked = {}
+                    for area,patch in self.finalPathcesMarked.iteritems():
+                        finalPatchesMarked.update({area:getPatchDict(patch)})
+                    trialDict.update({'finalPathcesMarked':finalPatchesMarked})
+                    keysLeft.remove('finalPatchesMarked')
+
+                else:
+                    try:
+                        trialDict.update({key:self.__dict__[key]})
+                        keysLeft.remove(key)
+                    except AttributeError:
+                        pass
 
         if keysLeft:
             print 'Can not find wanted key(s): ' + str(keysLeft)
@@ -3110,6 +3136,11 @@ class Patch(object):
         signedMask = np.array(self.array * self.sign, dtype = np.float32)
         signedMask[signedMask == 0] = np.nan
         return signedMask
+
+
+    def getDict(self):
+        return {'array':self.array,'sign':self.sign}
+
 
     def getTrace(self,mov):
         '''
