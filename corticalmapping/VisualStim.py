@@ -1920,6 +1920,7 @@ class DisplaySequence(object):
                  displayOrder = 1, # 1: the right order; -1: the reverse order
                  mouseid = 'Test',
                  userid = 'Jun',
+                 psychopyMonitor = 'testmonitor',
                  isVideoRecord = False,
                  isTriggered = True,
                  triggerNIDev = 'Dev1',
@@ -1936,7 +1937,8 @@ class DisplaySequence(object):
                  videoRecordPort = '10000'):
                      
         self.sequence = None
-        self.sequenceLog = {}             
+        self.sequenceLog = {}
+        self.psychopyMonitor = psychopyMonitor
         self.isVideoRecord = isVideoRecord 
         self.isTriggered = isTriggered
         self.triggerNIDev = triggerNIDev
@@ -2010,7 +2012,7 @@ class DisplaySequence(object):
         try: resolution = self.sequenceLog['monitor']['resolution'][::-1]
         except KeyError: resolution = (800,600)
            
-        window = visual.Window(size=resolution, fullscr=True, screen = self.displayScreen, color = self.initialBackgroundColor)
+        window = visual.Window(size=resolution,monitor=self.psychopyMonitor,fullscr=True,screen=self.displayScreen,color=self.initialBackgroundColor)
         stim = visual.ImageStim(window, size=(2,2))
         
         try: refreshRate = self.sequenceLog['monitor']['refreshRate']
@@ -2029,7 +2031,7 @@ class DisplaySequence(object):
 
         if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
 
-        self._display(window, stim) #display sequence
+        completed = self._display(window, stim) #display sequence
 
         if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
         
@@ -2044,6 +2046,8 @@ class DisplaySequence(object):
         
         #clear display data
         self.clear()
+
+        return completed
 
 
     def _waitForTrigger(self):
@@ -2134,6 +2138,8 @@ class DisplaySequence(object):
         
 
     def _display(self, window, stim):
+
+        completed = True
         
         if self.sequence is None:
             raise LookupError, "Please set the sequence to be displayed!!"
@@ -2180,7 +2186,7 @@ class DisplaySequence(object):
             
             #check keyboard input 'q' or 'escape'
             keyList = event.getKeys(['q','escape'])
-            if len(keyList) > 0:self.fileName = self.fileName + '-incomplete';break
+            if len(keyList) > 0:self.fileName = self.fileName + '-incomplete'; completed=False; break
             
             #set syncPuls signal
             if self.isSyncPulse:syncPulse.WriteBit(self.syncPulseNILine,1)
@@ -2199,6 +2205,8 @@ class DisplaySequence(object):
         
         self.timeStamp = np.array(timeStamp)
         self.displayLength = stopTime-startTime
+
+        return completed
     
 
     def setDisplayOrder(self, displayOrder):

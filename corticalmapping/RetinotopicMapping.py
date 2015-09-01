@@ -2242,9 +2242,6 @@ class RetinotopicMappingTrial(object):
         altPowerMapC = ia.centerImage(altPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
         altPowerMapNor = ia.rotateImage(altPowerMapC,rotationAngle,borderValue=borderValue)
 
-        altPowerMapC = ia.centerImage(altPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-        altPowerMapNor = ia.rotateImage(altPowerMapC,rotationAngle,borderValue=borderValue)
-
         aziPowerMapC = ia.centerImage(aziPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
         aziPowerMapNor = ia.rotateImage(aziPowerMapC,rotationAngle,borderValue=borderValue)
 
