@@ -2207,7 +2207,7 @@ class RetinotopicMappingTrial(object):
             del f
 
 
-    def generateNormalizedMaps(self,centerPatchKey = 'patch01',mapSize = 512,isPlot = False,borderValue=0.):
+    def generateNormalizedMaps(self,centerPatchKey='patch01',mapSize = 512,isPlot = False,borderValue=0.):
 
         if not hasattr(self, 'finalPatches'):
             self.processTrial()
@@ -2215,23 +2215,10 @@ class RetinotopicMappingTrial(object):
         if not hasattr(self, 'signMap') or not hasattr(self, 'altPosMapf') or not hasattr(self, 'aziPosMapf'):
             self._getSignMap()
 
-        centerPatchObj = self.finalPatches[centerPatchKey]
+        centerPixel, rotationAngle = self.getNormalizeTransform(centerPatchKey=centerPatchKey)
 
-        centerPixel = centerPatchObj.getCenter()
-
-#        altPosMapf = self.altPosMapf
-        aziPosMapf = self.aziPosMapf
-#        altPowerMapf = self.altPowerMapf
-#        aziPowerMapf = self.aziPowerMapf
-        altPowerMap = self.altPowerMap
-        aziPowerMap = self.aziPowerMap
         signMap = self.signMap
         signMapf = self.signMapf
-
-        aziGradMap = np.gradient(aziPosMapf)
-        aziGradMapX = np.sum(aziGradMap[0] * centerPatchObj.array)
-        aziGradMapY = np.sum(aziGradMap[1] * centerPatchObj.array)
-        rotationAngle = -(np.arctan2(-aziGradMapX,aziGradMapY)%(2*np.pi))*180/np.pi
 
         altPosMapC = ia.centerImage(self.altPosMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
         altPosMapNor = ia.rotateImage(altPosMapC,rotationAngle,borderValue=borderValue)
@@ -2239,10 +2226,10 @@ class RetinotopicMappingTrial(object):
         aziPosMapC = ia.centerImage(self.aziPosMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
         aziPosMapNor = ia.rotateImage(aziPosMapC,rotationAngle,borderValue=borderValue)
 
-        altPowerMapC = ia.centerImage(altPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
+        altPowerMapC = ia.centerImage(self.altPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
         altPowerMapNor = ia.rotateImage(altPowerMapC,rotationAngle,borderValue=borderValue)
 
-        aziPowerMapC = ia.centerImage(aziPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
+        aziPowerMapC = ia.centerImage(self.aziPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
         aziPowerMapNor = ia.rotateImage(aziPowerMapC,rotationAngle,borderValue=borderValue)
 
         signMapC = ia.centerImage(signMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
@@ -2287,25 +2274,21 @@ class RetinotopicMappingTrial(object):
             f_235.set_axis_off()
             f_235.set_title('normalized azimuth power')
 
-
         return altPosMapNor, aziPosMapNor, altPowerMapNor, aziPowerMapNor, signMapNor, signMapfNor
 
 
     def getNormalizeTransform(self,centerPatchKey = 'patch01'):
 
-        if not hasattr(self, 'aziPosMapf'):
-            self._getSignMap()
-
-        if not hasattr(self, 'finalPatches'):
-            self.processTrial()
-
-        centerPatchObj = self.finalPatches[centerPatchKey]
+        try:
+            centerPatchObj = self.finalPatchesMarked[centerPatchKey]
+        except (AttributeError, KeyError):
+            centerPatchObj = self.finalPatches[centerPatchKey]
 
         centerPixel = centerPatchObj.getCenter()
 
-        aziPosMapf = self.aziPosMapf
+        if not hasattr(self, 'aziPosMapf'): self._getSignMap()
 
-        aziGradMap = np.gradient(aziPosMapf)
+        aziGradMap = np.gradient(self.aziPosMapf)
         aziGradMapX = np.sum(aziGradMap[0] * centerPatchObj.array)
         aziGradMapY = np.sum(aziGradMap[1] * centerPatchObj.array)
         rotationAngle = -(np.arctan2(-aziGradMapX,aziGradMapY)%(2*np.pi))*180/np.pi
@@ -2332,24 +2315,11 @@ class RetinotopicMappingTrial(object):
         if not hasattr(self, 'signMap'):
             self._getSignMap()
 
-        try:
-            centerPatchObj = patches[centerPatchKey]
-        except KeyError:
-            centerPatchObj = self.finalPatches[centerPatchKey]
-
-        centerPixel = centerPatchObj.getCenter()
-
-        aziPosMapf = self.aziPosMapf
-
-        aziGradMap = np.gradient(aziPosMapf)
-        aziGradMapX = np.sum(aziGradMap[0] * centerPatchObj.array)
-        aziGradMapY = np.sum(aziGradMap[1] * centerPatchObj.array)
-        rotationAngle = -(np.arctan2(-aziGradMapX,aziGradMapY)%(2*np.pi))*180/np.pi
-
+        centerPixel, rotationAngle = self.getNormalizeTransform(centerPatchKey=centerPatchKey)
 
         try:
             vasMap = self.vasculatureMap.astype(np.float)
-            zoom = int(float(vasMap.shape[0])/float(aziPosMapf.shape[0]))
+            zoom = int(float(vasMap.shape[0])/float(self.aziPosMapf.shape[0]))
         except AttributeError as e:
             print 'Can not find vasculature map!!\n\n'
             print e
