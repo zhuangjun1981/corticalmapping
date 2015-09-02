@@ -2103,7 +2103,7 @@ class DisplaySequence(object):
         fileNumber = self._getFileNumber()
         
         if self.isTriggered: self.fileName += '-' + str(fileNumber)
-        else: self.fileName += '-notTriggered'
+        else: self.fileName += '-' + str(fileNumber) + '-notTriggered'
 
 
     def _getFileNumber(self):
