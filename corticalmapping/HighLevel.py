@@ -1,7 +1,10 @@
 __author__ = 'junz'
 
 import json
+import numpy as np
+import matplotlib.pyplot as plt
 import core.ImageAnalysis as ia
+import core.FileTools as ft
 import scipy.ndimage as ni
 
 
@@ -42,4 +45,50 @@ def translateMovieByVasculature(mov,parameterPath,movDecimation,mappingDecimatio
     return movT
 
 
+def segmentMappingPhotodiodeSignal(pd,digitizeThr=1.,filterSize=0.005,segmentThr=0.04,Fs=10000.):
+    '''
+
+    :param pd: photodiode from mapping jphys file
+    :param digitizeThr: threshold to digitize photodiode readings
+    :param filterSize: gaussian filter size to filter photodiode signal, sec
+    :param segmentThr: threshold to detect the onset of each stimulus sweep
+    :param Fs: sampling rate
+    :return:
+    '''
+
+    pd[pd<digitizeThr] = 0.; pd[pd>=digitizeThr] = 5.
+
+    filterDataPoint = int(filterSize*Fs)
+
+    pdFiltered = ni.filters.gaussian_filter(pd, filterDataPoint)
+    pdFilteredDiff = np.diff(pdFiltered)
+    pdFilteredDiff = np.hstack(([0],pdFilteredDiff))
+    pdSignal = np.multiply(pd, pdFilteredDiff)
+
+    displayOnsets = []
+
+    for i in range(1,len(pdSignal)):
+        if pdSignal[i] > segmentThr and pdSignal[i-1]  < segmentThr:
+            displayOnsets.append(i * (1. / Fs))
+
+    displayOnsets = np.array(displayOnsets)
+
+    print 'Number of presentation:', len(displayOnsets)
+    print 'Display onsets (sec):',displayOnsets
+
+    return displayOnsets
+
+
+
+
+if __name__ == '__main__':
+
+    #===========================================================================
+    jphysPath = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData\150901-M177931\150901JPhys103"
+    _, jphys = ft.importRawNewJPhys(jphysPath)
+    pd = jphys['photodiode']
+    displayOnsets = segmentMappingPhotodiodeSignal(pd)
+    #===========================================================================
+
+    print 'for debug...'
 

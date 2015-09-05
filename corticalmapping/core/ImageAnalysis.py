@@ -79,7 +79,7 @@ def arrayNorMedian(A):
     return B
 
 
-def  arrayNorMean(A):
+def arrayNorMean(A):
     '''
     normalize array by minus mean, data type will be switch to np.float
     '''
@@ -572,42 +572,33 @@ def temporalFilterMovie(mov, # array of movie
     return movF
 
 
-def generateRectangleMask(movie,center,width,height,isplot = False):
+def generateRectangleMask(shape,center,width,height,isplot = False):
 
-    mask = np.zeros((np.size(movie, -2), np.size(movie, -1)))
+    if len(shape) !=2: raise LookupError, 'Shape should be two dimensional.'
 
-    mask[:] = np.nan
-
+    mask = np.zeros(shape); mask[:] = np.nan
     mask[int(round(center[0]-height/2)):int(round(center[0]+height/2)),int(round(center[1]-width/2)):int(round(center[1]+width/2))] = 1
 
     if np.isnan(np.nansum(mask[:])):
         raise ArithmeticError, 'No element in mask!'
 
     if isplot == True:
-        if len(movie.shape)==3:
-            aveMovie = np.mean(movie,axis=0)
-        else:
-            aveMovie = movie
-
-        f = plt.figure()
-        f1 = f.add_subplot(111)
-        f1.imshow(aveMovie, cmap = 'gray', interpolation = 'nearest')
-        _ = plotMask(mask, plotAxis=f1, color='#ff0000')
+        f = plt.figure(); ax = f.add_subplot(111)
+        plotMask(mask,plotAxis=ax)
 
     return mask
 
 
-def generateOvalMask(movie,center,width,height,isplot = False):
+def generateOvalMask(shape,center,width,height,isplot = False):
 
-    mask = np.zeros((np.size(movie, -2), np.size(movie, -1)))
+    if len(shape) !=2: raise LookupError, 'Shape should be two dimensional.'
 
-    mask[:] = np.nan
+    mask = np.zeros(shape); mask[:] = np.nan
     
-    width = float(width)
-    height = float(height)
+    width = float(width); height = float(height)
 
-    for i in range(movie.shape[-2]):
-        for j in range(movie.shape[-1]):
+    for i in range(shape[0]):
+        for j in range(shape[1]):
             if ((i-center[0])/(height/2))**2 + ((j-center[1])/(width/2))**2 <= 1:
                 mask[i,j]=1
 
@@ -615,49 +606,48 @@ def generateOvalMask(movie,center,width,height,isplot = False):
         raise ArithmeticError, 'No element in mask!'
 
     if isplot == True:
-        if len(movie.shape)==3:
-            aveMovie = np.mean(movie,axis=0)
-        else:
-            aveMovie = movie
-
-        f = plt.figure()
-        f1 = f.add_subplot(111)
-        f1.imshow(aveMovie, cmap = 'gray', interpolation = 'nearest')
-        _ = plotMask(mask, plotAxis=f1, color='#ff0000')
+        f = plt.figure(); ax = f.add_subplot(111)
+        plotMask(mask,plotAxis=ax)
 
     return mask
 
 
-def getTrace(movie, mask):
+def getTrace(movie, mask, maskMode = 'binary'):
     '''
     get a trace across a movie with averaged value in a mask
+
+    maskMode: 'binary': ones in roi, zeros outside
+              'binaryNan': ones in roi, nans outside
+              'weighted': weighted values in roi, zeros outside (note: all pixels equal to zero will be considered outside roi
+              'weightedNan': weighted values in roi, nans outside
     '''
 
-    if np.isnan(mask).any():
-        totalWeight = np.nansum(mask)
-        trace =  np.array([np.nansum(np.multiply(frame, mask)) for frame in movie])
+    if maskMode == 'binary':
+        if np.where(mask==0)[0].size + np.where(mask==1)[0].size < mask.size:
+            raise ValueError, 'Binary mask should only contain zeros and ones!!'
+        else:
+            finalMask = np.array(mask.astype(np.float))
+            pixelNum = np.sum(finalMask.flatten())
+    elif maskMode == 'binaryNan':
+        if np.sum(np.isnan(mask).flatten())+np.where(mask==1)[0].size < mask.size:
+            raise ValueError, 'BinaryNan mask should only contain nans and ones!!'
+        else:
+            finalMask = np.ones(mask.shape,dtype=np.float)
+            finalMask[np.isnan(mask)] = 0
+            pixelNum = mask.size - np.sum(np.isnan(mask).flatten())
+    elif maskMode == 'weighted':
+        if np.isnan(mask).any(): raise ValueError, 'Weighted mask should not contain nan(s)!!'
+        else:
+            finalMask = np.array(mask.astype(np.float))
+            pixelNum = mask.size - np.where(mask==0)[0].size
+    elif maskMode == 'weightedNan':
+        finalMask = np.array(mask.astype(np.float))
+        finalMask[np.isnan(mask)] = 0
+        pixelNum = mask.size - np.sum(np.isnan(mask).flatten())
     else:
-        totalWeight = np.sum(mask.flatten())
-        trace = np.sum(np.multiply(movie,mask),(1,2))
-    trace = trace.astype(np.float) / totalWeight
+        raise LookupError, 'maskMode not understood. Should be one of "binary", "binaryNan", "weighted", "weightedNan".'
 
-    return trace
-
-
-def getTrace2(movie,center,width,height,maskType = 'rect',isplot = False):
-
-    if maskType == 'rect':
-        mask = generateRectangleMask(movie,center,width,height)
-    elif maskType == 'oval':
-        mask = generateOvalMask(movie,center,width,height)
-    else:
-        raise TypeError, 'maskType should be "rect" or "oval"!'
-
-    trace = getTrace(movie, mask)
-
-    if isplot == True:
-        #plt.figure()
-        plt.plot(trace)
+    trace = np.sum(np.multiply(movie,finalMask),(1,2))/pixelNum
 
     return trace
 
@@ -1053,6 +1043,27 @@ if __name__ == '__main__':
     # peakMask = getMarkedMask(labeled,peakCoor)
     # plt.imshow(peakMask,interpolation='nearest')
     # plt.show()
+    #============================================================
+
+    #============================================================
+    mov = np.arange(64).reshape((4,4,4))
+    print mov
+
+    mask1 = np.zeros((4,4)); mask1[2,2]=1; mask1[1,1]=1
+    trace1 = getTrace(mov,mask1,maskMode='binary')
+    assert(trace1[2] == 39.5)
+
+    mask2 = np.zeros((4,4),dtype=np.float); mask2[:]=np.nan; mask2[2,2]=1; mask2[1,1]=1
+    trace2 = getTrace(mov,mask2,maskMode='binaryNan')
+    assert(trace2[2] == 39.5)
+
+    mask3 = np.zeros((4,4),dtype=np.float); mask3[2,2]=1; mask3[1,1]=2
+    trace3 = getTrace(mov,mask3,maskMode='weighted')
+    assert(trace3[2] == 58)
+
+    mask4 = np.zeros((4,4),dtype=np.float); mask4[:]=np.nan; mask4[2,2]=1; mask4[1,1]=2
+    trace4 = getTrace(mov,mask4,maskMode='weightedNan')
+    assert(trace4[2] == 58)
     #============================================================
 
     print 'for debug'
