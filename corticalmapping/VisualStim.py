@@ -2091,19 +2091,19 @@ class DisplaySequence(object):
             self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
                             '-' + \
                             self.sequenceLog['stimulation']['stimName'] + \
-                            '-mouse' + \
+                            '-M' + \
                             self.mouseid + \
                             '-' + \
                             self.userid
         except KeyError:
             self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
-                            '-' + 'customStim' + '-mouse' + self.mouseid + '-' + \
+                            '-' + 'customStim' + '-M' + self.mouseid + '-' + \
                             self.userid
         
         fileNumber = self._getFileNumber()
         
-        if self.isTriggered: self.fileName += '-' + str(fileNumber)
-        else: self.fileName += '-' + str(fileNumber) + '-notTriggered'
+        if self.isTriggered: self.fileName += '-' + str(fileNumber)+'-Triggered-complete'
+        else: self.fileName += '-' + str(fileNumber) + '-notTriggered-complete'
 
 
     def _getFileNumber(self):
@@ -2186,7 +2186,7 @@ class DisplaySequence(object):
             
             #check keyboard input 'q' or 'escape'
             keyList = event.getKeys(['q','escape'])
-            if len(keyList) > 0:self.fileName = self.fileName + '-incomplete'; completed=False; break
+            if len(keyList) > 0:self.fileName = self.fileName[0:-9] + '-incomplete'; completed=False; break
             
             #set syncPuls signal
             if self.isSyncPulse:syncPulse.WriteBit(self.syncPulseNILine,1)

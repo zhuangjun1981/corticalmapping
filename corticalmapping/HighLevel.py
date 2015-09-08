@@ -1,9 +1,11 @@
 __author__ = 'junz'
 
+import os
 import json
 import numpy as np
 import matplotlib.pyplot as plt
 import core.ImageAnalysis as ia
+import RetinotopicMapping as rm
 import core.FileTools as ft
 import scipy.ndimage as ni
 
@@ -44,7 +46,6 @@ def translateMovieByVasculature(mov,parameterPath,movDecimation,mappingDecimatio
 
     return movT
 
-
 def segmentMappingPhotodiodeSignal(pd,digitizeThr=1.,filterSize=0.005,segmentThr=0.04,Fs=10000.):
     '''
 
@@ -78,16 +79,103 @@ def segmentMappingPhotodiodeSignal(pd,digitizeThr=1.,filterSize=0.005,segmentThr
 
     return displayOnsets
 
+def getlogPathList(date,#string
+                   mouseID,#string
+                   stimulus='',#string
+                   userID='',#string
+                   fileNumber='',#string
+                   displayFolder=r'\\W7DTMJ007LHW\data\sequence_display_log'):
+    logPathList = []
+    for f in os.listdir(displayFolder):
+        fn, ext = os.path.splitext(f)
+        strings = fn.split('-')
+        try: dateTime,stim,mouse,user,fileNum=strings[0:5]
+        except Exception as e:
+            # print 'Can not read path:',f,'\n',e
+            continue
+        if (dateTime[0:6] == date) and (mouseID in mouse) and (stimulus in stim) and (userID in user) and (fileNumber == fileNum):
+            logPathList.append(os.path.join(displayFolder,f))
+    print '\n'.join(logPathList)
+    return logPathList
+
+def analysisMappingDisplayLogs(logPathList):
+    '''
+    :param logFileList: list of paths of all visual display logs of a mapping experiment
+    :return:
+    B2U: dictionary of all bottom up sweeps
+        'ind': indices of these sweeps in the whole experiments
+        'startTime': starting time relative to stimulus onset
+        'endTime': end time relative to stimulus onset
+        'slope': slope of the linear relationship between phase and retinotopic location
+        'intercept': intercept of the linear relationship between phase and retinotopic location
+
+    same for U2B, L2R and R2L
+    '''
+
+    displayInfo = {
+                   'B2U':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
+                   'U2B':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
+                   'L2R':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
+                   'R2L':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]}
+                   }
+
+    ind=0
+
+    for logPath in sorted(logPathList):
+        log = ft.loadFile(logPath)
+
+        #get sweep direction
+        direction = log['stimulation']['direction']
+        if log['presentation']['displayOrder']==-1: direction=direction[::-1]
+        currDict = displayInfo[direction]
+
+        #get number of sweeps
+        sweepNum = log['stimulation']['iteration'] * log['presentation']['displayIteration']
+        currDict['ind'] += range(ind,ind+sweepNum)
+        ind += sweepNum
+
+        #get startTime, sweep duration, phase position relationship
+        if not currDict['startTime']:
+            refreshRate = float(log['monitor']['refreshRate'])
+            interFrameInterval = np.mean(np.diff(log['presentation']['timeStamp']))
+            if interFrameInterval > (1.01/refreshRate): raise ValueError, 'Mean visual display too long: '+str(interFrameInterval)+'sec' # check display
+            if interFrameInterval < (0.99/refreshRate): raise ValueError, 'Mean visual display too short: '+str(interFrameInterval)+'sec' # check display
+
+            if log['presentation']['displayOrder']==1: currDict['startTime'] = -1 * log['stimulation']['preGapFrame'] / refreshRate
+            if log['presentation']['displayOrder']==-1: currDict['startTime'] = -1 * log['stimulation']['postGapFrame'] / refreshRate
+
+            currDict['sweepDur'] = len(log['presentation']['displayFrames']) / (log['stimulation']['iteration'] * log['presentation']['displayIteration'] * refreshRate)
+
+            currDict['slope'], currDict['intercept'] = rm.getPhasePositionEquation(log)
+
+    return displayInfo
+
+
+
+
+
+
+
 
 
 
 if __name__ == '__main__':
 
     #===========================================================================
-    jphysPath = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData\150901-M177931\150901JPhys103"
-    _, jphys = ft.importRawNewJPhys(jphysPath)
-    pd = jphys['photodiode']
-    displayOnsets = segmentMappingPhotodiodeSignal(pd)
+    # jphysPath = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData\150901-M177931\150901JPhys103"
+    # _, jphys = ft.importRawNewJPhys(jphysPath)
+    # pd = jphys['photodiode']
+    # displayOnsets = segmentMappingPhotodiodeSignal(pd)
+    #===========================================================================
+
+    #===========================================================================
+    # displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
+    # dateRecorded = '150901'
+    # mouseID = '177931'
+    # fileNum = '105'
+    # logPathList = getlogPathList(dateRecorded,mouseID,fileNumber=fileNum)
+    # displayInfo = analysisMappingDisplayLogs(logPathList)
+    # print displayInfo
     #===========================================================================
 
     print 'for debug...'

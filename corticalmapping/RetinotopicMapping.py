@@ -338,11 +338,11 @@ def getPhasePositionEquation(displayLog):
     slope, intercept, r_value, p_value, stderr = stats.linregress(phase[phaseIndexStart:(phaseIndexEnd+1)],
                                                                   position[phaseIndexStart:(phaseIndexEnd+1)])
 
-    print 'slope: \t'+str(slope)
-    print 'intercept: \t'+str(intercept)
-    print 'r_value: \t'+str(r_value)
-    print 'p_value: \t'+str(p_value)
-    print 'stderr: \t'+str(stderr)
+    # print 'slope: \t'+str(slope)
+    # print 'intercept: \t'+str(intercept)
+    # print 'r_value: \t'+str(r_value)
+    # print 'p_value: \t'+str(p_value)
+    # print 'stderr: \t'+str(stderr)
 
     return slope, intercept
 
