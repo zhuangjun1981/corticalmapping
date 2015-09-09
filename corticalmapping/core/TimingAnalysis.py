@@ -56,7 +56,6 @@ def findNearest(trace,value):
 
     return np.argmin(np.abs(trace-value))
 
-
 def getOnsetTimeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
     '''
     param trace: time trace of digital signal recorded as analog

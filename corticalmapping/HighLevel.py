@@ -71,16 +71,8 @@ def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr
 
     displayOnsets = ta.getOnsetTimeStamps(pdSignal, Fs, threshold = segmentThr, onsetType='raising')
 
-    # displayOnsets = []
-
-    # for i in range(1,len(pdSignal)):
-    #     if pdSignal[i] > segmentThr and pdSignal[i-1]  < segmentThr:
-    #         displayOnsets.append(i * (1. / Fs))
-    #
-    # displayOnsets = np.array(displayOnsets)
-
-    print 'Number of presentation:', len(displayOnsets)
-    print 'Display onsets (sec):',displayOnsets
+    print '\nNumber of sweep onsets:', len(displayOnsets)
+    print '\nDisplay onsets (sec):',displayOnsets,'\n'
 
     return displayOnsets
 
@@ -100,7 +92,7 @@ def getlogPathList(date,#string
             continue
         if (dateTime[0:6] == date) and (mouseID in mouse) and (stimulus in stim) and (userID in user) and (fileNumber == fileNum):
             logPathList.append(os.path.join(displayFolder,f))
-    print '\n'.join(logPathList)
+    print '\n'+'\n'.join(logPathList)+'\n'
     return logPathList
 
 def analysisMappingDisplayLogs(logPathList):
@@ -155,18 +147,16 @@ def analysisMappingDisplayLogs(logPathList):
 
     return displayInfo
 
-def getAverageMovie(movPath, frameTS, chunkStartTimes, chunkDur, temporalDownSampleRate=1):
+def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temporalDownSampleRate=1):
     '''
-
     :param movPath: path to the image movie
     :param frameTS: the timestamps for each frame of the raw movie
-    :param chunkStartTimes: start time of each chunk
+    :param onsetTimes: time stamps of onset of each sweep
+    :param startTime: chunck start time relative to the sweep onset time (length of pre gray period)
     :param chunkDur: duration of each chunk
     :param temporalDownSampleRate: decimation factor in time after recording
     :return: averageed movie of all chunks
     '''
-
-    #todo: make it also generate dF movie
 
     if temporalDownSampleRate == 1:
         frameTS_real = frameTS
@@ -177,22 +167,32 @@ def getAverageMovie(movPath, frameTS, chunkStartTimes, chunkDur, temporalDownSam
 
     mov = BinarySlicer(movPath)
 
+    aveMov = ia.getAverageMovie(mov, frameTS_real, onsetTimes+startTime, chunkDur)
+
     meanFrameDur = np.mean(np.diff(frameTS_real))
+    baselineFrameDur = int(abs(startTime) / meanFrameDur)
 
-    chunkFrameDur = int(np.ceil(chunkDur / meanFrameDur))
-    sumMov = None
-    n = 0
+    baselinePicture = np.mean(aveMov[0:baselineFrameDur,:,:],axis=0)
+    _, aveMovNor, _ = ia.normalizeMovie(aveMov,baselinePicture)
 
-    for onset in chunkStartTimes:
-        onsetFrameInd = ta.findNearest(frameTS_real, onset)
-        print onsetFrameInd, onsetFrameInd+chunkFrameDur
-        if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
-        sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
-        n += 1.
+    return aveMov, aveMovNor
 
-    aveMov = sumMov / n
+def saveMappingMovies(movPath,frameTS,displayOnsets,displayInfo,saveFolder,temporalDownSampleRate=1,filePrefix=''):
 
-    return aveMov
+    for dir in ['B2U','U2B','L2R','R2L']:
+        print '\nAnalyzing sweeps with direction:', dir
+        aveMov, aveMovNor = getAverageDfMovie(movPath=movPath,
+                                              frameTS=frameTS,
+                                              onsetTimes=displayOnsets[displayInfo[dir]['ind']],
+                                              chunkDur=displayInfo[dir]['sweepDur'],
+                                              startTime=displayInfo[dir]['startTime'],
+                                              temporalDownSampleRate=temporalDownSampleRate)
+
+        print 'Saving averaged F movie and DF movie for sweep direction:', dir
+        tf.imsave(os.path.join(saveFolder,filePrefix+'aveMov_'+dir+'.tif'),aveMov.astype(np.float32))
+        tf.imsave(os.path.join(saveFolder,filePrefix+'aveMovNor_'+dir+'.tif'),aveMovNor.astype(np.float32))
+
+        print 'End of movie averaging for sweep direction:', dir, '\n'
 
 
 
@@ -202,10 +202,13 @@ if __name__ == '__main__':
     movPath = r"\\watersraid\data\Jun\150901-M177931\150901JCamF105_1_1_10.npy"
     jphysPath = r"\\watersraid\data\Jun\150901-M177931\150901JPhys105"
     displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
+    saveFolder = r'E:\data\2015-09-04-150901-M177931-FlashCameraMapping'
 
     dateRecorded = '150901'
     mouseID = '177931'
     fileNum = '105'
+
+    temporalDownSampleRate = 10
 
     _, jphys = ft.importRawNewJPhys(jphysPath)
     pd = jphys['photodiode']
@@ -216,16 +219,13 @@ if __name__ == '__main__':
     logPathList = getlogPathList(dateRecorded,mouseID,fileNumber=fileNum)
     displayInfo = analysisMappingDisplayLogs(logPathList)
 
-    startTime_B2U = displayOnsets[displayInfo['B2U']['ind']]+displayInfo['B2U']['startTime']
-    print imgFrameTS[:100]
-    print displayOnsets[displayInfo['B2U']['ind']]
-    print displayInfo['B2U']['startTime']
-    print startTime_B2U
-    aveMov_B2U = getAverageMovie(movPath, imgFrameTS, startTime_B2U, displayInfo['B2U']['sweepDur'], temporalDownSampleRate=10)
-
-    tf.imshow(aveMov_B2U,cmap='gray')
-
-    plt.show()
+    saveMappingMovies(movPath = movPath,
+                      frameTS=imgFrameTS,
+                      displayOnsets=displayOnsets,
+                      displayInfo=displayInfo,
+                      saveFolder=saveFolder,
+                      temporalDownSampleRate=temporalDownSampleRate,
+                      filePrefix=dateRecorded+'_M'+mouseID)
 
     #===========================================================================
 

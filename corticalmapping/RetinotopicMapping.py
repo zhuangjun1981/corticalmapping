@@ -333,7 +333,7 @@ def getPhasePositionEquation(displayLog):
     if displayLog['presentation']['displayOrder'] == -1:
         position = position[::-1]; stiDirection = stiDirection[::-1]
 
-    print '\nStimulus direction:', stiDirection
+    # print '\nStimulus direction:', stiDirection
 
     slope, intercept, r_value, p_value, stderr = stats.linregress(phase[phaseIndexStart:(phaseIndexEnd+1)],
                                                                   position[phaseIndexStart:(phaseIndexEnd+1)])
@@ -345,6 +345,7 @@ def getPhasePositionEquation(displayLog):
     # print 'stderr: \t'+str(stderr)
 
     return slope, intercept
+
 
 def visualSignMap(phasemap1,phasemap2):
     '''

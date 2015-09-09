@@ -987,6 +987,30 @@ def tempDownSample(A, rate, verbose=False):
             newA[i,:,:]=currFrame.astype(dataType)
     return newA
 
+def getAverageMovie(mov, frameTS, onsetTimes, chunkDur):
+    '''
+    :param mov: image movie
+    :param frameTS: the timestamps for each frame of the raw movie
+    :param onsetTimes: time stamps of onset of each trigger
+    :param chunkDur: duration of each chunk
+    :return: averageed movie of all chunks
+    '''
+
+    meanFrameDur = np.mean(np.diff(frameTS))
+
+    chunkFrameDur = int(np.ceil(chunkDur / meanFrameDur))
+    sumMov = None
+    n = 0.
+
+    for onset in onsetTimes:
+        onsetFrameInd = np.argmin(np.abs(frameTS-onset))
+        print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
+        if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
+        sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
+        n += 1.
+
+    return sumMov / n
+
 
 if __name__ == '__main__':
 
