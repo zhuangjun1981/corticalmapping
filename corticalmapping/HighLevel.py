@@ -166,6 +166,8 @@ def getAverageMovie(movPath, frameTS, chunkStartTimes, chunkDur, temporalDownSam
     :return: averageed movie of all chunks
     '''
 
+    #todo: make it also generate dF movie
+
     if temporalDownSampleRate == 1:
         frameTS_real = frameTS
     elif temporalDownSampleRate >1:
@@ -188,7 +190,9 @@ def getAverageMovie(movPath, frameTS, chunkStartTimes, chunkDur, temporalDownSam
         sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
         n += 1.
 
-    return sumMov / n
+    aveMov = sumMov / n
+
+    return aveMov
 
 
 
