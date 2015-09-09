@@ -5,9 +5,12 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import core.ImageAnalysis as ia
+import core.TimingAnalysis as ta
+import core.tifffile as tf
 import RetinotopicMapping as rm
 import core.FileTools as ft
 import scipy.ndimage as ni
+from toolbox.misc import BinarySlicer
 
 
 def translateMovieByVasculature(mov,parameterPath,movDecimation,mappingDecimation=2):
@@ -46,7 +49,7 @@ def translateMovieByVasculature(mov,parameterPath,movDecimation,mappingDecimatio
 
     return movT
 
-def segmentMappingPhotodiodeSignal(pd,digitizeThr=1.,filterSize=0.005,segmentThr=0.04,Fs=10000.):
+def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr=0.02,Fs=10000.):
     '''
 
     :param pd: photodiode from mapping jphys file
@@ -66,13 +69,15 @@ def segmentMappingPhotodiodeSignal(pd,digitizeThr=1.,filterSize=0.005,segmentThr
     pdFilteredDiff = np.hstack(([0],pdFilteredDiff))
     pdSignal = np.multiply(pd, pdFilteredDiff)
 
-    displayOnsets = []
+    displayOnsets = ta.getOnsetTimeStamps(pdSignal, Fs, threshold = segmentThr, onsetType='raising')
 
-    for i in range(1,len(pdSignal)):
-        if pdSignal[i] > segmentThr and pdSignal[i-1]  < segmentThr:
-            displayOnsets.append(i * (1. / Fs))
+    # displayOnsets = []
 
-    displayOnsets = np.array(displayOnsets)
+    # for i in range(1,len(pdSignal)):
+    #     if pdSignal[i] > segmentThr and pdSignal[i-1]  < segmentThr:
+    #         displayOnsets.append(i * (1. / Fs))
+    #
+    # displayOnsets = np.array(displayOnsets)
 
     print 'Number of presentation:', len(displayOnsets)
     print 'Display onsets (sec):',displayOnsets
@@ -150,32 +155,74 @@ def analysisMappingDisplayLogs(logPathList):
 
     return displayInfo
 
+def getAverageMovie(movPath, frameTS, chunkStartTimes, chunkDur, temporalDownSampleRate=1):
+    '''
 
+    :param movPath: path to the image movie
+    :param frameTS: the timestamps for each frame of the raw movie
+    :param chunkStartTimes: start time of each chunk
+    :param chunkDur: duration of each chunk
+    :param temporalDownSampleRate: decimation factor in time after recording
+    :return: averageed movie of all chunks
+    '''
 
+    if temporalDownSampleRate == 1:
+        frameTS_real = frameTS
+    elif temporalDownSampleRate >1:
+        frameTS_real = frameTS[::temporalDownSampleRate]
+    else:
+        raise ValueError, 'temporal downsampling rate can not be less than 1!'
 
+    mov = BinarySlicer(movPath)
 
+    meanFrameDur = np.mean(np.diff(frameTS_real))
 
+    chunkFrameDur = int(np.ceil(chunkDur / meanFrameDur))
+    sumMov = None
+    n = 0
 
+    for onset in chunkStartTimes:
+        onsetFrameInd = ta.findNearest(frameTS_real, onset)
+        print onsetFrameInd, onsetFrameInd+chunkFrameDur
+        if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
+        sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
+        n += 1.
+
+    return sumMov / n
 
 
 
 if __name__ == '__main__':
 
     #===========================================================================
-    # jphysPath = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData\150901-M177931\150901JPhys103"
-    # _, jphys = ft.importRawNewJPhys(jphysPath)
-    # pd = jphys['photodiode']
-    # displayOnsets = segmentMappingPhotodiodeSignal(pd)
-    #===========================================================================
+    movPath = r"\\watersraid\data\Jun\150901-M177931\150901JCamF105_1_1_10.npy"
+    jphysPath = r"\\watersraid\data\Jun\150901-M177931\150901JPhys105"
+    displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
 
-    #===========================================================================
-    # displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
-    # dateRecorded = '150901'
-    # mouseID = '177931'
-    # fileNum = '105'
-    # logPathList = getlogPathList(dateRecorded,mouseID,fileNumber=fileNum)
-    # displayInfo = analysisMappingDisplayLogs(logPathList)
-    # print displayInfo
+    dateRecorded = '150901'
+    mouseID = '177931'
+    fileNum = '105'
+
+    _, jphys = ft.importRawNewJPhys(jphysPath)
+    pd = jphys['photodiode']
+    displayOnsets = segmentMappingPhotodiodeSignal(pd)
+
+    imgFrameTS = ta.getOnsetTimeStamps(jphys['read'])
+
+    logPathList = getlogPathList(dateRecorded,mouseID,fileNumber=fileNum)
+    displayInfo = analysisMappingDisplayLogs(logPathList)
+
+    startTime_B2U = displayOnsets[displayInfo['B2U']['ind']]+displayInfo['B2U']['startTime']
+    print imgFrameTS[:100]
+    print displayOnsets[displayInfo['B2U']['ind']]
+    print displayInfo['B2U']['startTime']
+    print startTime_B2U
+    aveMov_B2U = getAverageMovie(movPath, imgFrameTS, startTime_B2U, displayInfo['B2U']['sweepDur'], temporalDownSampleRate=10)
+
+    tf.imshow(aveMov_B2U,cmap='gray')
+
+    plt.show()
+
     #===========================================================================
 
     print 'for debug...'

@@ -57,16 +57,40 @@ def findNearest(trace,value):
     return np.argmin(np.abs(trace-value))
 
 
+def getOnsetTimeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
+    '''
+    param trace: time trace of digital signal recorded as analog
+    param Fs: sampling rate
+    return onset time stamps
+    '''
+
+    pos = trace > threshold
+    if onsetType == 'raising':
+        return ((~pos[:-1] & pos[1:]).nonzero()[0]+1)/float(Fs)
+    if onsetType == 'falling':
+        return ((pos[:-1] & ~pos[1:]).nonzero()[0]+1)/float(Fs)
+
+
+
+
 
 
 
 if __name__=='__main__':
 
     #============================================================================================================
-    a=np.arange(100,dtype=np.float)
-    b=a+0.5+(np.random.rand(100)-0.5)*0.1
-    c=discreteCrossCorrelation(a,b,range=(0,1),bins=50,isPlot=True)
-    plt.show()
+    # a=np.arange(100,dtype=np.float)
+    # b=a+0.5+(np.random.rand(100)-0.5)*0.1
+    # c=discreteCrossCorrelation(a,b,range=(0,1),bins=50,isPlot=True)
+    # plt.show()
+    #============================================================================================================
+
+    #============================================================================================================
+    trace = np.array(([0.] * 5 + [5.] * 5) * 5)
+    ts = getOnsetTimeStamps(trace, Fs=10000., onsetType='raising')
+    assert(ts[2] == 0.0025)
+    ts2 = getOnsetTimeStamps(trace, Fs=10000., onsetType='falling')
+    assert(ts2[2] == 0.0030)
     #============================================================================================================
 
     print 'for debugging...'

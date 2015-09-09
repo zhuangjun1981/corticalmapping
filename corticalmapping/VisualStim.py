@@ -1920,7 +1920,7 @@ class DisplaySequence(object):
                  displayOrder = 1, # 1: the right order; -1: the reverse order
                  mouseid = 'Test',
                  userid = 'Jun',
-                 psychopyMonitor = 'testmonitor',
+                 psychopyMonitor = 'testMonitor',
                  isVideoRecord = False,
                  isTriggered = True,
                  triggerNIDev = 'Dev1',
