@@ -189,10 +189,56 @@ def saveMappingMovies(movPath,frameTS,displayOnsets,displayInfo,saveFolder,tempo
                                               temporalDownSampleRate=temporalDownSampleRate)
 
         print 'Saving averaged F movie and DF movie for sweep direction:', dir
+
+        if filePrefix: filePrefix += '_'
         tf.imsave(os.path.join(saveFolder,filePrefix+'aveMov_'+dir+'.tif'),aveMov.astype(np.float32))
         tf.imsave(os.path.join(saveFolder,filePrefix+'aveMovNor_'+dir+'.tif'),aveMovNor.astype(np.float32))
 
         print 'End of movie averaging for sweep direction:', dir, '\n'
+
+def getVasMap(vasMapPaths,
+              saveFolder = None,
+              dtype = np.dtype('<u2'),
+              headerLength = 116,
+              tailerLength = 218,
+              column = 1024,
+              row = 1024,
+              frame = 1,
+              crop = None,
+              mergeMethod = np.mean, # np.median, np.min, np.max
+              fileNamePrefix=''
+              ):
+
+    vasMaps = []
+    for vasMapPath in vasMapPaths:
+        currVasMap,_,_= ft.importRawJCamF(vasMapPath,saveFolder=None,dtype=dtype,headerLength=headerLength,tailerLength=tailerLength,
+                                          column=column,row=row,frame=frame,crop=crop)
+        vasMaps.append(currVasMap[0].astype(np.float32))
+    vasMap = vasMapMergeMethod(vasMaps,axis=0)
+    if saveFolder is not None:
+        if fileNamePrefix: fileNamePrefix += '_'
+        tf.imsave(os.path.join(saveFolder,fileNamePrefix+'vasMap.tif'),vasMap)
+
+    return vasMap
+
+
+def getMappingPKL(movFolder,
+                  displayInfo,
+                  mouseID,
+                  cycles=1,
+                  vasculatureMap=None,
+                  isReverse=False,
+                  trialNum=None,
+                  mouseType=None,
+                  isAnesthetized=None,
+                  dateRecorded=None,
+                  visualStimType=None,
+                  visualStimBackground=None,
+                  imageExposureTime=None,
+                  params ={},
+                  ):
+    #todo: finish this function
+    pass
 
 
 
@@ -201,6 +247,7 @@ if __name__ == '__main__':
     #===========================================================================
     movPath = r"\\watersraid\data\Jun\150901-M177931\150901JCamF105_1_1_10.npy"
     jphysPath = r"\\watersraid\data\Jun\150901-M177931\150901JPhys105"
+    vasMapPaths = [r"\\watersraid\data\Jun\150901-M177931\150901JCamF104"]
     displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
     saveFolder = r'E:\data\2015-09-04-150901-M177931-FlashCameraMapping'
 
@@ -208,7 +255,31 @@ if __name__ == '__main__':
     mouseID = '177931'
     fileNum = '105'
 
+    vasMapDtype = np.dtype('<u2')
+    vasMapHeaderLength = 116
+    vasMapTailerLength = 218
+    vasMapColumn = 1024
+    vasMapRow = 1024
+    vasMapFrame = 1
+    vasMapCrop = None
+    vasMapMergeMethod = np.mean #np.median,np.min,np.max
+
     temporalDownSampleRate = 10
+
+
+
+
+    vasMap = getVasMap(vasMapPaths,
+                       saveFolder = saveFolder,
+                       dtype = vasMapDtype,
+                       headerLength = vasMapHeaderLength,
+                       tailerLength = vasMapTailerLength,
+                       column = vasMapColumn,
+                       row = vasMapRow,
+                       frame = vasMapFrame,
+                       crop = vasMapCrop,
+                       mergeMethod = vasMapMergeMethod, # np.median, np.min, np.max
+                       fileNamePrefix = dateRecorded+'_M'+mouseID)
 
     _, jphys = ft.importRawNewJPhys(jphysPath)
     pd = jphys['photodiode']
