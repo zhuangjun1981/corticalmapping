@@ -55,26 +55,10 @@ temporalDownSampleRate = 10
 #wrap experiment parameters
 trialNum='4_5'
 mouseType='Emx1-IRES-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
-isAnesthetized=False,
+isAnesthetized=False
 visualStimType='KSstim'
 visualStimBackground='gray'
-analysisParams ={'phaseMapFilterSigma': 1.,
-                 'signMapFilterSigma': 9.,
-                 'signMapThr': 0.3,
-                 'eccMapFilterSigma': 15.0,
-                 'splitLocalMinCutStep': 10.,
-                 'closeIter': 3,
-                 'openIter': 3,
-                 'dilationIter': 15,
-                 'borderWidth': 1,
-                 'smallPatchThr': 100,
-                 'visualSpacePixelSize': 0.5,
-                 'visualSpaceCloseIter': 15,
-                 'splitOverlapThr': 1.1,
-                 'mergeOverlapThr': 0.1}
-
-
-
+analysisParams ={}
 
 vasMap = hl.getVasMap(vasMapPaths,dtype=vasMapDtype,headerLength=vasMapHeaderLength,tailerLength=vasMapTailerLength,
                       column=vasMapColumn,row=vasMapRow,frame=vasMapFrame,crop=vasMapCrop,mergeMethod=vasMapMergeMethod)

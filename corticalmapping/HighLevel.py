@@ -111,7 +111,7 @@ def getVasMap(vasMapPaths,
         currVasMap,_,_= ft.importRawJCamF(vasMapPath,saveFolder=None,dtype=dtype,headerLength=headerLength,tailerLength=tailerLength,
                                           column=column,row=row,frame=frame,crop=crop)
         vasMaps.append(currVasMap[0].astype(np.float32))
-    vasMap = vasMapMergeMethod(vasMaps,axis=0)
+    vasMap = mergeMethod(vasMaps,axis=0)
 
     return vasMap
 
@@ -297,7 +297,7 @@ if __name__ == '__main__':
     #wrap experiment parameters
     trialNum='4_5'
     mouseType='Emx1-IRES-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
-    isAnesthetized=False,
+    isAnesthetized=False
     visualStimType='KSstim'
     visualStimBackground='gray'
     analysisParams ={'phaseMapFilterSigma': 1.,
@@ -407,7 +407,6 @@ if __name__ == '__main__':
 
     trialDict = trialObj.generateTrialDict()
     ft.saveFile(os.path.join(saveFolder,trialObj.getName()+'.pkl'),trialDict)
-
     #===========================================================================
 
     print 'for debug...'
