@@ -95,6 +95,26 @@ def getlogPathList(date,#string
     print '\n'+'\n'.join(logPathList)+'\n'
     return logPathList
 
+def getVasMap(vasMapPaths,
+              dtype = np.dtype('<u2'),
+              headerLength = 116,
+              tailerLength = 218,
+              column = 1024,
+              row = 1024,
+              frame = 1,
+              crop = None,
+              mergeMethod = np.mean, # np.median, np.min, np.max
+              ):
+
+    vasMaps = []
+    for vasMapPath in vasMapPaths:
+        currVasMap,_,_= ft.importRawJCamF(vasMapPath,saveFolder=None,dtype=dtype,headerLength=headerLength,tailerLength=tailerLength,
+                                          column=column,row=row,frame=frame,crop=crop)
+        vasMaps.append(currVasMap[0].astype(np.float32))
+    vasMap = vasMapMergeMethod(vasMaps,axis=0)
+
+    return vasMap
+
 def analysisMappingDisplayLogs(logPathList):
     '''
     :param logFileList: list of paths of all visual display logs of a mapping experiment
@@ -177,7 +197,10 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
 
     return aveMov, aveMovNor
 
-def saveMappingMovies(movPath,frameTS,displayOnsets,displayInfo,saveFolder,temporalDownSampleRate=1,filePrefix=''):
+def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1):
+    
+    movies = {}
+    moviesNor = {}
 
     for dir in ['B2U','U2B','L2R','R2L']:
         print '\nAnalyzing sweeps with direction:', dir
@@ -187,59 +210,44 @@ def saveMappingMovies(movPath,frameTS,displayOnsets,displayInfo,saveFolder,tempo
                                               chunkDur=displayInfo[dir]['sweepDur'],
                                               startTime=displayInfo[dir]['startTime'],
                                               temporalDownSampleRate=temporalDownSampleRate)
+        
+        movies.update({dir:aveMov})
+        moviesNor.update({dir:aveMovNor})
+    
+    return movies, moviesNor
 
-        print 'Saving averaged F movie and DF movie for sweep direction:', dir
-
-        if filePrefix: filePrefix += '_'
-        tf.imsave(os.path.join(saveFolder,filePrefix+'aveMov_'+dir+'.tif'),aveMov.astype(np.float32))
-        tf.imsave(os.path.join(saveFolder,filePrefix+'aveMovNor_'+dir+'.tif'),aveMovNor.astype(np.float32))
-
-        print 'End of movie averaging for sweep direction:', dir, '\n'
-
-def getVasMap(vasMapPaths,
-              saveFolder = None,
-              dtype = np.dtype('<u2'),
-              headerLength = 116,
-              tailerLength = 218,
-              column = 1024,
-              row = 1024,
-              frame = 1,
-              crop = None,
-              mergeMethod = np.mean, # np.median, np.min, np.max
-              fileNamePrefix=''
-              ):
-
-    vasMaps = []
-    for vasMapPath in vasMapPaths:
-        currVasMap,_,_= ft.importRawJCamF(vasMapPath,saveFolder=None,dtype=dtype,headerLength=headerLength,tailerLength=tailerLength,
-                                          column=column,row=row,frame=frame,crop=crop)
-        vasMaps.append(currVasMap[0].astype(np.float32))
-    vasMap = vasMapMergeMethod(vasMaps,axis=0)
-    if saveFolder is not None:
-        if fileNamePrefix: fileNamePrefix += '_'
-        tf.imsave(os.path.join(saveFolder,fileNamePrefix+'vasMap.tif'),vasMap)
-
-    return vasMap
+def getPositionAndPowerMap(movies,displayInfo,FFTmode='peak',cycles=1):
 
 
-def getMappingPKL(movFolder,
-                  displayInfo,
-                  mouseID,
-                  cycles=1,
-                  vasculatureMap=None,
-                  isReverse=False,
-                  trialNum=None,
-                  mouseType=None,
-                  isAnesthetized=None,
-                  dateRecorded=None,
-                  visualStimType=None,
-                  visualStimBackground=None,
-                  imageExposureTime=None,
-                  params ={},
-                  ):
-    #todo: finish this function
-    pass
+    if FFTmode=='peak': isReverse=False
+    elif FFTmode=='valley': isReverse=True
+    else: raise LookupError, 'FFTmode should be either "peak" or "valley"!'
+    
+    phaseMapB2U, powerMapB2U = rm.generatePhaseMap2(movies['B2U'],cycles,isReverse)
+    powerMapB2U = powerMapB2U / np.amax(powerMapB2U)
+    positionMapB2U = phaseMapB2U * displayInfo['B2U']['slope'] + displayInfo['B2U']['intercept']
+    
+    phaseMapU2B, powerMapU2B = rm.generatePhaseMap2(movies['U2B'],cycles,isReverse)
+    powerMapU2B = powerMapU2B / np.amax(powerMapU2B)
+    positionMapU2B = phaseMapU2B * displayInfo['U2B']['slope'] + displayInfo['U2B']['intercept']
+    
+    phaseMapL2R, powerMapL2R = rm.generatePhaseMap2(movies['L2R'],cycles,isReverse)
+    powerMapL2R = powerMapL2R / np.amax(powerMapL2R)
+    positionMapL2R = phaseMapL2R * displayInfo['L2R']['slope'] + displayInfo['L2R']['intercept']
+    
+    phaseMapR2L, powerMapR2L = rm.generatePhaseMap2(movies['R2L'],cycles,isReverse)
+    powerMapR2L = powerMapR2L / np.amax(powerMapR2L)
+    positionMapR2L = phaseMapR2L * displayInfo['R2L']['slope'] + displayInfo['R2L']['intercept']
+    
+    altPosMap = np.mean([positionMapB2U, positionMapU2B], axis = 0)
+    altPowerMap = np.mean([powerMapB2U, powerMapU2B], axis = 0)
+    altPowerMap = altPowerMap / np.amax(altPowerMap)
 
+    aziPosMap = np.mean([positionMapL2R, positionMapR2L], axis = 0)
+    aziPowerMap = np.mean([powerMapL2R, powerMapR2L], axis = 0)
+    aziPowerMap = aziPowerMap / np.amax(aziPowerMap)
+
+    return altPosMap,aziPosMap,altPowerMap,aziPowerMap
 
 
 if __name__ == '__main__':
@@ -255,6 +263,9 @@ if __name__ == '__main__':
     mouseID = '177931'
     fileNum = '105'
 
+    temporalDownSampleRate = 10
+
+    # vasculature map parameters
     vasMapDtype = np.dtype('<u2')
     vasMapHeaderLength = 116
     vasMapTailerLength = 218
@@ -264,13 +275,50 @@ if __name__ == '__main__':
     vasMapCrop = None
     vasMapMergeMethod = np.mean #np.median,np.min,np.max
 
-    temporalDownSampleRate = 10
+    #jphys parameters
+    jphysDtype = np.dtype('>f')
+    jphysHeaderLength = 96 # length of the header for each channel
+    jphysChannels = ('photodiode2','read','trigger','photodiode','sweep','visualFrame','runningRef','runningSig','reward','licking')# name of all channels
+    jphysFs = 10000.
+
+    #photodiode signal parameters
+    pdDigitizeThr=0.9
+    pdFilterSize=0.01
+    pdSegmentThr=0.02
+
+    #image read signal parameters
+    readThreshold = 3.
+    readOnsetType='raising'
+
+    #pos map and power map parameters
+    FFTmode='peak'
+    cycles=1
+
+    #wrap experiment parameters
+    trialNum='4_5'
+    mouseType='Emx1-IRES-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
+    isAnesthetized=False,
+    visualStimType='KSstim'
+    visualStimBackground='gray'
+    analysisParams ={'phaseMapFilterSigma': 1.,
+                     'signMapFilterSigma': 9.,
+                     'signMapThr': 0.3,
+                     'eccMapFilterSigma': 15.0,
+                     'splitLocalMinCutStep': 10.,
+                     'closeIter': 3,
+                     'openIter': 3,
+                     'dilationIter': 15,
+                     'borderWidth': 1,
+                     'smallPatchThr': 100,
+                     'visualSpacePixelSize': 0.5,
+                     'visualSpaceCloseIter': 15,
+                     'splitOverlapThr': 1.1,
+                     'mergeOverlapThr': 0.1}
 
 
 
 
     vasMap = getVasMap(vasMapPaths,
-                       saveFolder = saveFolder,
                        dtype = vasMapDtype,
                        headerLength = vasMapHeaderLength,
                        tailerLength = vasMapTailerLength,
@@ -279,24 +327,86 @@ if __name__ == '__main__':
                        frame = vasMapFrame,
                        crop = vasMapCrop,
                        mergeMethod = vasMapMergeMethod, # np.median, np.min, np.max
-                       fileNamePrefix = dateRecorded+'_M'+mouseID)
+                       )
 
-    _, jphys = ft.importRawNewJPhys(jphysPath)
+    tf.imsave(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_vasMap.tif'),vasMap)
+
+    _, jphys = ft.importRawNewJPhys(jphysPath,
+                                    dtype = jphysDtype,
+                                    headerLength = jphysHeaderLength,
+                                    channels = jphysChannels,
+                                    sf = jphysFs)
+
     pd = jphys['photodiode']
-    displayOnsets = segmentMappingPhotodiodeSignal(pd)
 
-    imgFrameTS = ta.getOnsetTimeStamps(jphys['read'])
+    displayOnsets = segmentMappingPhotodiodeSignal(pd,
+                                                   digitizeThr=pdDigitizeThr,
+                                                   filterSize=pdFilterSize,
+                                                   segmentThr=pdSegmentThr,
+                                                   Fs=jphysFs)
 
-    logPathList = getlogPathList(dateRecorded,mouseID,fileNumber=fileNum)
+    imgFrameTS = ta.getOnsetTimeStamps(jphys['read'],
+                                       Fs=jphysFs,
+                                       threshold=readThreshold,
+                                       onsetType=readOnsetType)
+
+    logPathList = getlogPathList(date=dateRecorded,
+                                 mouseID=mouseID,
+                                 stimulus='',#string
+                                 userID='',#string
+                                 fileNumber=fileNum,
+                                 displayFolder=displayFolder)
+
     displayInfo = analysisMappingDisplayLogs(logPathList)
 
-    saveMappingMovies(movPath = movPath,
-                      frameTS=imgFrameTS,
-                      displayOnsets=displayOnsets,
-                      displayInfo=displayInfo,
-                      saveFolder=saveFolder,
-                      temporalDownSampleRate=temporalDownSampleRate,
-                      filePrefix=dateRecorded+'_M'+mouseID)
+    movies, moviesNor = getMappingMovies(movPath=movPath,
+                                         frameTS=imgFrameTS,
+                                         displayOnsets=displayOnsets,
+                                         displayInfo=displayInfo,
+                                         temporalDownSampleRate=temporalDownSampleRate)
+
+    for dir,mov in movies.iteritems():
+        tf.imsave(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_aveMov_'+dir+'.tif'),mov)
+    for dir,movNor in moviesNor.iteritems():
+        tf.imsave(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_aveMovNor_'+dir+'.tif'),movNor)
+
+    del moviesNor
+
+    altPosMap,aziPosMap,altPowerMap,aziPowerMap = getPositionAndPowerMap(movies=movies,displayInfo=displayInfo,FFTmode=FFTmode,cycles=cycles)
+
+    del movies
+
+    f = plt.figure(figsize=(12,10))
+    f.suptitle(dateRecorded+'_M'+mouseID+'_Trial:'+trialNum)
+    ax1 = f.add_subplot(221); fig1 = ax1.imshow(altPosMap, vmin=-30,vmax=50,cmap='hsv',interpolation='nearest')
+    f.colorbar(fig1); ax1.set_title('alt position map')
+    ax2 = f.add_subplot(222); fig2 = ax2.imshow(altPowerMap, vmin=0,vmax=1,cmap='hot',interpolation='nearest')
+    f.colorbar(fig2); ax2.set_title('alt power map')
+    ax3 = f.add_subplot(223); fig3 = ax3.imshow(aziPosMap, vmin=0,vmax=120,cmap='hsv',interpolation='nearest')
+    f.colorbar(fig3); ax3.set_title('azi position map')
+    ax4 = f.add_subplot(224); fig4 = ax4.imshow(aziPowerMap, vmin=0,vmax=1,cmap='hot',interpolation='nearest')
+    f.colorbar(fig4); ax4.set_title('alt power map')
+
+    f.savefig(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_RetinotopicMappingTrial_'+trialNum+'.png'),dpi=300)
+
+    trialObj = rm.RetinotopicMappingTrial(mouseID=mouseID,
+                                          dateRecorded=int(dateRecorded),
+                                          trialNum=trialNum,
+                                          mouseType=mouseType,
+                                          visualStimType=visualStimType,
+                                          visualStimBackground=visualStimBackground,
+                                          imageExposureTime=np.mean(np.diff(imgFrameTS)),
+                                          altPosMap=altPosMap,
+                                          aziPosMap=aziPosMap,
+                                          altPowerMap=altPowerMap,
+                                          aziPowerMap=altPowerMap,
+                                          vasculatureMap=vasMap,
+                                          isAnesthetized=isAnesthetized,
+                                          params=analysisParams
+                                          )
+
+    trialDict = trialObj.generateTrialDict()
+    ft.saveFile(os.path.join(saveFolder,trialObj.getName()+'.pkl'),trialDict)
 
     #===========================================================================
 
