@@ -226,7 +226,7 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
         powerMap = powerMap / np.amax(powerMap)
         positionMap = phaseMap * displayInfo[dir]['slope'] + displayInfo[dir]['intercept']
         maps.update({'posMap_'+dir:positionMap,
-                     'powerMap+'+dir:powerMap})
+                     'powerMap_'+dir:powerMap})
 
         if saveFolder is not None:
             if savePrefix:
