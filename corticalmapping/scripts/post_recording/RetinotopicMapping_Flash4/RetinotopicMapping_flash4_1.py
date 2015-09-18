@@ -10,14 +10,28 @@ import corticalmapping.core.TimingAnalysis as ta
 import corticalmapping.HighLevel as hl
 import corticalmapping.RetinotopicMapping as rm
 
-movPath = r"\\watersraid\data\Jun\150901-M177931\150901JCamF105_1_1_10.npy"
-jphysPath = r"\\watersraid\data\Jun\150901-M177931\150901JPhys105"
-vasMapPaths = [r"\\watersraid\data\Jun\150901-M177931\150901JCamF104"]
-displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
 
-dateRecorded = '150901'
-mouseID = '177931'
-fileNum = '105'
+
+dateRecorded = '150917'
+mouseID = '199098'
+fileNum = 109
+vasfileNums = range(100,104)
+
+trialNum='1_2_3_4'
+mouseType='Emx1-IRES-Cre;Camk2a-tTA;Ai94(TITL-GCaMP6s)'
+
+displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
+dataFolder = r"\\watersraid\data\Jun"
+
+
+dataFolder = os.path.join(dataFolder,dateRecorded+'-M'+mouseID)
+fileList = os.listdir(dataFolder)
+movPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNum) in f) and ('.npy' in f)][0])
+jphysPath = os.path.join(dataFolder, [f for f in fileList if dateRecorded+'JPhys'+str(fileNum) in f][0])
+vasMapPaths = []
+for vasfileNum in vasfileNums:
+  fn = [f for f in fileList if 'JCamF'+str(vasfileNum) in f][0]
+  vasMapPaths.append(os.path.join(dataFolder,fn))
 
 saveFolder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(saveFolder)
@@ -53,8 +67,6 @@ cycles=1
 temporalDownSampleRate = 10
 
 #wrap experiment parameters
-trialNum='4_5'
-mouseType='Emx1-IRES-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
 isAnesthetized=False
 visualStimType='KSstim'
 visualStimBackground='gray'
@@ -73,22 +85,13 @@ displayOnsets = hl.segmentMappingPhotodiodeSignal(pd,digitizeThr=pdDigitizeThr,f
 
 imgFrameTS = ta.getOnsetTimeStamps(jphys['read'],Fs=jphysFs,threshold=readThreshold,onsetType=readOnsetType)
 
-logPathList = hl.getlogPathList(date=dateRecorded,mouseID=mouseID,stimulus='',userID='',fileNumber=fileNum,displayFolder=displayFolder)
+logPathList = hl.getlogPathList(date=dateRecorded,mouseID=mouseID,stimulus='',userID='',fileNumber=str(fileNum),displayFolder=displayFolder)
 
 displayInfo = hl.analysisMappingDisplayLogs(logPathList)
 
-movies, moviesNor = hl.getMappingMovies(movPath=movPath,frameTS=imgFrameTS,displayOnsets=displayOnsets,displayInfo=displayInfo,temporalDownSampleRate=temporalDownSampleRate)
-
-for dir,mov in movies.iteritems():
-    tf.imsave(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_aveMov_'+dir+'.tif'),mov)
-for dir,movNor in moviesNor.iteritems():
-    tf.imsave(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_aveMovNor_'+dir+'.tif'),movNor)
-
-del moviesNor
-
-altPosMap,aziPosMap,altPowerMap,aziPowerMap = hl.getPositionAndPowerMap(movies=movies,displayInfo=displayInfo,FFTmode=FFTmode,cycles=cycles)
-
-del movies
+altPosMap,aziPosMap,altPowerMap,aziPowerMap  = hl.getMappingMovies(movPath=movPath,frameTS=imgFrameTS,displayOnsets=displayOnsets,displayInfo=displayInfo,
+                                                                   temporalDownSampleRate=temporalDownSampleRate,saveFolder=saveFolder,
+                                                                   savePrefix=dateRecorded+'_M'+mouseID,FFTmode='peak',cycles=1)
 
 f = plt.figure(figsize=(12,10))
 f.suptitle(dateRecorded+'_M'+mouseID+'_Trial:'+trialNum)
@@ -100,6 +103,8 @@ ax3 = f.add_subplot(223); fig3 = ax3.imshow(aziPosMap, vmin=0,vmax=120,cmap='hsv
 f.colorbar(fig3); ax3.set_title('azi position map')
 ax4 = f.add_subplot(224); fig4 = ax4.imshow(aziPowerMap, vmin=0,vmax=1,cmap='hot',interpolation='nearest')
 f.colorbar(fig4); ax4.set_title('alt power map')
+
+plt.show()
 
 f.savefig(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_RetinotopicMappingTrial_'+trialNum+'.png'),dpi=300)
 

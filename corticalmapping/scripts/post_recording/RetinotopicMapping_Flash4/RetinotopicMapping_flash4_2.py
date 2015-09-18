@@ -6,12 +6,12 @@ import corticalmapping.RetinotopicMapping as rm
 import corticalmapping.core.FileTools as ft
 
 
-trialPath = ''
+trialPath = r"E:\data\2015-09-04-150901-M177931-FlashCameraMapping\trial_1_2_3\150901_M177931_Trial1_2_3_Emx1;Ai93_Awake.pkl"
 isSave = True
 
-params = {'phaseMapFilterSigma': 1.,
-          'signMapFilterSigma': 9.,
-          'signMapThr': 0.3,
+params = {'phaseMapFilterSigma': 0.5,
+          'signMapFilterSigma': 8.,
+          'signMapThr': 0.35,
           'eccMapFilterSigma': 15.0,
           'splitLocalMinCutStep': 10.,
           'closeIter': 3,

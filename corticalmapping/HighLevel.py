@@ -197,54 +197,52 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
 
     return aveMov, aveMovNor
 
-def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1):
+def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1,saveFolder=None,savePrefix='',FFTmode='peak',cycles=1):
     
-    movies = {}
-    moviesNor = {}
-
-    for dir in ['B2U','U2B','L2R','R2L']:
-        print '\nAnalyzing sweeps with direction:', dir
-        aveMov, aveMovNor = getAverageDfMovie(movPath=movPath,
-                                              frameTS=frameTS,
-                                              onsetTimes=displayOnsets[displayInfo[dir]['ind']],
-                                              chunkDur=displayInfo[dir]['sweepDur'],
-                                              startTime=displayInfo[dir]['startTime'],
-                                              temporalDownSampleRate=temporalDownSampleRate)
-        
-        movies.update({dir:aveMov})
-        moviesNor.update({dir:aveMovNor})
-    
-    return movies, moviesNor
-
-def getPositionAndPowerMap(movies,displayInfo,FFTmode='peak',cycles=1):
-
+    maps = {}
 
     if FFTmode=='peak': isReverse=False
     elif FFTmode=='valley': isReverse=True
     else: raise LookupError, 'FFTmode should be either "peak" or "valley"!'
-    
-    phaseMapB2U, powerMapB2U = rm.generatePhaseMap2(movies['B2U'],cycles,isReverse)
-    powerMapB2U = powerMapB2U / np.amax(powerMapB2U)
-    positionMapB2U = phaseMapB2U * displayInfo['B2U']['slope'] + displayInfo['B2U']['intercept']
-    
-    phaseMapU2B, powerMapU2B = rm.generatePhaseMap2(movies['U2B'],cycles,isReverse)
-    powerMapU2B = powerMapU2B / np.amax(powerMapU2B)
-    positionMapU2B = phaseMapU2B * displayInfo['U2B']['slope'] + displayInfo['U2B']['intercept']
-    
-    phaseMapL2R, powerMapL2R = rm.generatePhaseMap2(movies['L2R'],cycles,isReverse)
-    powerMapL2R = powerMapL2R / np.amax(powerMapL2R)
-    positionMapL2R = phaseMapL2R * displayInfo['L2R']['slope'] + displayInfo['L2R']['intercept']
-    
-    phaseMapR2L, powerMapR2L = rm.generatePhaseMap2(movies['R2L'],cycles,isReverse)
-    powerMapR2L = powerMapR2L / np.amax(powerMapR2L)
-    positionMapR2L = phaseMapR2L * displayInfo['R2L']['slope'] + displayInfo['R2L']['intercept']
-    
-    altPosMap = np.mean([positionMapB2U, positionMapU2B], axis = 0)
-    altPowerMap = np.mean([powerMapB2U, powerMapU2B], axis = 0)
+
+    for dir in ['B2U','U2B','L2R','R2L']:
+        print '\nAnalyzing sweeps with direction:', dir
+
+        onsetInd = list(displayInfo[dir]['ind'])
+
+        for ind in displayInfo[dir]['ind']:
+            if ind >= len(displayOnsets):
+                print 'Visual Stimulation Direction:'+dir+' index:'+str(ind)+' was not displayed. Remove from averageing.'
+                onsetInd.remove(ind)
+
+        aveMov, aveMovNor = getAverageDfMovie(movPath=movPath,
+                                              frameTS=frameTS,
+                                              onsetTimes=displayOnsets[onsetInd],
+                                              chunkDur=displayInfo[dir]['sweepDur'],
+                                              startTime=displayInfo[dir]['startTime'],
+                                              temporalDownSampleRate=temporalDownSampleRate)
+
+        phaseMap, powerMap = rm.generatePhaseMap2(aveMov,cycles,isReverse)
+        powerMap = powerMap / np.amax(powerMap)
+        positionMap = phaseMap * displayInfo[dir]['slope'] + displayInfo[dir]['intercept']
+        maps.update({'posMap_'+dir:positionMap,
+                     'powerMap+'+dir:powerMap})
+
+        if saveFolder is not None:
+            if savePrefix:
+                tf.imsave(os.path.join(saveFolder,savePrefix+'_aveMov_'+dir+'.tif'),aveMov.astype(np.float32))
+                tf.imsave(os.path.join(saveFolder,savePrefix+'_aveMovNor_'+dir+'.tif'),aveMovNor.astype(np.float32))
+            else:
+                tf.imsave(os.path.join(saveFolder,savePrefix+'aveMov_'+dir+'.tif'),aveMov.astype(np.float32))
+                tf.imsave(os.path.join(saveFolder,savePrefix+'aveMovNor_'+dir+'.tif'),aveMovNor.astype(np.float32))
+
+    altPosMap = np.mean([maps['posMap_B2U'],maps['posMap_U2B']],axis=0)
+    aziPosMap = np.mean([maps['posMap_L2R'],maps['posMap_R2L']],axis=0)
+
+    altPowerMap = np.mean([maps['powerMap_B2U'],maps['powerMap_U2B']],axis=0)
     altPowerMap = altPowerMap / np.amax(altPowerMap)
 
-    aziPosMap = np.mean([positionMapL2R, positionMapR2L], axis = 0)
-    aziPowerMap = np.mean([powerMapL2R, powerMapR2L], axis = 0)
+    aziPowerMap = np.mean([maps['powerMap_L2R'],maps['powerMap_L2R']],axis=0)
     aziPowerMap = aziPowerMap / np.amax(aziPowerMap)
 
     return altPosMap,aziPosMap,altPowerMap,aziPowerMap
