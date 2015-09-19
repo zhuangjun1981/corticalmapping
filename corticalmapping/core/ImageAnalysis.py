@@ -330,6 +330,7 @@ def rotateImage(img,angle,borderValue=0.0):
     rows,cols = img.shape
 
     M = cv2.getRotationMatrix2D((cols/2,rows/2),angle,1)
+    # M = cv2.getRotationMatrix2D((0,0),angle,1)
     newImg = cv2.warpAffine(img,M,(cols,rows),borderValue=borderValue)
 
     return newImg
