@@ -74,7 +74,7 @@ def translateHugeMovieByVasculature(inputPath,outputPath,parameterPath,outputDty
 
     if outputPath[-4:]!='.npy': outputPath += '.npy'
 
-    if verbose: print 'Input movie shape:', inputMov.shape
+    if verbose: print '\nInput movie shape:', inputMov.shape
 
 
     chunkNum = frameNum // chunkLength
@@ -83,10 +83,13 @@ def translateHugeMovieByVasculature(inputPath,outputPath,parameterPath,outputDty
             print 'Translating in chunks: '+ str(chunkNum)+' x '+str(chunkLength)+' frame(s)'
     else:
         chunkNum += 1
-        if verbose:
-            print 'Translating in chunks: '+str(chunkNum-1)+' x '+str(chunkLength)+' frame(s)'+' + '+str(frameNum % chunkLength)+' frame(s)'
+        if verbose: print 'Translating in chunks: '+str(chunkNum-1)+' x '+str(chunkLength)+' frame(s)'+' + '+str(frameNum % chunkLength)+' frame(s)'
 
-    frameT1 = translateMovieByVasculature(inputMov[0,:,:],parameterPath=parameterPath,matchingDecimation=matchingDecimation,referenceDecimation=referenceDecimation,verbose=True)
+    frameT1 = translateMovieByVasculature(inputMov[0,:,:],parameterPath=parameterPath,matchingDecimation=matchingDecimation,referenceDecimation=referenceDecimation,verbose=False)
+    plt.imshow(frameT1,cmap='gray')
+    plt.show()
+
+    if verbose: print 'Output movie shape:', (frameNum,frameT1.shape[0],frameT1.shape[1]), '\n'
 
     with open(outputPath, 'wb') as f:
         np.lib.format.write_array_header_1_0(f, {'descr':outputDtype, 'fortran_order':False, 'shape':(frameNum,frameT1.shape[0],frameT1.shape[1])})
