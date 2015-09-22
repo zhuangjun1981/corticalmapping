@@ -16,6 +16,7 @@ import scipy.ndimage as ni
 
 import tifffile as tf
 import ImageAnalysis as ia
+import cv2
 
 
 def getRGB(colorStr):
@@ -319,7 +320,31 @@ def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closin
     return currfig
 
 
-#todo: new plot mask function using contour and return mask border as vector graph
+def plotMaskBorders(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth=2,closingIteration = None):
+    '''
+    plot mask (ROI) borders by using pyplot.contour function. all the 0s and Nans in the input mask will be considered
+    as background, and non-zero, non-nan pixel will be considered in ROI.
+    '''
+    if not plotAxis:
+        f = plt.figure()
+        plotAxis = f.add_subplot(111)
+
+    plotingMask = np.ones(mask.shape,dtype=np.uint8)
+
+    plotingMask[np.logical_or(np.isnan(mask),mask==0)]=0
+
+    if zoom != 1:
+        plotingMask = cv2.resize(plotingMask.astype(np.float),dsize=(int(plotingMask.shape[1]*zoom),int(plotingMask.shape[0]*zoom)))
+        plotingMask[plotingMask<0.5]=0
+        plotingMask[plotingMask>=0.5]=1
+        plotingMask=plotingMask.astype(np.uint8)
+
+    if closingIteration is not None:
+        plotingMask = ni.binary_closing(plotingMask,iterations=closingIteration).astype(np.uint8)
+
+    currfig = plotAxis.contour(plotingMask, levels=[0.5], colors=color, linewidths=borderWidth)
+
+    return currfig
 
 
 def gridAxis(rowNum,columnNum,totalPlotNum,**kwarg):
@@ -447,6 +472,19 @@ def value2RGB(value,cmap):
 if __name__=='__main__':
     
     plt.ioff()
+
+    #----------------------------------------------------
+    bg = np.random.rand(100,100)
+    maskBin=np.zeros((100,100),dtype=np.uint8)
+    maskBin[20:30,50:60]=1
+    maskNan=np.zeros((100,100),dtype=np.float32)
+    maskNan[20:30,50:60]=1
+    f=plt.figure(); ax=f.add_subplot(111)
+    ax.imshow(bg,cmap='gray')
+    _ = plotMaskBorders(maskNan,plotAxis=ax,color='#0000ff',zoom=1,closingIteration=20)
+    plt.show()
+    #----------------------------------------------------
+
     #----------------------------------------------------
     # ax = barGraph(0.5,1,0.1,label='xx')
     # ax.legend()
