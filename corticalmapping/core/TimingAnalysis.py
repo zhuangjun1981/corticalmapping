@@ -16,7 +16,6 @@ def all_crossings(data, threshold=0):
     npos = ~pos
     return ((pos[:-1] & npos[1:]) | (npos[:-1] & pos[1:])).nonzero()[0]
 
-
 def thresholdOnset(data, threshold=0, direction='up', fs=10000.):
     '''
 
@@ -31,8 +30,6 @@ def thresholdOnset(data, threshold=0, direction='up', fs=10000.):
     elif direction == 'down': onsetInd = down_crossings(data, threshold)
     elif direction == 'both': onsetInd = all_crossings(data, threshold)
     return onsetInd/float(fs)
-
-
 
 def discreteCrossCorrelation(ts1,ts2,range=(-1.,1.),bins=100, isPlot=False):
 

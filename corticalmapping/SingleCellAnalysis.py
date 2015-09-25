@@ -221,9 +221,9 @@ class ROI(object):
         return np.mean(np.array(self.pixels,dtype=np.float).transpose(),axis=0)
 
 
-    def getTrace(self,mov):
+    def getBinaryTrace(self,mov):
         '''
-        return trace of this ROI in a given movie
+        return trace of this ROI (binary format, 0s and 1s) in a given movie
         '''
         binaryMask = self.getBinaryMask()
         trace = np.multiply(mov,np.array([binaryMask])).sum(axis=1).sum(axis=1)
@@ -241,7 +241,7 @@ class ROI(object):
 
 
     def plotBinaryMaskBorder(self,**kwargs):
-        pt.plotMask(self.getNanMask(),**kwargs)
+        pt.plotMaskBorders(self.getNanMask(),**kwargs)
 
 
     def toH5Group(self, h5Group):
@@ -300,6 +300,9 @@ class WeightedROI(ROI):
 
 
     def getWeightedTrace(self, mov):
+        '''
+        return trace of this ROI (weighted format) in a given movie
+        '''
         mask = self.generateWeightedMask()
         trace = np.multiply(mov,np.array([mask])).sum(axis=1).sum(axis=1)
         return trace
@@ -315,7 +318,7 @@ class WeightedROI(ROI):
         return displayImg
 
 
-    def getTrace(self,mov):
+    def getWeightedTrace(self,mov):
         '''
         return trace of this ROI in a given movie
         '''
