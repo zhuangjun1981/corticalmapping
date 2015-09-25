@@ -772,10 +772,10 @@ class KSstimAllDir(object):
 
     def generateMovie(self):
 
-        KSstimB2U=KSstimJun(mon,indicator,iteration=self.iteration,direction='B2U',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
-        KSstimU2B=KSstimJun(mon,indicator,iteration=self.iteration,direction='U2B',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
-        KSstimL2R=KSstimJun(mon,indicator,iteration=self.iteration,direction='L2R',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
-        KSstimR2L=KSstimJun(mon,indicator,iteration=self.iteration,direction='R2L',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
+        KSstimB2U=KSstimJun(self.monitor,self.indicator,iteration=self.iteration,direction='B2U',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
+        KSstimU2B=KSstimJun(self.monitor,self.indicator,iteration=self.iteration,direction='U2B',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
+        KSstimL2R=KSstimJun(self.monitor,self.indicator,iteration=self.iteration,direction='L2R',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
+        KSstimR2L=KSstimJun(self.monitor,self.indicator,iteration=self.iteration,direction='R2L',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
 
         movB2U, dictB2U = KSstimB2U.generateMovie()
         movU2B, dictU2B = KSstimU2B.generateMovie()

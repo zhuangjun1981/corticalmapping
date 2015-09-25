@@ -14,7 +14,7 @@ import scipy.interpolate as ip
 
 
 
-def load_ROI_FromH5(h5Group):
+def load_ROI_From_H5(h5Group):
     '''
     load ROI (either ROI or WeightedROI) object from a hdf5 data group
     '''
@@ -35,7 +35,7 @@ def load_ROI_FromH5(h5Group):
         return ROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
 
 
-def load_STRF_FromH5(h5Group):
+def load_STRF_From_H5(h5Group):
     '''
     load SpatialTemporalReceptiveField object from a hdf5 data group
     '''
@@ -249,13 +249,13 @@ class ROI(object):
         add attributes and dataset to a h5 data group
         '''
         h5Group.attrs['dimension'] = self.dimension
-        if self.pixelSize is None: h5Group.attrs['pixelSize'] = 'None'
-        else: h5Group.attrs['pixelSize'] = self.pixelSize
+        if self.pixelSizeX is None: h5Group.attrs['pixelSize'] = 'None'
+        else: h5Group.attrs['pixelSize'] = [self.pixelSizeY, self.pixelSizeX]
         if self.pixelSizeUnit is None: h5Group.attrs['pixelSizeUnit'] = 'None'
         else: h5Group.attrs['pixelSizeUnit'] = self.pixelSizeUnit
 
         dataDict = dict(self.__dict__)
-        _ = dataDict.pop('dimension');_ = dataDict.pop('pixelSize');_ = dataDict.pop('pixelSizeUnit')
+        _ = dataDict.pop('dimension');_ = dataDict.pop('pixelSizeX');_ = dataDict.pop('pixelSizeY');_ = dataDict.pop('pixelSizeUnit')
         for key, value in dataDict.iteritems():
             if value is None: h5Group.create_dataset(key,data='None')
             else: h5Group.create_dataset(key,data=value)
