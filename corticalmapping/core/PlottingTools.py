@@ -231,7 +231,7 @@ def standaloneColorBar(vmin,vmax,cmap,sectionNum=10):
     cbar.set_ticks(np.linspace(vmin,vmax,num=sectionNum+1))
     
 
-def alphaBlending(image,alphaData,vmin,vmax,cmap = 'Paired',sectionNum = 10,background = -1,interpolation = 'nearest',isSave = False,savePath = None):
+def alphaBlending(image,alphaData,vmin,vmax,cmap='Paired',sectionNum=10,background=-1,interpolation='nearest',isSave=False,savePath=None):
     '''
     Generate image with transparency weighted by another matrix.
     
@@ -285,7 +285,7 @@ def alphaBlending(image,alphaData,vmin,vmax,cmap = 'Paired',sectionNum = 10,back
     return colorImage
 
 
-def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closingIteration = None):
+def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closingIteration=None):
     '''
     plot mask borders in a given color
     '''
@@ -320,7 +320,7 @@ def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closin
     return currfig
 
 
-def plotMaskBorders(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth=2,closingIteration = None):
+def plotMaskBorders(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth=2,closingIteration=None,**kwargs):
     '''
     plot mask (ROI) borders by using pyplot.contour function. all the 0s and Nans in the input mask will be considered
     as background, and non-zero, non-nan pixel will be considered in ROI.
@@ -342,7 +342,7 @@ def plotMaskBorders(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth=2,clos
     if closingIteration is not None:
         plotingMask = ni.binary_closing(plotingMask,iterations=closingIteration).astype(np.uint8)
 
-    currfig = plotAxis.contour(plotingMask, levels=[0.5], colors=color, linewidths=borderWidth)
+    currfig = plotAxis.contour(plotingMask, levels=[0.5], colors=color, linewidths=borderWidth,**kwargs)
 
     return currfig
 
