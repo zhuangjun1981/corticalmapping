@@ -4,6 +4,7 @@ import numpy as np
 import os
 import scipy.ndimage as ni
 import scipy.stats as stats
+import scipy.sparse as sparse
 import math
 import matplotlib.pyplot as plt
 from itertools import combinations
@@ -71,7 +72,8 @@ def loadTrial(trialPath):
         if isinstance(trialDict['finalPatches'].values()[0],dict):
             trial.finalPatches = {}
             for area,patchDict in trialDict['finalPatches'].iteritems():
-                trial.finalPatches.update({area:Patch(patchDict['array'],patchDict['sign'])})
+                try:trial.finalPatches.update({area:Patch(patchDict['array'],patchDict['sign'])})
+                except KeyError:trial.finalPatches.update({area:Patch(patchDict['sparseArray'],patchDict['sign'])})
         else: trial.finalPatches = trialDict['finalPatches']
     except KeyError:
         pass
@@ -80,8 +82,9 @@ def loadTrial(trialPath):
         if isinstance(trialDict['finalPatchesMarked'].values()[0],dict):
             trial.finalPatchesMarked = {}
             for area,patchDict in trialDict['finalPatchesMarked'].iteritems():
-                trial.finalPatchesMarked.update({area:Patch(patchDict['array'],patchDict['sign'])})
-        else: trial.finalPatchesMarked = trialDict['finalPatches']
+                try:trial.finalPatchesMarked.update({area:Patch(patchDict['array'],patchDict['sign'])})
+                except KeyError:trial.finalPatchesMarked.update({area:Patch(patchDict['sparseArray'],patchDict['sign'])})
+        else: trial.finalPatchesMarked = trialDict['finalPatchesMarked']
     except KeyError:
         pass
     
@@ -1206,7 +1209,7 @@ def plotPairedPatches(patch1,
     f_122.set_yticklabels(yticklabel)
 
 def getPatchDict(patch):
-    return {'array':patch.array,'sign':patch.sign}
+    return {'sparseArray':patch.sparseArray,'sign':patch.sign}
 
 class RetinotopicMappingTrial(object):
 
@@ -3061,15 +3064,23 @@ class RetinotopicMappingTrial(object):
         
         return altAxis, aziAxis
 
-
 class Patch(object):
 
     def __init__(self,patchArray,sign):
-        self.array = patchArray.astype(np.int8)
-        self.array[self.array > 0] = 1
-        self.array[self.array == 0] = 0
-        self.sign = sign
 
+        if isinstance(patchArray,sparse.coo_matrix):self.sparseArray=patchArray.astype(np.uint8)
+        else:
+            arr = patchArray.astype(np.int8)
+            arr[arr > 0] = 1
+            arr[arr == 0] = 0
+            self.sparseArray = sparse.coo_matrix(arr)
+
+        if sign==1 or sign==0 or sign==-1: self.sign = int(sign)
+        else: raise ValueError, 'Sign should be -1, 0 or 1!'
+
+    @property
+    def array(self):
+        return self.sparseArray.toarray()
 
     def getCenter(self):
         '''
@@ -3107,7 +3118,7 @@ class Patch(object):
 
 
     def getDict(self):
-        return {'array':self.array,'sign':self.sign}
+        return {'sparseArray':self.sparseArray,'sign':self.sign}
 
 
     def getTrace(self,mov):
