@@ -4,6 +4,8 @@ __author__ = 'junz'
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from toolbox.misc import BinarySlicer
+import warnings
 import corticalmapping.core.tifffile as tf
 import corticalmapping.core.FileTools as ft
 import corticalmapping.core.TimingAnalysis as ta
@@ -12,26 +14,25 @@ import corticalmapping.RetinotopicMapping as rm
 
 
 
-dateRecorded = '150917'
-mouseID = '199098'
-fileNum = 109
-vasfileNums = range(100,104)
+dateRecorded = '150930'
+mouseID = '187474'
+fileNum = 101
+vasfileNums = None
 
 trialNum='1_2_3_4'
 mouseType='Emx1-IRES-Cre;Camk2a-tTA;Ai94(TITL-GCaMP6s)'
 
 displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
-dataFolder = r"\\watersraid\data\Jun"
-
-
+dataFolder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData"
 dataFolder = os.path.join(dataFolder,dateRecorded+'-M'+mouseID)
 fileList = os.listdir(dataFolder)
 movPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNum) in f) and ('.npy' in f)][0])
 jphysPath = os.path.join(dataFolder, [f for f in fileList if dateRecorded+'JPhys'+str(fileNum) in f][0])
 vasMapPaths = []
-for vasfileNum in vasfileNums:
-  fn = [f for f in fileList if 'JCamF'+str(vasfileNum) in f][0]
-  vasMapPaths.append(os.path.join(dataFolder,fn))
+if vasfileNums is not None:
+    for vasfileNum in vasfileNums:
+        fn = [f for f in fileList if 'JCamF'+str(vasfileNum) in f][0]
+        vasMapPaths.append(os.path.join(dataFolder,fn))
 
 saveFolder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(saveFolder)
@@ -72,8 +73,12 @@ visualStimType='KSstim'
 visualStimBackground='gray'
 analysisParams ={}
 
-vasMap = hl.getVasMap(vasMapPaths,dtype=vasMapDtype,headerLength=vasMapHeaderLength,tailerLength=vasMapTailerLength,
-                      column=vasMapColumn,row=vasMapRow,frame=vasMapFrame,crop=vasMapCrop,mergeMethod=vasMapMergeMethod)
+if vasMapPaths:
+    vasMap = hl.getVasMap(vasMapPaths,dtype=vasMapDtype,headerLength=vasMapHeaderLength,tailerLength=vasMapTailerLength,
+                          column=vasMapColumn,row=vasMapRow,frame=vasMapFrame,crop=vasMapCrop,mergeMethod=vasMapMergeMethod)
+else:
+    print 'No vasculature map find. Taking first frame of movie as vasculature map.'
+    vasMap = BinarySlicer(movPath)[0,:,:]
 
 tf.imsave(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_vasMap.tif'),vasMap)
 
@@ -85,9 +90,14 @@ displayOnsets = hl.segmentMappingPhotodiodeSignal(pd,digitizeThr=pdDigitizeThr,f
 
 imgFrameTS = ta.getOnsetTimeStamps(jphys['read'],Fs=jphysFs,threshold=readThreshold,onsetType=readOnsetType)
 
-logPathList = hl.getlogPathList(date=dateRecorded,mouseID=mouseID,stimulus='',userID='',fileNumber=str(fileNum),displayFolder=displayFolder)
+logPath = hl.findLogPath(date=dateRecorded,mouseID=mouseID,stimulus='KSstimAllDir',userID='',fileNumber=str(fileNum),displayFolder=displayFolder)
 
-displayInfo = hl.analysisMappingDisplayLogs(logPathList)
+displayInfo = hl.analysisMappingDisplayLog(logPath)
+
+sweepNum = len(displayInfo['B2U']['ind']+displayInfo['U2B']['ind']+displayInfo['L2R']['ind']+displayInfo['R2L']['ind'])
+if len(displayOnsets) != sweepNum:
+    warningMessage = '\nNumber of detected photodiode onsets ('+str(len(displayOnsets))+') is not equal to display sweep number ('+str(sweepNum)+')!\n'
+    warnings.warn(warningMessage)
 
 altPosMap,aziPosMap,altPowerMap,aziPowerMap  = hl.getMappingMovies(movPath=movPath,frameTS=imgFrameTS,displayOnsets=displayOnsets,displayInfo=displayInfo,
                                                                    temporalDownSampleRate=temporalDownSampleRate,saveFolder=saveFolder,

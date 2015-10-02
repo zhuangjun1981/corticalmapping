@@ -6,7 +6,7 @@ import corticalmapping.RetinotopicMapping as rm
 import corticalmapping.core.FileTools as ft
 
 
-trialPath = r"E:\data\2015-09-04-150901-M177931-FlashCameraMapping\trial_1_2_3\150901_M177931_Trial1_2_3_Emx1;Ai93_Awake.pkl"
+trialName = "150901_M177931_Trial1_2_3_Emx1;Ai93_Awake.pkl"
 isSave = True
 
 params = {'phaseMapFilterSigma': 0.5,
@@ -28,7 +28,7 @@ params = {'phaseMapFilterSigma': 0.5,
 currFolder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(currFolder)
 
-trial, _ = rm.loadTrial(trialPath)
+trial, _ = rm.loadTrial(trialName)
 
 trial.params=params
 
