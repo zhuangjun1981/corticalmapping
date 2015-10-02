@@ -131,6 +131,7 @@ def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr
 
     return displayOnsets
 
+'''
 def getlogPathList(date,#string
                    mouseID,#string
                    stimulus='',#string
@@ -149,6 +150,28 @@ def getlogPathList(date,#string
             logPathList.append(os.path.join(displayFolder,f))
     print '\n'+'\n'.join(logPathList)+'\n'
     return logPathList
+'''
+
+def findLogPath(date,#string
+                mouseID,#string
+                stimulus='',#string
+                userID='',#string
+                fileNumber='',#string
+                displayFolder=r'\\W7DTMJ007LHW\data\sequence_display_log'):
+    logPathList = []
+    for f in os.listdir(displayFolder):
+        fn, ext = os.path.splitext(f)
+        strings = fn.split('-')
+        try: dateTime,stim,mouse,user,fileNum,trigger,complete=strings
+        except Exception as e:
+            # print 'Can not read path:',f,'\n',e
+            continue
+        if (dateTime[0:6] == date) and (mouseID in mouse) and (stimulus in stim) and (userID in user) and (fileNumber == fileNum):
+            logPathList.append(os.path.join(displayFolder,f))
+    print '\n'+'\n'.join(logPathList)+'\n'
+    if len(logPathList)==0: raise LookupError, 'Can not find visual display Log.'
+    elif len(logPathList)>1: raise LookupError, 'Find more than one visual display Log!'
+    return logPathList[0]
 
 def getVasMap(vasMapPaths,
               dtype = np.dtype('<u2'),
@@ -170,8 +193,9 @@ def getVasMap(vasMapPaths,
 
     return vasMap
 
+'''
 def analysisMappingDisplayLogs(logPathList):
-    '''
+    ====================================================================================================================
     :param logFileList: list of paths of all visual display logs of a mapping experiment
     :return:
     B2U: dictionary of all bottom up sweeps
@@ -182,7 +206,7 @@ def analysisMappingDisplayLogs(logPathList):
         'intercept': intercept of the linear relationship between phase and retinotopic location
 
     same for U2B, L2R and R2L
-    '''
+    ====================================================================================================================
 
     displayInfo = {
                    'B2U':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
@@ -219,6 +243,90 @@ def analysisMappingDisplayLogs(logPathList):
             currDict['sweepDur'] = len(log['presentation']['displayFrames']) / (log['stimulation']['iteration'] * log['presentation']['displayIteration'] * refreshRate)
 
             currDict['slope'], currDict['intercept'] = rm.getPhasePositionEquation(log)
+
+    return displayInfo
+'''
+
+def analysisMappingDisplayLog(logPath):
+    '''
+    :param logFile: path of visual display log of a mapping experiment
+    :return:
+    displayInfo: dictionary, for each direction ('B2U','U2B','L2R','R2L'):
+        'ind': indices of these sweeps in the whole experiments
+        'startTime': starting time relative to stimulus onset
+        'endTime': end time relative to stimulus onset
+        'slope': slope of the linear relationship between phase and retinotopic location
+        'intercept': intercept of the linear relationship between phase and retinotopic location
+
+    same for U2B, L2R and R2L
+    '''
+
+    displayInfo = {
+                   'B2U':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
+                   'U2B':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
+                   'L2R':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
+                   'R2L':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]}
+                   }
+
+    log = ft.loadFile(logPath)
+
+    #check display order
+    if log['presentation']['displayOrder']==-1: raise ValueError, 'Display order is -1 (should be 1)!'
+    refreshRate = float(log['monitor']['refreshRate'])
+
+    #check display visual frame interval
+    interFrameInterval = np.mean(np.diff(log['presentation']['timeStamp']))
+    if interFrameInterval > (1.01/refreshRate): raise ValueError, 'Mean visual display too long: '+str(interFrameInterval)+'sec' # check display
+    if interFrameInterval < (0.99/refreshRate): raise ValueError, 'Mean visual display too short: '+str(interFrameInterval)+'sec' # check display
+
+    #get sweep start time relative to display onset
+    startTime = -1 * log['stimulation']['preGapFrame'] / refreshRate
+    print 'Movie chunk start time relative to sweep onset:',startTime,'sec'
+    displayInfo['B2U']['startTime']=startTime;displayInfo['U2B']['startTime']=startTime
+    displayInfo['L2R']['startTime']=startTime;displayInfo['R2L']['startTime']=startTime
+
+    #get basic information
+    frames = log['stimulation']['frames']
+    displayIter = log['presentation']['displayIteration']
+    sweepTable = log['stimulation']['sweepTable']
+    dirList = []
+    B2Uframes = []; U2Bframes = []; L2Rframes = []; R2Lframes = []
+
+    # parcel frames for each direction
+    for frame in frames:
+        currDir = frame[4]
+        if currDir not in dirList: dirList.append(currDir)
+        if currDir=='B2U': B2Uframes.append(frame)
+        elif currDir=='U2B': U2Bframes.append(frame)
+        elif currDir=='L2R': L2Rframes.append(frame)
+        elif currDir=='R2L': R2Lframes.append(frame)
+
+    #get sweep order indices for each direction
+    dirList = dirList * displayIter
+    displayInfo['B2U']['ind'] = [ind for ind, dir in enumerate(dirList) if dir=='B2U']
+    print 'B2U sweep order indices:',displayInfo['B2U']['ind']
+    displayInfo['U2B']['ind'] = [ind for ind, dir in enumerate(dirList) if dir=='U2B']
+    print 'U2B sweep order indices:',displayInfo['U2B']['ind']
+    displayInfo['L2R']['ind'] = [ind for ind, dir in enumerate(dirList) if dir=='L2R']
+    print 'L2R sweep order indices:',displayInfo['L2R']['ind']
+    displayInfo['R2L']['ind'] = [ind for ind, dir in enumerate(dirList) if dir=='R2L']
+    print 'R2L sweep order indices:',displayInfo['R2L']['ind']
+
+    #get sweep duration for each direction
+    displayInfo['B2U']['sweepDur'] = len(B2Uframes) / refreshRate
+    print 'Chunk duration for B2U sweeps:', displayInfo['B2U']['sweepDur'], 'sec'
+    displayInfo['U2B']['sweepDur'] = len(U2Bframes) / refreshRate
+    print 'Chunk duration for U2B sweeps:', displayInfo['U2B']['sweepDur'], 'sec'
+    displayInfo['L2R']['sweepDur'] = len(L2Rframes) / refreshRate
+    print 'Chunk duration for L2R sweeps:', displayInfo['L2R']['sweepDur'], 'sec'
+    displayInfo['R2L']['sweepDur'] = len(R2Lframes) / refreshRate
+    print 'Chunk duration for R2L sweeps:', displayInfo['R2L']['sweepDur'], 'sec'
+
+    #get phase position slopes and intercepts for each direction
+    displayInfo['B2U']['slope'],displayInfo['B2U']['intercept'] = rm.getPhasePositionEquation2(B2Uframes,sweepTable)
+    displayInfo['U2B']['slope'],displayInfo['U2B']['intercept'] = rm.getPhasePositionEquation2(U2Bframes,sweepTable)
+    displayInfo['L2R']['slope'],displayInfo['L2R']['intercept'] = rm.getPhasePositionEquation2(L2Rframes,sweepTable)
+    displayInfo['R2L']['slope'],displayInfo['R2L']['intercept'] = rm.getPhasePositionEquation2(R2Lframes,sweepTable)
 
     return displayInfo
 
@@ -306,17 +414,26 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
 if __name__ == '__main__':
 
     #===========================================================================
-    inputPath = r"E:\data\python_temp_folder\testNPY.npy"
-    outputPath = r"E:\data\python_temp_folder\testNPY_T.npy"
-    parameterPath = r"E:\data\python_temp_folder\ExampleTraslationParameters.json"
-    inputMov = np.array([[range(100)]*100]*100,dtype=np.uint16)
-    tf.imshow(inputMov,vmin=0,vmax=100)
-    plt.show()
-    np.save(inputPath,inputMov)
-    translateHugeMovieByVasculature(inputPath,outputPath,parameterPath,matchingDecimation=1,referenceDecimation=1,chunkLength=3,verbose=True)
-    outputMov = np.load(outputPath)
-    tf.imshow(outputMov,vmin=0,vmax=100)
-    plt.show()
+    dateRecorded = '150930'
+    mouseID = '187474'
+    fileNum = 101
+    displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
+    logPath = findLogPath(date=dateRecorded,mouseID=mouseID,stimulus='KSstimAllDir',userID='',fileNumber=str(fileNum),displayFolder=displayFolder)
+    displayInfo = analysisMappingDisplayLog(logPath)
+    #===========================================================================
+
+    #===========================================================================
+    # inputPath = r"E:\data\python_temp_folder\testNPY.npy"
+    # outputPath = r"E:\data\python_temp_folder\testNPY_T.npy"
+    # parameterPath = r"E:\data\python_temp_folder\ExampleTraslationParameters.json"
+    # inputMov = np.array([[range(100)]*100]*100,dtype=np.uint16)
+    # tf.imshow(inputMov,vmin=0,vmax=100)
+    # plt.show()
+    # np.save(inputPath,inputMov)
+    # translateHugeMovieByVasculature(inputPath,outputPath,parameterPath,matchingDecimation=1,referenceDecimation=1,chunkLength=3,verbose=True)
+    # outputMov = np.load(outputPath)
+    # tf.imshow(outputMov,vmin=0,vmax=100)
+    # plt.show()
     #===========================================================================
 
     #===========================================================================

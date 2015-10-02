@@ -350,6 +350,45 @@ def getPhasePositionEquation(displayLog):
     return slope, intercept
 
 
+def getPhasePositionEquation2(frames, sweepTable):
+    '''
+    return the intercept and slope of the linear relationship between phase and retinotopic location from a frames and
+    sweepTable (in standard corticalmapping.VisualStim.KSstimJun or corticalmapping.VisualStim.KSstimAllDir format).
+    Assuming displayOrder is 1 when display this stimulus
+    '''
+
+    phase = np.linspace(0,2*np.pi,len(frames),endpoint=False)
+
+    phaseIndexStart = np.nan
+    phaseIndexEnd = np.nan
+    for i in range(0,len(frames)-1):
+        if (frames[i][2] == None) & (frames[i+1][2] != None):phaseIndexStart = int(i+1)
+        if (frames[i][2] != None) & (frames[i+1][2] == None):phaseIndexEnd = int(i)
+
+    if np.isnan(phaseIndexStart):print 'no gap in the front.'; phaseIndexStart = 0
+    if np.isnan(phaseIndexEnd):print 'no gap in the end.'; phaseIndexEnd = len(phase)
+
+    position = np.zeros(len(frames))
+    position[:] = np.nan
+
+    for i, framei in enumerate(frames):
+        if framei[2] is not None:
+            position[i] = (sweepTable[framei[2]][1]+sweepTable[framei[2]][2])/2
+
+    # print '\nStimulus direction:', stiDirection
+
+    slope, intercept, r_value, p_value, stderr = stats.linregress(phase[phaseIndexStart:(phaseIndexEnd+1)],
+                                                                  position[phaseIndexStart:(phaseIndexEnd+1)])
+
+    # print 'slope: \t'+str(slope)
+    # print 'intercept: \t'+str(intercept)
+    # print 'r_value: \t'+str(r_value)
+    # print 'p_value: \t'+str(p_value)
+    # print 'stderr: \t'+str(stderr)
+
+    return slope, intercept
+
+
 def visualSignMap(phasemap1,phasemap2):
     '''
     calculate visual sign map from two orthogonally oriented phase maps
