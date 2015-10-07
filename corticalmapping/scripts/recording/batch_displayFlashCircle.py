@@ -20,8 +20,8 @@ mon=vs.MonitorJun(resolution=(1080, 1920),
                   downSampleRate=5)
 
 indicator=vs.IndicatorJun(mon,
-                          width_cm = 3., 
-                          height_cm = 3., 
+                          width_cm = 3.,
+                          height_cm = 3.,
                           position = 'northeast',
                           isSync = True,
                           freq = 1.)
@@ -30,14 +30,14 @@ indicator=vs.IndicatorJun(mon,
 flashCircleStim=vs.FlashCircle(
                                mon,
                                indicator,
-                               center = (50., 10.), # center coordinate of the circle (degree)
-                               radius = 5, # radius of the circle
-                               color = -1, # color of the circle [-1: 1]
+                               center = (30., 10.), # center coordinate of the circle (degree)
+                               radius = 10, # radius of the circle
+                               color = 1., # color of the circle [-1: 1]
                                iteration=1, # total number of flashes
                                flashFrame=3, # frame number for display circle of each flash
                                preGapFrame=120, # gap frame number before flash
                                postGapFrame=180, # gap frame number after flash
-                               background = 0.)
+                               background = -1.)
 
 
 ds=vs.DisplaySequence(
@@ -60,7 +60,7 @@ ds=vs.DisplaySequence(
                       syncPulseNIPort = 1,
                       syncPulseNILine = 2,
                       displayScreen = 0,
-                      initialBackgroundColor = 0)
+                      initialBackgroundColor = -1.)
 
 ds.setStim(flashCircleStim)
 

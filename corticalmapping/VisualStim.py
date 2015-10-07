@@ -2034,6 +2034,7 @@ class DisplaySequence(object):
         self.initialBackgroundColor = initialBackgroundColor
         self.videoRecordIP = videoRecordIP
         self.videoRecordPort = videoRecordPort
+        self.keepDisplay = None
         
         if displayIteration % 1 == 0:
             self.displayIteration = displayIteration
@@ -2087,11 +2088,25 @@ class DisplaySequence(object):
     def triggerDisplay(self):
 
         #todo: make _display more light weighted, and make the initial frame with indicator for photodiode
-        
-        if self.sequence is None: raise LookupError, "Please set the sequence to be displayed!!"
-        
+
+        #test monitor resolution
         try: resolution = self.sequenceLog['monitor']['resolution'][::-1]
         except KeyError: resolution = (800,600)
+
+        #prepare display frames log
+        if self.sequence is None:
+            raise LookupError, "Please set the sequence to be displayed!!"
+        try:
+            sequenceFrames = self.sequenceLog['stimulation']['frames']
+            if self.displayOrder == -1: sequenceFrames = sequenceFrames[::-1]
+            # generate display Frames
+            self.displayFrames=[]
+            for i in range(self.displayIteration):
+                self.displayFrames += sequenceFrames
+        except Exception as e:
+            print e
+            print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'."
+            self.displayFrames = None
            
         window = visual.Window(size=resolution,monitor=self.psychopyMonitor,fullscr=True,screen=self.displayScreen,color=self.initialBackgroundColor)
         stim = visual.ImageStim(window, size=(2,2))
@@ -2103,37 +2118,55 @@ class DisplaySequence(object):
 
         displayTime = float(self.sequence.shape[0]) * self.displayIteration / refreshRate
         
-        print '\n Expected display time: ', displayTime, ' seconds' 
-        
+        print '\n Expected display time: ', displayTime, ' seconds'
+
+        self.keepDisplay = True
+
         if self.isTriggered:
-            self._waitForTrigger()
+            wait = self._waitForTrigger()
 
-        self._getFileName()
+            if wait: # trigger is detected and manual stop signal is not detected
 
-        if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+                if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+                self._display(window, stim) #display sequence
+                if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
 
-        completed = self._display(window, stim) #display sequence
+                #analyze frames
+                try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
+                except KeyError:
+                    print "No monitor refresh rate information, assuming 60Hz."
+                    self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = 60.)
 
-        if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
-        
-        #analyze frames
-        try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
-        except KeyError:
-            print "No monitor refresh rate information, assuming 60Hz."
-            self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = 60.)
-        
-        #write log file
-        self.saveLog()
-        
-        #clear display data
-        self.clear()
+                #write log file
+                self.saveLog()
+                #clear display data
+                self.clear()
 
-        return completed
+            else: self.clear() # manual stop signal is detected
+
+        else: #display will not wait for trigger
+            if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+            self._display(window, stim) #display sequence
+            if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+
+            #analyze frames
+            try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
+            except KeyError:
+                print "No monitor refresh rate information, assuming 60Hz."
+                self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = 60.)
+
+            #write log file
+            self.saveLog()
+            #clear display data
+            self.clear()
 
 
     def _waitForTrigger(self):
         '''
         time place holder for waiting for trigger
+
+        return True if trigger is detected
+               False if manual stop signal is detected
         '''
 
         #check NI signal
@@ -2142,25 +2175,37 @@ class DisplaySequence(object):
 
         if self.triggerType == 'LowLevel':
             lastTTL = DI.read()[self.triggerNILine]
-            while lastTTL != 0:lastTTL = DI.read()[self.triggerNILine]
+            while lastTTL != 0 and self.keepDisplay:
+                lastTTL = DI.read()[self.triggerNILine]
+                self._updateDisplayStatus()
+            else:
+                if self.keepDisplay: DI.StopTask(); return True
+                else: DI.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
         elif self.triggerType == 'HighLevel':
             lastTTL = DI.read()[self.triggerNILine]
-            while lastTTL != 1:lastTTL = DI.read()[self.triggerNILine]
+            while lastTTL != 1 and self.keepDisplay:
+                lastTTL = DI.read()[self.triggerNILine]
+                self._updateDisplayStatus()
+            else:
+                if self.keepDisplay: DI.StopTask(); return True
+                else: DI.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
         elif self.triggerType == 'NegativeEdge':
             lastTTL = DI.read()[self.triggerNILine]
-            while True:
+            while self.keepDisplay:
                 currentTTL = DI.read()[self.triggerNILine]
                 if (lastTTL == 1) and (currentTTL == 0):break
-                else:lastTTL = int(currentTTL)
+                else:lastTTL = int(currentTTL);self._updateDisplayStatus()
+            else: DI.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.';return False
+            DI.StopTask();return True
         elif self.triggerType == 'PositiveEdge':
             lastTTL = DI.read()[self.triggerNILine]
-            while True:
+            while self.keepDisplay:
                 currentTTL = DI.read()[self.triggerNILine]
                 if (lastTTL == 0) and (currentTTL == 1):break
-                else:lastTTL = int(currentTTL)
+                else:lastTTL = int(currentTTL);self._updateDisplayStatus()
+            else: DI.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
+            DI.StopTask();return True
         else:raise NameError, 'trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!'
-
-        DI.StopTask()
 
 
     def _getFileName(self):
@@ -2183,8 +2228,11 @@ class DisplaySequence(object):
         
         fileNumber = self._getFileNumber()
         
-        if self.isTriggered: self.fileName += '-' + str(fileNumber)+'-Triggered-complete'
-        else: self.fileName += '-' + str(fileNumber) + '-notTriggered-complete'
+        if self.isTriggered: self.fileName += '-' + str(fileNumber)+'-Triggered'
+        else: self.fileName += '-' + str(fileNumber) + '-notTriggered'
+
+        if self.keepDisplay == True: self.fileName += '-complete'
+        elif self.keepDisplay == False: self.fileName += '-incomplete'
 
 
     def _getFileNumber(self):
@@ -2219,28 +2267,6 @@ class DisplaySequence(object):
         
 
     def _display(self, window, stim):
-
-        completed = True
-        
-        if self.sequence is None:
-            raise LookupError, "Please set the sequence to be displayed!!"
-        
-        iteration = self.displayIteration
-        order = self.displayOrder
-        
-        try:
-            sequenceFrames = self.sequenceLog['stimulation']['frames']
-            
-            if order == -1: sequenceFrames = sequenceFrames[::-1]
-            
-            # generate display Frames
-            self.displayFrames=[]
-            for i in range(iteration):
-                self.displayFrames += sequenceFrames
-        except Exception as e:
-            print e
-            print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'."
-            self.displayFrames = None
         
         
         # display frames
@@ -2252,30 +2278,29 @@ class DisplaySequence(object):
             syncPulse = iodaq.DigitalOutput(self.syncPulseNIDev, self.syncPulseNIPort)
             syncPulse.StartTask()
             syncPulse.WriteBit(self.syncPulseNILine,0)
-        
-        for i in range(singleRunFrames * iteration):
-            
-            if order == 1:frameNum = i % singleRunFrames
-                
-            if order == -1:frameNum = singleRunFrames - (i % singleRunFrames) -1
-                
+
+        i = 0
+
+        while self.keepDisplay and i < (singleRunFrames * self.displayIteration):
+
+            if self.displayOrder == 1:frameNum = i % singleRunFrames
+
+            if self.displayOrder == -1:frameNum = singleRunFrames - (i % singleRunFrames) -1
+
             # currFrame=Image.fromarray(self.sequence[frameNum]) # removed PIL dependency
             stim.setImage(self.sequence[frameNum][::-1,:])
             stim.draw()
             timeStamp.append(time.clock()-startTime)
-            
-            #check keyboard input 'q' or 'escape'
-            keyList = event.getKeys(['q','escape'])
-            if len(keyList) > 0:self.fileName = self.fileName[0:-9] + '-incomplete'; completed=False; break
-            
+
             #set syncPuls signal
             if self.isSyncPulse:syncPulse.WriteBit(self.syncPulseNILine,1)
-            
             #show visual stim
             window.flip()
-            
             #set syncPuls signal
             if self.isSyncPulse:syncPulse.WriteBit(self.syncPulseNILine,0)
+
+            self._updateDisplayStatus()
+            i=i+1
             
         timeStamp.append(time.clock()-startTime)
         stopTime = time.clock()
@@ -2285,8 +2310,18 @@ class DisplaySequence(object):
         
         self.timeStamp = np.array(timeStamp)
         self.displayLength = stopTime-startTime
+        if self.displayFrames is not None:
+            self.displayFrames = self.displayFrames[:i-1]
 
-        return completed
+
+    def _updateDisplayStatus(self):
+
+        if self.keepDisplay is None: raise LookupError, 'self.keepDisplay should start as True for updating display status'
+
+        #check keyboard input 'q' or 'escape'
+        keyList = event.getKeys(['q','escape'])
+        if len(keyList) > 0:
+            self.keepDisplay = False
     
 
     def setDisplayOrder(self, displayOrder):
@@ -2318,8 +2353,10 @@ class DisplaySequence(object):
         displayLog.pop('sock')
         displayLog.pop('sequence')
         logFile.update({'presentation':displayLog})
-        
-        filename = self.fileName + ".pkl"
+
+        self._getFileName()
+
+        filename =  self.fileName + ".pkl"
         
         #generate full log dictionary
         path = os.path.join(directory, filename)
@@ -2346,18 +2383,19 @@ class DisplaySequence(object):
         self.displayFrames = None
         self.frameStats = None
         self.fileName = None
+        self.keepDisplay = None
 
 
 if __name__ == "__main__":
 
     #==============================================================================================================================
-    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
-    # indicator=IndicatorJun(mon)
-    # KSstim=KSstimJun(mon,indicator)
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=False,isSyncPulse=False)
-    # ds.setStim(KSstim)
-    # ds.triggerDisplay()
-    # plt.show()
+    mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
+    indicator=IndicatorJun(mon)
+    KSstim=KSstimJun(mon,indicator)
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=True,triggerNIDev='Dev3',displayIteration=2,isSyncPulse=False)
+    ds.setStim(KSstim)
+    ds.triggerDisplay()
+    plt.show()
     #==============================================================================================================================
 
     #==============================================================================================================================
@@ -2406,13 +2444,13 @@ if __name__ == "__main__":
     #==============================================================================================================================
 
     #==============================================================================================================================
-    mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
-    indicator=IndicatorJun(mon)
-    KSstimAllDirection=KSstimAllDir(mon,indicator,stepWidth=0.3)
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False)
-    ds.setStim(KSstimAllDirection)
-    ds.triggerDisplay()
-    plt.show()
+    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
+    # indicator=IndicatorJun(mon)
+    # KSstimAllDirection=KSstimAllDir(mon,indicator,stepWidth=0.3)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False)
+    # ds.setStim(KSstimAllDirection)
+    # ds.triggerDisplay()
+    # plt.show()
     #==============================================================================================================================
 
     print 'for debug...'
