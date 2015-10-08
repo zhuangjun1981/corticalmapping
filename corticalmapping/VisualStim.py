@@ -2015,7 +2015,9 @@ class DisplaySequence(object):
                  displayScreen = 1,
                  initialBackgroundColor = 0,
                  videoRecordIP = 'localhost',
-                 videoRecordPort = '10000'):
+                 videoRecordPort = 10000,
+                 displayControlIP = 'localhost',
+                 displayControlPort = 10001):
                      
         self.sequence = None
         self.sequenceLog = {}
@@ -2034,6 +2036,8 @@ class DisplaySequence(object):
         self.initialBackgroundColor = initialBackgroundColor
         self.videoRecordIP = videoRecordIP
         self.videoRecordPort = videoRecordPort
+        self.displayControlIP = displayControlIP
+        self.displayControlPort = displayControlPort
         self.keepDisplay = None
         
         if displayIteration % 1 == 0:
@@ -2048,8 +2052,13 @@ class DisplaySequence(object):
         self.userid = userid
         self.sequenceLog = None
         
-        #FROM DW
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        #FROM DW, setup socket
+        self.videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.displayControlSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.displayControlSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.displayControlSock.bind((self.displayControlIP, self.displayControlPort))
+
+        self.displayControlSock.settimeout(0.0)
         
         self.clear()
 
@@ -2322,6 +2331,11 @@ class DisplaySequence(object):
         keyList = event.getKeys(['q','escape'])
         if len(keyList) > 0:
             self.keepDisplay = False
+
+        try:
+            msg, addr =  self.displayControlSock.recvfrom(128)
+            if msg[0:4] == 'stop': self.keepDisplay = False
+        except: pass
     
 
     def setDisplayOrder(self, displayOrder):
@@ -2350,7 +2364,8 @@ class DisplaySequence(object):
         logFile = dict(self.sequenceLog)
         displayLog = dict(self.__dict__)
         displayLog.pop('sequenceLog')
-        displayLog.pop('sock')
+        displayLog.pop('videoRecordSock')
+        displayLog.pop('displayControlSock')
         displayLog.pop('sequence')
         logFile.update({'presentation':displayLog})
 
@@ -2392,7 +2407,7 @@ if __name__ == "__main__":
     mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
     indicator=IndicatorJun(mon)
     KSstim=KSstimJun(mon,indicator)
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=True,triggerNIDev='Dev3',displayIteration=2,isSyncPulse=False)
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=False,displayIteration=2,isSyncPulse=False)
     ds.setStim(KSstim)
     ds.triggerDisplay()
     plt.show()
