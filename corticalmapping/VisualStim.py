@@ -2017,7 +2017,7 @@ class DisplaySequence(object):
                  videoRecordIP = 'localhost',
                  videoRecordPort = 10000,
                  displayControlIP = 'localhost',
-                 displayControlPort = 10001):
+                 displayControlPort = 10002):
                      
         self.sequence = None
         self.sequenceLog = {}
@@ -2334,7 +2334,7 @@ class DisplaySequence(object):
 
         try:
             msg, addr =  self.displayControlSock.recvfrom(128)
-            if msg[0:4] == 'stop': self.keepDisplay = False
+            if msg[0:4].upper() == 'STOP': self.keepDisplay = False
         except: pass
     
 
