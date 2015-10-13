@@ -21,6 +21,7 @@ import os
 import sys
 from aibs.Core import *
 
+
 def getdirectories():
     """ Gets platform specific default directories for logs, etc. """
     if 'linux' in sys.platform:
@@ -45,7 +46,7 @@ try:
     config = os.path.join(topdir, 'config/whitelist.cfg')
     WHITELIST = open(config, 'r').readlines()
 except Exception, e:
-    print "No config file found... only accepting local connections.", e
+    print "No config file found as", config, "... only accepting local connections.", e
     WHITELIST = ["127.0.0.1"]
 
 RIG_IP = "localhost"  # rig is local machine
@@ -74,6 +75,7 @@ class Agent(SocketServer.BaseRequestHandler):
 
     def handle(self):
         self.status = 0
+        print WHITELIST
         if self.client_address[0] in WHITELIST:
             print "Incoming connection from: {}".format(self.client_address[0])
 
@@ -83,7 +85,7 @@ class Agent(SocketServer.BaseRequestHandler):
                     if not self.data:
                         break
                     self.data = self.data.strip()
-                    # print self.data
+                    print self.data
 
                     if self.data[:6].upper() == "SCRIPT":
                         self.startScript()
@@ -159,6 +161,7 @@ class Agent(SocketServer.BaseRequestHandler):
 
     def quit_corticalmapping_stimuli(self):
         RIGSOCKET.sendto("STOP", (RIG_IP, RIG_PORT))
+        self.status = 0
 
     def pollStatus(self):
         """ Returns status of rig. """
@@ -240,7 +243,7 @@ class Agent(SocketServer.BaseRequestHandler):
 
 
 def main():
-    HOST, PORT = "", 9999
+    HOST, PORT = "", 10001
     agent = SocketServer.TCPServer((HOST, PORT), Agent)
     agent.allow_reuse_address = True
     print "Server started at:", agent.server_address

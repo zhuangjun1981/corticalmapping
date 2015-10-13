@@ -734,7 +734,6 @@ class KSstimJun(object):
         self.reset()
 
 
-
 class KSstimAllDir(object):
     '''
     generate Kalatsky & Stryker stimulation integrats flashing indicator for
@@ -2407,10 +2406,12 @@ if __name__ == "__main__":
     mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
     indicator=IndicatorJun(mon)
     KSstim=KSstimJun(mon,indicator)
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=False,displayIteration=2,isSyncPulse=False)
-    ds.setStim(KSstim)
-    ds.triggerDisplay()
-    plt.show()
+    displayIteration = 2
+    print (len(KSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=False,displayIteration=2,isSyncPulse=False)
+    # ds.setStim(KSstim)
+    # ds.triggerDisplay()
+    # plt.show()
     #==============================================================================================================================
 
     #==============================================================================================================================
