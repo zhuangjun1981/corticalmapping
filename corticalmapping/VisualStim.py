@@ -19,6 +19,8 @@ from random import shuffle
 import socket
 import core.tifffile as tf
 
+from zro import RemoteObject
+
 try: import toolbox.IO.nidaq as iodaq
 except ImportError as e:
     print e
@@ -2038,6 +2040,9 @@ class DisplaySequence(object):
         self.displayControlIP = displayControlIP
         self.displayControlPort = displayControlPort
         self.keepDisplay = None
+
+        self._remote_obj = RemoteObject(rep_port=self.displayControlPort)
+        self._remote_obj.close = self.flag_to_close
         
         if displayIteration % 1 == 0:
             self.displayIteration = displayIteration
@@ -2322,6 +2327,10 @@ class DisplaySequence(object):
             self.displayFrames = self.displayFrames[:i-1]
 
 
+    def flag_to_close(self):
+        self.keepDisplay = False
+
+
     def _updateDisplayStatus(self):
 
         if self.keepDisplay is None: raise LookupError, 'self.keepDisplay should start as True for updating display status'
@@ -2335,6 +2344,8 @@ class DisplaySequence(object):
             msg, addr =  self.displayControlSock.recvfrom(128)
             if msg[0:4].upper() == 'STOP': self.keepDisplay = False
         except: pass
+
+        self._remote_obj._check_rep()
     
 
     def setDisplayOrder(self, displayOrder):
@@ -2362,6 +2373,7 @@ class DisplaySequence(object):
         
         logFile = dict(self.sequenceLog)
         displayLog = dict(self.__dict__)
+        displayLog.pop("_remote_obj")
         displayLog.pop('sequenceLog')
         displayLog.pop('videoRecordSock')
         displayLog.pop('displayControlSock')
@@ -2407,11 +2419,11 @@ if __name__ == "__main__":
     indicator=IndicatorJun(mon)
     KSstim=KSstimJun(mon,indicator)
     displayIteration = 2
-    print (len(KSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=False,displayIteration=2,isSyncPulse=False)
-    # ds.setStim(KSstim)
-    # ds.triggerDisplay()
-    # plt.show()
+    # print (len(KSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=True,displayIteration=2,isSyncPulse=False)
+    ds.setStim(KSstim)
+    ds.triggerDisplay()
+    plt.show()
     #==============================================================================================================================
 
     #==============================================================================================================================
