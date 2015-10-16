@@ -2062,7 +2062,7 @@ class RetinotopicMappingTrial(object):
                                           'rawPatchMap',
                                           'eccentricityMapf',
                                           'finalPatches',
-                                          'finalPathcesMarked',
+                                          'finalPatchesMarked',
                                           'mouseID',
                                           'dateRecorded',
                                           'trialNum',
@@ -2961,6 +2961,24 @@ class RetinotopicMappingTrial(object):
         mask[mask==0]=np.nan
 
         pt.plotMask(mask,plotAxis=plotAxis,color=color,borderWidth=borderWidth)
+
+
+    def plotPatchesWithName(self,patchDict,plotAxis=None):
+
+        if not hasattr(self,patchDict): raise LookupError, 'This RetinotopicMappingTrial object does not have "' + patchDict + '" attribute!'
+        patchesForPlotting = self.__dict__[patchDict]
+
+        if plotAxis is None: f = plt.figure(); plotAxis = f.add_subplot(111)
+
+        plotAxis.figure.suptitle(self.getName())
+        plotPatches(patchesForPlotting,plotaxis=plotAxis,markersize=0)
+
+        for key,patch in patchesForPlotting.iteritems():
+
+            center = patch.getCenter()
+            plotAxis.text(center[1],center[0],key,verticalalignment='center', horizontalalignment='center')
+
+        return plotAxis.figure
 
 
     def plotVisualCoverage(self):
