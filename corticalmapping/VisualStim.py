@@ -18,6 +18,7 @@ from random import shuffle
 
 import socket
 import core.tifffile as tf
+import core.FileTools as ft
 
 from zro import RemoteObject
 
@@ -1997,7 +1998,7 @@ class DisplaySequence(object):
     
     def __init__(self,
                  logdir,
-                 backupdir,
+                 backupdir = None,
                  displayIteration = 1,
                  displayOrder = 1, # 1: the right order; -1: the reverse order
                  mouseid = 'Test',
@@ -2386,18 +2387,24 @@ class DisplaySequence(object):
         
         #generate full log dictionary
         path = os.path.join(directory, filename)
-        output = open(path,'wb')
-        pickle.dump(logFile,output)
-        output.close()
+        ft.saveFile(path,logFile)
         print ".pkl file generated successfully."
         
-        if self.backupdir:
-            backupfolder = self.backupdir + r'\sequence_display_log'
-            if not(os.path.isdir(backupfolder)):os.makedirs(backupfolder)
-            backuppath = os.path.join(backupfolder,filename)
-            backupoutput = open(backuppath,'wb')
-            pickle.dump(logFile,backupoutput)
-            backupoutput.close()
+        if self.backupdir is not None:
+
+            currDate = datetime.datetime.now().strftime('%y%m%d')
+            backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-WF-Retinotopy')
+            if not (os.path.isdir(backupFileFolder)):os.makedirs(backupFileFolder)
+            backupFilePath = os.path.join(backupFileFolder,filename)
+            ft.saveFile(backupFilePath,logFile)
+
+            # backupfolder = self.backupdir + r'\sequence_display_log'
+            # if not(os.path.isdir(backupfolder)):os.makedirs(backupfolder)
+            # backuppath = os.path.join(backupfolder,filename)
+            # backupoutput = open(backuppath,'wb')
+            # pickle.dump(logFile,backupoutput)
+            # backupoutput.close()
+
             print ".pkl backup file generate successfully"
             
 
@@ -2420,7 +2427,7 @@ if __name__ == "__main__":
     KSstim=KSstimJun(mon,indicator)
     displayIteration = 2
     # print (len(KSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=True,displayIteration=2,isSyncPulse=False)
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2,isSyncPulse=False)
     ds.setStim(KSstim)
     ds.triggerDisplay()
     plt.show()
