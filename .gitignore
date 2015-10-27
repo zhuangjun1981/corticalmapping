@@ -50,5 +50,4 @@ crashlytics-build.properties
 
 .pyc
 test.hdf5
-
-/test_pkls
+/corticalmapping/ipython_lizard/res/test_pkls
