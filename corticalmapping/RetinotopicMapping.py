@@ -1555,11 +1555,8 @@ class RetinotopicMappingTrial(object):
             patchEccMap = eccentricityMap(altPosMapf, aziPosMapf, patchAltC, patchAziC)
             patchEccMapf  = ni.filters.uniform_filter(patchEccMap, eccMapFilterSigma)
 
-            for i in xrange(patchEccMap.shape[0]):
-                for j in xrange(patchEccMap.shape[1]):
-                    if value.array[i,j] == 1:
-                        eccMap[i,j] = patchEccMap[i,j]
-                        eccMapf[i,j] = patchEccMapf[i,j]
+            eccMap[value.array == 1] = patchEccMap[value.array == 1]
+            eccMapf[value.array == 1] = patchEccMapf[value.array == 1]
 
         if isPlot:
             plt.figure()
@@ -2675,6 +2672,42 @@ class RetinotopicMappingTrial(object):
         plotAxis.set_axis_off()
         if isTitle:plotAxis.set_title(name)
 
+
+    def plotFinalPatchBorders2(self,plotAxis=None,plotName=True,plotVasMap=True,isTitle=True,isColor=True,borderWidth=2,fontSize=15):
+
+        if hasattr(self,'finalPatchesMarked'):finalPatches=self.finalPatchesMarked
+        elif hasattr(self, 'finalPatches'):finalPatches=self.finalPatches
+        else:self.processTrial();finalPatches=self.finalPatches
+
+        try:zoom = self.vasculatureMap.shape[0] / self.altPosMap.shape[0]
+        except AttributeError:zoom = 1
+
+        name = self.getName()
+
+        if not plotAxis:
+            f=plt.figure(figsize=(10,10))
+            plotAxis=f.add_subplot(111)
+
+        if plotVasMap:
+            try:plotAxis.imshow(self.vasculatureMap, cmap = 'gray', interpolation = 'nearest')
+            except AttributeError:pass
+
+        for key, patch in finalPatches.iteritems():
+            if isColor:
+                if patch.sign == 1:plotColor='#ff0000'
+                elif patch.sign == -1:plotColor='#0000ff'
+                else:plotColor='#000000'
+            else:plotColor='#000000'
+
+            currArray = ni.binary_erosion(patch.array,iterations=min([1,borderWidth/2]))
+            im = pt.plotMaskBorders(currArray,plotAxis=plotAxis,color=plotColor,zoom=zoom,borderWidth=borderWidth)
+            if plotName:
+                center=patch.getCenter()
+                plotAxis.text(center[1]*zoom,center[0]*zoom,key,verticalalignment='center', horizontalalignment='center',color=plotColor,fontsize=fontSize)
+
+        plotAxis.set_axis_off()
+        if isTitle:plotAxis.set_title(name)
+
         return plotAxis.get_figure()
 
 
@@ -3679,10 +3712,10 @@ if __name__ == "__main__":
 #    
 #----------------------------------------------------------------------------------------------
 
-    testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTial_Ai93&Ai9630min.pkl")
-    # testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\20141120_M147861_Trial1_2_3_4.pkl")
-    testTrial.plotContours()
-    plt.show()   
+    # testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTial_Ai93&Ai9630min.pkl")
+    testTrial, traces = loadTrial(r"E:\data\2015-02-03-population-maps\20141120_M147861_Trial1_2_3_4.pkl")
+    testTrial.processTrial(isPlot=True)
+    plt.show()
     
 #----------------------------------------------------------------------------------------------
 #    testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTial_Ai93&Ai9630min.pkl")
