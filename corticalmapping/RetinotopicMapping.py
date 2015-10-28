@@ -21,6 +21,7 @@ import core.PlottingTools as pt
 import core.tifffile as tf
 
 
+
 def loadTrial(trialPath):
     '''
     load single retinotopic mapping trial from database
@@ -1515,12 +1516,13 @@ class RetinotopicMappingTrial(object):
 
         gradAltMap = np.gradient(altPosMapf)
         gradAziMap = np.gradient(aziPosMapf)
-        detMap = np.zeros(gradAltMap[0].shape)
 
-        for i in xrange(detMap.shape[0]):
-            for j in xrange(detMap.shape[1]):
-                detMap[i,j] = np.abs(np.linalg.det([[gradAltMap[0][i,j], gradAltMap[1][i,j]],
-                                                    [gradAziMap[0][i,j], gradAziMap[1][i,j]]]))
+        detMap = np.array([[gradAltMap[0], gradAltMap[1]],
+                           [gradAziMap[0], gradAziMap[1]]])
+
+        detMap = detMap.transpose(2,3,0,1)
+        detMap = np.abs(np.linalg.det(detMap))
+
 
         if isPlot:
             plt.figure()
