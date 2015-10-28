@@ -4,11 +4,12 @@ Created on Thu Oct 22 11:53:37 2015
 
 @author: chrism
 """
-from PyQt4 import QtGui,QtCore
-from IPython.display import display
+#from PyQt4 import QtGui,QtCore
+from IPython.display import display,HTML
 from ipywidgets import interact
 import ipywidgets as widgets
 import os
+from functools import partial
 
 def getSignMapWidget(RetinotopicTrial,
                      phaseMapFilterSigmaDefault=1.0,
@@ -180,81 +181,139 @@ def mergePatchesWidget(RetinotopicTrial,
              borderWidth=borderSlider,
              smallPatchThr=smallSlider)
 
+def saveFinalResultWidget(trial,fig,pkl_path,override_pkl_path=None,png_dpi=300,pdf_dpi=600):
+    pngSaveButton = widgets.Button(description="save png")
+    pdfSaveButton = widgets.Button(description="save pdf")
+    pklSaveButton = widgets.Button(description="save pkl")
+    allSaveButton = widgets.Button(description="save png,pdf,pkl")
+    allSaveButton.width = "280px"
+    allSaveButton.margin = "10px 0px 10px 72px"
+    pklSaveButton.width = "280px"
+    pklSaveButton.margin = "10px 0px 10px 72px"
+    pngSaveButton.width = "280px"
+    pngSaveButton.margin = "10px 0px 10px 72px"
+    pdfSaveButton.width = "280px"
+    pdfSaveButton.margin = "10px 0px 0px 72px"
+    png_path = os.path.join(os.path.dirname(pkl_path),
+                            "{0}_borders.png".format(trial.getName()))
+    pdf_path = os.path.join(os.path.dirname(pkl_path),
+                            "{0}_borders.pdf".format(trial.getName()))
+    save_png = partial(saveFigure_button_callback,fig,png_path,300)
+    save_pdf = partial(saveFigure_button_callback,fig,pdf_path,600)
+    save_pkl = partial(saveTrialDictPkl_button_callback,trial,override_pkl_path)
+    allSaveButton.on_click(save_png)
+    allSaveButton.on_click(save_pdf)
+    allSaveButton.on_click(save_pkl)
+    pklSaveButton.on_click(save_pkl)
+    pngSaveButton.on_click(save_png)
+    pdfSaveButton.on_click(save_pdf)
+    #display(pngSaveButton)
+    #display(pdfSaveButton)
+    #display(pklSaveButton)
+    display(allSaveButton)
 
-class SaveFinalPatchBorderFigureWidget(object):
-    
-    PNG_DPI = 300
-    PDF_DPI = 600
-    DPI_HARD_LIMIT = 10000
-    
-    def __init__(self,trial,fig,png_dpi_default=None,pdf_dpi_default=None):
-        self.default_png_name = os.path.join(os.getcwd(),
-                                             "{0}_borders.png".format(trial.getName()))
-        self.default_pdf_name = os.path.join(os.getcwd(),
-                                             "{0}_borders.pdf".format(trial.getName()))
-        
-        self.fig = fig
-        
-        self._build_widgets()
-        self._style_widgets()
-        self._setup_callbacks()
-        
-    def _build_widgets(self):
-        self.pngDpiFloatBox = widgets.BoundedIntText(max=self.DPI_HARD_LIMIT,
-                                                     description="png dpi:")
-        self.pdfDpiFloatBox = widgets.BoundedIntText(max=self.DPI_HARD_LIMIT,
-                                                     description="pdf dpi:")
-        self.pngSaveButton = widgets.Button(description="save png")
-        self.pdfSaveButton = widgets.Button(description="save pdf")
-    
-    def _style_widgets(self):
-        self.pngSaveButton.width = "280px"
-        self.pngSaveButton.margin = "10px 0px 10px 72px"
-        self.pdfSaveButton.width = "280px"
-        self.pdfSaveButton.margin = "10px 0px 0px 72px"           
-        
-        self.pngDpiFloatBox.value = self.PNG_DPI
-        self.pdfDpiFloatBox.value = self.PDF_DPI
-    
-    def _setup_callbacks(self):
-        self.pngSaveButton.on_click(self.save_png)
-        self.pdfSaveButton.on_click(self.save_pdf)
+def saveTrialDictPkl_button_callback(trial,fpath,button):
+    if fpath and os.path.exists(fpath):
+        fpath = avoidPathOverwrite(fpath)
+    trial.save_TrialDict_pkl(fpath)
 
-    def show(self):
-        display(self.pngDpiFloatBox)
-        display(self.pngSaveButton)
-        
-        display(self.pdfDpiFloatBox)
-        display(self.pdfSaveButton)
-
-    def save_png(self,button=None):
-        path = QtGui.QFileDialog.getSaveFileName(None,
-                                                 'Save file',
-                                                 "*.png")
-        dpi = self.pngDpiFloatBox.value
-        
-        if not dpi:
-            dpi = self.PNG_DPI
-            
-        if path:
-            path = str(path)
-        elif not path:
-            path = self.default_png_name
-            
-        self.fig.savefig(path,dpi=dpi)
+def saveFigure_button_callback(fig,fpath,dpi,button):
+    saveFigure(fig,fpath,dpi)
     
-    def save_pdf(self,button=None):
-        path = QtGui.QFileDialog.getSaveFileName(None,
-                                                 'Save file',
-                                                 "*.pdf") 
-        dpi = self.pdfDpiFloatBox.value
-        
-        if not dpi:
-            dpi = self.PNG_DPI
-            
-        if path:
-            path = str(path)
-        elif not path:
-            path = self.default_png_name
+def saveFigure(fig,fpath,dpi):
+    if os.path.exists(fpath):
+        fpath = avoidPathOverwrite(fpath)
+    fig.savefig(fpath,dpi=dpi)
+    print "Saved figure to: {0}".format(fpath)
 
-        self.fig.savefig(path,dpi=dpi)
+def avoidPathOverwrite(fpath,ntries=10):
+    dirname = os.path.dirname(fpath)
+    partial_fname,ftype = os.path.basename(fpath).split(".")
+    for ntry in range(1,ntries+1):
+        fname = "{0}_{1}.{2}".format(partial_fname,ntry,ftype)
+        path = os.path.join(dirname,fname)
+        if not os.path.exists(path):
+            break
+    else:
+        raise Exception("Can't save without overwritting existant filenames.")
+    return path
+
+#class SaveFinalPatchBorderFigureWidget(object):
+#    
+#    PNG_DPI = 300
+#    PDF_DPI = 600
+#    DPI_HARD_LIMIT = 10000
+#    
+#    def __init__(self,trial,fig,png_dpi_default=None,pdf_dpi_default=None):
+#        self.default_png_name = os.path.join(os.getcwd(),
+#                                             "{0}_borders.png".format(trial.getName()))
+#        self.default_pdf_name = os.path.join(os.getcwd(),
+#                                             "{0}_borders.pdf".format(trial.getName()))
+#        
+#        self.fig = fig
+#        
+#        self._build_widgets()
+#        self._style_widgets()
+#        self._setup_callbacks()
+#        
+#    def _build_widgets(self):
+#        self.pngDpiFloatBox = widgets.BoundedIntText(max=self.DPI_HARD_LIMIT,
+#                                                     description="png dpi:")
+#        self.pdfDpiFloatBox = widgets.BoundedIntText(max=self.DPI_HARD_LIMIT,
+#                                                     description="pdf dpi:")
+#        self.pngSaveButton = widgets.Button(description="save png")
+#        self.pdfSaveButton = widgets.Button(description="save pdf")
+#    
+#    def _style_widgets(self):
+#        self.pngSaveButton.width = "280px"
+#        self.pngSaveButton.margin = "10px 0px 10px 72px"
+#        self.pdfSaveButton.width = "280px"
+#        self.pdfSaveButton.margin = "10px 0px 0px 72px"           
+#        
+#        self.pngDpiFloatBox.value = self.PNG_DPI
+#        self.pdfDpiFloatBox.value = self.PDF_DPI
+#    
+#    def _setup_callbacks(self):
+#        self.pngSaveButton.on_click(self.save_png)
+#        self.pdfSaveButton.on_click(self.save_pdf)
+#
+#    def show(self):
+#        display(self.pngDpiFloatBox)
+#        display(self.pngSaveButton)
+#        
+#        display(self.pdfDpiFloatBox)
+#        display(self.pdfSaveButton)
+#
+#    def save_png(self,button=None):
+#        path = QtGui.QFileDialog.getSaveFileName(None,
+#                                                 'Save file',
+#                                                 "*.png")
+#        dpi = self.pngDpiFloatBox.value
+#        
+#        if not dpi:
+#            dpi = self.PNG_DPI
+#            
+#        if path:
+#            path = str(path)
+#        elif not path:
+#            path = self.default_png_name
+#            
+#        self.fig.savefig(path,dpi=dpi)
+#    
+#    def save_pdf(self,button=None):
+#        path = QtGui.QFileDialog.getSaveFileName(None,
+#                                                 'Save file',
+#                                                 "*.pdf") 
+#        dpi = self.pdfDpiFloatBox.value
+#        
+#        if not dpi:
+#            dpi = self.PNG_DPI
+#            
+#        if path:
+#            path = str(path)
+#        elif not path:
+#            path = self.default_png_name
+#
+#        self.fig.savefig(path,dpi=dpi)
+
+

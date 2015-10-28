@@ -6,6 +6,7 @@ Created on Wed Oct 14 13:13:33 2015
 """
 from corticalmapping import RetinotopicMapping
 from corticalmapping.core import FileTools
+import corticalmapping.core.PlottingTools as pt
 
 try:
     import ipywidgets as widgets
@@ -70,28 +71,28 @@ class WrappedRetinotopicMapping(RetinotopicMapping.RetinotopicMappingTrial):
     def getDeterminantMap(self,isPlot=True):
         self._getDeterminantMap(isPlot=isPlot)
     
-    def _getDeterminantMap(self, isPlot = False):
-        if not hasattr(self, 'altPosMapf') or not hasattr(self, 'aziPosMapf'):
-            _ = self._getSignMap()
-
-        altPosMapf = self.altPosMapf
-        aziPosMapf = self.aziPosMapf
-
-        gradAltMap = np.gradient(altPosMapf)
-        gradAziMap = np.gradient(aziPosMapf)
-        stack0=np.dstack((gradAltMap[0],gradAziMap[0]))
-        stack1=np.dstack((gradAltMap[1],gradAziMap[1]))
-        stacked_stacks = [np.dstack((stack_0,stack_1)) for stack_0,stack_1 in zip(stack0,stack1)] #PLEASE FIND A NEW WAY, THIS ISN"T OPTIMAL,exponentially slower with higher resoltions
-        detMap=np.abs(np.linalg.det(stacked_stacks))
-        if isPlot:
-            plt.figure()
-            plt.imshow(detMap, vmin = 0, vmax = 1,cmap='hsv', interpolation='nearest')
-            plt.colorbar()
-            plt.title('determinant map')
-            plt.gca().set_axis_off()
-
-        self.determinantMap = detMap
-        return detMap    
+    # def _getDeterminantMap(self, isPlot = False):
+    #     if not hasattr(self, 'altPosMapf') or not hasattr(self, 'aziPosMapf'):
+    #         _ = self._getSignMap()
+    #
+    #     altPosMapf = self.altPosMapf
+    #     aziPosMapf = self.aziPosMapf
+    #
+    #     gradAltMap = np.gradient(altPosMapf)
+    #     gradAziMap = np.gradient(aziPosMapf)
+    #     stack0=np.dstack((gradAltMap[0],gradAziMap[0]))
+    #     stack1=np.dstack((gradAltMap[1],gradAziMap[1]))
+    #     stacked_stacks = [np.dstack((stack_0,stack_1)) for stack_0,stack_1 in zip(stack0,stack1)] #PLEASE FIND A NEW WAY, THIS ISN"T OPTIMAL,exponentially slower with higher resoltions
+    #     detMap=np.abs(np.linalg.det(stacked_stacks))
+    #     if isPlot:
+    #         plt.figure()
+    #         plt.imshow(detMap, vmin = 0, vmax = 1,cmap='hsv', interpolation='nearest')
+    #         plt.colorbar()
+    #         plt.title('determinant map')
+    #         plt.gca().set_axis_off()
+    #
+    #     self.determinantMap = detMap
+    #     return detMap
     
     def getEccentricityMap(self,eccMapFilterSigma,isPlot=True):
         eccMapFilterSigma = float(eccMapFilterSigma)
@@ -99,58 +100,58 @@ class WrappedRetinotopicMapping(RetinotopicMapping.RetinotopicMappingTrial):
         print "eccMapFilterSigma: {0}".format(eccMapFilterSigma)
         self._getEccentricityMap(isPlot=isPlot)
     
-    def _getEccentricityMap(self,isPlot=False,showProgressBar=False):
-        if not has_ipython:
-            showProgressBar = False #ONLY WORKS IF YOU HAVE IPYTHON
-            
-        if not hasattr(self, 'rawPatches'):
-            _ = self._getRawPatches()
-    
-        altPosMapf = self.altPosMapf
-        aziPosMapf = self.aziPosMapf
-        eccMapFilterSigma = self.params['eccMapFilterSigma']
-        patches = self.rawPatches
-
-        eccMap = np.zeros(altPosMapf.shape)
-        eccMapf = np.zeros(altPosMapf.shape)
-        eccMap[:] = np.nan
-        eccMapf[:] = np.nan
-        if showProgressBar:
-            progress_bar_txt = "Calculating eccentricity map...{0}%"
-            progress_bar = widgets.FloatProgress(value=0,min=0,max=len(patches.keys()),step=1,
-                                                 description=progress_bar_txt.format(0))
-            display(progress_bar)
-            
-        for patch_idx,(key,value) in enumerate(patches.iteritems()):
-
-            patchAltC, patchAziC = value.getPixelVisualCenter(altPosMapf,aziPosMapf)
-            patchEccMap = RetinotopicMapping.eccentricityMap(altPosMapf, aziPosMapf, patchAltC, patchAziC)
-            patchEccMapf  = ni.filters.uniform_filter(patchEccMap, eccMapFilterSigma)
-            
-#            for i in xrange(patchEccMap.shape[0]): #faster method is bellow
-#                for j in xrange(patchEccMap.shape[1]):
-#                    if value.array[i,j] == 1:
-#                        eccMap[i,j] = patchEccMap[i,j]
-#                        eccMapf[i,j] = patchEccMapf[i,j]
-            __idxs = value.array == 1
-            eccMap[__idxs] = patchEccMap[__idxs]
-            eccMapf[__idxs] = patchEccMapf[__idxs]
-            
-            if showProgressBar:
-                progress_bar_percent = int((float(patch_idx+1)/(len(patches.keys())))*100)
-                progress_bar.description = progress_bar_txt.format(progress_bar_percent)
-                progress_bar.value = patch_idx+1
-
-        if isPlot:
-            plt.figure()
-            plt.imshow(eccMapf, interpolation='nearest')
-            plt.colorbar()
-            plt.title('filtered eccentricity map')
-            plt.gca().set_axis_off()
-
-        self.eccentricityMap = eccMap
-        self.eccentricityMapf = eccMapf
-        return eccMap, eccMapf    
+#     def _getEccentricityMap(self,isPlot=False,showProgressBar=False):
+#         if not has_ipython:
+#             showProgressBar = False #ONLY WORKS IF YOU HAVE IPYTHON
+#
+#         if not hasattr(self, 'rawPatches'):
+#             _ = self._getRawPatches()
+#
+#         altPosMapf = self.altPosMapf
+#         aziPosMapf = self.aziPosMapf
+#         eccMapFilterSigma = self.params['eccMapFilterSigma']
+#         patches = self.rawPatches
+#
+#         eccMap = np.zeros(altPosMapf.shape)
+#         eccMapf = np.zeros(altPosMapf.shape)
+#         eccMap[:] = np.nan
+#         eccMapf[:] = np.nan
+#         if showProgressBar:
+#             progress_bar_txt = "Calculating eccentricity map...{0}%"
+#             progress_bar = widgets.FloatProgress(value=0,min=0,max=len(patches.keys()),step=1,
+#                                                  description=progress_bar_txt.format(0))
+#             display(progress_bar)
+#
+#         for patch_idx,(key,value) in enumerate(patches.iteritems()):
+#
+#             patchAltC, patchAziC = value.getPixelVisualCenter(altPosMapf,aziPosMapf)
+#             patchEccMap = RetinotopicMapping.eccentricityMap(altPosMapf, aziPosMapf, patchAltC, patchAziC)
+#             patchEccMapf  = ni.filters.uniform_filter(patchEccMap, eccMapFilterSigma)
+#
+# #            for i in xrange(patchEccMap.shape[0]): #faster method is bellow
+# #                for j in xrange(patchEccMap.shape[1]):
+# #                    if value.array[i,j] == 1:
+# #                        eccMap[i,j] = patchEccMap[i,j]
+# #                        eccMapf[i,j] = patchEccMapf[i,j]
+#             __idxs = value.array == 1
+#             eccMap[__idxs] = patchEccMap[__idxs]
+#             eccMapf[__idxs] = patchEccMapf[__idxs]
+#
+#             if showProgressBar:
+#                 progress_bar_percent = int((float(patch_idx+1)/(len(patches.keys())))*100)
+#                 progress_bar.description = progress_bar_txt.format(progress_bar_percent)
+#                 progress_bar.value = patch_idx+1
+#
+#         if isPlot:
+#             plt.figure()
+#             plt.imshow(eccMapf, interpolation='nearest')
+#             plt.colorbar()
+#             plt.title('filtered eccentricity map')
+#             plt.gca().set_axis_off()
+#
+#         self.eccentricityMap = eccMap
+#         self.eccentricityMapf = eccMapf
+#         return eccMap, eccMapf
     
     def splitPatches(self,visualSpacePixelSize,visualSpaceCloseIter,
                      splitLocalMinCutStep,splitOverlapThr,borderWidth,
@@ -209,6 +210,39 @@ class WrappedRetinotopicMapping(RetinotopicMapping.RetinotopicMappingTrial):
         ret = super(WrappedRetinotopicMapping,self).plotFinalPatchBorders(*args,**kwargs)
         setattr(self,"finalPatchesMarked",final_patches_marked)
         return ret
+    
+    def plotColoredPatchOnPatchBorders(self,patch,patches_dict,
+                                       desired_patch_names,plotAxis=None,
+                                       patch_colors={-1:"#0000ff",1:"#ff0000"},
+                                       txt_colors={True:"#00cc00",False:"#F09000"},
+                                       default_color="#000000"):
+        if not plotAxis:
+            f,plotAxis = plt.subplots(1,1)
+        
+        plotAxis.invert_yaxis()
+        plotAxis.set_aspect('equal') 
+        
+        patch_array = ni.binary_erosion(patch.array,iterations=2)
+        patch_hex = patch_colors.get(patch.sign,default_color)
+        patch_cmap = get_cmap_from_hex(patch_hex)
+        patch = RetinotopicMapping.Patch(ni.zoom(patch_array,1,order=0),patch.sign)
+        plotAxis.imshow(patch.getSignedMask(),vmax=1,vmin=-1,
+                        interpolation='nearest',cmap=patch_cmap,alpha=0.2)
+        
+        for key,patch in patches_dict.iteritems():
+            patch_color = patch_colors.get(patch.sign,default_color)
+            currArray = ni.binary_erosion(patch.array,iterations=2)
+            pt.plotMaskBorders(currArray,plotAxis=plotAxis,color=patch_color,
+                               alpha=0.6)
+            text_color = txt_colors.get((key in desired_patch_names),
+                                        default_color)
+            plotAxis.text(patch.getCenter()[1],patch.getCenter()[0],key,
+                          color=text_color,horizontalalignment='center',
+                          verticalalignment='center',fontsize=15,zorder=10,fontweight='bold')
+            
+        return plotAxis
+
+    
     
     def verification_phase(self,final_patch_dict,patch_name_list,
                            error_color="#FFFF66",success_color="#99FFCC",
@@ -341,6 +375,8 @@ class WrappedRetinotopicMapping(RetinotopicMapping.RetinotopicMappingTrial):
             setattr(new_trial,attr,val)
         
         return new_trial    
+
+patch_colors={-1:"#0000ff",1:"#ff0000"}
 
 def get_cmap_from_hex(hex_color):
     cmap = mpl_color.ListedColormap(hex_color,hex_color)

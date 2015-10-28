@@ -37,7 +37,7 @@ class PatchPlotWidgets(object):
         self._guide_img = plt.imread(path)
 
 
-    def __init__(self,retinotopic_mapping_trial,patch_dict,
+    def __init__(self,retinotopic_mapping_trial,patch_dict,desired_patch_names,
                  highlight_color=HIGHLIGHT_COLOR,guide_img=GUIDE_IMG,
                  *ax_args,**ax_kwargs):
         """
@@ -47,6 +47,7 @@ class PatchPlotWidgets(object):
         self.trial = retinotopic_mapping_trial
         self.guide_img = guide_img
         self.highlight_color = highlight_color
+        self.desired_patch_names = desired_patch_names
         
         self.ax_args = ax_args
         self.ax_kwargs = ax_kwargs        
@@ -77,20 +78,36 @@ class PatchPlotWidgets(object):
         display(self.patch_rename_button_widget)
 
     def _plot_patch(self,patch_name):
-        if isinstance(self.guide_img,np.ndarray):
-            _,(p_ax,p_ax1) = plt.subplots(1,2,*self.ax_args,**self.ax_kwargs)
-            p_ax.imshow(self.guide_img,interpolation='nearest')
-            p_ax.set_title("Reference Map")
-            #p_ax.set_title("Sample Annotated Visual Sign Map from Garrett et. al. 2014")
-        else:
-            p_ax = None 
-        fig,ax = self.trial.plotPatchesWithNameAxes(self.patches_dict,
-                                                    plotAxis=p_ax1)
-        temp_dict = {patch_name:self.patches_dict[patch_name]}
-        self.trial.plotPatchesWithColor(temp_dict,cmap=self.highlight_color,
-                                        plotaxis=p_ax1,alpha=0.5)
+#        if isinstance(self.guide_img,np.ndarray):
+#            _,(p_ax,p_ax1) = plt.subplots(1,2,*self.ax_args,**self.ax_kwargs)
+#            p_ax.imshow(self.guide_img,interpolation='nearest')
+#            p_ax.set_title("Reference Map")
+#            #p_ax.set_title("Sample Annotated Visual Sign Map from Garrett et. al. 2014")
+#        else:
+#            p_ax = None
+        _,p_ax1 = plt.subplots(1,1,*self.ax_args,**self.ax_kwargs)
+        self.trial.plotColoredPatchOnPatchBorders(self.patches_dict[patch_name],
+                                                  self.patches_dict,self.desired_patch_names,
+                                                  plotAxis=p_ax1)
+                                    
+#        fig,ax = self.trial.plotPatchesWithNameAxes(self.patches_dict,
+#                                                    plotAxis=p_ax1)
+#        temp_dict = {patch_name:self.patches_dict[patch_name]}
+#        self.trial.plotPatchesWithColor(temp_dict,cmap=self.highlight_color,
+#                                        plotaxis=p_ax1,alpha=0.5)
         p_ax1.set_title("Current Sign Map")
 
+    #@staticmethod
+    def plot_reference_img(self,ax=None,img=None,aspect="equal"):
+        if not ax:
+            fig,ax = plt.subplots(1,1,*self.ax_args,**self.ax_kwargs)
+        
+        if not img:
+            img = self.guide_img
+        
+        ax.imshow(img,interpolation='nearest',aspect=aspect)
+        ax.set_title("Reference Map")
+            
     def _rename_patch(self,button):
         new_name = self.patch_rename_text_widget.value
         patch_list = list(self.patch_toggle_button_widget.options)
