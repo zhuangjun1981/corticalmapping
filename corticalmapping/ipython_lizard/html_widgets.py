@@ -11,6 +11,8 @@ import ipywidgets as widgets
 import os
 from functools import partial
 
+from export_notebook_functions import export_current_notebook
+
 def getSignMapWidget(RetinotopicTrial,
                      phaseMapFilterSigmaDefault=1.0,
                      signMapFilterSigmaDefault=9.0,
@@ -181,44 +183,42 @@ def mergePatchesWidget(RetinotopicTrial,
              borderWidth=borderSlider,
              smallPatchThr=smallSlider)
 
-def saveFinalResultWidget(trial,fig,pkl_path,override_pkl_path=None,png_dpi=300,pdf_dpi=600):
-    pngSaveButton = widgets.Button(description="save png")
-    pdfSaveButton = widgets.Button(description="save pdf")
-    pklSaveButton = widgets.Button(description="save pkl")
-    allSaveButton = widgets.Button(description="save png,pdf,pkl")
-    allSaveButton.width = "280px"
+def saveFinalResultWidget(trial,fig,pkl_path,pkl_save_path=None,png_dpi=300,pdf_dpi=600):
+    allSaveButton = widgets.Button(description="save all")
+    allSaveButton.width = "400px"
+    allSaveButton.font_size = "20px"
     allSaveButton.margin = "10px 0px 10px 72px"
-    pklSaveButton.width = "280px"
-    pklSaveButton.margin = "10px 0px 10px 72px"
-    pngSaveButton.width = "280px"
-    pngSaveButton.margin = "10px 0px 10px 72px"
-    pdfSaveButton.width = "280px"
-    pdfSaveButton.margin = "10px 0px 0px 72px"
     png_path = os.path.join(os.path.dirname(pkl_path),
                             "{0}_borders.png".format(trial.getName()))
     pdf_path = os.path.join(os.path.dirname(pkl_path),
                             "{0}_borders.pdf".format(trial.getName()))
-    save_png = partial(saveFigure_button_callback,fig,png_path,300)
-    save_pdf = partial(saveFigure_button_callback,fig,pdf_path,600)
-    save_pkl = partial(saveTrialDictPkl_button_callback,trial,override_pkl_path)
-    allSaveButton.on_click(save_png)
-    allSaveButton.on_click(save_pdf)
-    allSaveButton.on_click(save_pkl)
-    pklSaveButton.on_click(save_pkl)
-    pngSaveButton.on_click(save_png)
-    pdfSaveButton.on_click(save_pdf)
-    #display(pngSaveButton)
-    #display(pdfSaveButton)
-    #display(pklSaveButton)
+    if not pkl_save_path:
+        pkl_save_path = os.path.join(os.path.dirname(pkl_path),
+                                     "{0}.pkl".format(trial.getName()))
+    save_all_func = partial(save_all_callback,fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path)
+    allSaveButton.on_click(save_all_func)
     display(allSaveButton)
 
-def saveTrialDictPkl_button_callback(trial,fpath,button):
-    if fpath and os.path.exists(fpath):
-        fpath = avoidPathOverwrite(fpath)
-    trial.save_TrialDict_pkl(fpath)
+def save_all_callback(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path,button):
+    save_all(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path)
 
-def saveFigure_button_callback(fig,fpath,dpi,button):
-    saveFigure(fig,fpath,dpi)
+def save_all(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path):
+    saveFigure(fig,png_path,png_dpi)
+    saveFigure(fig,pdf_path,pdf_dpi)
+    if pkl_save_path and os.path.exists(pkl_save_path):
+        pkl_save_path = avoidPathOverwrite(pkl_save_path)
+    trial.save_TrialDict_pkl(pkl_save_path)
+    
+    export_current_notebook(os.path.dirname(png_path))
+    
+
+#def saveTrialDictPkl_button_callback(trial,fpath,button):
+#    if fpath and os.path.exists(fpath):
+#        fpath = avoidPathOverwrite(fpath)
+#    trial.save_TrialDict_pkl(fpath)
+#
+#def saveFigure_button_callback(fig,fpath,dpi,button):
+#    saveFigure(fig,fpath,dpi)
     
 def saveFigure(fig,fpath,dpi):
     if os.path.exists(fpath):
@@ -237,6 +237,22 @@ def avoidPathOverwrite(fpath,ntries=10):
     else:
         raise Exception("Can't save without overwritting existant filenames.")
     return path
+
+def raw_code_toggle():
+    #stolen from: http://stackoverflow.com/questions/27934885/how-to-hide-code-from-cells-in-ipython-notebook-visualized-with-nbviewer
+    display(HTML('''<script>
+                    code_show=true; 
+                    function code_toggle() {
+                        if (code_show){
+                        $('div.input').hide();
+                        } else {
+                        $('div.input').show();
+                        }
+                        code_show = !code_show
+                    } 
+                    $( document ).ready(code_toggle);
+                    </script>
+                    <form action="javascript:code_toggle()"><input type="submit" value="Click here to toggle on/off the raw code."></form>'''))
 
 #class SaveFinalPatchBorderFigureWidget(object):
 #    

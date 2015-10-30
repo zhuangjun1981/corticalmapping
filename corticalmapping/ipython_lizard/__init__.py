@@ -1,5 +1,7 @@
 import os
-PACKAGE_DIR = os.path.dirname(__file__)
-TEST_PKL_FOLDER = os.path.join(PACKAGE_DIR,r"res\test_pkls")
-TEST_PKLS = [os.path.join(TEST_PKL_FOLDER,pkl_name) for pkl_name in os.listdir(TEST_PKL_FOLDER)]
+
+TEST_PKL_FOLDER = r"\\AIBSDATA2\nc-ophys\JunRetinotopicTestPkls"
+
+if os.path.exists(TEST_PKL_FOLDER):
+    TEST_PKLS = [os.path.join(TEST_PKL_FOLDER,pkl_name) for pkl_name in os.listdir(TEST_PKL_FOLDER) if pkl_name.endswith("pkl")]
             

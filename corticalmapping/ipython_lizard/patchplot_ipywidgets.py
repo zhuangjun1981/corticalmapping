@@ -36,7 +36,6 @@ class PatchPlotWidgets(object):
     def guide_img(self,path):
         self._guide_img = plt.imread(path)
 
-
     def __init__(self,retinotopic_mapping_trial,patch_dict,desired_patch_names,
                  highlight_color=HIGHLIGHT_COLOR,guide_img=GUIDE_IMG,
                  *ax_args,**ax_kwargs):
@@ -55,7 +54,9 @@ class PatchPlotWidgets(object):
         self._build_widgets()
         self._style_widgets()
         self._setup_callbacks()
-
+        #self.fig,self.ax = plt.subplots(1,2,figsize=(15,7.5))
+        #self.ax[0].imshow(self._guide_img,interpolation='nearest',aspect="equal")
+        
     def _build_widgets(self):
         t_options = sorted(self.patches_dict.keys())
         self.patch_toggle_button_widget = widgets.ToggleButtons(description='Patches:',
@@ -85,18 +86,21 @@ class PatchPlotWidgets(object):
 #            #p_ax.set_title("Sample Annotated Visual Sign Map from Garrett et. al. 2014")
 #        else:
 #            p_ax = None
+        #p_ax1 = self.ax[1]
+        #p_ax1.clear()
         _,p_ax1 = plt.subplots(1,1,*self.ax_args,**self.ax_kwargs)
         self.trial.plotColoredPatchOnPatchBorders(self.patches_dict[patch_name],
                                                   self.patches_dict,self.desired_patch_names,
                                                   plotAxis=p_ax1)
-                                    
+        #self.im_plott.set_data(self._guide_img)
+        #self.fig.show()
 #        fig,ax = self.trial.plotPatchesWithNameAxes(self.patches_dict,
 #                                                    plotAxis=p_ax1)
 #        temp_dict = {patch_name:self.patches_dict[patch_name]}
 #        self.trial.plotPatchesWithColor(temp_dict,cmap=self.highlight_color,
 #                                        plotaxis=p_ax1,alpha=0.5)
+                                                  
         p_ax1.set_title("Current Sign Map")
-
     #@staticmethod
     def plot_reference_img(self,ax=None,img=None,aspect="equal"):
         if not ax:

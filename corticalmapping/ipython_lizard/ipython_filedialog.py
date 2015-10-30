@@ -8,7 +8,7 @@ import Tkinter
 import tkFileDialog
 
 import ipywidgets as widgets
-from IPython.display import display
+from IPython.display import display,Javascript
 
 def _raise_above_all(window):
     window.attributes('-topmost', 1)
@@ -34,7 +34,7 @@ def get_file_path(initial_dir):
     return file_path
 
 class IPythonTkinterFileDialog(object):
-    DEFAULT_DIR = r"C:"
+    DEFAULT_DIR = r"C:"  
     
     def __init__(self,initial_dir=DEFAULT_DIR):
         self.initial_dir = initial_dir
@@ -43,9 +43,11 @@ class IPythonTkinterFileDialog(object):
         self._build_ui()
         self._setup_callbacks()
         self._style_widgets()
+        self.execute_below = True
 
     def _style_widgets(self):
-        self.dialog_trigger_button.width = "280px"      
+        self.dialog_trigger_button.width = "400px"
+        self.dialog_trigger_button.font_size = "20px" 
      
     def _build_ui(self):
         self.dialog_trigger_button = widgets.Button(description="Get File Path")
@@ -55,6 +57,9 @@ class IPythonTkinterFileDialog(object):
     
     def set_file_path(self,button):
         self.file_path = get_file_path(self.initial_dir)
+        if self.execute_below:
+            print "ha"
+            display(Javascript('IPython.notebook.execute_cells_below()'))
     
     def show(self):
         display(self.dialog_trigger_button)

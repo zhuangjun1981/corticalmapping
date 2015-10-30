@@ -2673,6 +2673,8 @@ class RetinotopicMappingTrial(object):
 
         plotAxis.set_axis_off()
         if isTitle:plotAxis.set_title(name)
+        
+        return f
 
 
     def plotFinalPatchBorders2(self,plotAxis=None,plotName=True,plotVasMap=True,isTitle=True,isColor=True,borderWidth=2,fontSize=15):
