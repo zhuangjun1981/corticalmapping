@@ -5,7 +5,7 @@ Created on Thu Oct 22 11:53:37 2015
 @author: chrism
 """
 #from PyQt4 import QtGui,QtCore
-from IPython.display import display,HTML
+from IPython.display import display,HTML,Javascript
 from ipywidgets import interact
 import ipywidgets as widgets
 import os
@@ -99,12 +99,10 @@ def splitPatchesWidget(RetinotopicTrial,
                        visualSpaceCloseIterDefault=15,
                        splitLocalMinCutStepDefault=5.0,
                        splitOverlapThrDefault=1.2,
-                       borderWidthDefault=1,
                        visualSpacePixelSizeRange=(0,1,0.1),
                        visualSpaceCloseIterRange=(0,30,1),
                        splitLocalMinCutStepRange=(0,10.0,0.2),
-                       splitOverlapThrRange=(0,2.4,0.1),
-                       borderWidthRange=(1,10,1)):
+                       splitOverlapThrRange=(0,2.4,0.1)):
 
     visualSpacePSlider = widgets.FloatSlider(value=visualSpacePixelSizeDefault,
                                              min=visualSpacePixelSizeRange[0],
@@ -126,65 +124,117 @@ def splitPatchesWidget(RetinotopicTrial,
                                              max=splitOverlapThrRange[1],
                                              step=splitOverlapThrRange[2],
                                              description="splitOverlapThr:")
-    borderSlider = widgets.FloatSlider(value=borderWidthDefault,
-                                       min=borderWidthRange[0],
-                                       max=borderWidthRange[1],
-                                       step=borderWidthRange[2],
-                                       description="borderWidth:")
     
     interact(RetinotopicTrial.splitPatches,
              visualSpacePixelSize=visualSpacePSlider,
              visualSpaceCloseIter=visualSpaceCSlider,
              splitLocalMinCutStep=splitLocalSlider,
-             splitOverlapThr=splitOverlapSlider,
-             borderWidth=borderSlider)
+             splitOverlapThr=splitOverlapSlider)
+
+#def splitPatchesWidget(RetinotopicTrial,
+#                       visualSpacePixelSizeDefault=0.5,
+#                       visualSpaceCloseIterDefault=15,
+#                       splitLocalMinCutStepDefault=5.0,
+#                       splitOverlapThrDefault=1.2,
+#                       borderWidthDefault=1,
+#                       visualSpacePixelSizeRange=(0,1,0.1),
+#                       visualSpaceCloseIterRange=(0,30,1),
+#                       splitLocalMinCutStepRange=(0,10.0,0.2),
+#                       splitOverlapThrRange=(0,2.4,0.1),
+#                       borderWidthRange=(1,10,1)):
+#
+#    visualSpacePSlider = widgets.FloatSlider(value=visualSpacePixelSizeDefault,
+#                                             min=visualSpacePixelSizeRange[0],
+#                                             max=visualSpacePixelSizeRange[1],
+#                                             step=visualSpacePixelSizeRange[2],
+#                                             description="visualSpacePixelSize:")
+#    visualSpaceCSlider = widgets.FloatSlider(value=visualSpaceCloseIterDefault,
+#                                             min=visualSpaceCloseIterRange[0],
+#                                             max=visualSpaceCloseIterRange[1],
+#                                             step=visualSpaceCloseIterRange[2],
+#                                             description="visualSpaceCloseIter:")
+#    splitLocalSlider = widgets.FloatSlider(value=splitLocalMinCutStepDefault,
+#                                           min=splitLocalMinCutStepRange[0],
+#                                           max=splitLocalMinCutStepRange[1],
+#                                           step=splitLocalMinCutStepRange[2],
+#                                           description="splitLocalMinCutStep:")
+#    splitOverlapSlider = widgets.FloatSlider(value=splitOverlapThrDefault,
+#                                             min=splitOverlapThrRange[0],
+#                                             max=splitOverlapThrRange[1],
+#                                             step=splitOverlapThrRange[2],
+#                                             description="splitOverlapThr:")
+#    borderSlider = widgets.FloatSlider(value=borderWidthDefault,
+#                                       min=borderWidthRange[0],
+#                                       max=borderWidthRange[1],
+#                                       step=borderWidthRange[2],
+#                                       description="borderWidth:")
+#    
+#    interact(RetinotopicTrial.splitPatches,
+#             visualSpacePixelSize=visualSpacePSlider,
+#             visualSpaceCloseIter=visualSpaceCSlider,
+#             splitLocalMinCutStep=splitLocalSlider,
+#             splitOverlapThr=splitOverlapSlider,
+#             borderWidth=borderSlider)
 
 def mergePatchesWidget(RetinotopicTrial,
-                 mergeOverlapThrDefault=0.1,
-                 visualSpacePixelSizeDefault=0.5,
-                 visualSpaceCloseIterDefault=15,
-                 borderWidthDefault=1,
-                 smallPatchThrDefault=100,
-                 mergeOverlapThrRange=(-1,1,0.1),
-                 visualSpacePixelSizeRange=(-2,2,0.1),
-                 visualSpaceCloseIterRange=(0,30,1),
-                 borderWidthRange=(1,10,1),
-                 smallPatchThrRange=(0,200,10)):
+                       mergeOverlapThrDefault=0.1,
+                       mergeOverlapThrRange=(-1,1,0.1)):
+
     mergeSlider = widgets.FloatSlider(value=mergeOverlapThrDefault,
                                       min=mergeOverlapThrRange[0],
                                       max=mergeOverlapThrRange[1],
                                       step=mergeOverlapThrRange[2],
                                       description="mergeOverlapThr:")
-    visualSpacePSlider = widgets.FloatSlider(value=visualSpacePixelSizeDefault,
-                                             min=visualSpacePixelSizeRange[0],
-                                             max=visualSpacePixelSizeRange[1],
-                                             step=visualSpacePixelSizeRange[2],
-                                             description="visualSpacePixelSize:")
-    visualSpaceCSlider = widgets.FloatSlider(value=visualSpaceCloseIterDefault,
-                                             min=visualSpaceCloseIterRange[0],
-                                             max=visualSpaceCloseIterRange[1],
-                                             step=visualSpaceCloseIterRange[2],
-                                             description="visualSpaceCloseIter:")
-    borderSlider = widgets.FloatSlider(value=borderWidthDefault,
-                                       min=borderWidthRange[0],
-                                       max=borderWidthRange[1],
-                                       step=borderWidthRange[2],
-                                       description="borderWidth:")
-    smallSlider = widgets.FloatSlider(value=smallPatchThrDefault,
-                                      min=smallPatchThrRange[0],
-                                      max=smallPatchThrRange[1],
-                                      step=smallPatchThrRange[2],
-                                      description="smallPatchThr:")
 
     interact(RetinotopicTrial.mergePatches,
-             mergeOverlapThr=mergeSlider,
-             visualSpacePixelSize=visualSpacePSlider,
-             visualSpaceCloseIter=visualSpaceCSlider,
-             borderWidth=borderSlider,
-             smallPatchThr=smallSlider)
+             mergeOverlapThr=mergeSlider)
+
+#def mergePatchesWidget(RetinotopicTrial,
+#                 mergeOverlapThrDefault=0.1,
+#                 visualSpacePixelSizeDefault=0.5,
+#                 visualSpaceCloseIterDefault=15,
+#                 borderWidthDefault=1,
+#                 smallPatchThrDefault=100,
+#                 mergeOverlapThrRange=(-1,1,0.1),
+#                 visualSpacePixelSizeRange=(-2,2,0.1),
+#                 visualSpaceCloseIterRange=(0,30,1),
+#                 borderWidthRange=(1,10,1),
+#                 smallPatchThrRange=(0,200,10)):
+#    mergeSlider = widgets.FloatSlider(value=mergeOverlapThrDefault,
+#                                      min=mergeOverlapThrRange[0],
+#                                      max=mergeOverlapThrRange[1],
+#                                      step=mergeOverlapThrRange[2],
+#                                      description="mergeOverlapThr:")
+#    visualSpacePSlider = widgets.FloatSlider(value=visualSpacePixelSizeDefault,
+#                                             min=visualSpacePixelSizeRange[0],
+#                                             max=visualSpacePixelSizeRange[1],
+#                                             step=visualSpacePixelSizeRange[2],
+#                                             description="visualSpacePixelSize:")
+#    visualSpaceCSlider = widgets.FloatSlider(value=visualSpaceCloseIterDefault,
+#                                             min=visualSpaceCloseIterRange[0],
+#                                             max=visualSpaceCloseIterRange[1],
+#                                             step=visualSpaceCloseIterRange[2],
+#                                             description="visualSpaceCloseIter:")
+#    borderSlider = widgets.FloatSlider(value=borderWidthDefault,
+#                                       min=borderWidthRange[0],
+#                                       max=borderWidthRange[1],
+#                                       step=borderWidthRange[2],
+#                                       description="borderWidth:")
+#    smallSlider = widgets.FloatSlider(value=smallPatchThrDefault,
+#                                      min=smallPatchThrRange[0],
+#                                      max=smallPatchThrRange[1],
+#                                      step=smallPatchThrRange[2],
+#                                      description="smallPatchThr:")
+#
+#    interact(RetinotopicTrial.mergePatches,
+#             mergeOverlapThr=mergeSlider,
+#             visualSpacePixelSize=visualSpacePSlider,
+#             visualSpaceCloseIter=visualSpaceCSlider,
+#             borderWidth=borderSlider,
+#             smallPatchThr=smallSlider)
 
 def saveFinalResultWidget(trial,fig,pkl_path,pkl_save_path=None,png_dpi=300,pdf_dpi=600):
-    allSaveButton = widgets.Button(description="save all")
+    allSaveButton = widgets.Button(description="Save All")
     allSaveButton.width = "400px"
     allSaveButton.font_size = "20px"
     allSaveButton.margin = "10px 0px 10px 72px"
@@ -254,6 +304,22 @@ def raw_code_toggle():
                     </script>
                     <form action="javascript:code_toggle()"><input type="submit" value="Click here to toggle on/off the raw code."></form>'''))
 
+def submitAndRunBelowButton(label="Submit Changes and Rerun Below Cells"):
+    submit_button = widgets.Button(description=label)
+    submit_button.width = "300px"
+    submit_button.margin = "10px 0px 10px 0px"
+    submit_button.background_color = "#6699FF"
+    submit_button.color = "#FFDDBB"
+    submit_button.border_color = "#87868A"
+    submit_button.border_radius = "5px"
+    submit_button.on_click(run_all_below_callback)
+    display(submit_button)
+
+def run_all_below_callback(widget):
+    run_all_below()
+
+def run_all_below():
+    display(Javascript('IPython.notebook.select_next();IPython.notebook.execute_cells_below();'))
 #class SaveFinalPatchBorderFigureWidget(object):
 #    
 #    PNG_DPI = 300

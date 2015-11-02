@@ -58,8 +58,7 @@ class IPythonTkinterFileDialog(object):
     def set_file_path(self,button):
         self.file_path = get_file_path(self.initial_dir)
         if self.execute_below:
-            print "ha"
-            display(Javascript('IPython.notebook.execute_cells_below()'))
+            display(Javascript('IPython.notebook.select_next();IPython.notebook.execute_cells_below();'))
     
     def show(self):
         display(self.dialog_trigger_button)
