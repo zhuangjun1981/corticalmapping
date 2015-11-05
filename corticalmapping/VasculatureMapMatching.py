@@ -48,6 +48,8 @@ class AppForm(QMainWindow):
         self.Yoffset=0
         self.rotation=0
         self.zoom = 1.
+        self.reference_contrast = 1.
+        self.matching_contrast = 1.
 
         self.getAdjustment()
 
@@ -68,6 +70,9 @@ class AppForm(QMainWindow):
         self.radiobutton_reference.clicked.connect(self.on_draw)
         self.radiobutton_matching.clicked.connect(self.on_draw)
         self.radiobutton_both.clicked.connect(self.on_draw)
+
+        self.reference_contrast_slider.valueChanged.connect(self._sliding_reference_contrast)
+        self.matching_contrast_slider.valueChanged.connect(self._sliding_matching_contrast)
 
         self.currReferenceFolder = r'C:\JunZhuang\labwork\data\2014-04-30-vasculature-maps\147861'
         self.currMatchingFolder = r'C:\JunZhuang\labwork\data\2014-04-30-vasculature-maps\147861'
@@ -367,6 +372,15 @@ class AppForm(QMainWindow):
 
             self.on_draw()
 
+    def _sliding_reference_contrast(self):
+        contrast_map = [1/4.,1/3.,1/2.,1.,2.,3.,4.]
+        self.reference_contrast = contrast_map[self.reference_contrast_slider.value()]
+        self.on_draw()
+
+    def _sliding_matching_contrast(self):
+        contrast_map = [1/4.,1/3.,1/2.,1.,2.,3.,4.]
+        self.matching_contrast = contrast_map[self.matching_contrast_slider.value()]
+        self.on_draw()
 
     def on_draw(self):
         """ Redraws the figure
@@ -389,17 +403,17 @@ class AppForm(QMainWindow):
 
         if (type(self.ReferenceVasMap) != type(None)) and (self.radiobutton_reference.isChecked() or self.radiobutton_both.isChecked()):
             greenChannel = ia.resizeImage(self.ReferenceVasMap, (height, width))
-            greenChannel = (ia.arrayNor(greenChannel)*255).astype(np.uint8)
+            greenChannel = (np.power(ia.arrayNor(greenChannel),self.reference_contrast)*255).astype(np.uint8)
         else:
             greenChannel = np.zeros((height,width)).astype(np.uint8)
 
         if (self.radiobutton_matching.isChecked() or self.radiobutton_both.isChecked()):
             if type(self.MatchingVasMapAfterChange) != type(None):
                 redChannel = ia.resizeImage(self.MatchingVasMapAfterChange, (height, width))
-                redChannel = (ia.arrayNor(redChannel)*255).astype(np.uint8)
+                redChannel = (np.power(ia.arrayNor(redChannel),self.matching_contrast)*255).astype(np.uint8)
             elif type(self.MatchingVasMap) != type(None):
                 redChannel = ia.resizeImage(self.MatchingVasMap, (height, width))
-                redChannel = (ia.arrayNor(redChannel)*255).astype(np.uint8)
+                redChannel = (np.power(ia.arrayNor(redChannel),self.matching_contrast)*255).astype(np.uint8)
             else:
                 redChannel = np.zeros((height,width)).astype(np.uint8)
         else:
@@ -434,6 +448,18 @@ class AppForm(QMainWindow):
         self.mpl_toolbar = NavigationToolbar2QT(self.canvas, self.main_frame)
 
         # Other GUI controls
+
+        self.reference_contrast_label = QLabel('reference contrast:')
+        self.reference_contrast_slider = QSlider(Qt.Horizontal)
+        self.reference_contrast_slider.setMinimumWidth(200)
+        self.reference_contrast_slider.setRange(0,6)
+        self.reference_contrast_slider.setValue(3)
+        self.matching_contrast_label = QLabel('matching contrast:')
+        self.matching_contrast_slider = QSlider(Qt.Horizontal)
+        self.matching_contrast_slider.setMinimumWidth(200)
+        self.matching_contrast_slider.setMinimumWidth(200)
+        self.matching_contrast_slider.setRange(0,6)
+        self.matching_contrast_slider.setValue(3)
 
         self.radiobutton_reference = QRadioButton('Reference')
         self.radiobutton_matching = QRadioButton('Matching')
@@ -493,10 +519,19 @@ class AppForm(QMainWindow):
             vbox_Match.addWidget(M)
             vbox_Match.setAlignment(M, Qt.AlignLeft)
 
+
         vbox_checkbox = QVBoxLayout()
         for P in [  self.radiobutton_reference, self.radiobutton_matching, self.radiobutton_both]:
             vbox_checkbox.addWidget(P)
             vbox_checkbox.setAlignment(P, Qt.AlignLeft)
+
+        vbox_contrast = QVBoxLayout()
+        for P in [  self.reference_contrast_label,
+                    self.reference_contrast_slider,
+                    self.matching_contrast_label,
+                    self.matching_contrast_slider]:
+            vbox_contrast.addWidget(P)
+            vbox_contrast.setAlignment(P, Qt.AlignLeft)
 
         hbox_Zoom = QHBoxLayout()
         for Z in [self.label_zoom, self.doubleSpinbox_zoom]:
@@ -532,12 +567,12 @@ class AppForm(QMainWindow):
             vbox_Adjustment2.setAlignment(A, Qt.AlignVCenter)
 
         vbox_right = QVBoxLayout()
-        for RT in [ vbox_Reference, vbox_Match, vbox_checkbox, vbox_Adjustment2]:
+        for RT in [ vbox_Reference, vbox_Match, vbox_contrast, vbox_checkbox, vbox_Adjustment2]:
             vbox_right.addLayout(RT)
             vbox_right.setAlignment(RT, Qt.AlignLeft)
-        vbox_right.insertSpacing(1,50)
-        vbox_right.insertSpacing(3,50)
-        vbox_right.insertSpacing(5,50)
+        vbox_right.insertSpacing(1,30)
+        vbox_right.insertSpacing(3,30)
+        vbox_right.insertSpacing(5,30)
 
         vbox_plot = QVBoxLayout()
         for P in [self.canvas, self.mpl_toolbar]:
