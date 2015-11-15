@@ -75,7 +75,7 @@ def loadTrial(trialPath):
             for area,patchDict in trialDict['finalPatches'].iteritems():
                 try:trial.finalPatches.update({area:Patch(patchDict['array'],patchDict['sign'])})
                 except KeyError:trial.finalPatches.update({area:Patch(patchDict['sparseArray'],patchDict['sign'])})
-        else: trial.finalPatches = trialDict['finalPatches']
+        else: pass
     except KeyError:
         pass
 
@@ -85,7 +85,7 @@ def loadTrial(trialPath):
             for area,patchDict in trialDict['finalPatchesMarked'].iteritems():
                 try:trial.finalPatchesMarked.update({area:Patch(patchDict['array'],patchDict['sign'])})
                 except KeyError:trial.finalPatchesMarked.update({area:Patch(patchDict['sparseArray'],patchDict['sign'])})
-        else: trial.finalPatchesMarked = trialDict['finalPatchesMarked']
+        else: pass
     except KeyError:
         pass
     

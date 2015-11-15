@@ -342,6 +342,8 @@ def plotMaskBorders(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth=2,clos
     if closingIteration is not None:
         plotingMask = ni.binary_closing(plotingMask,iterations=closingIteration).astype(np.uint8)
 
+    plotingMask = ni.binary_erosion(plotingMask,iterations=borderWidth)
+
     currfig = plotAxis.contour(plotingMask, levels=[0.5], colors=color, linewidths=borderWidth,**kwargs)
 
     return currfig

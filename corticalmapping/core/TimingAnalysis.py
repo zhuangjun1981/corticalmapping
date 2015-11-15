@@ -50,6 +50,9 @@ def discreteCrossCorrelation(ts1,ts2,range=(-1.,1.),bins=100, isPlot=False):
     return t,values
 
 def findNearest(trace,value):
+    '''
+    return the index in "trace" having the closest value to "value"
+    '''
 
     return np.argmin(np.abs(trace-value))
 
