@@ -59,6 +59,8 @@ def export_current_notebook(backup_dir=None,export_ftype="html"):
     
     if backup_dir:
         full_notebook_path = os.path.abspath(notebook_path)
+        if not os.path.exists(full_notebook_path): #if default method fails to create a real path, use the more hacky method which makes alot of assumptions about the cwd
+            full_notebook_path = os.path.join(os.getcwd(),notebook_name)
         exported_notebook_path = full_notebook_path.replace("ipynb","html")
         shutil.copy(full_notebook_path,backup_dir)
         shutil.copy(exported_notebook_path,backup_dir)
