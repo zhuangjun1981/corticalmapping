@@ -233,7 +233,8 @@ def mergePatchesWidget(RetinotopicTrial,
 #             borderWidth=borderSlider,
 #             smallPatchThr=smallSlider)
 
-def saveFinalResultWidget(trial,fig,pkl_path,pkl_save_path=None,png_dpi=300,pdf_dpi=600):
+def saveFinalResultWidget(trial,fig,pkl_path,pkl_save_path=None,png_dpi=300,
+                          pdf_dpi=600,avoid_overwrite=True):
     allSaveButton = widgets.Button(description="Save All")
     allSaveButton.width = "400px"
     allSaveButton.font_size = "20px"
@@ -245,17 +246,22 @@ def saveFinalResultWidget(trial,fig,pkl_path,pkl_save_path=None,png_dpi=300,pdf_
     if not pkl_save_path:
         pkl_save_path = os.path.join(os.path.dirname(pkl_path),
                                      "{0}.pkl".format(trial.getName()))
-    save_all_func = partial(save_all_callback,fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path)
+    save_all_func = partial(save_all_callback,fig,trial,png_path,
+                            pdf_path,png_dpi,pdf_dpi,pkl_save_path,
+                            avoid_overwrite)
     allSaveButton.on_click(save_all_func)
     display(allSaveButton)
 
-def save_all_callback(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path,button):
-    save_all(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path)
+def save_all_callback(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,
+                      pkl_save_path,avoid_overwrite,button):
+    save_all(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path,
+             avoid_overwrite)
 
-def save_all(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path):
-    saveFigure(fig,png_path,png_dpi)
-    saveFigure(fig,pdf_path,pdf_dpi)
-    if pkl_save_path and os.path.exists(pkl_save_path):
+def save_all(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path,
+             avoid_overwrite):
+    saveFigure(fig,png_path,png_dpi,avoid_overwrite)
+    saveFigure(fig,pdf_path,pdf_dpi,avoid_overwrite)
+    if pkl_save_path and os.path.exists(pkl_save_path) and avoid_overwrite:
         pkl_save_path = avoidPathOverwrite(pkl_save_path)
     trial.save_TrialDict_pkl(pkl_save_path)
     
@@ -270,8 +276,8 @@ def save_all(fig,trial,png_path,pdf_path,png_dpi,pdf_dpi,pkl_save_path):
 #def saveFigure_button_callback(fig,fpath,dpi,button):
 #    saveFigure(fig,fpath,dpi)
     
-def saveFigure(fig,fpath,dpi):
-    if os.path.exists(fpath):
+def saveFigure(fig,fpath,dpi,avoid_overwrite=True):
+    if os.path.exists(fpath) and avoid_overwrite:
         fpath = avoidPathOverwrite(fpath)
     fig.savefig(fpath,dpi=dpi)
     print "Saved figure to: {0}".format(fpath)

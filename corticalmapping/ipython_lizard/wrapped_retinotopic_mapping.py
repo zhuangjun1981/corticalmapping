@@ -224,10 +224,10 @@ class WrappedRetinotopicMapping(RetinotopicMapping.RetinotopicMappingTrial):
         return ret,ret.axes
     
     def plotFinalPatchBorders(self,final_patch_dict,*args,**kwargs):
-        final_patches_marked = getattr(self,"finalPatchesMarker",None)
+        #final_patches_marked = getattr(self,"finalPatchesMarked",None)
         setattr(self,"finalPatchesMarked",dict(final_patch_dict))
         ret = super(WrappedRetinotopicMapping,self).plotFinalPatchBorders(*args,**kwargs)
-        setattr(self,"finalPatchesMarked",final_patches_marked)
+        #setattr(self,"finalPatchesMarked",final_patches_marked)
         return ret
     
     def plotColoredPatchOnPatchBorders(self,patch,patches_dict,
