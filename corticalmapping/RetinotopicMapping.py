@@ -2097,7 +2097,7 @@ class RetinotopicMappingTrial(object):
                     finalPatchesMarked = {}
                     for area,patch in self.finalPathcesMarked.iteritems():
                         finalPatchesMarked.update({area:getPatchDict(patch)})
-                    trialDict.update({'finalPathcesMarked':finalPatchesMarked})
+                    trialDict.update({'finalPatchesMarked':finalPatchesMarked})
                     keysLeft.remove('finalPatchesMarked')
 
                 else:
