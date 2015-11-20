@@ -2674,10 +2674,10 @@ class RetinotopicMappingTrial(object):
         plotAxis.set_axis_off()
         if isTitle:plotAxis.set_title(name)
         
-        return f
+        return plotAxis.get_figure()
 
 
-    def plotFinalPatchBorders2(self,plotAxis=None,plotName=True,plotVasMap=True,isTitle=True,isColor=True,borderWidth=2,fontSize=15):
+    def plotFinalPatchBorders2(self,plotAxis=None,plotName=True,plotVasMap=True,isTitle=True,isColor=True,positiveColor='#ff0000',negativeColor='#0000ff',borderWidth=2,fontSize=15):
 
         if hasattr(self,'finalPatchesMarked'):finalPatches=self.finalPatchesMarked
         elif hasattr(self, 'finalPatches'):finalPatches=self.finalPatches
@@ -2698,12 +2698,12 @@ class RetinotopicMappingTrial(object):
 
         for key, patch in finalPatches.iteritems():
             if isColor:
-                if patch.sign == 1:plotColor='#ff0000'
-                elif patch.sign == -1:plotColor='#0000ff'
+                if patch.sign == 1:plotColor=positiveColor
+                elif patch.sign == -1:plotColor=negativeColor
                 else:plotColor='#000000'
             else:plotColor='#000000'
 
-            currArray = ni.binary_erosion(patch.array,iterations=min([1,borderWidth/2]))
+            currArray = ni.binary_erosion(patch.array,iterations=1)
             im = pt.plotMaskBorders(currArray,plotAxis=plotAxis,color=plotColor,zoom=zoom,borderWidth=borderWidth)
             if plotName:
                 center=patch.getCenter()
@@ -3717,8 +3717,9 @@ if __name__ == "__main__":
 #----------------------------------------------------------------------------------------------
 
     # testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTial_Ai93&Ai9630min.pkl")
-    testTrial, traces = loadTrial(r"E:\data\2015-02-03-population-maps\20141120_M147861_Trial1_2_3_4.pkl")
-    testTrial.processTrial(isPlot=True)
+    testTrial, traces = loadTrial(r"E:\data\2015-11-13-150821-M177931-RetinotopicMapping\20150821_MM177931_Trial1_3_4.pkl")
+    # testTrial.processTrial(isPlot=True)
+    testTrial.plotFinalPatchBorders2(borderWidth=1)
     plt.show()
     
 #----------------------------------------------------------------------------------------------
