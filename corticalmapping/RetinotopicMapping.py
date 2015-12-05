@@ -1306,9 +1306,9 @@ class RetinotopicMappingTrial(object):
     def getName(self):
 
         trialName = str(self.dateRecorded)+\
-                    '_M'+str(self.mouseID)+\
-                    '_Trial' + str(self.trialNum)+\
-                    '_'+self.mouseType.split('-')[0]+';'+self.mouseType.split(';')[-1][0:4]
+                    '_M'+str(self.mouseID)
+                    # '_Trial' + str(self.trialNum)+\
+                    # '_'+self.mouseType.split('-')[0]+';'+self.mouseType.split(';')[-1][0:4]
 #                    '_' + str(self.visualStimType)+\
 #                    '_' + str(self.visualStimBackground)
 
@@ -2268,11 +2268,18 @@ class RetinotopicMappingTrial(object):
         aziPosMapC = ia.centerImage(self.aziPosMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
         aziPosMapNor = ia.rotateImage(aziPosMapC,rotationAngle,borderValue=borderValue)
 
-        altPowerMapC = ia.centerImage(self.altPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-        altPowerMapNor = ia.rotateImage(altPowerMapC,rotationAngle,borderValue=borderValue)
 
-        aziPowerMapC = ia.centerImage(self.aziPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-        aziPowerMapNor = ia.rotateImage(aziPowerMapC,rotationAngle,borderValue=borderValue)
+        if hasattr(self, 'altPowerMap') and self.altPowerMap is not None:
+            altPowerMapC = ia.centerImage(self.altPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
+            altPowerMapNor = ia.rotateImage(altPowerMapC,rotationAngle,borderValue=borderValue)
+        else:
+            altPowerMapNor = None
+
+        if hasattr(self, 'aziPowerMap') and self.aziPowerMap is not None:
+            aziPowerMapC = ia.centerImage(self.aziPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
+            aziPowerMapNor = ia.rotateImage(aziPowerMapC,rotationAngle,borderValue=borderValue)
+        else:
+            aziPowerMapNor = None
 
         signMapC = ia.centerImage(signMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
         signMapNor = ia.rotateImage(signMapC,rotationAngle,borderValue=borderValue)
@@ -2692,9 +2699,10 @@ class RetinotopicMappingTrial(object):
             f=plt.figure(figsize=(10,10))
             plotAxis=f.add_subplot(111)
 
-        if plotVasMap:
+        if (plotVasMap) and (self.vasculatureMap is not None):
             try:plotAxis.imshow(self.vasculatureMap, cmap = 'gray', interpolation = 'nearest')
-            except AttributeError:pass
+            except AttributeError: plotAxis.invert_yaxis();pass
+        else: plotAxis.invert_yaxis()
 
         for key, patch in finalPatches.iteritems():
             if isColor:
@@ -2710,6 +2718,7 @@ class RetinotopicMappingTrial(object):
                 plotAxis.text(center[1]*zoom,center[0]*zoom,key,verticalalignment='center', horizontalalignment='center',color=plotColor,fontsize=fontSize)
 
         plotAxis.set_axis_off()
+
         if isTitle:plotAxis.set_title(name)
 
         return plotAxis.get_figure()
@@ -3031,7 +3040,7 @@ class RetinotopicMappingTrial(object):
             self.processTrial()
 
         visualFieldOrigin = self.getVisualFieldOrigin()
-        figList, axList = pt.gridAxis(3,4,len(finalPatches.keys()),figSize=(12,10))
+        figList, axList = pt.gridAxis(3,4,len(finalPatches.keys()),figsize=(12,10))
 
         i = 0
 
