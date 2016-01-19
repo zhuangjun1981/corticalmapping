@@ -346,6 +346,13 @@ def plotMaskBorders(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth=2,clos
 
     currfig = plotAxis.contour(plotingMask, levels=[0.5], colors=color, linewidths=borderWidth,**kwargs)
 
+    # put y axis in decreasing order
+    y_lim = list(plotAxis.get_ylim())
+    y_lim.sort()
+    plotAxis.set_ylim(y_lim[::-1])
+
+    plotAxis.set_aspect('equal')
+
     return currfig
 
 
@@ -550,7 +557,7 @@ if __name__=='__main__':
     #----------------------------------------------------
 
     #----------------------------------------------------
-    assert(hot2RGB(0.5) == value2RGB(0.5,'hot'))
+    # assert(hot2RGB(0.5) == value2RGB(0.5,'hot'))
     #----------------------------------------------------
 
     print 'for debug'

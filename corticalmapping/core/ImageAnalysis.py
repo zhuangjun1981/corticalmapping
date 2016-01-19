@@ -10,6 +10,8 @@ import skimage.morphology as sm
 import FileTools as ft
 try: import cv2
 except ImportError as e: print e
+try: from toolbox.misc import BinarySlicer
+except ImportError as e: print e
 
 
 def resample(t1,y1,interval,kind='linear', isPlot = False):
@@ -644,13 +646,173 @@ def getTrace(movie, mask, maskMode = 'binary'):
     elif maskMode == 'weightedNan':
         finalMask = np.array(mask.astype(np.float))
         finalMask[np.isnan(mask)] = 0
-        pixelNum = mask.size - np.sum(np.isnan(mask).flatten())
+        pixelNum = mask.size - np.where(finalMask==0)[0].size
     else:
         raise LookupError, 'maskMode not understood. Should be one of "binary", "binaryNan", "weighted", "weightedNan".'
 
     trace = np.sum(np.multiply(movie,finalMask),(1,2))/pixelNum
 
     return trace
+
+
+def get_trace_binaryslicer(bl_obj, mask, mask_mode = 'binary'):
+    '''
+
+    :param bl_obj: the binary slicer object of a large matrix
+    :param mask: the mask
+    :param mask_mode: same as 'mask_mode' in function getTrace
+
+    maskMode: 'binary': ones in roi, zeros outside
+              'binaryNan': ones in roi, nans outside
+              'weighted': weighted values in roi, zeros outside (note: all pixels equal to zero will be considered outside roi
+              'weightedNan': weighted values in roi, nans outside
+
+    :return: extracted trace
+    '''
+
+    if len(bl_obj.shape) != 3: raise ValueError, 'BinarySlicer object should be 3d!'
+    if len(mask.shape) != 2: raise ValueError, 'Mask should be 2d!'
+    if bl_obj.shape[1] != mask.shape[0] or bl_obj.shape[2] != mask.shape[1]:
+        raise ValueError, 'the size of each frame of the BinarySlicer object should be the same as the size of mask'
+
+    if mask_mode == 'binary':
+        if np.where(mask==0)[0].size + np.where(mask==1)[0].size < mask.size:
+            raise ValueError, 'Binary mask should only contain zeros and ones!!'
+        else:
+            mask_ind = np.where(mask != 0)
+            # print mask_ind
+            min_row = min(mask_ind[0]); max_row = max(mask_ind[0]) + 1
+            min_col = min(mask_ind[1]); max_col = max(mask_ind[1]) + 1
+            finalMask = np.array(mask.astype(np.float))[min_row:max_row, min_col:max_col]
+    elif mask_mode == 'binaryNan':
+        if np.sum(np.isnan(mask).flatten())+np.where(mask==1)[0].size < mask.size:
+            raise ValueError, 'BinaryNan mask should only contain nans and ones!!'
+        else:
+            mask_ind = np.where(mask != np.nan)
+            min_row = min(mask_ind[0]); max_row = max(mask_ind[0]) + 1
+            min_col = min(mask_ind[1]); max_col = max(mask_ind[1]) + 1
+            finalMask = np.ones(mask.shape,dtype=np.float)
+            finalMask[np.isnan(mask)] = 0
+            finalMask = finalMask[min_row:max_row, min_col:max_col]
+    elif mask_mode == 'weighted':
+        if np.isnan(mask).any(): raise ValueError, 'Weighted mask should not contain nan(s)!!'
+        else:
+            mask_ind = np.where(mask != 0)
+            min_row = min(mask_ind[0]); max_row = max(mask_ind[0]) + 1
+            min_col = min(mask_ind[1]); max_col = max(mask_ind[1]) + 1
+            finalMask = np.array(mask.astype(np.float))[min_row:max_row, min_col:max_col]
+    elif mask_mode == 'weightedNan':
+        finalMask = np.array(mask.astype(np.float))
+        finalMask[np.isnan(mask)] = 0
+        mask_ind = np.where(finalMask != 0)
+        min_row = min(mask_ind[0]); max_row = max(mask_ind[0]) + 1
+        min_col = min(mask_ind[1]); max_col = max(mask_ind[1]) + 1
+        finalMask = finalMask[min_row:max_row, min_col:max_col]
+
+    mov = bl_obj[:,min_row:max_row, min_col:max_col]
+    # print mov
+    return getTrace(mov, finalMask, maskMode='weighted')
+
+
+def get_trace_binaryslicer2(bl_obj, mask, mask_mode = 'binary', loading_frame_num = 1000):
+    '''
+
+    get trace for a given mask from a BinarySlicer object, by loading chunk each time
+
+    :param bl_obj: the binary slicer object of a large matrix
+    :param mask: the mask
+    :param mask_mode: same as 'mask_mode' in function getTrace
+    :param loading_frame_num: frame number of each chunk
+
+    maskMode: 'binary': ones in roi, zeros outside
+              'binaryNan': ones in roi, nans outside
+              'weighted': weighted values in roi, zeros outside (note: all pixels equal to zero will be considered outside roi
+              'weightedNan': weighted values in roi, nans outside
+
+    :return: extracted trace
+    '''
+
+    if loading_frame_num <= 1: raise ValueError, 'loading_frame_num should be a integer larger than 1!'
+    if len(bl_obj.shape) != 3: raise ValueError, 'BinarySlicer object should be 3d!'
+    if len(mask.shape) != 2: raise ValueError, 'Mask should be 2d!'
+    if bl_obj.shape[1] != mask.shape[0] or bl_obj.shape[2] != mask.shape[1]:
+        raise ValueError, 'the size of each frame of the BinarySlicer object should be the same as the size of mask'
+
+    frameNum = bl_obj.shape[0]
+
+    print '\nInput movie shape:', bl_obj.shape
+
+    chunkNum = frameNum // loading_frame_num
+    if frameNum % loading_frame_num == 0:
+        print 'Translating in chunks: '+ str(chunkNum)+' x '+str(loading_frame_num)+' frame(s)'
+    else:
+        chunkNum += 1
+        print 'Translating in chunks: '+str(chunkNum-1)+' x '+str(loading_frame_num)+' frame(s)'+' + '+str(frameNum % loading_frame_num)+' frame(s)'
+
+    traces = []
+    for i in range(chunkNum):
+        indStart = i*loading_frame_num
+        indEnd = (i+1)*loading_frame_num
+        if indEnd > frameNum: indEnd = frameNum
+        print 'Extracting signal from frame '+str(indStart)+' to frame '+str(indEnd)+'.\t'+str(i*100./chunkNum)+'%'
+        currMov = bl_obj[indStart:indEnd,:,:]
+        traces.append(getTrace(currMov,mask,maskMode=mask_mode))
+
+    return np.concatenate(traces)
+
+
+def get_trace_binaryslicer3(bl_obj, masks, mask_mode = 'binary', loading_frame_num = 1000):
+    '''
+
+    get trace for a given mask from a BinarySlicer object, by loading chunk each time
+
+    :param bl_obj: the binary slicer object of a large matrix
+    :param masks: a dictionary of masks
+    :param mask_mode: same as 'mask_mode' in function getTrace
+    :param loading_frame_num: frame number of each chunk
+
+    maskMode: 'binary': ones in roi, zeros outside
+              'binaryNan': ones in roi, nans outside
+              'weighted': weighted values in roi, zeros outside (note: all pixels equal to zero will be considered outside roi
+              'weightedNan': weighted values in roi, nans outside
+
+    :return: extracted trace
+    '''
+
+    if loading_frame_num <= 1: raise ValueError, 'loading_frame_num should be a integer larger than 1!'
+    if len(bl_obj.shape) != 3: raise ValueError, 'BinarySlicer object should be 3d!'
+
+
+    frameNum = bl_obj.shape[0]
+
+    print '\nInput movie shape:', bl_obj.shape
+
+    chunkNum = frameNum // loading_frame_num
+    if frameNum % loading_frame_num == 0:
+        print 'Translating in chunks: '+ str(chunkNum)+' x '+str(loading_frame_num)+' frame(s)'
+    else:
+        chunkNum += 1
+        print 'Translating in chunks: '+str(chunkNum-1)+' x '+str(loading_frame_num)+' frame(s)'+' + '+str(frameNum % loading_frame_num)+' frame(s)'
+
+    traces = {}
+    for key in masks.iterkeys(): traces.update({'trace_'+key:[]})
+
+    for i in range(chunkNum):
+        indStart = i*loading_frame_num
+        indEnd = (i+1)*loading_frame_num
+        if indEnd > frameNum: indEnd = frameNum
+        print 'Extracting signal from frame '+str(indStart)+' to frame '+str(indEnd)+'.\t'+str(i*100./chunkNum)+'%'
+        currMov = bl_obj[indStart:indEnd,:,:]
+        for key, mask in masks.iteritems():
+            if len(mask.shape) != 2: raise ValueError, 'Mask "' + key + '" should be 2d!'
+            if bl_obj.shape[1] != mask.shape[0] or bl_obj.shape[2] != mask.shape[1]:
+                raise ValueError, 'the size of each frame of the BinarySlicer object should be the same as the size of mask "' + key + '"!'
+            traces['trace_'+key].append(getTrace(currMov,mask,maskMode=mask_mode))
+
+    for key in traces.iterkeys():
+        traces[key] = np.concatenate(traces[key])
+
+    return traces
 
 
 def hitOrMiss(coor, mask):
@@ -1076,24 +1238,39 @@ if __name__ == '__main__':
     #============================================================
 
     #============================================================
+    # mov = np.arange(64).reshape((4,4,4))
+    # print mov
+    #
+    # mask1 = np.zeros((4,4)); mask1[2,2]=1; mask1[1,1]=1
+    # trace1 = getTrace(mov,mask1,maskMode='binary')
+    # assert(trace1[2] == 39.5)
+    #
+    # mask2 = np.zeros((4,4),dtype=np.float); mask2[:]=np.nan; mask2[2,2]=1; mask2[1,1]=1
+    # trace2 = getTrace(mov,mask2,maskMode='binaryNan')
+    # assert(trace2[2] == 39.5)
+    #
+    # mask3 = np.zeros((4,4),dtype=np.float); mask3[2,2]=1; mask3[1,1]=2
+    # trace3 = getTrace(mov,mask3,maskMode='weighted')
+    # assert(trace3[2] == 58)
+    #
+    # mask4 = np.zeros((4,4),dtype=np.float); mask4[:]=np.nan; mask4[2,2]=1; mask4[1,1]=2
+    # trace4 = getTrace(mov,mask4,maskMode='weightedNan')
+    # assert(trace4[2] == 58)
+    #============================================================
+
+    #============================================================
     mov = np.arange(64).reshape((4,4,4))
-    print mov
+    np.save(r'E:\data\python_temp_folder\test_array.npy',mov)
+    bl_obj = BinarySlicer(r'E:\data\python_temp_folder\test_array.npy')
 
     mask1 = np.zeros((4,4)); mask1[2,2]=1; mask1[1,1]=1
-    trace1 = getTrace(mov,mask1,maskMode='binary')
-    assert(trace1[2] == 39.5)
+    mask2 = np.zeros((4,4)); mask2[3,0]=1; mask2[3,1]=1
 
-    mask2 = np.zeros((4,4),dtype=np.float); mask2[:]=np.nan; mask2[2,2]=1; mask2[1,1]=1
-    trace2 = getTrace(mov,mask2,maskMode='binaryNan')
-    assert(trace2[2] == 39.5)
-
-    mask3 = np.zeros((4,4),dtype=np.float); mask3[2,2]=1; mask3[1,1]=2
-    trace3 = getTrace(mov,mask3,maskMode='weighted')
-    assert(trace3[2] == 58)
-
-    mask4 = np.zeros((4,4),dtype=np.float); mask4[:]=np.nan; mask4[2,2]=1; mask4[1,1]=2
-    trace4 = getTrace(mov,mask4,maskMode='weightedNan')
-    assert(trace4[2] == 58)
+    masks = {'mask1':mask1, 'mask2':mask2}
+    traces = get_trace_binaryslicer3(bl_obj,masks,mask_mode='binary',loading_frame_num=2)
+    print traces
+    assert(traces['trace_mask1'][2] == 39.5)
+    assert(traces['trace_mask2'][3] == 60.5)
     #============================================================
 
     print 'for debug'
