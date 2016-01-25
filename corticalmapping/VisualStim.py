@@ -2007,19 +2007,22 @@ class DisplaySequence(object):
                  isVideoRecord = False,
                  isTriggered = True,
                  triggerNIDev = 'Dev1',
-                 triggerNIPort = 0,
+                 triggerNIPort = 1,
                  triggerNILine = 0,
                  isSyncPulse = True,
-                 syncPulseNIDev = 'Dev3',
+                 syncPulseNIDev = 'Dev1',
                  syncPulseNIPort = 1,
-                 syncPulseNILine = 2,
+                 syncPulseNILine = 1,
                  triggerType = "NegativeEdge", # should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"
-                 displayScreen = 1,
+                 displayScreen = 0,
                  initialBackgroundColor = 0,
                  videoRecordIP = 'localhost',
                  videoRecordPort = 10000,
                  displayControlIP = 'localhost',
-                 displayControlPort = 10002):
+                 displayControlPort = 10002,
+                 fileNumNIDev = 'Dev1',
+                 fileNumNIPort = '0',
+                 fileNumNILines = '0:7'):
                      
         self.sequence = None
         self.sequenceLog = {}
@@ -2041,6 +2044,9 @@ class DisplaySequence(object):
         self.displayControlIP = displayControlIP
         self.displayControlPort = displayControlPort
         self.keepDisplay = None
+        self.fileNumNIDev = fileNumNIDev
+        self.fileNumNIPort = fileNumNIPort
+        self.fileNumNILines = fileNumNILines
 
         self._remote_obj = RemoteObject(rep_port=self.displayControlPort)
         self._remote_obj.close = self.flag_to_close
@@ -2100,8 +2106,6 @@ class DisplaySequence(object):
 
 
     def triggerDisplay(self):
-
-        #todo: make _display more light weighted, and make the initial frame with indicator for photodiode
 
         #test monitor resolution
         try: resolution = self.sequenceLog['monitor']['resolution'][::-1]
@@ -2184,41 +2188,41 @@ class DisplaySequence(object):
         '''
 
         #check NI signal
-        DI = iodaq.DigitalInput(self.triggerNIDev, self.triggerNIPort)
-        DI.StartTask()
+        triggerTask = iodaq.DigitalInput(self.triggerNIDev, self.triggerNIPort, self.triggerNILine)
+        triggerTask.StartTask()
 
         if self.triggerType == 'LowLevel':
-            lastTTL = DI.read()[self.triggerNILine]
+            lastTTL = triggerTask.read()
             while lastTTL != 0 and self.keepDisplay:
-                lastTTL = DI.read()[self.triggerNILine]
+                lastTTL = triggerTask.read()[0]
                 self._updateDisplayStatus()
             else:
-                if self.keepDisplay: DI.StopTask(); return True
-                else: DI.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
+                if self.keepDisplay: triggerTask.StopTask(); return True
+                else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
         elif self.triggerType == 'HighLevel':
-            lastTTL = DI.read()[self.triggerNILine]
+            lastTTL = triggerTask.read()[0]
             while lastTTL != 1 and self.keepDisplay:
-                lastTTL = DI.read()[self.triggerNILine]
+                lastTTL = triggerTask.read()[0]
                 self._updateDisplayStatus()
             else:
-                if self.keepDisplay: DI.StopTask(); return True
-                else: DI.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
+                if self.keepDisplay: triggerTask.StopTask(); return True
+                else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
         elif self.triggerType == 'NegativeEdge':
-            lastTTL = DI.read()[self.triggerNILine]
+            lastTTL = triggerTask.read()[0]
             while self.keepDisplay:
-                currentTTL = DI.read()[self.triggerNILine]
+                currentTTL = triggerTask.read()[0]
                 if (lastTTL == 1) and (currentTTL == 0):break
                 else:lastTTL = int(currentTTL);self._updateDisplayStatus()
-            else: DI.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.';return False
-            DI.StopTask();return True
+            else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.';return False
+            triggerTask.StopTask();return True
         elif self.triggerType == 'PositiveEdge':
-            lastTTL = DI.read()[self.triggerNILine]
+            lastTTL = triggerTask.read()[0]
             while self.keepDisplay:
-                currentTTL = DI.read()[self.triggerNILine]
+                currentTTL = triggerTask.read()[0]
                 if (lastTTL == 0) and (currentTTL == 1):break
                 else:lastTTL = int(currentTTL);self._updateDisplayStatus()
-            else: DI.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
-            DI.StopTask();return True
+            else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
+            triggerTask.StopTask();return True
         else:raise NameError, 'trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!'
 
 
@@ -2254,29 +2258,17 @@ class DisplaySequence(object):
         get synced file number for log file name
         '''
 
-
-        #------------------This piece of code needs to be improved--------------------
         try:
-            #generate synchronized file number to write into the file name
-            #file nmuber is coded as binary from digital input
-            #port0 line0-7 and port1 line 0-2
-            DI0 = iodaq.DigitalInput('Dev1', 0)
-            DI1 = iodaq.DigitalInput('Dev1', 1)
-            DI0.StartTask()
-            DI1.StartTask()
-            array0 = DI0.read()
-            array1 = DI1.read()
-            #reverse binary string of digital input port0 line0-7
-            str0 = ''.join(map(str,array0))[::-1]
-            #reverse binary string of digital input port1 line0-2
-            str1 = ''.join(map(str,array1))[-2::-1]
-            fileNumber = int(str1 + str0,2)
-            DI0.StopTask()
-            DI1.StopTask()
-        except:
+            fileNumTask = iodaq.DigitalInput(self.fileNumNIDev,self.fileNumNIPort,self.fileNumNILines)
+            fileNumTask.StartTask()
+            array = fileNumTask.read()
+            numStr = (''.join([str(line) for line in array]))[::-1]
+            fileNumber = int(numStr, 2)
+            print array, fileNumber
+        except Exception as e:
+            print e
             fileNumber = None
-        #------------------This piece of code needs to be improved--------------------
-            
+
         return fileNumber
         
 
@@ -2289,9 +2281,9 @@ class DisplaySequence(object):
         singleRunFrames = self.sequence.shape[0]
         
         if self.isSyncPulse:
-            syncPulse = iodaq.DigitalOutput(self.syncPulseNIDev, self.syncPulseNIPort)
-            syncPulse.StartTask()
-            syncPulse.WriteBit(self.syncPulseNILine,0)
+            syncPulseTask = iodaq.DigitalOutput(self.syncPulseNIDev, self.syncPulseNIPort, self.syncPulseNILine)
+            syncPulseTask.StartTask()
+            _ = syncPulseTask.write(np.array([0]).astype(np.uint8))
 
         i = 0
 
@@ -2307,11 +2299,13 @@ class DisplaySequence(object):
             timeStamp.append(time.clock()-startTime)
 
             #set syncPuls signal
-            if self.isSyncPulse:syncPulse.WriteBit(self.syncPulseNILine,1)
+            if self.isSyncPulse: _ = syncPulseTask.write(np.array([1]).astype(np.uint8))
+            # print syncPulseTask.readLines()
             #show visual stim
             window.flip()
             #set syncPuls signal
-            if self.isSyncPulse:syncPulse.WriteBit(self.syncPulseNILine,0)
+            if self.isSyncPulse: _ = syncPulseTask.write(np.array([0]).astype(np.uint8))
+            # print syncPulseTask.readLines()
 
             self._updateDisplayStatus()
             i=i+1
@@ -2320,7 +2314,7 @@ class DisplaySequence(object):
         stopTime = time.clock()
         window.close()
         
-        if self.isSyncPulse:syncPulse.StopTask()
+        if self.isSyncPulse:syncPulseTask.StopTask()
         
         self.timeStamp = np.array(timeStamp)
         self.displayLength = stopTime-startTime
@@ -2427,7 +2421,7 @@ if __name__ == "__main__":
     KSstim=KSstimJun(mon,indicator)
     displayIteration = 2
     # print (len(KSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2,isSyncPulse=False)
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2,isSyncPulse=True)
     ds.setStim(KSstim)
     ds.triggerDisplay()
     plt.show()
