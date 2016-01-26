@@ -2064,7 +2064,6 @@ class DisplaySequence(object):
         self.sequenceLog = None
         
         #FROM DW, setup socket
-        self.videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.displayControlSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.displayControlSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.displayControlSock.bind((self.displayControlIP, self.displayControlPort))
@@ -2113,7 +2112,7 @@ class DisplaySequence(object):
 
         #prepare display frames log
         if self.sequence is None:
-            raise LookupError, "Please set the sequence to be displayed!!"
+            raise LookupError, "Please set the sequence to be displayed!!\n"
         try:
             sequenceFrames = self.sequenceLog['stimulation']['frames']
             if self.displayOrder == -1: sequenceFrames = sequenceFrames[::-1]
@@ -2123,20 +2122,29 @@ class DisplaySequence(object):
                 self.displayFrames += sequenceFrames
         except Exception as e:
             print e
-            print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'."
+            print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'.\n"
             self.displayFrames = None
-           
+
+        #set up sock communication with video monitoring computer
+        if self.isVideoRecord:
+            self.videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        # start psychopy window
         window = visual.Window(size=resolution,monitor=self.psychopyMonitor,fullscr=True,screen=self.displayScreen,color=self.initialBackgroundColor)
         stim = visual.ImageStim(window, size=(2,2))
         
         try: refreshRate = self.sequenceLog['monitor']['refreshRate']
         except KeyError:
-            print "No monitor refresh rate information, assuming 60Hz."
+            print "No monitor refresh rate information, assuming 60Hz.\n"
             refreshRate = 60.
 
+        # calculate expected display time
         displayTime = float(self.sequence.shape[0]) * self.displayIteration / refreshRate
-        
-        print '\n Expected display time: ', displayTime, ' seconds'
+        print '\n Expected display time: ', displayTime, ' seconds\n'
+
+        # generate file name
+        self._getFileName()
+        print 'File name:',self.fileName+'\n'
 
         self.keepDisplay = True
 
@@ -2145,9 +2153,9 @@ class DisplaySequence(object):
 
             if wait: # trigger is detected and manual stop signal is not detected
 
-                if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+                if self.isVideoRecord: self.videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
                 self._display(window, stim) #display sequence
-                if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+                if self.isVideoRecord: self.videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
 
                 #analyze frames
                 try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2163,9 +2171,9 @@ class DisplaySequence(object):
             else: self.clear() # manual stop signal is detected
 
         else: #display will not wait for trigger
-            if self.isVideoRecord: self.sock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+            if self.isVideoRecord: self.videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
             self._display(window, stim) #display sequence
-            if self.isVideoRecord: self.sock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+            if self.isVideoRecord: self.videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
 
             #analyze frames
             try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2191,13 +2199,15 @@ class DisplaySequence(object):
         triggerTask = iodaq.DigitalInput(self.triggerNIDev, self.triggerNIPort, self.triggerNILine)
         triggerTask.StartTask()
 
+        print "Waiting for trigger: " + self.triggerType + ' on ' + triggerTask.devstr
+
         if self.triggerType == 'LowLevel':
             lastTTL = triggerTask.read()
             while lastTTL != 0 and self.keepDisplay:
                 lastTTL = triggerTask.read()[0]
                 self._updateDisplayStatus()
             else:
-                if self.keepDisplay: triggerTask.StopTask(); return True
+                if self.keepDisplay: triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n'; return True
                 else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
         elif self.triggerType == 'HighLevel':
             lastTTL = triggerTask.read()[0]
@@ -2205,7 +2215,7 @@ class DisplaySequence(object):
                 lastTTL = triggerTask.read()[0]
                 self._updateDisplayStatus()
             else:
-                if self.keepDisplay: triggerTask.StopTask(); return True
+                if self.keepDisplay: triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n'; return True
                 else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
         elif self.triggerType == 'NegativeEdge':
             lastTTL = triggerTask.read()[0]
@@ -2214,7 +2224,7 @@ class DisplaySequence(object):
                 if (lastTTL == 1) and (currentTTL == 0):break
                 else:lastTTL = int(currentTTL);self._updateDisplayStatus()
             else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.';return False
-            triggerTask.StopTask();return True
+            triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n'; return True
         elif self.triggerType == 'PositiveEdge':
             lastTTL = triggerTask.read()[0]
             while self.keepDisplay:
@@ -2222,7 +2232,7 @@ class DisplaySequence(object):
                 if (lastTTL == 0) and (currentTTL == 1):break
                 else:lastTTL = int(currentTTL);self._updateDisplayStatus()
             else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
-            triggerTask.StopTask();return True
+            triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n';  return True
         else:raise NameError, 'trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!'
 
 
@@ -2264,7 +2274,7 @@ class DisplaySequence(object):
             array = fileNumTask.read()
             numStr = (''.join([str(line) for line in array]))[::-1]
             fileNumber = int(numStr, 2)
-            print array, fileNumber
+            # print array, fileNumber
         except Exception as e:
             print e
             fileNumber = None
@@ -2321,6 +2331,8 @@ class DisplaySequence(object):
         if self.displayFrames is not None:
             self.displayFrames = self.displayFrames[:i-1]
 
+        if self.keepDisplay == True: print '\nDisplay successfully completed.'
+
 
     def flag_to_close(self):
         self.keepDisplay = False
@@ -2334,10 +2346,13 @@ class DisplaySequence(object):
         keyList = event.getKeys(['q','escape'])
         if len(keyList) > 0:
             self.keepDisplay = False
+            print "Keyboard stop signal detected. Stop displaying. \n"
 
         try:
             msg, addr =  self.displayControlSock.recvfrom(128)
-            if msg[0:4].upper() == 'STOP': self.keepDisplay = False
+            if msg[0:4].upper() == 'STOP':
+                self.keepDisplay = False
+                print "Remote stop signal detected. Stop displaying. \n"
         except: pass
 
         self._remote_obj._check_rep()

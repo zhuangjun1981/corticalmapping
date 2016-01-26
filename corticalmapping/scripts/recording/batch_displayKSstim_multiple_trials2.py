@@ -5,7 +5,7 @@ import corticalmapping.VisualStim as vs
 mouseID = 'TEST' #'147861' #'TEST'
 userID = 'Jun'
 numOfTrials = 2
-isTriggered = False
+isTriggered = True
 
 psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
 
