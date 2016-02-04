@@ -835,7 +835,7 @@ class KSstim(Stim):
     def set_sweep_width(self,sweepWidth):
         self.sweepWidth = sweepWidth
         self.clear()
-        
+
 class NoiseKSstim(Stim):
     '''
     generate Kalatsky & Stryker stimulation but with noise movie not flashing 
@@ -1141,7 +1141,320 @@ class NoiseKSstim(Stim):
         self.sweepWidth = sweepWidth
         self.clear()
 
-class FlashNoise(Stim):
+class ObliqueKSstim(Stim):
+    '''
+    generate Kalatsky & Stryker stimulation integrats flashing indicator for
+    photodiode
+    '''
+    def __init__(self,
+                 monitor,
+                 indicator,
+                 background=0., #back ground color [-1,1]
+                 squareSize=25., #size of flickering square
+                 squareCenter=(0,0), #coordinate of center point
+                 flickerFrame=10,
+                 sweepWidth=20., # width of sweeps (unit same as Map, cm or deg)
+                 stepWidth=0.15, # width of steps (unit same as Map, cm or deg)
+                 direction='B2U', # the direction of sweep movement, should be one of "B2U","U2B","L2R","R2L"
+                 sweepFrame=1,
+                 coordinate='degree', #'degree' or 'linear'
+                 iteration=1,
+                 preGapDur=2.,
+                 postGapDur=3.,
+                 rotation_angle=np.pi/4): # the angle of axis rotation
+
+        super(ObliqueKSstim,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
+
+        self.stimName = 'ObliqueKSstim'
+        self.squareSize = squareSize
+        self.squareCenter = squareCenter
+        self.flickerFrame = flickerFrame
+        self.flickerFrequency=self.monitor.refreshRate / self.flickerFrame
+        self.sweepWidth = sweepWidth
+        self.stepWidth = stepWidth
+        self.direction = direction
+        self.sweepFrame = sweepFrame
+        self.coordinate = coordinate
+        self.iteration = iteration
+        self.rotation_angle = rotation_angle
+
+        self.sweepSpeed = self.monitor.refreshRate * self.stepWidth / self.sweepFrame #the speed of sweeps deg/sec
+        self.flickerHZ = self.monitor.refreshRate / self.flickerFrame
+
+        self.clear()
+
+
+    def generate_squares(self):
+        '''
+        generate checker board squares
+        '''
+
+
+        if self.coordinate == 'degree':
+            mapX = self.monitor.degCorX
+            mapY = self.monitor.degCorY
+
+        elif self.coordinate == 'linear':
+            mapX = self.monitor.linCorX
+            mapY = self.monitor.linCorY
+
+        else:
+            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+
+        minX = mapX.min()
+        maxX = mapX.max()
+
+        minY = mapY.min()
+        maxY = mapY.max()
+
+        negX = np.ceil( abs( ( ( minX - self.squareCenter[0] ) / ( 2 * self.squareSize ) ) ) ) + 1
+        posX = np.ceil( abs( ( ( maxX - self.squareCenter[0] ) / ( 2 * self.squareSize ) ) ) ) + 1
+
+        negY = np.ceil( abs( ( ( minY - self.squareCenter[0] ) / ( 2 * self.squareSize ) ) ) ) + 1
+        posY = np.ceil( abs( ( ( maxY - self.squareCenter[0] ) / ( 2 * self.squareSize ) ) ) ) + 1
+
+        squareV = np.ones((np.size(mapX, 0), np.size(mapX, 1)), dtype = np.float16)
+        squareV = -1 * squareV
+
+        stepV = np.arange(self.squareCenter[0] - ( 2 * negX + 0.5 ) * self.squareSize,
+                          self.squareCenter[0] + ( 2 * posX - 0.5 ) * self.squareSize, self.squareSize*2)
+
+        for i in range(len(stepV)):
+            squareV[ np.where( np.logical_and( mapX >= stepV[i], mapX < (stepV[i] + self.squareSize)))] = 1.0
+
+        squareH = np.ones((np.size(mapY, 0), np.size(mapY, 1)), dtype = np.float16)
+        squareH = -1 * squareH
+
+        stepH = np.arange(self.squareCenter[1] - ( 2 * negY + 0.5 ) * self.squareSize,
+                          self.squareCenter[1] + ( 2 * posY - 0.5 ) * self.squareSize, self.squareSize*2)
+
+        for j in range(len(stepH)):
+            squareH[ np.where( np.logical_and( mapY >= stepH[j], mapY < (stepH[j] + self.squareSize)))] = 1
+
+        squares = np.multiply(squareV, squareH)
+
+        return squares
+
+    def plot_squares(self):
+        '''
+        plot checkerboare squares
+        '''
+        plt.figure()
+        plt.imshow(self.squares)
+
+    def generate_sweeps(self):
+        '''
+        generate full screen sweep sequence
+        '''
+        sweepWidth = self.sweepWidth
+        stepWidth =  self.stepWidth
+        direction = self.direction
+
+        if self.coordinate == 'degree':
+            mapX = self.monitor.degCorX
+            mapY = self.monitor.degCorY
+
+        elif self.coordinate == 'linear':
+            mapX = self.monitor.linCorX
+            mapY = self.monitor.linCorY
+
+        else:
+            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+
+        all_x = mapX.flatten(); all_y = mapY.flatten()
+        rotation_matrix = np.array([[np.cos(self.rotation_angle), np.sin(self.rotation_angle)],
+                                    [-np.sin(self.rotation_angle), np.cos(self.rotation_angle)]])
+
+        map_rotated = np.dot(rotation_matrix,np.array([all_x,all_y]))
+        map_x_r = map_rotated[0].reshape(mapX.shape); map_y_r = map_rotated[1].reshape(mapY.shape)
+
+
+        min_x_r = map_x_r.min(); max_x_r = map_x_r.max()
+        min_y_r = map_y_r.min(); max_y_r = map_y_r.max()
+
+        if direction == "B2U":
+            stepY = np.arange(min_y_r - sweepWidth, max_y_r + stepWidth, stepWidth)
+        elif direction == "U2B":
+            stepY = np.arange(min_y_r - sweepWidth, max_y_r + stepWidth, stepWidth)[::-1]
+            # stepY = np.arange(maxY, minY - sweepWidth - stepWidth, -1 * stepWidth)
+        elif direction == "L2R":
+            stepX = np.arange(min_x_r - sweepWidth, max_x_r + stepWidth, stepWidth)
+        elif direction == "R2L":
+            stepX = np.arange(min_x_r - sweepWidth, max_x_r + stepWidth, stepWidth)[::-1]
+            # stepX = np.arange(maxX, minX - sweepWidth - stepWidth, -1 * stepWidth)
+        else:
+            raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
+
+        sweepTable = []
+
+        if 'stepX' in locals():
+            sweeps = np.zeros((len(stepX), np.size(map_x_r, 0), np.size(map_x_r, 1)), dtype = np.float16)
+            for i in range(len(stepX)):
+                temp=sweeps[i,:,:]
+                temp[np.where(np.logical_and(map_x_r >= stepX[i], map_x_r < (stepX[i] + sweepWidth)))] = 1.0
+                sweepTable.append(('V', stepX[i], stepX[i] + sweepWidth))
+                del temp
+
+        if 'stepY' in locals():
+            sweeps = np.zeros((len(stepY), np.size(map_y_r, 0), np.size(map_y_r, 1)), dtype = np.float16)
+            for j in range(len(stepY)):
+                temp=sweeps[j,:,:]
+                temp[np.where(np.logical_and(map_y_r >= stepY[j], map_y_r < (stepY[j] + sweepWidth)))] = 1.0
+                sweepTable.append(('H', stepY[j], stepY[j] + sweepWidth))
+                del temp
+
+        return sweeps.astype(np.bool), sweepTable
+
+    def generate_frames(self):
+        '''
+        function to generate all the frames needed for KS stimulation
+
+        returning a list of information of all frames, list of tuples
+
+        for each frame:
+
+        first element: gap:0 or display:1
+        second element: square polarity, 1: not reversed; -1: reversed
+        third element: sweeps, index in sweep table
+        forth element: color of indicator
+                       synchronized: gap:0, then alternating between -1 and 1 for each sweep
+                       non-synchronized: alternating between -1 and 1 at defined frequency
+        for gap frames the second and third elements should be 'None'
+        '''
+
+        sweeps, _ = self.generate_sweeps()
+        sweepFrame = self.sweepFrame
+        flickerFrame = self.flickerFrame
+        iteration = self.iteration
+
+        sweepNum = np.size(sweeps,0) # Number of sweeps, vertical or horizontal
+        displayFrameNum = sweepFrame * sweepNum # total frame number for the visual stimulation of 1 iteration
+
+        #frames for one iteration
+        iterFrames=[]
+
+        #add frames for gaps
+        for i in range(self.preGapFrameNum):
+            iterFrames.append([0,None,None,-1])
+
+
+        #add frames for display
+        isreverse=[]
+
+        for i in range(displayFrameNum):
+
+            if (np.floor(i // flickerFrame)) % 2 == 0:
+                isreverse = -1
+            else:
+                isreverse = 1
+
+            sweepIndex=int(np.floor(i // sweepFrame))
+
+            #add sychornized indicator
+            if self.indicator.isSync == True:
+                indicatorColor = 1
+            else:
+                indicatorColor = -1
+
+            iterFrames.append([1,isreverse,sweepIndex,indicatorColor])
+
+
+        # add gap frames at the end
+        for i in range(self.postGapFrameNum):
+            iterFrames.append([0,None,None,-1])
+
+        fullFrames = []
+
+        #add frames for multiple iteration
+        for i in range(int(iteration)):
+            fullFrames += iterFrames
+
+        #add non-synchronized indicator
+        if self.indicator.isSync == False:
+            indicatorFrame = self.indicator.frameNum
+
+            for j in range(np.size(fullFrames,0)):
+                if np.floor(j // indicatorFrame) % 2 == 0:
+                    fullFrames[j][3] = 1
+                else:
+                    fullFrames[j][3] = -1
+
+        fullFrames = [tuple(x) for x in fullFrames]
+
+        return tuple(fullFrames)
+
+    def generate_movie(self):
+        '''
+        Function to Generate Kalatsky & Stryker visual stimulus frame by frame
+        '''
+
+        self.squares = self.generate_squares()
+
+        sweeps, self.sweepTable = self.generate_sweeps()
+
+        self.frames=self.generate_frames()
+
+        fullSequence = np.zeros((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16)
+
+        indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
+        indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
+        indicatorHmin=self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
+        indicatorHmax=self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
+
+        background = self.background * np.ones((np.size(self.monitor.degCorX, 0), np.size(self.monitor.degCorX,1)), dtype = np.float16)
+
+        for i in range(len(self.frames)):
+            currFrame = self.frames[i]
+
+            if currFrame[0] == 0:
+                currNMsequence = background
+
+            else:
+                currSquare = self.squares * currFrame[1]
+                currSweep = sweeps[currFrame[2]]
+                currNMsequence = (currSweep * currSquare) + ((-1 * (currSweep - 1)) * background)
+
+            currNMsequence[indicatorHmin:indicatorHmax, indicatorWmin:indicatorWmax] = currFrame[3]
+
+            fullSequence[i] = currNMsequence
+
+            print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+
+
+        mondict=dict(self.monitor.__dict__)
+        indicatordict=dict(self.indicator.__dict__)
+        indicatordict.pop('monitor')
+        KSdict=dict(self.__dict__)
+        KSdict.pop('monitor')
+        KSdict.pop('indicator')
+        fulldictionary={'stimulation':KSdict,
+                        'monitor':mondict,
+                        'indicator':indicatordict}
+
+        return fullSequence, fulldictionary
+
+    def clear(self):
+        self.sweepTable = None
+        self.frames = None
+        self.square = None
+
+    def set_direction(self,direction):
+
+        if direction == "B2U" or direction == "U2B" or direction == "L2R" or direction == "R2L":
+            self.direction = direction
+            self.clear()
+        else:
+            raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
+
+    def set_sweep_sigma(self,sweepSigma):
+        self.sweepSigma = sweepSigma
+        self.clear()
+
+    def set_sweep_width(self,sweepWidth):
+        self.sweepWidth = sweepWidth
+        self.clear()
+
+class FlashingNoise(Stim):
 
     '''
     generate flashing full field noise with background displayed before and after
@@ -1161,9 +1474,9 @@ class FlashNoise(Stim):
                  postGapDur=3., # gap frame number after flash
                  isWarp = False): # warp noise or not
 
-        super(FlashNoise,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
+        super(FlashingNoise,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
 
-        self.stimName = 'FlashNoise'
+        self.stimName = 'FlashingNoise'
         self.spatialFreqCeil = spatialFreqCeil
         self.filterMode = filterMode
         self.iteration = iteration
@@ -1516,7 +1829,7 @@ class GaussianNoise(Stim):
         self.contrast = contrast
         self.clear()
 
-class FlashCircle(Stim):
+class FlashingCircle(Stim):
     '''
     flashing circle stimulation.
     '''
@@ -1533,9 +1846,9 @@ class FlashCircle(Stim):
                  postGapDur=3., # gap frame number after flash
                  background = 0.):
 
-        super(FlashCircle,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
+        super(FlashingCircle,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
 
-        self.stimName = 'FlashCircle'
+        self.stimName = 'FlashingCircle'
         self.center = center
         self.radius = radius
         self.color = color
@@ -1936,6 +2249,93 @@ class KSstimAllDir(object):
                'indicator':dictB2U['indicator']}
         stimulation = dict(dictB2U['stimulation'])
         stimulation['stimName'] = 'KSstimAllDir'
+        stimulation['direction'] = ['B2U','U2B','L2R','R2L']
+
+        sweepTable = []
+        frames = []
+
+        sweepTableB2U = dictB2U['stimulation']['sweepTable']; framesB2U = dictB2U['stimulation']['frames']; sweepLenB2U = len(sweepTableB2U)
+        sweepTableB2U = [ ['B2U', x[1], x[2]] for x in sweepTableB2U]; framesB2U = [[x[0],x[1],x[2],x[3],'B2U'] for x in framesB2U]
+        sweepTable += sweepTableB2U; frames += framesB2U
+
+        sweepTableU2B = dictU2B['stimulation']['sweepTable']; framesU2B = dictU2B['stimulation']['frames']; sweepLenU2B = len(sweepTableU2B)
+        sweepTableU2B = [ ['U2B', x[1], x[2]] for x in sweepTableU2B]; framesU2B = [[x[0],x[1],x[2],x[3],'U2B'] for x in framesU2B]
+        for frame in framesU2B:
+            if frame[2] is not None: frame[2] += sweepLenB2U
+        sweepTable += sweepTableU2B; frames += framesU2B
+
+        sweepTableL2R = dictL2R['stimulation']['sweepTable']; framesL2R = dictL2R['stimulation']['frames']; sweepLenL2R = len(sweepTableL2R)
+        sweepTableL2R = [ ['L2R', x[1], x[2]] for x in sweepTableL2R]; framesL2R = [[x[0],x[1],x[2],x[3],'L2R'] for x in framesL2R]
+        for frame in framesL2R:
+            if frame[2] is not None: frame[2] += sweepLenB2U+sweepLenU2B
+        sweepTable += sweepTableL2R; frames += framesL2R
+
+        sweepTableR2L = dictR2L['stimulation']['sweepTable']; framesR2L = dictR2L['stimulation']['frames']
+        sweepTableR2L = [ ['R2L', x[1], x[2]] for x in sweepTableR2L]; framesR2L = [[x[0],x[1],x[2],x[3],'R2L'] for x in framesR2L]
+        for frame in framesR2L:
+            if frame[2] is not None: frame[2] += sweepLenB2U+sweepLenU2B+sweepLenL2R
+        sweepTable += sweepTableR2L; frames += framesR2L
+
+        stimulation['frames'] = [tuple(x) for x in frames]
+        stimulation['sweepTable'] = [tuple(x) for x in sweepTable]
+
+        log['stimulation'] = stimulation
+
+        return mov, log
+
+class ObliqueKSstimAllDir(object):
+    '''
+    generate Kalatsky & Stryker stimulation in all four direction contiuously
+    '''
+    def __init__(self,
+                 monitor,
+                 indicator,
+                 background=0., #back ground color [-1,1]
+                 squareSize=25, #size of flickering square
+                 squareCenter=(0,0), #coordinate of center point
+                 flickerFrame=6,
+                 sweepWidth=20., # width of sweeps (unit same as Map, cm or deg)
+                 stepWidth=0.15, # width of steps (unit same as Map, cm or deg)
+                 sweepFrame=1,
+                 coordinate='degree', #'degree' or 'linear'
+                 iteration=1,
+                 preGapDur=2.,
+                 postGapDur=3.,
+                 rotation_angle=np.pi/4):
+
+        self.monitor = monitor
+        self.indicator = indicator
+        self.background = background
+        self.squareSize = squareSize
+        self.squareCenter = squareCenter
+        self.flickerFrame = flickerFrame
+        self.sweepWidth = sweepWidth
+        self.stepWidth = stepWidth
+        self.sweepFrame = sweepFrame
+        self.coordinate = coordinate
+        self.iteration = iteration
+        self.preGapDur = preGapDur
+        self.postGapDur = postGapDur
+        self.rotation_angle = rotation_angle
+
+
+    def generate_movie(self):
+
+        KSstimB2U=ObliqueKSstim(self.monitor,self.indicator,iteration=self.iteration,direction='B2U',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapDur=self.preGapDur,postGapDur=self.postGapDur,rotation_angle=self.rotation_angle)
+        KSstimU2B=ObliqueKSstim(self.monitor,self.indicator,iteration=self.iteration,direction='U2B',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapDur=self.preGapDur,postGapDur=self.postGapDur,rotation_angle=self.rotation_angle)
+        KSstimL2R=ObliqueKSstim(self.monitor,self.indicator,iteration=self.iteration,direction='L2R',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapDur=self.preGapDur,postGapDur=self.postGapDur,rotation_angle=self.rotation_angle)
+        KSstimR2L=ObliqueKSstim(self.monitor,self.indicator,iteration=self.iteration,direction='R2L',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapDur=self.preGapDur,postGapDur=self.postGapDur,rotation_angle=self.rotation_angle)
+
+        movB2U, dictB2U = KSstimB2U.generate_movie()
+        movU2B, dictU2B = KSstimU2B.generate_movie()
+        movL2R, dictL2R = KSstimL2R.generate_movie()
+        movR2L, dictR2L = KSstimR2L.generate_movie()
+
+        mov = np.vstack((movB2U,movU2B,movL2R,movR2L))
+        log = {'monitor':dictB2U['monitor'],
+               'indicator':dictB2U['indicator']}
+        stimulation = dict(dictB2U['stimulation'])
+        stimulation['stimName'] = 'ObliqueKSstimAllDir'
         stimulation['direction'] = ['B2U','U2B','L2R','R2L']
 
         sweepTable = []
@@ -2442,7 +2842,7 @@ if __name__ == "__main__":
     #==============================================================================================================================
     # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
     # indicator=Indicator(mon)
-    # flash_noise=FlashNoise(mon,indicator)
+    # flash_noise=FlashingNoise(mon,indicator)
     # displayIteration = 2
     # # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
     # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
@@ -2466,7 +2866,7 @@ if __name__ == "__main__":
     #==============================================================================================================================
     # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=10)
     # indicator=Indicator(mon)
-    # flashing_circle=FlashCircle(mon,indicator)
+    # flashing_circle=FlashingCircle(mon,indicator)
     # displayIteration = 2
     # # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
     # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
@@ -2510,12 +2910,32 @@ if __name__ == "__main__":
     #==============================================================================================================================
 
     #==============================================================================================================================
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
+    # monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
+    # indicator=Indicator(mon)
+    # sparse_noise=SparseNoise(mon,indicator)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=False,isSyncPulse=False,isVideoRecord=False)
+    # ds.set_stim(sparse_noise)
+    # ds.trigger_display()
+    # plt.show()
+    #==============================================================================================================================
+
+    #==============================================================================================================================
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
+    # indicator=Indicator(mon)
+    # KS_stim_all_dir=KSstimAllDir(mon,indicator,stepWidth=0.3)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False)
+    # ds.set_stim(KS_stim_all_dir)
+    # ds.trigger_display()
+    # plt.show()
+    #==============================================================================================================================
+
+    #==============================================================================================================================
     mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
-    monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
     indicator=Indicator(mon)
-    sparse_noise=SparseNoise(mon,indicator)
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=False,isSyncPulse=False,isVideoRecord=False)
-    ds.set_stim(sparse_noise)
+    oblique_KS = ObliqueKSstim(mon,indicator,direction='R2L')
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False)
+    ds.set_stim(oblique_KS)
     ds.trigger_display()
     plt.show()
     #==============================================================================================================================
@@ -2523,7 +2943,7 @@ if __name__ == "__main__":
     #==============================================================================================================================
     # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
     # indicator=Indicator(mon)
-    # KS_stim_all_dir=KSstimAllDir(mon,indicator,stepWidth=0.3)
+    # KS_stim_all_dir=ObliqueKSstimAllDir(mon,indicator,stepWidth=0.3)
     # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False)
     # ds.set_stim(KS_stim_all_dir)
     # ds.trigger_display()
