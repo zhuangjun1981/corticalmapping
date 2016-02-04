@@ -20,6 +20,7 @@ import socket
 import core.tifffile as tf
 import core.FileTools as ft
 
+
 from zro import RemoteObject
 
 try: import toolbox.IO.nidaq as iodaq
@@ -31,10 +32,9 @@ except ImportError as e:
 
 
 
-def gaussian(x, mu=0, sig=1):
+def gaussian(x, mu=0, sig=1.):
     
     return np.exp(np.divide(-np.power(x - mu, 2.) , 2 * np.power(sig, 2.)))
-
 
 def analysisFrames(ts, refreshRate, checkPoint = [0.02, 0.033, 0.05, 0.1]):
     '''
@@ -64,7 +64,6 @@ def analysisFrames(ts, refreshRate, checkPoint = [0.02, 0.033, 0.05, 0.1]):
     print frameStats
     
     return frameDuration, frameStats
-    
 
 def noiseMovie(frameFilter, widthFilter, heightFilter, isplot = False):
     '''
@@ -101,7 +100,6 @@ def noiseMovie(frameFilter, widthFilter, heightFilter, isplot = False):
         tf.imshow(noiseMovie, vmin=-1, vmax=1, cmap='gray')
     
     return noiseMovie
-        
 
 def generateFilter(length, # length of filter
                    Fs, # sampling frequency
@@ -135,7 +133,6 @@ def generateFilter(length, # length of filter
     
     return filterArray
 
-
 def lookupImage(img, lookupI, lookupJ):
     '''
     generate warpped image from img, using look up talbel: lookupI and lookupJ
@@ -155,7 +152,6 @@ def lookupImage(img, lookupI, lookupJ):
             
     return img2
 
-
 def in_hull(p, hull):
     """
     Test if points in `p` are in `hull`
@@ -170,7 +166,6 @@ def in_hull(p, hull):
         hull = Delaunay(hull)
 
     return hull.find_simplex(p)>=0
-
 
 def getWarpedFrameWithSquare(degCorX,degCorY,center,width,height,ori,foregroundColor=1,backgroundColor=0.):
     '''
@@ -196,7 +191,10 @@ def getWarpedFrameWithSquare(degCorX,degCorY,center,width,height,ori,foregroundC
     return frame
 
 
-class MonitorJun(object):
+
+
+
+class Monitor(object):
     '''
     monitor object created by Jun, has the method "remap" to generate the 
     spherical corrected coordinates in degrees
@@ -408,9 +406,133 @@ class MonitorJun(object):
                 lookupI[i,j] = indI
         
         return lookupI, lookupJ
-                
 
-class KSstimJun(object):
+
+class Indicator(object):
+    '''
+    flashing indicator for photodiode
+    '''
+
+    def __init__(self,
+                 monitor,
+                 width_cm = 3.,
+                 height_cm = 3.,
+                 position = 'northeast',
+                 isSync = True,
+                 freq = 2.):
+        self.monitor=monitor
+        self.width_cm = width_cm
+        self.height_cm = height_cm
+        self.width_pixel, self.height_pixel = self.get_size_pixel()
+        self.position = position
+        self.centerWpixel, self.centerHpixel = self.get_center()
+        self.isSync = isSync
+
+        if isSync == False:
+            self.freq = freq #if not synchronized with stimulation, self update frquency of the indicator
+            self.frameNum = self.get_frames()
+        else:
+            self.freq = None
+            self.frameNum = None
+
+    def get_size_pixel(self):
+
+        screen_width = self.monitor.resolution[1] / self.monitor.downSampleRate
+        screen_height = self.monitor.resolution[0] / self.monitor.downSampleRate
+
+        indicator_width = ((self.width_cm / self.monitor.monWcm ) * screen_width) // 1
+        indicator_height = ((self.height_cm / self.monitor.monHcm ) * screen_height) // 1
+
+        return indicator_width, indicator_height
+
+    def get_center(self):
+
+        screen_width = self.monitor.resolution[1] / self.monitor.downSampleRate
+        screen_height = self.monitor.resolution[0] / self.monitor.downSampleRate
+
+        if self.position == 'northeast':
+            centerW = screen_width - self.width_pixel / 2
+            centerH = self.height_pixel / 2
+
+        elif self.position == 'northwest':
+            centerW = self.width_pixel / 2
+            centerH = self.height_pixel / 2
+
+        elif self.position == 'southeast':
+            centerW = screen_width - self.width_pixel / 2
+            centerH = screen_height - self.height_pixel / 2
+
+        elif self.position == 'southwest':
+            centerW = self.width_pixel / 2
+            centerH = screen_height - self.height_pixel / 2
+
+        else:
+            raise LookupError, '"position" attributor should be "northeast", "southeast", "northwest" and "southwest"'
+
+        return centerW, centerH
+
+    def get_frames(self):
+
+        '''
+        if not synchronized with stimulation, get frame numbers of each update
+        of indicator
+        '''
+
+        refreshRate = self.monitor.refreshRate
+
+        if refreshRate % self.freq != 0:
+            raise ArithmeticError, "self update frequency of should be divisible by monitor's refresh rate."
+
+        return refreshRate/self.freq
+
+        
+class Stim(object):
+    '''
+    generic class for visual stimulation
+    '''
+    def __init__(self,
+                 monitor, # Monitor object
+                 indicator, # indicator object,
+                 background = 0., # back ground color [-1,1]
+                 preGapDur = 2., # duration of gap period before stimulus, second
+                 postGapDur = 3.): # duration of gap period after stimulus, second
+        self.monitor = monitor
+        self.indicator = indicator
+        self.background = background
+        self.preGapFrameNum = int(preGapDur * self.monitor.refreshRate)
+        self.postGapFrameNum = int(postGapDur * self.monitor.refreshRate)
+
+        self.clear()
+
+    def generate_frames(self):
+        '''
+        place holder of function "generate_frames" for each specific stimulus
+        '''
+        print 'Nothing executed! This is place holder of function "generate_frames" for each specific stimulus.'
+        print 'This function should return a list of tuples, each tuple represents a single frame of the stimulus and contains all the information to recreate the frame.'
+        
+    def generate_movie(self):
+        '''
+        place holder of function "generate_movie" for each specific stimulus
+        '''
+        print 'Nothing executed! This is place holder of function "generate_movie" for each specific stimulus.'
+        print 'This function should return two things:'
+        print 'First: a 3-d array (with format of uint8) of the stimulus to be displayed.'
+        print 'Second: a dictionary contain the information of this particular stimulus'
+        
+    def clear(self):
+        self.frames = None
+    
+    def set_preGapDur(self,preGapDur):
+        self.preGapFrameNum = int(preGapDur * self.monitor.refreshRate)
+        self.clear()
+        
+    def set_postGapDur(self,postGapDur):
+        self.postGapFrameNum = int(postGapDur * self.monitor.refreshRate)
+        self.clear()
+
+
+class KSstim(Stim):
     '''
     generate Kalatsky & Stryker stimulation integrats flashing indicator for 
     photodiode
@@ -418,23 +540,22 @@ class KSstimJun(object):
     def __init__(self,
                  monitor,
                  indicator,
-                 background = 0, #back ground color [-1,1]
-                 squareSize=25, #size of flickering square 
+                 background=0., #back ground color [-1,1]
+                 squareSize=25., #size of flickering square
                  squareCenter=(0,0), #coordinate of center point
-                 flickerFrame=6,
+                 flickerFrame=10,
                  sweepWidth=20., # width of sweeps (unit same as Map, cm or deg)
                  stepWidth=0.15, # width of steps (unit same as Map, cm or deg)
                  direction='B2U', # the direction of sweep movement, should be one of "B2U","U2B","L2R","R2L"
                  sweepFrame=1,
                  coordinate='degree', #'degree' or 'linear'
                  iteration=1, 
-                 preGapFrame=120,
-                 postGapFrame=180):
+                 preGapDur=2.,
+                 postGapDur=3.):
+        
+        super(KSstim,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
                      
         self.stimName = 'KSstim'
-        self.monitor = monitor
-        self.indicator =  indicator
-        self.background = background
         self.squareSize = squareSize
         self.squareCenter = squareCenter
         self.flickerFrame = flickerFrame
@@ -445,21 +566,14 @@ class KSstimJun(object):
         self.sweepFrame = sweepFrame
         self.coordinate = coordinate
         self.iteration = iteration
-        self.preGapFrame = preGapFrame
-        self.postGapFrame = postGapFrame
-#        self.sequencePath = sequencePath
-#        self.color=color
         
         self.sweepSpeed = self.monitor.refreshRate * self.stepWidth / self.sweepFrame #the speed of sweeps deg/sec
         self.flickerHZ = self.monitor.refreshRate / self.flickerFrame
-        
-        self.squares = self.make_squares()
-        #self.plot_squares()
-        _, self.sweepTable = self.generate_sweeps()
-        self.frames = self.generate_frames()
+
+        self.clear()
         
 
-    def make_squares(self):
+    def generate_squares(self):
         '''
         generate checker board squares
         '''
@@ -509,8 +623,7 @@ class KSstimJun(object):
         squares = np.multiply(squareV, squareH)
         
         return squares
-        
-        
+
     def plot_squares(self):
         '''
         plot checkerboare squares
@@ -518,7 +631,6 @@ class KSstimJun(object):
         plt.figure()
         plt.imshow(self.squares)
 
-        
     def generate_sweeps(self):
         '''
         generate full screen sweep sequence
@@ -577,7 +689,6 @@ class KSstimJun(object):
                 
         return sweeps.astype(np.bool), sweepTable
 
-
     def generate_frames(self):
         '''
         function to generate all the frames needed for KS stimulation
@@ -607,7 +718,7 @@ class KSstimJun(object):
         iterFrames=[] 
         
         #add frames for gaps
-        for i in range(self.preGapFrame):
+        for i in range(self.preGapFrameNum):
             iterFrames.append([0,None,None,-1])
         
         
@@ -633,7 +744,7 @@ class KSstimJun(object):
             
             
         # add gap frames at the end
-        for i in range(self.postGapFrame):
+        for i in range(self.postGapFrameNum):
             iterFrames.append([0,None,None,-1])
         
         fullFrames = []
@@ -655,19 +766,19 @@ class KSstimJun(object):
         fullFrames = [tuple(x) for x in fullFrames]
         
         return tuple(fullFrames)
-        
-    
-    def generateMovie(self):
+
+    def generate_movie(self):
         '''
         Function to Generate Kalatsky & Stryker visual stimulus frame by frame
         '''
         
-        sweeps, _ = self.generate_sweeps()
-
-        if self.frames is not None:frames = self.frames
-        else: frames=self.generate_frames()
+        self.squares = self.generate_squares()
         
-        fullSequence = np.zeros((len(frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16)
+        sweeps, self.sweepTable = self.generate_sweeps()
+
+        self.frames=self.generate_frames()
+        
+        fullSequence = np.zeros((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16)
         
         indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
         indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
@@ -676,8 +787,8 @@ class KSstimJun(object):
         
         background = self.background * np.ones((np.size(self.monitor.degCorX, 0), np.size(self.monitor.degCorX,1)), dtype = np.float16)
         
-        for i in range(len(frames)):
-            currFrame = frames[i]
+        for i in range(len(self.frames)):
+            currFrame = self.frames[i]
             
             if currFrame[0] == 0:
                 currNMsequence = background
@@ -691,7 +802,7 @@ class KSstimJun(object):
             
             fullSequence[i] = currNMsequence
             
-            print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(frames)))+'%']
+            print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
         
         
         mondict=dict(self.monitor.__dict__)
@@ -705,126 +816,34 @@ class KSstimJun(object):
                         'indicator':indicatordict} 
                         
         return fullSequence, fulldictionary
-        
-    
-    def reset(self):
+
+    def clear(self):
         self.sweepTable = None
         self.frames = None
-
+        self.square = None
 
     def setDirection(self,direction):
         
         if direction == "B2U" or direction == "U2B" or direction == "L2R" or direction == "R2L":
             self.direction = direction
-            self.reset()
+            self.clear()
         else:
             raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
 
-
     def setSweepSigma(self,sweepSigma):
         self.sweepSigma = sweepSigma
-        self.reset()
-
+        self.clear()
 
     def setSweepWidth(self,sweepWidth):
         self.sweepWidth = sweepWidth
-        self.reset()
+        self.clear()
 
-
-    def setGapFrame(self,preGapFrame,postGapFrame):
-        self.preGapFrame = preGapFrame
-        self.postGapFrame = postGapFrame
-        self.reset()
-
-
-class KSstimAllDir(object):
-    '''
-    generate Kalatsky & Stryker stimulation integrats flashing indicator for
-    photodiode
-    '''
-    def __init__(self,
-                 monitor,
-                 indicator,
-                 background = 0, #back ground color [-1,1]
-                 squareSize=25, #size of flickering square
-                 squareCenter=(0,0), #coordinate of center point
-                 flickerFrame=6,
-                 sweepWidth=20., # width of sweeps (unit same as Map, cm or deg)
-                 stepWidth=0.15, # width of steps (unit same as Map, cm or deg)
-                 sweepFrame=1,
-                 coordinate='degree', #'degree' or 'linear'
-                 iteration=1,
-                 preGapFrame=120,
-                 postGapFrame=180):
-
-        self.monitor = monitor
-        self.indicator = indicator
-        self.background = background
-        self.squareSize = squareSize
-        self.squareCenter = squareCenter
-        self.flickerFrame = flickerFrame
-        self.sweepWidth = sweepWidth
-        self.stepWidth = stepWidth
-        self.sweepFrame = sweepFrame
-        self.coordinate = coordinate
-        self.iteration = iteration
-        self.preGapFrame = preGapFrame
-        self.postGapFrame = postGapFrame
-
-
-    def generateMovie(self):
-
-        KSstimB2U=KSstimJun(self.monitor,self.indicator,iteration=self.iteration,direction='B2U',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
-        KSstimU2B=KSstimJun(self.monitor,self.indicator,iteration=self.iteration,direction='U2B',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
-        KSstimL2R=KSstimJun(self.monitor,self.indicator,iteration=self.iteration,direction='L2R',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
-        KSstimR2L=KSstimJun(self.monitor,self.indicator,iteration=self.iteration,direction='R2L',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapFrame=self.preGapFrame,postGapFrame=self.postGapFrame)
-
-        movB2U, dictB2U = KSstimB2U.generateMovie()
-        movU2B, dictU2B = KSstimU2B.generateMovie()
-        movL2R, dictL2R = KSstimL2R.generateMovie()
-        movR2L, dictR2L = KSstimR2L.generateMovie()
-
-        mov = np.vstack((movB2U,movU2B,movL2R,movR2L))
-        log = {'monitor':dictB2U['monitor'],
-               'indicator':dictB2U['indicator']}
-        stimulation = dict(dictB2U['stimulation'])
-        stimulation['stimName'] = 'KSstimAllDir'
-        stimulation['direction'] = ['B2U','U2B','L2R','R2L']
-
-        sweepTable = []
-        frames = []
-
-        sweepTableB2U = dictB2U['stimulation']['sweepTable']; framesB2U = dictB2U['stimulation']['frames']; sweepLenB2U = len(sweepTableB2U)
-        sweepTableB2U = [ ['B2U', x[1], x[2]] for x in sweepTableB2U]; framesB2U = [[x[0],x[1],x[2],x[3],'B2U'] for x in framesB2U]
-        sweepTable += sweepTableB2U; frames += framesB2U
-
-        sweepTableU2B = dictU2B['stimulation']['sweepTable']; framesU2B = dictU2B['stimulation']['frames']; sweepLenU2B = len(sweepTableU2B)
-        sweepTableU2B = [ ['U2B', x[1], x[2]] for x in sweepTableU2B]; framesU2B = [[x[0],x[1],x[2],x[3],'U2B'] for x in framesU2B]
-        for frame in framesU2B:
-            if frame[2] is not None: frame[2] += sweepLenB2U
-        sweepTable += sweepTableU2B; frames += framesU2B
-
-        sweepTableL2R = dictL2R['stimulation']['sweepTable']; framesL2R = dictL2R['stimulation']['frames']; sweepLenL2R = len(sweepTableL2R)
-        sweepTableL2R = [ ['L2R', x[1], x[2]] for x in sweepTableL2R]; framesL2R = [[x[0],x[1],x[2],x[3],'L2R'] for x in framesL2R]
-        for frame in framesL2R:
-            if frame[2] is not None: frame[2] += sweepLenB2U+sweepLenU2B
-        sweepTable += sweepTableL2R; frames += framesL2R
-
-        sweepTableR2L = dictR2L['stimulation']['sweepTable']; framesR2L = dictR2L['stimulation']['frames']
-        sweepTableR2L = [ ['R2L', x[1], x[2]] for x in sweepTableR2L]; framesR2L = [[x[0],x[1],x[2],x[3],'R2L'] for x in framesR2L]
-        for frame in framesR2L:
-            if frame[2] is not None: frame[2] += sweepLenB2U+sweepLenU2B+sweepLenL2R
-        sweepTable += sweepTableR2L; frames += framesR2L
-
-        stimulation['frames'] = [tuple(x) for x in frames]
-        stimulation['sweepTable'] = [tuple(x) for x in sweepTable]
-
-        log['stimulation'] = stimulation
-
-        return mov, log
-
-
-class NoiseKSstimJun(object):
+    def setGapFrameNum(self,preGapFrameNum,postGapFrameNum):
+        self.preGapFrameNum = preGapFrameNum
+        self.postGapFrameNum = postGapFrameNum
+        self.clear()
+        
+class NoiseKSstim(Stim):
     '''
     generate Kalatsky & Stryker stimulation but with noise movie not flashing 
     squares 
@@ -834,6 +853,7 @@ class NoiseKSstimJun(object):
     def __init__(self,
                  monitor,
                  indicator,
+                 background=0.,
                  tempFreqCeil = 15, # cutoff temporal frequency (Hz)
                  spatialFreqCeil = 0.05, # cutoff spatial frequency (cycle/degree)
                  filterMode = 'box', # type of filter of movie, '1/f' or 'box'
@@ -846,13 +866,14 @@ class NoiseKSstimJun(object):
                  sweepFrame=1, # display frame numbers for each step
                  coordinate='degree', #'degree' or 'linear'
                  iteration=1, 
-                 preGapFrame=60, # gap frame number before flash
-                 postGapFrame=300, # gap frame number after flash
-                 enhanceExp = None): # exponential factor to enhance stimulus contrast (smaller means more enhancement)
+                 preGapDur=2., # gap frame number before flash
+                 postGapDur=3., # gap frame number after flash
+                 enhanceExp = None): # (0, inf], if smaller than 1, enhance contrast, if bigger than 1, reduce contrast
                      
+        super(NoiseKSstim,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
+
+
         self.stimName = 'NoiseKSstim'
-        self.monitor = monitor
-        self.indicator =  indicator
         self.tempFreqCeil = tempFreqCeil
         self.spatialFreqCeil = spatialFreqCeil
         self.filterMode = filterMode
@@ -866,14 +887,12 @@ class NoiseKSstimJun(object):
         self.sweepFrame = sweepFrame
         self.coordinate = coordinate
         self.iteration = iteration
-        self.preGapFrame = preGapFrame
-        self.postGapFrame = postGapFrame
         self.enhanceExp = enhanceExp
         
         self.sweepSpeed = self.monitor.refreshRate * self.stepWidth / self.sweepFrame #the speed of sweeps deg/sec
-        
+
         self.sweepTable = None
-        self.frames = None
+
         
 
     def generate_noiseMovie(self, frameNum):
@@ -908,8 +927,7 @@ class NoiseKSstimJun(object):
                 movie = (np.abs(movie)**self.enhanceExp)*(np.copysign(1,movie))
         
         return movie
-        
-        
+
     def generate_sweeps(self):
         '''
         generate full screen sweep sequence
@@ -983,9 +1001,7 @@ class NoiseKSstimJun(object):
                 sweepTable.append(('H', stepY[j] - sweepWidth / 2, stepY[j] + sweepWidth / 2))
                 
         return sweeps, sweepTable
-        
-        
-          
+
     def generate_frames(self):
         '''
         function to generate all the frames needed for KS stimulation
@@ -1015,7 +1031,7 @@ class NoiseKSstimJun(object):
         iterFrames=[] 
         
         #add frames for gaps
-        for i in range(self.preGapFrame):
+        for i in range(self.preGapFrameNum):
             iterFrames.append([0,None,None,-1])
         
         
@@ -1035,7 +1051,7 @@ class NoiseKSstimJun(object):
             
             
         # add gap frames at the end
-        for i in range(self.postGapFrame):
+        for i in range(self.postGapFrameNum):
             iterFrames.append([0,None,None,-1])
         
         fullFrames = []
@@ -1059,9 +1075,8 @@ class NoiseKSstimJun(object):
         
         
         return tuple(fullFrames)
-        
-    
-    def generateMovie(self):
+
+    def generate_movie(self):
         '''
         Function to Generate Kalatsky & Stryker visual stimulus frame by frame
         '''
@@ -1082,7 +1097,7 @@ class NoiseKSstimJun(object):
         indicatorHmin=self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
         indicatorHmax=self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
         
-        background = np.zeros(self.monitor.degCorX.shape, dtype = np.float32)
+        background = np.ones(self.monitor.degCorX.shape, dtype = np.float16) * self.background
         
         for i in range(len(self.frames)):
             currFrame = self.frames[i]
@@ -1112,9 +1127,8 @@ class NoiseKSstimJun(object):
                         'indicator':indicatordict}
                         
         return fullSequence, fullDictionary
-        
-    
-    def reset(self):
+
+    def clear(self):
         self.sweepTable = None
         self.frames = None
     
@@ -1122,224 +1136,206 @@ class NoiseKSstimJun(object):
         
         if direction == "B2U" or direction == "U2B" or direction == "L2R" or direction == "R2L":
             self.direction = direction
-            self.reset()
+            self.clear()
         else:
             raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
             
     def setSweepSigma(self,sweepSigma):
         self.sweepSigma = sweepSigma
-        self.reset()
+        self.clear()
         
     def setSweepWidth(self,sweepWidth):
         self.sweepWidth = sweepWidth
-        self.reset()
+        self.clear()
         
-    def setGapFrame(self,preGapFrame,postGapFrame):
-        self.preGapFrame = preGapFrame
-        self.postGapFrame = postGapFrame
-        self.reset()
-    
- 
-class FlashNoise(object):
-    
+    def setGapFrameNum(self,preGapFrameNum,postGapFrameNum):
+        self.preGapFrameNum = preGapFrameNum
+        self.postGapFrameNum = postGapFrameNum
+        self.clear()
+
+class FlashNoise(Stim):
+
     '''
     generate flashing full field noise with background displayed before and after
-    
+
     it also integrats flashing indicator for photodiode
     '''
-    
+
     def __init__(self,
                  monitor,
                  indicator,
+                 background=0.,
                  spatialFreqCeil = 0.05, # cutoff spatial frequency (cycle/degree)
                  filterMode = 'box', # type of filter of movie, '1/f' or 'box'
-                 iteration=50, # time to flash
-                 flashFrame=1, # frame number for display noise of each flash
-                 preGapFrame=60, # gap frame number before flash
-                 postGapFrame=300, # gap frame number after flash
-                 isWarp = False, # warp noise or not,
-                 background = 0.):
-        
+                 iteration=1, # time to flash
+                 flashFrameNum=1, # frame number for display noise of each flash
+                 preGapDur=2., # gap frame number before flash
+                 postGapDur=3., # gap frame number after flash
+                 isWarp = False): # warp noise or not
+
+        super(FlashNoise,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
+
         self.stimName = 'FlashNoise'
-        self.monitor = monitor
-        self.indicator = indicator
         self.spatialFreqCeil = spatialFreqCeil
         self.filterMode = filterMode
         self.iteration = iteration
-        self.flashFrame = flashFrame
-        self.preGapFrame = preGapFrame
-        self.postGapFrame = postGapFrame
+        self.flashFrameNum = flashFrameNum
         self.isWarp = isWarp
-        self.background = background
-        
-        self.frames = None
-        self.iterationFrame = None #frame number for each iteration
-    
+
     def generatNoiseMovie(self):
         '''
         generate filtered noise movie with defined number of frames
         '''
-        
-        frameNum = self.flashFrame * self.iteration
+
+        frameNum = self.flashFrameNum * self.iteration
         filter_T = np.ones((frameNum))
-        
+
         hPixNum = self.monitor.resolution[0]/self.monitor.downSampleRate
         pixHeightCM = self.monitor.monHcm / hPixNum
         Fs_H = 1 / (np.arcsin(pixHeightCM / self.monitor.dis) * 180 /  np.pi)
         Flow_H = 0
         Fhigh_H = self.spatialFreqCeil
         filter_H = generateFilter(hPixNum, Fs_H, Flow_H, Fhigh_H, mode = self.filterMode)
-        
+
         wPixNum = self.monitor.resolution[1]/self.monitor.downSampleRate
         pixWidthCM = self.monitor.monWcm / wPixNum
         Fs_W = 1 / (np.arcsin(pixWidthCM / self.monitor.dis) * 180 / np.pi)
         Flow_W = 0
         Fhigh_W = self.spatialFreqCeil
         filter_W = generateFilter(wPixNum, Fs_W, Flow_W, Fhigh_W, mode = self.filterMode)
-        
+
         movie = noiseMovie(filter_T, filter_W, filter_H, isplot = False)
-        
+
         return movie
 
-    def generatFrames(self):
+    def generate_frames(self):
         '''
         function to generate all the frames needed for KS stimulation
-        
+
         returning a list of information of all frames, list of tuples
-        
+
         for each frame:
-        
+
         first element: gap:0 or display:1
         second element: iteration start, first frame of each iteration: 1; other frames: 0
-        third element: current iteration 
+        third element: current iteration
         forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
         '''
-        
+
         #frame number for each iteration
-        self.iterationFrame = self.preGapFrame+self.flashFrame+self.postGapFrame
-        
-        frames = np.zeros((self.iteration*(self.iterationFrame),4)).astype(np.int)
-        
+        iterationFrameNum = self.preGapFrameNum+self.flashFrameNum+self.postGapFrameNum
+
+        frames = np.zeros((self.iteration*(iterationFrameNum),4)).astype(np.int)
+
         #initilize indicator color
         frames[:,3] = -1
-        
+
         for i in xrange(frames.shape[0]):
 
             # current iteration number
-            frames[i,2] = i // self.iterationFrame            
-            
+            frames[i,2] = i // iterationFrameNum
+
             # mark start frame of every iteration
-            if i % self.iterationFrame == 0:
+            if i % iterationFrameNum == 0:
                 frames[i, 1] = 1
-                
-            # mark display frame and synchronized indicator 
-            if ((i % self.iterationFrame >= self.preGapFrame) and \
-               (i % self.iterationFrame < (self.preGapFrame + self.flashFrame))):
-                   
+
+            # mark display frame and synchronized indicator
+            if ((i % iterationFrameNum >= self.preGapFrameNum) and \
+               (i % iterationFrameNum < (self.preGapFrameNum + self.flashFrameNum))):
+
                 frames[i, 0] = 1
-                
+
                 if self.indicator.isSync:
                     frames[i, 3] = 1
-            
+
             # mark unsynchronized indicator
             if not(self.indicator.isSync):
                 if np.floor(i // self.indicator.frameNum) % 2 == 0:
                     frames[i,3] = 1
-                    
+
         frames = [tuple(x) for x in frames]
-        
+
         return tuple(frames)
 
-    def set_preGapFrameNum(self, preGapFrameNum):
-        self.preGapFrame = preGapFrameNum
-        self.frames = None
-        self.iterationFrame = None
-        
-    def set_postGapFrameNum(self, postGapFrameNum):
-        self.postGapFrame = postGapFrameNum
-        self.frames = None
-        self.iterationFrame = None
-        
-    def set_flashFrameNum(self, flashFrameNum):
-        self.flashFrame = flashFrameNum
-        self.frames = None
-        self.iterationFrame = None
-        
-    def generateMovie(self):
+    def generate_movie(self):
         '''
         generating movie
-        '''            
-        
-        self.frames = self.generatFrames()
+        '''
+
+        self.frames = self.generate_frames()
         noiseMovie = self.generatNoiseMovie()
-        
+
         if self.isWarp:
             lookupI, lookupJ = self.monitor.generate_LookUpTable()
-        
+
         fullSequence = np.zeros((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16)
-        
+
         indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
         indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
         indicatorHmin=self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
         indicatorHmax=self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
-        
+
         background = self.background * np.ones((np.size(self.monitor.degCorX, 0), np.size(self.monitor.degCorX,1)), dtype = np.float16)
-        
+
         for i in range(len(self.frames)):
             currFrame = self.frames[i]
-            
+
             if currFrame[0] == 0:
                 currFNsequence = background
             else:
                 currFNsequence = noiseMovie[currFrame[2],:,:]
                 if self.isWarp:
                     currFNsequence = lookupImage(currFNsequence, lookupI, lookupJ)
-                
+
             currFNsequence[indicatorHmin:indicatorHmax, indicatorWmin:indicatorWmax] = currFrame[3]
-            
+
             fullSequence[i] = currFNsequence
-            
+
             print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
-        
+
         mondict=dict(self.monitor.__dict__)
         indicatordict=dict(self.indicator.__dict__)
-        indicatordict.pop('monitor')        
+        indicatordict.pop('monitor')
         NFdict=dict(self.__dict__)
         NFdict.pop('monitor')
         NFdict.pop('indicator')
-        fullDictionary={'stimulation':NFdict, 
+        fullDictionary={'stimulation':NFdict,
                         'monitor':mondict,
                         'indicator':indicatordict}
-                        
+
         return fullSequence, fullDictionary
-        
-    
-class GaussianNoise(object):
+
+    def set_flashFrameNum(self, flashFrameNum):
+        self.flashFrameNum = flashFrameNum
+        self.clear()
+
+class GaussianNoise(Stim):
     '''
     generate full field noise movie with contrast modulated by gaussian function
     '''
     def __init__(self,
                  monitor,
                  indicator,
+                 background = 0.,
                  tempFreqCeil = 15, # cutoff temporal frequency (Hz)
-                 spatialFreqCeil = 0.05, # cutoff spatial frequency (cycle/degree)
+                 spatialFreqCeil = 0.02, # cutoff spatial frequency (cycle/degree)
                  filterMode = 'box', # type of filter of movie, '1/f' or 'box'
                  sweepSigma=10., # sigma of sweep edges (unit same as Map, cm or deg)
                  sweepWidth=10., # width of sweeps (unit same as Map, cm or deg)
                  sweepEdgeWidth=3., # number of sigmas to smooth the edge of sweeps on each side
                  stepWidth=0.12, # width of steps (unit same as Map, cm or deg)
                  sweepFrame=1, # display frame numbers for each step
-                 iteration=1, 
-                 preGapFrame=60, # gap frame number before flash
-                 postGapFrame=300, # gap frame number after flash
+                 iteration=2,
+                 preGapDur=2., # gap frame number before flash
+                 postGapDur=3., # gap frame number after flash
                  isWarp = False, # warp noise or not
                  contrast = 0.5, # contrast of the movie from 0 to 1
-                 background = 0.,
-                 enhanceExp = None):
-        
-        self.stimName = 'GaussianNoise'     
-        self.monitor = monitor
-        self.indicator = indicator
+                 enhanceExp = None): # (0, inf], if smaller than 1, enhance contrast, if bigger than 1, reduce contrast
+
+        super(GaussianNoise,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
+
+
+        self.stimName = 'GaussianNoise'
         self.tempFreqCeil = tempFreqCeil
         self.spatialFreqCeil = spatialFreqCeil
         self.filterMode = filterMode
@@ -1349,56 +1345,22 @@ class GaussianNoise(object):
         self.sweepEdgeWidth= sweepEdgeWidth
         self.sweepFrame = sweepFrame
         self.iteration = iteration
-        self.preGapFrame = preGapFrame
-        self.postGapFrame = postGapFrame
         self.isWarp = isWarp
-        self.background = background
         self.contrast = contrast
         self.enhanceExp = enhanceExp
-        
-        self.frames = None
-        self.iterationFrame = None #frame number for each iteration
-    
-    def set_preGapFrameNum(self, preGapFrameNum):
-        self.preGapFrame = preGapFrameNum
-        self.frames = None
-        self.iterationFrame = None
-        
-    def set_postGapFrameNum(self, postGapFrameNum):
-        self.postGapFrame = postGapFrameNum
-        self.frames = None
-        self.iterationFrame = None
-        
-    def set_flashFrameNum(self, flashFrameNum):
-        self.flashFrame = flashFrameNum
-        self.frames = None
-        self.iterationFrame = None 
-        
-    def set_sweepSigma(self, sweepSigma):
-        self.sweepSigma = sweepSigma
-        self.frames = None
-        self.iterationFrame = None
-        
-    def set_sweepWidth(self, sweepWidth):
-        self.sweepWidth = sweepWidth
-        self.frames = None
-        self.iterationFrame = None
-        
-    def set_contrast(self, contrast):
-        self.contrast = contrast
-        self.frames = None
-        self.iterationFrame = None
+
+
 
     def generateNoiseMovie(self, frameNum):
         '''
         generate filtered noise movie with defined number of frames
         '''
-        
+
         Fs_T = self.monitor.refreshRate
         Flow_T = 0
         Fhigh_T = self.tempFreqCeil
         filter_T = generateFilter(frameNum, Fs_T, Flow_T, Fhigh_T, mode = self.filterMode)
-        
+
         hPixNum = self.monitor.resolution[0]/self.monitor.downSampleRate
         pixHeightCM = self.monitor.monHcm / hPixNum
         Fs_H = 1 / (np.arcsin(pixHeightCM / self.monitor.dis) * 180 /  np.pi)
@@ -1406,7 +1368,7 @@ class GaussianNoise(object):
         Flow_H = 0
         Fhigh_H = self.spatialFreqCeil
         filter_H = generateFilter(hPixNum, Fs_H, Flow_H, Fhigh_H, mode = self.filterMode)
-        
+
         wPixNum = self.monitor.resolution[1]/self.monitor.downSampleRate
         pixWidthCM = self.monitor.monWcm / wPixNum
         Fs_W = 1 / (np.arcsin(pixWidthCM / self.monitor.dis) * 180 / np.pi)
@@ -1414,148 +1376,163 @@ class GaussianNoise(object):
         Flow_W = 0
         Fhigh_W = self.spatialFreqCeil
         filter_W = generateFilter(wPixNum, Fs_W, Flow_W, Fhigh_W, mode = self.filterMode)
-        
+
         movie = noiseMovie(filter_T, filter_W, filter_H, isplot = False)
 
         if self.enhanceExp:
                 movie = (np.abs(movie)**self.enhanceExp)*(np.copysign(1,movie))
-        
+
         return movie
 
-        
-    def generateFrames(self):
+    def generate_frames(self):
         '''
         function to generate all the frames needed for KS stimulation
-        
+
         returning a list of information of all frames, list of tuples
-        
+
         for each frame:
-        
+
         first element: gap:0 or display:1
         second element: iteration start, first frame of each iteration: 1; other frames: 0
-        third element: current iteration 
+        third element: current iteration
         forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
         fifth element: if is display, the contrast
         '''
-        
+
         sweepEdge = self.sweepEdgeWidth * self.sweepSigma
-        
+
         steps = np.arange(-sweepEdge - self.sweepWidth / 2, sweepEdge + self.sweepWidth / 2, self.stepWidth)
-        
+
         displayFrameNum = self.sweepFrame * len(steps) # total frame number for the visual stimulation of 1 iteration
-        
+
         stepContrast = np.ones(len(steps))
         stepContrast1 = gaussian(steps, mu=-self.sweepWidth / 2, sig=self.sweepSigma)
         stepContrast2 = gaussian(steps, mu=+self.sweepWidth / 2, sig=self.sweepSigma)
-        
+
         stepContrast[steps < (-self.sweepWidth / 2)] = stepContrast1[steps < (-self.sweepWidth / 2)]
         stepContrast[steps > (self.sweepWidth / 2)] = stepContrast2[steps > (self.sweepWidth / 2)]
-        
-        
+
+
         #frame number for each iteration
-        self.iterationFrame = self.preGapFrame + displayFrameNum + self.postGapFrame
-        
-        frames = np.zeros((self.iteration*(self.iterationFrame),5)).astype(np.float32)
-        
+        iterationFrameNum = self.preGapFrameNum + displayFrameNum + self.postGapFrameNum
+
+        frames = np.zeros((self.iteration*(iterationFrameNum),5)).astype(np.float32)
+
         #initilize indicator color
         frames[:,3] = -1
-        
+
         for i in xrange(frames.shape[0]):
 
             # current iteration number
-            frames[i,2] = i // self.iterationFrame            
-            
+            frames[i,2] = i // iterationFrameNum
+
             # mark start frame of every iteration
-            if i % self.iterationFrame == 0:
+            if i % iterationFrameNum == 0:
                 frames[i, 1] = 1
-                
-            # mark display frame and synchronized indicator 
-            if ((i % self.iterationFrame >= self.preGapFrame) and \
-               (i % self.iterationFrame < (self.preGapFrame + displayFrameNum))):
-                   
+
+            # mark display frame and synchronized indicator
+            if ((i % iterationFrameNum >= self.preGapFrameNum) and \
+               (i % iterationFrameNum < (self.preGapFrameNum + displayFrameNum))):
+
                 frames[i, 0] = 1
-                
+
                 if self.indicator.isSync:
                     frames[i, 3] = 1
-            
+
             # mark unsynchronized indicator
             if not(self.indicator.isSync):
                 if np.floor(i // self.indicator.frameNum) % 2 == 0:
                     frames[i,3] = 1
-                    
+
             # mark display contrast
-            currFrameNumInIteration = i % self.iterationFrame
-            if (currFrameNumInIteration < self.preGapFrame) or \
-               (currFrameNumInIteration >= self.preGapFrame + displayFrameNum):
+            currFrameNumInIteration = i % iterationFrameNum
+            if (currFrameNumInIteration < self.preGapFrameNum) or \
+               (currFrameNumInIteration >= self.preGapFrameNum + displayFrameNum):
                 frames[i,4] = np.nan
             else:
-                displayInd = currFrameNumInIteration - self.preGapFrame
+                displayInd = currFrameNumInIteration - self.preGapFrameNum
                 frames[i,4] = stepContrast[displayInd // self.sweepFrame] * self.contrast
-                
+
         frames = [tuple(x) for x in frames]
-        
+
         return tuple(frames)
-        
-    def generateMovie(self):
+
+    def generate_movie(self):
         '''
         generating movie
         '''
-        
-        if not(self.frames):
-            self.frames = self.generateFrames()
-        
+
+        self.frames = self.generate_frames()
+        iterationFrameNum = len(self.frames) / self.iteration
+
+
         if self.isWarp:
             lookupI, lookupJ = self.monitor.generate_LookUpTable()
-        
+
         fullSequence = np.zeros((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16)
-        
+
         indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
         indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
         indicatorHmin=self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
         indicatorHmax=self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
-        
+
         background = self.background * np.ones((self.monitor.degCorX.shape), dtype = np.float16)
-        
+
         for i in range(len(self.frames)):
-            
+
             currFrame = self.frames[i]
-            
+
             if currFrame[1] == 1:
-                displayFrameNum = self.iterationFrame - self.preGapFrame - self.postGapFrame
+                displayFrameNum = iterationFrameNum - self.preGapFrameNum - self.postGapFrameNum
                 noiseMovie = self.generateNoiseMovie(displayFrameNum)
-            
+
             if currFrame[0] == 0:
                 currGNsequence = background
             else:
-                currDisplayInd = (i % self.iterationFrame) - self.preGapFrame
+                currDisplayInd = (i % iterationFrameNum) - self.preGapFrameNum
                 currGNsequence = noiseMovie[currDisplayInd,:,:] * currFrame[4]
                 if self.isWarp:
                     currGNsequence = lookupImage(currGNsequence, lookupI, lookupJ)
-            
+
             currGNsequence[indicatorHmin:indicatorHmax, indicatorWmin:indicatorWmax] = currFrame[3]
-            
+
             fullSequence[i] = currGNsequence
-            
+
             print ['Generating RGB sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
-            
+
         mondict=dict(self.monitor.__dict__)
         indicatordict=dict(self.indicator.__dict__)
-        indicatordict.pop('monitor')        
+        indicatordict.pop('monitor')
         KSdict=dict(self.__dict__)
         KSdict.pop('monitor')
         KSdict.pop('indicator')
-        fullDictionary={'stimulation':KSdict, 
+        fullDictionary={'stimulation':KSdict,
                         'monitor':mondict,
                         'indicator':indicatordict}
-                        
+
         return fullSequence, fullDictionary
 
-        
-class FlashCircle(object):
+    def set_flashFrameNum(self, flashFrameNum):
+        self.flashFrame = flashFrameNum
+        self.clear()
+
+    def set_sweepSigma(self, sweepSigma):
+        self.sweepSigma = sweepSigma
+        self.clear()
+
+    def set_sweepWidth(self, sweepWidth):
+        self.sweepWidth = sweepWidth
+        self.clear()
+
+    def set_contrast(self, contrast):
+        self.contrast = contrast
+        self.clear()
+
+class FlashCircle(Stim):
     '''
     flashing circle stimulation.
     '''
-    
+
     def __init__(self,
                  monitor,
                  indicator,
@@ -1564,159 +1541,139 @@ class FlashCircle(object):
                  color = -1., # color of the circle [-1: 1]
                  iteration= 1, # total number of flashes
                  flashFrame= 3, # frame number for display circle of each flash
-                 preGapFrame=120, # gap frame number before flash
-                 postGapFrame=180, # gap frame number after flash
+                 preGapDur=2., # gap frame number before flash
+                 postGapDur=3., # gap frame number after flash
                  background = 0.):
-        
+
+        super(FlashCircle,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
+
         self.stimName = 'FlashCircle'
-        self.monitor = monitor
-        self.indicator = indicator
         self.center = center
         self.radius = radius
         self.color = color
         self.iteration = iteration
         self.flashFrame = flashFrame
-        self.preGapFrame = preGapFrame
-        self.postGapFrame = postGapFrame
-        self.background = background
-        
-        self.frames = None
-        self.iterationFrame = None #frame number for each iteration
-        
-        
-    def set_preGapFrameNum(self, preGapFrameNum):
-        self.preGapFrame = preGapFrameNum
-        self.frames = None
-        self.iterationFrame = None
-        
-    def set_postGapFrameNum(self, postGapFrameNum):
-        self.postGapFrame = postGapFrameNum
-        self.frames = None
-        self.iterationFrame = None
-        
+
+        self.clear()
+
     def set_flashFrameNum(self, flashFrameNum):
         self.flashFrame = flashFrameNum
-        self.frames = None
-        self.iterationFrame = None
-        
+        self.clear()
+
     def set_color(self, color):
         self.color = color
-        self.frames = None
-        self.iterationFrame = None
-        
+        self.clear()
+
     def set_center(self, center):
         self.center = center
-        self.frames = None
-        self.iterationFrame = None
-    
+        self.clear()
+
     def set_radius(self, radius):
         self.radius = radius
-        self.frames = None
-        self.iterationFrame = None
+        self.clear()
 
-    def generatFrames(self):
+    def generate_frames(self):
         '''
         function to generate all the frames needed for the stimulation
-        
+
         returning a list of information of all frames, list of tuples
-        
+
         for each frame:
-        
+
         first element: gap:0 or display:1
         second element: iteration start, first frame of each iteration: 1; other frames: 0
-        third element: current iteration 
+        third element: current iteration
         forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
         '''
-        
+
         #frame number for each iteration
-        self.iterationFrame = self.preGapFrame+self.flashFrame+self.postGapFrame
-        
-        frames = np.zeros((self.iteration*(self.iterationFrame),4)).astype(np.int)
-        
+        iterationFrameNum = self.preGapFrameNum+self.flashFrame+self.postGapFrameNum
+
+        frames = np.zeros((self.iteration*(iterationFrameNum),4)).astype(np.int)
+
         #initilize indicator color
         frames[:,3] = -1
-        
+
         for i in xrange(frames.shape[0]):
 
             # current iteration number
-            frames[i,2] = i // self.iterationFrame            
-            
+            frames[i,2] = i // iterationFrameNum
+
             # mark start frame of every iteration
-            if i % self.iterationFrame == 0:
+            if i % iterationFrameNum == 0:
                 frames[i, 1] = 1
-                
-            # mark display frame and synchronized indicator 
-            if ((i % self.iterationFrame >= self.preGapFrame) and \
-               (i % self.iterationFrame < (self.preGapFrame + self.flashFrame))):
-                   
+
+            # mark display frame and synchronized indicator
+            if ((i % iterationFrameNum >= self.preGapFrameNum) and \
+               (i % iterationFrameNum < (self.preGapFrameNum + self.flashFrame))):
+
                 frames[i, 0] = 1
-                
+
                 if self.indicator.isSync:
                     frames[i, 3] = 1
-            
+
             # mark unsynchronized indicator
             if not(self.indicator.isSync):
                 if np.floor(i // self.indicator.frameNum) % 2 == 0:
                     frames[i,3] = 1
-                    
+
         frames = [tuple(x) for x in frames]
-        
+
         return tuple(frames)
 
-    def generateMovie(self):
+    def generate_movie(self):
         '''
         generating movie
-        '''            
-        
-        self.frames = self.generatFrames()
-        
+        '''
+
+        self.frames = self.generate_frames()
+
         fullSequence = np.zeros((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16)
-        
+
         indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
         indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
         indicatorHmin=self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
         indicatorHmax=self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
-        
+
         background = self.background * np.ones((np.size(self.monitor.degCorX, 0), np.size(self.monitor.degCorX,1)), dtype = np.float16)
-        
-        
+
+
         circleMask = np.zeros((np.size(self.monitor.degCorX, 0), np.size(self.monitor.degCorX,1)), dtype = np.float32)
         for i in xrange(circleMask.shape[0]):
             for j in xrange(circleMask.shape[1]):
                 x=self.monitor.degCorX[i,j]
                 y=self.monitor.degCorY[i,j]
                 if np.sqrt((x-self.center[0])**2 + (y-self.center[1])**2) <= self.radius:
-                    circleMask[i,j] = 1        
-        
-        
+                    circleMask[i,j] = 1
+
+
         for i in range(len(self.frames)):
             currFrame = self.frames[i]
-            
+
             if currFrame[0] == 0:
                 currFCsequence = background
             else:
                 currFCsequence = (circleMask * self.color) + ((-1 * (circleMask - 1)) * background)
-                
+
             currFCsequence[indicatorHmin:indicatorHmax, indicatorWmin:indicatorWmax] = currFrame[3]
-            
+
             fullSequence[i] = currFCsequence
-            
+
             print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
-        
+
         mondict=dict(self.monitor.__dict__)
         indicatordict=dict(self.indicator.__dict__)
-        indicatordict.pop('monitor')        
+        indicatordict.pop('monitor')
         NFdict=dict(self.__dict__)
         NFdict.pop('monitor')
         NFdict.pop('indicator')
-        fullDictionary={'stimulation':NFdict, 
+        fullDictionary={'stimulation':NFdict,
                         'monitor':mondict,
                         'indicator':indicatordict}
-                        
+
         return fullSequence, fullDictionary
 
-
-class SparseNoise(object):
+class SparseNoise(Stim):
     '''
     generate sparse noise stimulus integrates flashing indicator for photodiode
     '''
@@ -1724,8 +1681,8 @@ class SparseNoise(object):
     def __init__(self,
                  monitor,
                  indicator,
-                 coordinate='degree', #'degree' or 'linear'
                  background = 0., #back ground color [-1,1]
+                 coordinate='degree', #'degree' or 'linear'
                  gridSpace = (10.,10.), #(alt,azi)
                  probeSize = (10.,10.), #size of flicker probes (width,height)
                  probeOrientation = 0., #orientation of flicker probes
@@ -1733,14 +1690,14 @@ class SparseNoise(object):
                  subregion = None, #[minAlt, maxAlt, minAzi, maxAzi]
                  sign = 'ON-OFF', # 'On', 'OFF' or 'ON-OFF'
                  iteration = 1,
-                 preGapFrame = 0,
-                 postGapFrame = 0):
+                 preGapDur = 2.,
+                 postGapDur = 3.):
+
+        super(SparseNoise,self).__init__(monitor=monitor,indicator=indicator,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
+
 
         self.stimName = 'SparseNoise'
-        self.monitor = monitor
-        self.indicator = indicator
         self.coordinate = coordinate
-        self.background = background
         self.gridSpace = gridSpace
         self.probeSize = probeSize
         self.probeOrientationt = probeOrientation
@@ -1748,17 +1705,22 @@ class SparseNoise(object):
         self.subregion = subregion
         self.sign = sign
         self.iteration = iteration
-        self.preGapFrame = preGapFrame
-        self.postGapFrame = postGapFrame
 
-        if self.subregion is None:
-            if coordinate == 'degree':
-                self.subregion=[np.amin(self.monitor.degCorY),np.amax(self.monitor.degCorY),
-                                np.amin(self.monitor.degCorX),np.amax(self.monitor.degCorX)]
-            if coordinate == 'linear':
-                self.subregion=[np.amin(self.monitor.linCorY),np.amax(self.monitor.linCorY),
-                                np.amin(self.monitor.linCorX),np.amax(self.monitor.linCorX)]
+        self.clear()
 
+    def _get_subregion(self):
+        '''
+        get subregion for displaying
+        '''
+
+        if self.coordinate == 'degree':
+            subregion=[np.amin(self.monitor.degCorY),np.amax(self.monitor.degCorY),
+                       np.amin(self.monitor.degCorX),np.amax(self.monitor.degCorX)]
+        if self.coordinate == 'linear':
+            subregion=[np.amin(self.monitor.linCorY),np.amax(self.monitor.linCorY),
+                       np.amin(self.monitor.linCorX),np.amax(self.monitor.linCorX)]
+
+        return subregion
 
     def _getGridPoints(self):
         '''
@@ -1766,8 +1728,10 @@ class SparseNoise(object):
         [azi, alt]
         '''
 
-        rows = np.arange(self.subregion[0],self.subregion[1],self.gridSpace[0])
-        columns = np.arange(self.subregion[2],self.subregion[3],self.gridSpace[1])
+        subregion = self._get_subregion()
+
+        rows = np.arange(subregion[0],subregion[1],self.gridSpace[0])
+        columns = np.arange(subregion[2],subregion[3],self.gridSpace[1])
 
         xx,yy = np.meshgrid(columns,rows)
 
@@ -1781,7 +1745,6 @@ class SparseNoise(object):
         gridPoints = gridPoints[in_hull(gridPoints,monitorPoints)]
 
         return gridPoints
-
 
     def _getGridPointsSequence(self):
         '''
@@ -1819,8 +1782,7 @@ class SparseNoise(object):
 
             return allGridPoints
 
-
-    def generateFramesList(self):
+    def generate_frames(self):
         '''
         function to generate all the frames needed for SparseNoiseStimu
 
@@ -1837,46 +1799,49 @@ class SparseNoise(object):
         for gap frames the second and third elements should be 'None'
         '''
 
-        self.frames = []
+        frames = []
 
         for i in range(self.iteration):
 
-            if self.preGapFrame>0: self.frames += [[0,None,None,-1]]*self.preGapFrame
+            if self.preGapFrameNum>0: frames += [[0,None,None,-1]]*self.preGapFrameNum
 
             iterGridPoints = self._getGridPointsSequence()
 
             for gridPoint in iterGridPoints:
-                self.frames += [[1,gridPoint[0],gridPoint[1],1]]
+                frames += [[1,gridPoint[0],gridPoint[1],1]]
                 if self.probeFrameNum > 1:
-                    self.frames += [[1,gridPoint[0],gridPoint[1],-1]] * (self.probeFrameNum-1)
+                    frames += [[1,gridPoint[0],gridPoint[1],-1]] * (self.probeFrameNum-1)
 
-            if self.postGapFrame>0: self.frames += [[0,None,None,-1]]*self.postGapFrame
+            if self.postGapFrameNum>0: frames += [[0,None,None,-1]]*self.postGapFrameNum
 
         if self.indicator.isSync == False:
             indicatorFrame = self.indicator.frameNum
-            for m in range(len(self.frames)):
-                if np.floor(m // indicatorFrame) % 2 == 0:self.frames[m][3] = 1
-                else:self.frames[m][3] = -1
+            for m in range(len(frames)):
+                if np.floor(m // indicatorFrame) % 2 == 0:frames[m][3] = 1
+                else:frames[m][3] = -1
 
-        self.frames=tuple(self.frames)
+        frames=tuple(frames)
 
+        frames = [tuple(x) for x in frames]
 
-    def generateMovie(self):
+        return tuple(frames)
+
+    def generate_movie(self):
         '''
         generate movie for display
         '''
 
-        self.generateFramesList()
+        self.frames = self.generate_frames()
 
         if self.coordinate=='degree':corX=self.monitor.degCorX;corY=self.monitor.degCorY
-        if self.coordinate=='linear':corX=self.monitor.linCorX;corY=self.monitor.linCorY
+        elif self.coordinate=='linear':corX=self.monitor.linCorX;corY=self.monitor.linCorY
 
         indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
         indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
         indicatorHmin=self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
         indicatorHmax=self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
 
-        fullSequence = np.zeros((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16)
+        fullSequence = np.ones((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16) * self.background
 
         for i, currFrame in enumerate(self.frames):
             if currFrame[0] == 1: # not a gap
@@ -1916,83 +1881,106 @@ class SparseNoise(object):
 
         return fullSequence, fulldictionary
 
+#todo: add stimulus of drifting grating
+class DriftingGratingCircle(Stim):
+    pass
+
+
+
+#todo: add stimulus of KSstim with oblique orientation
+
+
+
+
+
+
+
+
    
-class IndicatorJun(object):
+class KSstimAllDir(object):
     '''
-    flashing indicator for photodiode
+    generate Kalatsky & Stryker stimulation in all four direction contiuously
     '''
-    
     def __init__(self,
                  monitor,
-                 width_cm = 3., 
-                 height_cm = 3., 
-                 position = 'northeast',
-                 isSync = True,
-                 freq = 2.):
-        self.monitor=monitor
-        self.width_cm = width_cm
-        self.height_cm = height_cm
-        self.width_pixel, self.height_pixel = self.get_size_pixel()
-        self.position = position
-        self.centerWpixel, self.centerHpixel = self.get_center()
-        self.isSync = isSync
-        
-        if isSync == False:
-            self.freq = freq #if not synchronized with stimulation, self update frquency of the indicator
-            self.frameNum = self.get_frames()
-        else:
-            self.freq = None
-            self.frameNum = None
-        
-    def get_size_pixel(self):
-        
-        screen_width = self.monitor.resolution[1] / self.monitor.downSampleRate
-        screen_height = self.monitor.resolution[0] / self.monitor.downSampleRate
-        
-        indicator_width = ((self.width_cm / self.monitor.monWcm ) * screen_width) // 1
-        indicator_height = ((self.height_cm / self.monitor.monHcm ) * screen_height) // 1
-        
-        return indicator_width, indicator_height
-        
-    def get_center(self):
-        
-        screen_width = self.monitor.resolution[1] / self.monitor.downSampleRate
-        screen_height = self.monitor.resolution[0] / self.monitor.downSampleRate
-        
-        if self.position == 'northeast':
-            centerW = screen_width - self.width_pixel / 2
-            centerH = self.height_pixel / 2
-            
-        elif self.position == 'northwest':
-            centerW = self.width_pixel / 2
-            centerH = self.height_pixel / 2
-            
-        elif self.position == 'southeast':
-            centerW = screen_width - self.width_pixel / 2
-            centerH = screen_height - self.height_pixel / 2
-            
-        elif self.position == 'southwest':
-            centerW = self.width_pixel / 2
-            centerH = screen_height - self.height_pixel / 2
-            
-        else:
-            raise LookupError, '"position" attributor should be "northeast", "southeast", "northwest" and "southwest"'
-            
-        return centerW, centerH
-        
-    def get_frames(self):
-        
-        '''
-        if not synchronized with stimulation, get frame numbers of each update 
-        of indicator
-        '''
-        
-        refreshRate = self.monitor.refreshRate        
-        
-        if refreshRate % self.freq != 0:
-            raise ArithmeticError, "self update frequency of should be divisible by monitor's refresh rate."
-        
-        return refreshRate/self.freq
+                 indicator,
+                 background=0., #back ground color [-1,1]
+                 squareSize=25, #size of flickering square
+                 squareCenter=(0,0), #coordinate of center point
+                 flickerFrame=6,
+                 sweepWidth=20., # width of sweeps (unit same as Map, cm or deg)
+                 stepWidth=0.15, # width of steps (unit same as Map, cm or deg)
+                 sweepFrame=1,
+                 coordinate='degree', #'degree' or 'linear'
+                 iteration=1,
+                 preGapDur=2.,
+                 postGapDur=3.):
+
+        self.monitor = monitor
+        self.indicator = indicator
+        self.background = background
+        self.squareSize = squareSize
+        self.squareCenter = squareCenter
+        self.flickerFrame = flickerFrame
+        self.sweepWidth = sweepWidth
+        self.stepWidth = stepWidth
+        self.sweepFrame = sweepFrame
+        self.coordinate = coordinate
+        self.iteration = iteration
+        self.preGapDur = preGapDur
+        self.postGapDur = postGapDur
+
+
+    def generate_movie(self):
+
+        KSstimB2U=KSstim(self.monitor,self.indicator,iteration=self.iteration,direction='B2U',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapDur=self.preGapDur,postGapDur=self.postGapDur)
+        KSstimU2B=KSstim(self.monitor,self.indicator,iteration=self.iteration,direction='U2B',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapDur=self.preGapDur,postGapDur=self.postGapDur)
+        KSstimL2R=KSstim(self.monitor,self.indicator,iteration=self.iteration,direction='L2R',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapDur=self.preGapDur,postGapDur=self.postGapDur)
+        KSstimR2L=KSstim(self.monitor,self.indicator,iteration=self.iteration,direction='R2L',background=self.background,squareSize=self.squareSize,sweepWidth=self.sweepWidth,stepWidth=self.stepWidth,sweepFrame=self.sweepFrame,flickerFrame=self.flickerFrame,preGapDur=self.preGapDur,postGapDur=self.postGapDur)
+
+        movB2U, dictB2U = KSstimB2U.generate_movie()
+        movU2B, dictU2B = KSstimU2B.generate_movie()
+        movL2R, dictL2R = KSstimL2R.generate_movie()
+        movR2L, dictR2L = KSstimR2L.generate_movie()
+
+        mov = np.vstack((movB2U,movU2B,movL2R,movR2L))
+        log = {'monitor':dictB2U['monitor'],
+               'indicator':dictB2U['indicator']}
+        stimulation = dict(dictB2U['stimulation'])
+        stimulation['stimName'] = 'KSstimAllDir'
+        stimulation['direction'] = ['B2U','U2B','L2R','R2L']
+
+        sweepTable = []
+        frames = []
+
+        sweepTableB2U = dictB2U['stimulation']['sweepTable']; framesB2U = dictB2U['stimulation']['frames']; sweepLenB2U = len(sweepTableB2U)
+        sweepTableB2U = [ ['B2U', x[1], x[2]] for x in sweepTableB2U]; framesB2U = [[x[0],x[1],x[2],x[3],'B2U'] for x in framesB2U]
+        sweepTable += sweepTableB2U; frames += framesB2U
+
+        sweepTableU2B = dictU2B['stimulation']['sweepTable']; framesU2B = dictU2B['stimulation']['frames']; sweepLenU2B = len(sweepTableU2B)
+        sweepTableU2B = [ ['U2B', x[1], x[2]] for x in sweepTableU2B]; framesU2B = [[x[0],x[1],x[2],x[3],'U2B'] for x in framesU2B]
+        for frame in framesU2B:
+            if frame[2] is not None: frame[2] += sweepLenB2U
+        sweepTable += sweepTableU2B; frames += framesU2B
+
+        sweepTableL2R = dictL2R['stimulation']['sweepTable']; framesL2R = dictL2R['stimulation']['frames']; sweepLenL2R = len(sweepTableL2R)
+        sweepTableL2R = [ ['L2R', x[1], x[2]] for x in sweepTableL2R]; framesL2R = [[x[0],x[1],x[2],x[3],'L2R'] for x in framesL2R]
+        for frame in framesL2R:
+            if frame[2] is not None: frame[2] += sweepLenB2U+sweepLenU2B
+        sweepTable += sweepTableL2R; frames += framesL2R
+
+        sweepTableR2L = dictR2L['stimulation']['sweepTable']; framesR2L = dictR2L['stimulation']['frames']
+        sweepTableR2L = [ ['R2L', x[1], x[2]] for x in sweepTableR2L]; framesR2L = [[x[0],x[1],x[2],x[3],'R2L'] for x in framesR2L]
+        for frame in framesR2L:
+            if frame[2] is not None: frame[2] += sweepLenB2U+sweepLenU2B+sweepLenL2R
+        sweepTable += sweepTableR2L; frames += framesR2L
+
+        stimulation['frames'] = [tuple(x) for x in frames]
+        stimulation['sweepTable'] = [tuple(x) for x in sweepTable]
+
+        log['stimulation'] = stimulation
+
+        return mov, log
 
          
 class DisplaySequence(object):
@@ -2052,8 +2040,11 @@ class DisplaySequence(object):
         self.fileNumNIPort = fileNumNIPort
         self.fileNumNILines = fileNumNILines
 
-        self._remote_obj = RemoteObject(rep_port=self.displayControlPort)
-        self._remote_obj.close = self.flag_to_close
+        try:
+            self._remote_obj = RemoteObject(rep_port=self.displayControlPort)
+            self._remote_obj.close = self.flag_to_close()
+        except Exception as e:
+            print e
         
         if displayIteration % 1 == 0:
             self.displayIteration = displayIteration
@@ -2068,11 +2059,14 @@ class DisplaySequence(object):
         self.sequenceLog = None
         
         #FROM DW, setup socket
-        self.displayControlSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.displayControlSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.displayControlSock.bind((self.displayControlIP, self.displayControlPort))
+        try:
+            self.displayControlSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.displayControlSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.displayControlSock.bind((self.displayControlIP, self.displayControlPort))
 
-        self.displayControlSock.settimeout(0.0)
+            self.displayControlSock.settimeout(0.0)
+        except Exception:
+            self.displayControlSock = None
         
         self.clear()
 
@@ -2104,7 +2098,7 @@ class DisplaySequence(object):
         '''
         to display defined stim object
         '''
-        self.sequence, self.sequenceLog = stim.generateMovie()
+        self.sequence, self.sequenceLog = stim.generate_movie()
         self.clear()
 
 
@@ -2131,7 +2125,7 @@ class DisplaySequence(object):
 
         #set up sock communication with video monitoring computer
         if self.isVideoRecord:
-            self.videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         # start psychopy window
         window = visual.Window(size=resolution,monitor=self.psychopyMonitor,fullscr=True,screen=self.displayScreen,color=self.initialBackgroundColor)
@@ -2157,9 +2151,9 @@ class DisplaySequence(object):
 
             if wait: # trigger is detected and manual stop signal is not detected
 
-                if self.isVideoRecord: self.videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+                if self.isVideoRecord: videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
                 self._display(window, stim) #display sequence
-                if self.isVideoRecord: self.videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+                if self.isVideoRecord: videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
 
                 #analyze frames
                 try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2175,9 +2169,9 @@ class DisplaySequence(object):
             else: self.clear() # manual stop signal is detected
 
         else: #display will not wait for trigger
-            if self.isVideoRecord: self.videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+            if self.isVideoRecord: videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
             self._display(window, stim) #display sequence
-            if self.isVideoRecord: self.videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+            if self.isVideoRecord: videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
 
             #analyze frames
             try: self.frameDuration, self.frameStats = analysisFrames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2389,7 +2383,6 @@ class DisplaySequence(object):
         displayLog = dict(self.__dict__)
         displayLog.pop("_remote_obj")
         displayLog.pop('sequenceLog')
-        displayLog.pop('videoRecordSock')
         displayLog.pop('displayControlSock')
         displayLog.pop('sequence')
         logFile.update({'presentation':displayLog})
@@ -2435,68 +2428,116 @@ class DisplaySequence(object):
 if __name__ == "__main__":
 
     #==============================================================================================================================
-    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
-    # indicator=IndicatorJun(mon)
-    # KSstim=KSstimJun(mon,indicator)
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=5)
+    # indicator=Indicator(mon)
+    # KS_stim=KSstim(mon,indicator)
     # displayIteration = 2
     # # print (len(KSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2,isSyncPulse=True)
-    # ds.setStim(KSstim)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # ds.setStim(KS_stim)
     # ds.triggerDisplay()
     # plt.show()
     #==============================================================================================================================
 
     #==============================================================================================================================
-    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
+    # indicator=Indicator(mon)
+    # noise_KS_stim=NoiseKSstim(mon,indicator)
+    # displayIteration = 2
+    # # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # ds.setStim(noise_KS_stim)
+    # ds.triggerDisplay()
+    # plt.show()
+    #==============================================================================================================================
+
+    #==============================================================================================================================
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
+    # indicator=Indicator(mon)
+    # flash_noise=FlashNoise(mon,indicator)
+    # displayIteration = 2
+    # # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # ds.setStim(flash_noise)
+    # ds.triggerDisplay()
+    # plt.show()
+    #==============================================================================================================================
+
+    #==============================================================================================================================
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=10)
+    # indicator=Indicator(mon)
+    # gaussian_noise=GaussianNoise(mon,indicator,isWarp=True,enhanceExp=0.5)
+    # displayIteration = 2
+    # # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # ds.setStim(gaussian_noise)
+    # ds.triggerDisplay()
+    # plt.show()
+    #==============================================================================================================================
+
+    #==============================================================================================================================
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=10)
+    # indicator=Indicator(mon)
+    # flashing_circle=FlashCircle(mon,indicator)
+    # displayIteration = 2
+    # # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # ds.setStim(flashing_circle)
+    # ds.triggerDisplay()
+    # plt.show()
+    #==============================================================================================================================
+
+    #==============================================================================================================================
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
     # monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
-    # indicator=IndicatorJun(mon)
-    # SparseNoiseStim=SparseNoise(mon,indicator, subregion=(-20.,20.,40.,60.))
-    # gridPoints = SparseNoiseStim._generateGridPoints()
+    # indicator=Indicator(mon)
+    # sparse_noise=SparseNoise(mon,indicator, subregion=(-20.,20.,40.,60.))
+    # gridPoints = sparse_noise._generateGridPoints()
     # plt.plot(monitorPoints[:,0],monitorPoints[:,1],'or',mec='#ff0000',mfc='none')
     # plt.plot(gridPoints[:,0],gridPoints[:,1],'.k')
     # plt.show()
     #==============================================================================================================================
 
     #==============================================================================================================================
-    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
     # monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
-    # indicator=IndicatorJun(mon)
-    # SparseNoiseStim=SparseNoise(mon,indicator,subregion=(-20.,20.,40.,60.))
-    # gridPoints = SparseNoiseStim._getGridPointsSequence()
+    # indicator=Indicator(mon)
+    # sparse_noise=SparseNoise(mon,indicator,subregion=(-20.,20.,40.,60.))
+    # gridPoints = sparse_noise._getGridPointsSequence()
     #==============================================================================================================================
 
     #==============================================================================================================================
-    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
     # monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
-    # indicator=IndicatorJun(mon)
-    # SparseNoiseStim=SparseNoise(mon,indicator,subregion=(-20.,20.,40.,60.))
-    # SparseNoiseStim.generateFramesList()
+    # indicator=Indicator(mon)
+    # sparse_noise=SparseNoise(mon,indicator,subregion=(-20.,20.,40.,60.))
+    # sparse_noise.generate_frames()
     #==============================================================================================================================
 
     #==============================================================================================================================
-    # mon = MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
+    # mon = Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
     # frame = getWarpedFrameWithSquare(mon.degCorX,mon.degCorY,(20.,25.),4.,4.,0.,foregroundColor=1,backgroundColor=0)
     # plt.imshow(frame,cmap='gray',vmin=-1,vmax=1,interpolation='nearest')
     # plt.show()
     #==============================================================================================================================
 
     #==============================================================================================================================
-    mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
+    mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
     monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
-    indicator=IndicatorJun(mon)
-    SparseNoiseStim=SparseNoise(mon,indicator)
+    indicator=Indicator(mon)
+    sparse_noise=SparseNoise(mon,indicator)
     ds=DisplaySequence(logdir=r'C:\data',backupdir=None,isTriggered=False,isSyncPulse=False,isVideoRecord=False)
-    ds.setStim(SparseNoiseStim)
+    ds.setStim(sparse_noise)
     ds.triggerDisplay()
     plt.show()
     #==============================================================================================================================
 
     #==============================================================================================================================
-    # mon=MonitorJun(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
-    # indicator=IndicatorJun(mon)
-    # KSstimAllDirection=KSstimAllDir(mon,indicator,stepWidth=0.3)
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=20)
+    # indicator=Indicator(mon)
+    # KS_stim_all_dir=KSstimAllDir(mon,indicator,stepWidth=0.3)
     # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False)
-    # ds.setStim(KSstimAllDirection)
+    # ds.setStim(KS_stim_all_dir)
     # ds.triggerDisplay()
     # plt.show()
     #==============================================================================================================================

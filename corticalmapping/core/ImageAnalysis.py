@@ -283,7 +283,7 @@ def expandImage(img):
         raise ValueError, 'Input image should be 2d or 3d!'
 
 
-def zoomImage(img,zoom,interpolation = cv2.INTER_CUBIC):
+def zoomImage(img,zoom,interpolation = 'cubic'): #'cubic','linear','area','nearest','lanczos4'
     '''
     zoom a 2d image. if zoom is a single value, it will apply to both axes, if zoom has two values it will be applied to
     height and width respectively
@@ -296,7 +296,13 @@ def zoomImage(img,zoom,interpolation = cv2.INTER_CUBIC):
     try: zoomH = float(zoom[0]); zoomW = float(zoom[1])
     except TypeError: zoomH = float(zoom); zoomW = float(zoom)
 
-    newImg= cv2.resize(img.astype(np.float),dsize=(int(img.shape[1]*zoomW),int(img.shape[0]*zoomH)),interpolation=interpolation)
+    if interpolation == 'cubic': interpo = cv2.INTER_CUBIC
+    if interpolation == 'linear': interpo = cv2.INTER_LINEAR
+    if interpolation == 'area': interpo = cv2.INTER_AREA
+    if interpolation == 'nearest': interpo = cv2.INTER_NEAREST
+    if interpolation == 'lanczos4': interpo = cv2.INTER_LANCZOS4
+
+    newImg= cv2.resize(img.astype(np.float),dsize=(int(img.shape[1]*zoomW),int(img.shape[0]*zoomH)),interpolation=interpo)
     return newImg
 
 
