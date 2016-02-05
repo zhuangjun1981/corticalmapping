@@ -31,12 +31,15 @@ def test_mergeROIs():
 
 def test_getSparseNoiseOnsetIndex():
     allOnsetInd, onsetIndWithLocationSign = sca.getSparseNoiseOnsetIndex(ft.loadFile(sparseNoiseDisplayLogPath))
-    assert(list(allOnsetInd[0:10])==[ 0,6,12,18,24,30,36,42,48,54])
-    assert(np.array_equal(onsetIndWithLocationSign[2][0],np.array([45.,20.])))
+    # print list(allOnsetInd[0:10])
+    # print onsetIndWithLocationSign[2][0]
+    assert(list(allOnsetInd[0:10])==[0, 3, 6, 9, 12, 15, 18, 21, 24, 27])
+    assert(np.array_equal(onsetIndWithLocationSign[2][0],np.array([-41.53125,  96.25])))
 
-def test_load_STRF_FromH5():
+
+def test_load_STRF_From_H5():
     f = h5py.File(STRFDataPath)
-    STRF = sca.load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    STRF = sca.load_STRF_From_H5(f['cell0003']['spatial_temporal_receptive_field'])
     assert(STRF.data['traces'][20][4][8]-0.934942 < 1e-10)
     # STRF.plotTraces(figSize=(15,10),yRange=[-5,50],columnSpacing=0.002,rowSpacing=0.002)
 
@@ -48,9 +51,9 @@ def test_ROI():
     # plt.imshow(roi.getBinaryMask(),interpolation='nearest')
     assert(list(roi.getCenter())==[5.5,4.])
 
-def test_ROI_getTrace():
+def test_ROI_getBinaryTrace():
     mov = np.random.rand(5,4,4); mask = np.zeros((4,4)); mask[2,3]=1; trace1 = mov[:,2,3]
-    roi = sca.ROI(mask);trace2 = roi.getTrace(mov)
+    roi = sca.ROI(mask);trace2 = roi.getBinaryTrace(mov)
     assert(np.array_equal(trace1,trace2))
 
 def test_WeigthedROI_getWeightedCenter():
@@ -100,13 +103,13 @@ def test_SpatialTemporalReceptiveField_IO():
     testFile.close()
 
     h5File = h5py.File(testH5Path)
-    STRF = sca.load_STRF_FromH5(h5File['spatial_temporal_receptive_field'])
+    STRF = sca.load_STRF_From_H5(h5File['spatial_temporal_receptive_field'])
     h5File.close()
     assert(STRF.data['traces'][3][0][1]==7)
 
 def test_SpatialTemporalReceptiveField_getAmpLitudeMap():
     f = h5py.File(STRFDataPath)
-    STRF = sca.load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    STRF = sca.load_STRF_From_H5(f['cell0003']['spatial_temporal_receptive_field'])
     ampON, ampOFF, altPos, aziPos = STRF.getAmplitudeMap()
     assert(ampON[7,10]-(-0.0258248019964) < 1e-10)
     assert(ampOFF[8,9]-(-0.501572728157) < 1e-10)
@@ -116,7 +119,7 @@ def test_SpatialTemporalReceptiveField_getAmpLitudeMap():
 
 def test_SpatialTemporalReceptiveField_getZscoreMap():
     f = h5py.File(STRFDataPath)
-    STRF = sca.load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    STRF = sca.load_STRF_From_H5(f['cell0003']['spatial_temporal_receptive_field'])
     zscoreON, zscoreOFF, altPos, aziPos = STRF.getZscoreMap()
     assert(zscoreON[7,10]-(-0.070735671412) < 1e-10)
     assert(zscoreOFF[8,9]-(-0.324245551387) < 1e-10)
@@ -124,33 +127,33 @@ def test_SpatialTemporalReceptiveField_getZscoreMap():
 
 def test_SpatialTemporalReceptiveField_getCenters():
     f = h5py.File(STRFDataPath)
-    STRF = sca.load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    STRF = sca.load_STRF_From_H5(f['cell0003']['spatial_temporal_receptive_field'])
     assert(STRF.getZscoreROICenters()[1][1]-(-2.1776047950146622)<1e-10)
 
 def test_SpatialTemporalReceptiveField_getAmplitudeReceptiveField():
     f = h5py.File(STRFDataPath)
-    STRF = sca.load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    STRF = sca.load_STRF_From_H5(f['cell0003']['spatial_temporal_receptive_field'])
     ampRFON, ampRFOFF = STRF.getAmplitudeReceptiveField()
     assert(ampRFON.sign==1);assert(ampRFOFF.sign==-1)
     assert(ampRFOFF.getWeightedMask()[7,9]-3.2014527<1e-7)
 
 def test_SpatialTemporalReceptiveField_getZscoreReceptiveField():
     f = h5py.File(STRFDataPath)
-    STRF = sca.load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    STRF = sca.load_STRF_From_H5(f['cell0003']['spatial_temporal_receptive_field'])
     zscoreRFON, zscoreRFOFF = STRF.getZscoreReceptiveField()
     assert(zscoreRFON.sign==1);assert(zscoreRFOFF.sign==-1)
     assert(zscoreRFOFF.getWeightedMask()[7,9]-1.3324414<1e-7)
 
 def test_SpatialTemporalReceptiveField_shrink():
     f = h5py.File(STRFDataPath)
-    STRF = sca.load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
+    STRF = sca.load_STRF_From_H5(f['cell0003']['spatial_temporal_receptive_field'])
     STRF.shrink([-10,10],None)
     assert(np.array_equal(np.unique(np.array(STRF.getLocations())[:,0]),np.array([-10.,-5.,0.,5.,10.])))
     STRF.shrink(None,[0,20])
     assert(np.array_equal(np.unique(np.array(STRF.getLocations())[:,1]),np.array([0.,5.,10.,15.,20.])))
 
 def test_SpatialReceptiveField():
-    SRF = sca.SpatialReceptiveField(np.arange(9).reshape((3,3)),np.arange(3),np.range(3))
+    SRF = sca.SpatialReceptiveField(np.arange(9).reshape((3,3)),np.arange(3),np.arange(3))
     assert(np.array_equal(SRF.weights,np.arange(1,9)))
 
 def test_SpatialReceptiveField_thresholdReceptiveField():
