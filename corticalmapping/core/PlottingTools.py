@@ -83,11 +83,11 @@ def scalar2RGBA(img,color='#ff0000'):
 
     R,G,B=getRGB(color)
 
-    RMatrix = (R * ia.arrayNor(img.astype(np.float32))).astype(np.uint8)
-    GMatrix = (G * ia.arrayNor(img.astype(np.float32))).astype(np.uint8)
-    BMatrix = (B * ia.arrayNor(img.astype(np.float32))).astype(np.uint8)
+    RMatrix = (R * ia.array_nor(img.astype(np.float32))).astype(np.uint8)
+    GMatrix = (G * ia.array_nor(img.astype(np.float32))).astype(np.uint8)
+    BMatrix = (B * ia.array_nor(img.astype(np.float32))).astype(np.uint8)
 
-    alphaMatrix = (ia.arrayNor(img.astype(np.float32))*255).astype(np.uint8)
+    alphaMatrix = (ia.array_nor(img.astype(np.float32)) * 255).astype(np.uint8)
 
     displayImg = np.zeros((img.shape[0],img.shape[1],4)).astype(np.uint8)
     displayImg[:,:,0]=RMatrix; displayImg[:,:,1]=GMatrix; displayImg[:,:,2]=BMatrix; displayImg[:,:,3]=alphaMatrix
@@ -190,9 +190,9 @@ def showMovie(path, #tif file path or numpy arrary of the movie
     if mode == 'raw':
         mov = rawMov
     else:
-        _, dFMov, dFoverFMov = ia.normalizeMovie(rawMov,
-                                                 baselinePic = baselinePic,
-                                                 baselineType = baselineType)
+        _, dFMov, dFoverFMov = ia.normalize_movie(rawMov,
+                                                  baselinePic = baselinePic,
+                                                  baselineType = baselineType)
         if mode == 'dF':
             mov = dFMov
         elif mode == 'dFoverF':
@@ -420,7 +420,7 @@ def mergeNormalizedImages(imgList,isFilter=True,sigma=50,mergeMethod='mean',dtyp
     imgList2 = []
 
     for currImg in imgList:
-        imgList2.append(ia.arrayNor(currImg.astype(dtype)))
+        imgList2.append(ia.array_nor(currImg.astype(dtype)))
 
     if mergeMethod == 'mean':
         mergedImg = np.mean(np.array(imgList2),axis=0)
@@ -433,8 +433,8 @@ def mergeNormalizedImages(imgList,isFilter=True,sigma=50,mergeMethod='mean',dtyp
 
     if isFilter:
         mergedImgf = ni.filters.gaussian_filter(mergedImg.astype(np.float),sigma=sigma)
-        return ia.arrayNor(mergedImg - mergedImgf).astype(dtype)
-    else: return ia.arrayNor(mergedImg).astype(dtype)
+        return ia.array_nor(mergedImg - mergedImgf).astype(dtype)
+    else: return ia.array_nor(mergedImg).astype(dtype)
 
 
 # def hue2RGB(hue):
@@ -513,7 +513,7 @@ if __name__=='__main__':
     # mask[30:50,20:60]=1
     # mask[mask==0]=np.nan
     #
-    # plotMask(mask)
+    # plot_mask(mask)
     # plt.show()
     #----------------------------------------------------
 

@@ -438,9 +438,9 @@ def generateAVI(saveFolder,
         g = g.reshape(g.shape[0],g.shape[1],g.shape[2],1)
         b = b.reshape(b.shape[0],b.shape[1],b.shape[2],1)
         newMatix = np.concatenate((r,g,b),axis=3)
-        newMatrix = (ia.arrayNor(newMatix)*255).astype(np.uint8)
+        newMatrix = (ia.array_nor(newMatix) * 255).astype(np.uint8)
     elif len(matrix.shape) == 3:
-        s = (ia.arrayNor(matrix)*255).astype(np.uint8)
+        s = (ia.array_nor(matrix) * 255).astype(np.uint8)
         s = s.reshape(s.shape[0],s.shape[1],s.shape[2],1)
         newMatrix = np.concatenate((s,s,s),axis=3)
     else: raise IndexError, 'The matrix dimension is neither 3 or 4. Can not get RGB color!'

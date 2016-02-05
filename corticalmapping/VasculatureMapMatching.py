@@ -28,8 +28,8 @@ import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.tifffile as tf
 import corticalmapping.core.PlottingTools as pt
 
-try: import cv2; from core.ImageAnalysis import rigidTransform_cv2 as rigidTransform
-except ImportError as e: print e; from core.ImageAnalysis import rigidTransform as rigidTransform
+try: import cv2; from core.ImageAnalysis import rigid_transform_cv2 as rigidTransform
+except ImportError as e: print e; from core.ImageAnalysis import rigid_transform as rigidTransform
 
 
 class AppForm(QMainWindow):
@@ -124,11 +124,11 @@ class AppForm(QMainWindow):
 
             if self.MatchingVasMapRaw is not None:
                 tf.imsave(path_surfix+'_VasculatureMapBeforeMatching.tif',self.MatchingVasMapRaw)
-                MatchVasMapAfterChange = rigidTransform(self.MatchingVasMapRaw,
-                                                        zoom=self.zoom,
-                                                        rotation = self.rotation,
-                                                        offset=(self.Xoffset,self.Yoffset),
-                                                        outputShape=(self.ReferenceVasMap.shape[0],self.ReferenceVasMap.shape[1]))
+                MatchVasMapAfterChange = rigid_transform(self.MatchingVasMapRaw,
+                                                         zoom=self.zoom,
+                                                         rotation = self.rotation,
+                                                         offset=(self.Xoffset,self.Yoffset),
+                                                         outputShape=(self.ReferenceVasMap.shape[0],self.ReferenceVasMap.shape[1]))
                 tf.imsave(path_surfix+'_VasculatureMapAfterMatching.tif',MatchVasMapAfterChange)
 
             self.statusBar().showMessage('Saved to %s' % path, 2000)
@@ -369,7 +369,7 @@ class AppForm(QMainWindow):
                 width = self.MatchingVasMap.shape[1]
                 height = self.MatchingVasMap.shape[0]
 
-            self.MatchingVasMapAfterChange = rigidTransform(self.MatchingVasMap,zoom=self.zoom,rotation = self.rotation,offset=(self.Xoffset,self.Yoffset),outputShape=(height,width))
+            self.MatchingVasMapAfterChange = rigid_transform(self.MatchingVasMap, zoom=self.zoom, rotation = self.rotation, offset=(self.Xoffset, self.Yoffset), outputShape=(height, width))
 
             self.on_draw()
 
@@ -403,18 +403,18 @@ class AppForm(QMainWindow):
             height = 1024
 
         if (type(self.ReferenceVasMap) != type(None)) and (self.radiobutton_reference.isChecked() or self.radiobutton_both.isChecked()):
-            greenChannel = ia.resizeImage(self.ReferenceVasMap, (height, width))
-            greenChannel = (np.power(ia.arrayNor(greenChannel),self.reference_contrast)*255).astype(np.uint8)
+            greenChannel = ia.resize_image(self.ReferenceVasMap, (height, width))
+            greenChannel = (np.power(ia.array_nor(greenChannel), self.reference_contrast) * 255).astype(np.uint8)
         else:
             greenChannel = np.zeros((height,width)).astype(np.uint8)
 
         if (self.radiobutton_matching.isChecked() or self.radiobutton_both.isChecked()):
             if type(self.MatchingVasMapAfterChange) != type(None):
-                redChannel = ia.resizeImage(self.MatchingVasMapAfterChange, (height, width))
-                redChannel = (np.power(ia.arrayNor(redChannel),self.matching_contrast)*255).astype(np.uint8)
+                redChannel = ia.resize_image(self.MatchingVasMapAfterChange, (height, width))
+                redChannel = (np.power(ia.array_nor(redChannel), self.matching_contrast) * 255).astype(np.uint8)
             elif type(self.MatchingVasMap) != type(None):
-                redChannel = ia.resizeImage(self.MatchingVasMap, (height, width))
-                redChannel = (np.power(ia.arrayNor(redChannel),self.matching_contrast)*255).astype(np.uint8)
+                redChannel = ia.resize_image(self.MatchingVasMap, (height, width))
+                redChannel = (np.power(ia.array_nor(redChannel), self.matching_contrast) * 255).astype(np.uint8)
             else:
                 redChannel = np.zeros((height,width)).astype(np.uint8)
         else:

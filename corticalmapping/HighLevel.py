@@ -40,10 +40,10 @@ def translateMovieByVasculature(mov,parameterPath,matchingDecimation=2,reference
     outputShape = [int(matchingParams['ReferenceMapHeight']/matchingDecimation),
                    int(matchingParams['ReferenceMapHeight']/matchingDecimation)]
 
-    movT = ia.rigidTransform_cv2(mov,zoom=matchingParams['Zoom'],rotation=matchingParams['Rotation'],offset=offset,outputShape=outputShape)
+    movT = ia.rigid_transform_cv2(mov, zoom=matchingParams['Zoom'], rotation=matchingParams['Rotation'], offset=offset, outputShape=outputShape)
 
     if referenceDecimation/matchingDecimation != 1:
-        movT = ia.rigidTransform_cv2(movT, zoom=referenceDecimation/matchingDecimation)
+        movT = ia.rigid_transform_cv2(movT, zoom=referenceDecimation / matchingDecimation)
 
     if verbose: print 'shape of output movie:', movT.shape
 
@@ -350,13 +350,13 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
 
     mov = BinarySlicer(movPath)
 
-    aveMov = ia.getAverageMovie(mov, frameTS_real, onsetTimes+startTime, chunkDur)
+    aveMov = ia.get_average_movie(mov, frameTS_real, onsetTimes + startTime, chunkDur)
 
     meanFrameDur = np.mean(np.diff(frameTS_real))
     baselineFrameDur = int(abs(startTime) / meanFrameDur)
 
     baselinePicture = np.mean((aveMov[0:baselineFrameDur,:,:]).astype(np.float32),axis=0)
-    _, aveMovNor, _ = ia.normalizeMovie(aveMov,baselinePicture)
+    _, aveMovNor, _ = ia.normalize_movie(aveMov, baselinePicture)
 
     return aveMov, aveMovNor
 

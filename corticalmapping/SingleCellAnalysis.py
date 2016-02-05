@@ -98,7 +98,7 @@ def getPeakWeightedROI(arr, thr):
     arr2=arr.copy();arr2[nanLabel]=np.nanmin(arr)
     labeled,_=ni.label(arr2>=thr)
     peakCoor = np.array(np.where(arr2==np.amax(arr2))).transpose()[0]
-    peakMask = ia.getMarkedMask(labeled,peakCoor)
+    peakMask = ia.get_marked_masks(labeled, peakCoor)
     if peakMask is None: 'Threshold too high! No ROI found. Returning None'; return None
     else: return WeightedROI(arr2*peakMask)
 

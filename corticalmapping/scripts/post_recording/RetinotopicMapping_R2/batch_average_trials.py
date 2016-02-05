@@ -7,7 +7,7 @@ Created on Tue Nov 18 14:23:59 2014
 
 from corticalmapping.core.FileTools import loadFile, saveFile
 from corticalmapping.RetinotopicMapping import phasePosition,generatePhaseMap2
-from corticalmapping.core.ImageAnalysis import normalizeMovie
+from corticalmapping.core.ImageAnalysis import normalize_movie
 import corticalmapping.core.tifffile as tf
 import os
 import numpy as np
@@ -112,10 +112,10 @@ aziBackMov = np.mean(movP2A,axis=0)
 
 preGapFrameNum = int(np.round(preGapDur/np.mean(imageExposureTime,axis=0)))
 
-_,altForeMovNor,_ = normalizeMovie(altForeMov,baselinePic=np.mean(altForeMov[0:preGapFrameNum,:,:],axis=0))
-_,altBackMovNor,_ = normalizeMovie(altBackMov,baselinePic=np.mean(altBackMov[0:preGapFrameNum,:,:],axis=0))
-_,aziForeMovNor,_ = normalizeMovie(aziForeMov,baselinePic=np.mean(aziForeMov[0:preGapFrameNum,:,:],axis=0))
-_,aziBackMovNor,_ = normalizeMovie(aziBackMov,baselinePic=np.mean(aziBackMov[0:preGapFrameNum,:,:],axis=0))
+_,altForeMovNor,_ = normalize_movie(altForeMov, baselinePic=np.mean(altForeMov[0:preGapFrameNum, :, :], axis=0))
+_,altBackMovNor,_ = normalize_movie(altBackMov, baselinePic=np.mean(altBackMov[0:preGapFrameNum, :, :], axis=0))
+_,aziForeMovNor,_ = normalize_movie(aziForeMov, baselinePic=np.mean(aziForeMov[0:preGapFrameNum, :, :], axis=0))
+_,aziBackMovNor,_ = normalize_movie(aziBackMov, baselinePic=np.mean(aziBackMov[0:preGapFrameNum, :, :], axis=0))
 
 altForePhaseMap, altForePowerMap = generatePhaseMap2(altForeMovNor,cycleInMovie,isReverse = isReverse)
 altForePowerMap = altForePowerMap/np.amax(altForePowerMap)

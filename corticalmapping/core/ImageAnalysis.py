@@ -62,7 +62,7 @@ def resample2(t1, y1, t2, kind = 'linear', isPlot=False, bounds_error=False):
     return y2
 
 
-def arrayNor(A):
+def array_nor(A):
     '''
     normalize a np.array to the scale [0, 1]
     '''
@@ -72,7 +72,7 @@ def arrayNor(A):
     return B.astype(A.dtype)
 
 
-def arrayNorMedian(A):
+def array_nor_median(A):
     '''
     normalize array by minus median, data type will be switch to np.float
     '''
@@ -81,7 +81,7 @@ def arrayNorMedian(A):
     return B
 
 
-def arrayNorMean(A):
+def array_nor_mean(A):
     '''
     normalize array by minus mean, data type will be switch to np.float
     '''
@@ -90,7 +90,7 @@ def arrayNorMean(A):
     return B
 
 
-def arrayNorMeanStd(A):
+def array_nor_mean_std(A):
     '''
     normalize array by minus mean and then devided by standard deviation, data type will be switch to np.float
     '''
@@ -131,7 +131,7 @@ def distance(p0, p1):
     return np.sqrt(np.mean(np.square(p0-p1).flatten()))
 
 
-def arrayDiff(a0,a1):
+def array_diff(a0, a1):
     '''
     calculate the sum of pixel-wise difference between two arrays
     '''
@@ -156,11 +156,11 @@ def binarize(array, threshold):
     return newArray
 
 
-def centerImage(img, # original image, 2d ndarray
-                centerPixel, # the coordinates of center pixel in original image, [col, row]
-                newSize = 512, #the size of output image
+def center_image(img,  # original image, 2d ndarray
+                centerPixel,  # the coordinates of center pixel in original image, [col, row]
+                newSize = 512,  #the size of output image
                 borderValue = 0
-                ):
+                 ):
     '''
     center a certain image in a new canvas
 
@@ -180,7 +180,7 @@ def centerImage(img, # original image, 2d ndarray
     return newImg
 
 
-def resizeImage(img, outputShape, fillValue = 0.):
+def resize_image(img, outputShape, fillValue = 0.):
     '''
     resize every frame of a 3-d matrix to defined output shape
     if the original image is too big it will be truncated
@@ -243,7 +243,7 @@ def resizeImage(img, outputShape, fillValue = 0.):
     return newImg
 
 
-def expandImage_cv2(img):
+def expand_image_cv2(img):
 
     if len(img.shape) != 2:
         raise ValueError, 'Input image should be 2d!'
@@ -257,7 +257,7 @@ def expandImage_cv2(img):
     return newImg.astype(dtype)
 
 
-def expandImage(img):
+def expand_image(img):
 
     if len(img.shape) == 2:
         rows,cols = img.shape
@@ -283,7 +283,7 @@ def expandImage(img):
         raise ValueError, 'Input image should be 2d or 3d!'
 
 
-def zoomImage(img,zoom,interpolation = 'cubic'): #'cubic','linear','area','nearest','lanczos4'
+def zoom_image(img, zoom, interpolation ='cubic'): #'cubic','linear','area','nearest','lanczos4'
     '''
     zoom a 2d image. if zoom is a single value, it will apply to both axes, if zoom has two values it will be applied to
     height and width respectively
@@ -324,7 +324,7 @@ def moveImage(img,Xoffset,Yoffset,width,height,borderValue=0.0):
     return newImg
 
 
-def rotateImage(img,angle,borderValue=0.0):
+def rotate_image(img, angle, borderValue=0.0):
     '''
     rotate an image conterclock wise by an angle defined by 'angle' in degree
 
@@ -344,7 +344,7 @@ def rotateImage(img,angle,borderValue=0.0):
     return newImg
 
 
-def rigidTransform(img, zoom=None, rotation=None, offset=None, outputShape=None, mode='constant',cval=0.0):
+def rigid_transform(img, zoom=None, rotation=None, offset=None, outputShape=None, mode='constant', cval=0.0):
 
     '''
     rigid transformation of a 2d-image or 3d-matrix by using scipy
@@ -369,7 +369,7 @@ def rigidTransform(img, zoom=None, rotation=None, offset=None, outputShape=None,
         newImg = ni.zoom(newImg,zoom=newZoom,mode=mode,cval=cval)
 
     if rotation:
-        newImg = expandImage(newImg)
+        newImg = expand_image(newImg)
         if len(img.shape) == 2:
             newImg = ni.rotate(newImg,angle=rotation,reshape=False,mode=mode,cval=cval)
         elif len(img.shape) == 3:
@@ -382,12 +382,12 @@ def rigidTransform(img, zoom=None, rotation=None, offset=None, outputShape=None,
             newImg = ni.shift(newImg,(0,offset[1],offset[0]),mode=mode,cval=cval)
 
     if outputShape:
-        newImg = resizeImage(newImg,outputShape)
+        newImg = resize_image(newImg, outputShape)
 
     return newImg.astype(img.dtype)
 
 
-def rigidTransform_cv2_2d(img, zoom=None, rotation=None, offset=None, outputShape=None):
+def rigid_transform_cv2_2d(img, zoom=None, rotation=None, offset=None, outputShape=None):
 
     '''
     rigid transformation of a 2d-image by using opencv
@@ -406,11 +406,11 @@ def rigidTransform_cv2_2d(img, zoom=None, rotation=None, offset=None, outputShap
     minValue = np.amin(newImg)
 
     if zoom:
-        newImg = zoomImage(img,zoom=zoom)
+        newImg = zoom_image(img, zoom=zoom)
 
     if rotation:
-        newImg = expandImage_cv2(newImg)
-        newImg = rotateImage(newImg, rotation,borderValue=minValue)
+        newImg = expand_image_cv2(newImg)
+        newImg = rotate_image(newImg, rotation, borderValue=minValue)
 
     if (outputShape is None) and (offset is None):
         return newImg
@@ -424,7 +424,7 @@ def rigidTransform_cv2_2d(img, zoom=None, rotation=None, offset=None, outputShap
         return newImg.astype(img.dtype)
 
 
-def rigidTransform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputShape=None):
+def rigid_transform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputShape=None):
     
     if len(img.shape) != 3:
         raise LookupError, 'Input image is not a 3d array!'
@@ -442,12 +442,12 @@ def rigidTransform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputShap
     newImg = np.empty((img.shape[0],newHeight,newWidth),dtype=img.dtype)
     
     for i in range(img.shape[0]):
-        newImg[i,:,:] = rigidTransform_cv2_2d(img[i,:,:], zoom=zoom, rotation=rotation, offset=offset, outputShape=outputShape)
+        newImg[i,:,:] = rigid_transform_cv2_2d(img[i, :, :], zoom=zoom, rotation=rotation, offset=offset, outputShape=outputShape)
     
     return newImg
 
 
-def rigidTransform_cv2(img, zoom=None, rotation=None, offset=None, outputShape=None):
+def rigid_transform_cv2(img, zoom=None, rotation=None, offset=None, outputShape=None):
 
     '''
     rigid transformation of a 2d-image or 3d-matrix by using opencv
@@ -460,9 +460,9 @@ def rigidTransform_cv2(img, zoom=None, rotation=None, offset=None, outputShape=N
     '''
 
     if len(img.shape) == 2:
-        return rigidTransform_cv2_2d(img, zoom=zoom, rotation=rotation, offset=offset, outputShape=outputShape)
+        return rigid_transform_cv2_2d(img, zoom=zoom, rotation=rotation, offset=offset, outputShape=outputShape)
     elif len(img.shape) == 3:
-        return rigidTransform_cv2_3d(img, zoom=zoom, rotation=rotation, offset=offset, outputShape=outputShape)
+        return rigid_transform_cv2_3d(img, zoom=zoom, rotation=rotation, offset=offset, outputShape=outputShape)
     else:
         raise ValueError, 'Input image is not a 2d or 3d array!'
 
@@ -509,10 +509,10 @@ def boxcartime_dff(data,
     return mov_dff
 
 
-def normalizeMovie(movie,
-                   baselinePic = None, # picture for baseline
-                   baselineType = 'mean' # 'mean' or 'median'
-                   ):
+def normalize_movie(movie,
+                    baselinePic = None,  # picture for baseline
+                   baselineType = 'mean'  # 'mean' or 'median'
+                    ):
     '''
     return average image, movie minus avearage, and dF over F for each pixel
     '''
@@ -540,10 +540,10 @@ def normalizeMovie(movie,
     return averageImage, normalizedMovie, dFoverFMovie
 
 
-def temporalFilterMovie(mov, # array of movie
-                        Fs, # sampling rate
-                        Flow, # low cutoff frequency
-                        Fhigh, # high cutoff frequency
+def temporal_filter_movie(mov,  # array of movie
+                        Fs,  # sampling rate
+                        Flow,  # low cutoff frequency
+                        Fhigh,  # high cutoff frequency
                         mode = 'box'): # filter mode, '1/f' or 'box'):
 
     if len(mov.shape) != 3:
@@ -581,7 +581,7 @@ def temporalFilterMovie(mov, # array of movie
     return movF
 
 
-def generateRectangleMask(shape,center,width,height,isplot = False):
+def generate_rectangle_mask(shape, center, width, height, isplot = False):
 
     if len(shape) !=2: raise LookupError, 'Shape should be two dimensional.'
 
@@ -593,12 +593,12 @@ def generateRectangleMask(shape,center,width,height,isplot = False):
 
     if isplot == True:
         f = plt.figure(); ax = f.add_subplot(111)
-        plotMask(mask,plotAxis=ax)
+        plot_mask(mask, plotAxis=ax)
 
     return mask
 
 
-def generateOvalMask(shape,center,width,height,isplot = False):
+def generate_oval_mask(shape, center, width, height, isplot = False):
 
     if len(shape) !=2: raise LookupError, 'Shape should be two dimensional.'
 
@@ -616,12 +616,12 @@ def generateOvalMask(shape,center,width,height,isplot = False):
 
     if isplot == True:
         f = plt.figure(); ax = f.add_subplot(111)
-        plotMask(mask,plotAxis=ax)
+        plot_mask(mask, plotAxis=ax)
 
     return mask
 
 
-def getTrace(movie, mask, maskMode = 'binary'):
+def get_trace(movie, mask, maskMode ='binary'):
     '''
     get a trace across a movie with averaged value in a mask
 
@@ -666,7 +666,7 @@ def get_trace_binaryslicer(bl_obj, mask, mask_mode = 'binary'):
 
     :param bl_obj: the binary slicer object of a large matrix
     :param mask: the mask
-    :param mask_mode: same as 'mask_mode' in function getTrace
+    :param mask_mode: same as 'mask_mode' in function get_trace
 
     maskMode: 'binary': ones in roi, zeros outside
               'binaryNan': ones in roi, nans outside
@@ -717,7 +717,7 @@ def get_trace_binaryslicer(bl_obj, mask, mask_mode = 'binary'):
 
     mov = bl_obj[:,min_row:max_row, min_col:max_col]
     # print mov
-    return getTrace(mov, finalMask, maskMode='weighted')
+    return get_trace(mov, finalMask, maskMode='weighted')
 
 
 def get_trace_binaryslicer2(bl_obj, mask, mask_mode = 'binary', loading_frame_num = 1000):
@@ -727,7 +727,7 @@ def get_trace_binaryslicer2(bl_obj, mask, mask_mode = 'binary', loading_frame_nu
 
     :param bl_obj: the binary slicer object of a large matrix
     :param mask: the mask
-    :param mask_mode: same as 'mask_mode' in function getTrace
+    :param mask_mode: same as 'mask_mode' in function get_trace
     :param loading_frame_num: frame number of each chunk
 
     maskMode: 'binary': ones in roi, zeros outside
@@ -762,7 +762,7 @@ def get_trace_binaryslicer2(bl_obj, mask, mask_mode = 'binary', loading_frame_nu
         if indEnd > frameNum: indEnd = frameNum
         print 'Extracting signal from frame '+str(indStart)+' to frame '+str(indEnd)+'.\t'+str(i*100./chunkNum)+'%'
         currMov = bl_obj[indStart:indEnd,:,:]
-        traces.append(getTrace(currMov,mask,maskMode=mask_mode))
+        traces.append(get_trace(currMov, mask, maskMode=mask_mode))
 
     return np.concatenate(traces)
 
@@ -774,7 +774,7 @@ def get_trace_binaryslicer3(bl_obj, masks, mask_mode = 'binary', loading_frame_n
 
     :param bl_obj: the binary slicer object of a large matrix
     :param masks: a dictionary of masks
-    :param mask_mode: same as 'mask_mode' in function getTrace
+    :param mask_mode: same as 'mask_mode' in function get_trace
     :param loading_frame_num: frame number of each chunk
 
     maskMode: 'binary': ones in roi, zeros outside
@@ -813,7 +813,7 @@ def get_trace_binaryslicer3(bl_obj, masks, mask_mode = 'binary', loading_frame_n
             if len(mask.shape) != 2: raise ValueError, 'Mask "' + key + '" should be 2d!'
             if bl_obj.shape[1] != mask.shape[0] or bl_obj.shape[2] != mask.shape[1]:
                 raise ValueError, 'the size of each frame of the BinarySlicer object should be the same as the size of mask "' + key + '"!'
-            traces['trace_'+key].append(getTrace(currMov,mask,maskMode=mask_mode))
+            traces['trace_'+key].append(get_trace(currMov, mask, maskMode=mask_mode))
 
     for key in traces.iterkeys():
         traces[key] = np.concatenate(traces[key])
@@ -821,7 +821,7 @@ def get_trace_binaryslicer3(bl_obj, masks, mask_mode = 'binary', loading_frame_n
     return traces
 
 
-def hitOrMiss(coor, mask):
+def hit_or_miss(coor, mask):
     '''
     check if a cooridnate (coor) is in a mask, input mask can be int or float, nan and zero will considered as outside, any
     non-nan, non-zero pixel will be considered as inside. Mask does not need to be continuous.
@@ -836,8 +836,8 @@ def hitOrMiss(coor, mask):
         return False
 
 
-def harAmp(f, # function value
-           period, # how many fundamental harmonic periods inside the function
+def harmonic_amplitude(f,  # function value
+           period,  # how many fundamental harmonic periods inside the function
            n): # return the n-th harmonic
     '''
     calculate the amplitude and phase of the n-th harmonic components of a
@@ -892,7 +892,7 @@ def discretize(array, binSize):
     return newArray
 
 
-def seedPixel(markers):
+def seed_pixel(markers):
     '''
     marker centroid of every marked local minimum
     '''
@@ -912,7 +912,7 @@ def seedPixel(markers):
     return newMarkers
 
 
-def isAdjacent(array1, array2, borderWidth = 2):
+def is_adjacent(array1, array2, borderWidth = 2):
     '''
     decide if two patches are adjacent within border width
     '''
@@ -926,7 +926,7 @@ def isAdjacent(array1, array2, borderWidth = 2):
         return False
 
 
-def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closingIteration = None):
+def plot_mask(mask, plotAxis=None, color='#ff0000', zoom=1, borderWidth = None, closingIteration = None):
     '''
     plot mask borders in a given color
     '''
@@ -961,7 +961,7 @@ def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closin
     return currfig
 
 
-def removeSmallPatches(mask,areaThr=100,structure=[[1,1,1],[1,1,1],[1,1,1]]):
+def remove_small_patches(mask, areaThr=100, structure=[[1, 1, 1], [1, 1, 1], [1, 1, 1]]):
     '''
     remove small isolated patches
     '''
@@ -984,33 +984,33 @@ def removeSmallPatches(mask,areaThr=100,structure=[[1,1,1],[1,1,1],[1,1,1]]):
     return newMask.astype(np.bool)
 
 
-def getAreaEdges(img,
-                 firstGaussianSigma=50.,
-                 medianFilterWidth=100.,
-                 areaThr=(0.1,0.9),
-                 edgeThrRange=(5,16),
-                 secondGaussianSigma=10.,
-                 thr=0.2,
-                 borderWidth=2,
-                 lengthThr=20,
-                 isPlot=True):
+def get_area_edges(img,
+                   firstGaussianSigma=50.,
+                   medianFilterWidth=100.,
+                   areaThr=(0.1,0.9),
+                   edgeThrRange=(5,16),
+                   secondGaussianSigma=10.,
+                   thr=0.2,
+                   borderWidth=2,
+                   lengthThr=20,
+                   isPlot=True):
     '''
     get binary edge of areas
     '''
 
     img=img.astype(np.float)
     imgFlat = img - ni.filters.gaussian_filter(img,firstGaussianSigma)
-    imgMedianFiltered = arrayNor(ni.filters.median_filter(imgFlat,medianFilterWidth))
+    imgMedianFiltered = array_nor(ni.filters.median_filter(imgFlat, medianFilterWidth))
     imgPatch=np.array(imgMedianFiltered)
     imgPatch[imgMedianFiltered<areaThr[0]]=areaThr[0];imgPatch[imgMedianFiltered>areaThr[1]]=areaThr[1]
-    imgPatch=(arrayNor(imgPatch)*255).astype(np.uint8)
+    imgPatch=(array_nor(imgPatch) * 255).astype(np.uint8)
 
 
     # plt.imshow(imgPatch,vmin=0,vmax=255,cmap='gray')
     # plt.show()
 
 #    import tifffile as tf
-#    tf.imsave('Rorb_example_vasMap_filtered.tif',arrayNor(imgPatch.astype(np.float32)))
+#    tf.imsave('Rorb_example_vasMap_filtered.tif',array_nor(imgPatch.astype(np.float32)))
 
 
     cuttingStep = np.arange(edgeThrRange[0],edgeThrRange[1])
@@ -1030,7 +1030,7 @@ def getAreaEdges(img,
 
     edgesThin = sm.skeletonize(edgesThr)
 
-    edgesThin = removeSmallPatches(edgesThin,lengthThr)
+    edgesThin = remove_small_patches(edgesThin, lengthThr)
     if borderWidth>1: edgesThick=ni.binary_dilation(edgesThin,iterations=borderWidth-1)
     else: edgesThick=edgesThin
 
@@ -1056,7 +1056,7 @@ def getAreaEdges(img,
     else: return edgesThick.astype(np.bool)
 
 
-def zDownsample(img,downSampleRate):
+def z_downsample(img, downSampleRate):
     '''
     downsample input image in z direction
     '''
@@ -1078,7 +1078,7 @@ def zDownsample(img,downSampleRate):
     return newImg
 
 
-def getMasks(labeled,minArea=None,maxArea=None,isSort=True,keyPrefix = None,labelLength=3):
+def get_masks(labeled, minArea=None, maxArea=None, isSort=True, keyPrefix = None, labelLength=3):
     '''
     get mask dictionary from labeled maps (labeled by scipy.ndimage.label function)
     area range of each mask was defined by minArea and maxArea
@@ -1101,23 +1101,23 @@ def getMasks(labeled,minArea=None,maxArea=None,isSort=True,keyPrefix = None,labe
             masks.update({currKey:currMask})
 
     if isSort:
-        masks = sortMasks(masks,keyPrefix = keyPrefix, labelLength=labelLength)
+        masks = sort_masks(masks, keyPrefix = keyPrefix, labelLength=labelLength)
 
     return masks
 
 
-def getMarkedMask(labeled, markCoor):
+def get_marked_masks(labeled, markCoor):
     '''
     return one binary masks which contain the marked coordinate
     labeled (maps labeled by scipy.ndimage.label function)
     '''
 
-    masks = getMasks(labeled)
+    masks = get_masks(labeled)
     for key, value in masks.iteritems():
-        if hitOrMiss(markCoor,value): return value; break
+        if hit_or_miss(markCoor, value): return value; break
     return None
 
-def sortMasks(masks,keyPrefix='',labelLength=3):
+def sort_masks(masks, keyPrefix='', labelLength=3):
     '''
     sort a dictionary of binary masks, big to small
     '''
@@ -1137,7 +1137,7 @@ def sortMasks(masks,keyPrefix='',labelLength=3):
     return newMasks
 
 
-def tempDownSample(A, rate, verbose=False):
+def temp_downsample(A, rate, verbose=False):
     '''
     down sample a 3-d array in 0 direction
     '''
@@ -1156,7 +1156,7 @@ def tempDownSample(A, rate, verbose=False):
             newA[i,:,:]=currFrame.astype(dataType)
     return newA
 
-def getAverageMovie(mov, frameTS, onsetTimes, chunkDur):
+def get_average_movie(mov, frameTS, onsetTimes, chunkDur):
     '''
     :param mov: image movie
     :param frameTS: the timestamps for each frame of the raw movie
@@ -1190,12 +1190,12 @@ if __name__ == '__main__':
 
     #============================================================
     # a = np.random.rand(100,100)
-    # mask = generateOvalMask(a,[45,58],20,30,isplot=True)
+    # mask = generate_oval_mask(a,[45,58],20,30,isplot=True)
     # plt.show()
 
     #============================================================
     # a = np.arange(400).reshape((20,20))
-    # b = rigidTransform(a,2,30,(1,5),(30,25))
+    # b = rigid_transform(a,2,30,(1,5),(30,25))
     # f,ax=plt.subplots(1,2)
     # ax[0].imshow(a,interpolation='nearest')
     # ax[1].imshow(b,interpolation='nearest')
@@ -1206,7 +1206,7 @@ if __name__ == '__main__':
     # import tifffile as tf
     # imgPath = r"E:\data2\2015-05-28-Average-Ai93-Rorb-Scnn1a-map\AverageVasMap_Ai93.tif"
     # img = tf.imread(imgPath)
-    # edges = getAreaEdges(img)
+    # edges = get_area_edges(img)
     # plt.show()
     #============================================================
 
@@ -1215,7 +1215,7 @@ if __name__ == '__main__':
     # aa[4,5]=1
     # aa[5,6]=1
     # aa[12:15,8:13]=1
-    # bb=removeSmallPatches(aa,5)
+    # bb=remove_small_patches(aa,5)
     # f,ax=plt.subplots(1,2)
     # ax[0].imshow(aa,interpolation='nearest');ax[1].imshow(bb,interpolation='nearest')
     # plt.show()
@@ -1238,7 +1238,7 @@ if __name__ == '__main__':
     # labeled,_ = ni.label(a>7)
     # peakCoor = np.array(np.where(a==np.amax(a))).transpose()[0]
     # print peakCoor
-    # peakMask = getMarkedMask(labeled,peakCoor)
+    # peakMask = get_marked_masks(labeled,peakCoor)
     # plt.imshow(peakMask,interpolation='nearest')
     # plt.show()
     #============================================================
@@ -1248,19 +1248,19 @@ if __name__ == '__main__':
     # print mov
     #
     # mask1 = np.zeros((4,4)); mask1[2,2]=1; mask1[1,1]=1
-    # trace1 = getTrace(mov,mask1,maskMode='binary')
+    # trace1 = get_trace(mov,mask1,maskMode='binary')
     # assert(trace1[2] == 39.5)
     #
     # mask2 = np.zeros((4,4),dtype=np.float); mask2[:]=np.nan; mask2[2,2]=1; mask2[1,1]=1
-    # trace2 = getTrace(mov,mask2,maskMode='binaryNan')
+    # trace2 = get_trace(mov,mask2,maskMode='binaryNan')
     # assert(trace2[2] == 39.5)
     #
     # mask3 = np.zeros((4,4),dtype=np.float); mask3[2,2]=1; mask3[1,1]=2
-    # trace3 = getTrace(mov,mask3,maskMode='weighted')
+    # trace3 = get_trace(mov,mask3,maskMode='weighted')
     # assert(trace3[2] == 58)
     #
     # mask4 = np.zeros((4,4),dtype=np.float); mask4[:]=np.nan; mask4[2,2]=1; mask4[1,1]=2
-    # trace4 = getTrace(mov,mask4,maskMode='weightedNan')
+    # trace4 = get_trace(mov,mask4,maskMode='weightedNan')
     # assert(trace4[2] == 58)
     #============================================================
 

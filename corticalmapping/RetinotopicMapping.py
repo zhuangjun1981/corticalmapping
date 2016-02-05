@@ -714,7 +714,7 @@ def adjacentPairs(patches,borderWidth = 2):
         patch1 = patches[pair[0]]
         patch2 = patches[pair[1]]
 
-        if (ia.isAdjacent(patch1.array, patch2.array, borderWidth = borderWidth)) and (patch1.sign == patch2.sign):
+        if (ia.is_adjacent(patch1.array, patch2.array, borderWidth = borderWidth)) and (patch1.sign == patch2.sign):
 
             pairKeyList.append(pair)
 
@@ -1384,13 +1384,13 @@ class RetinotopicMappingTrial(object):
             f2=plt.figure(figsize=(12,4))
             f2_121 = f2.add_subplot(121)
             if altPowerMapf is not None:
-                currfig = f2_121.imshow(ia.arrayNor(self.altPowerMap),cmap = 'hot', vmin = 0, vmax=1, interpolation='nearest')
+                currfig = f2_121.imshow(ia.array_nor(self.altPowerMap), cmap ='hot', vmin = 0, vmax=1, interpolation='nearest')
                 f2.colorbar(currfig)
                 f2_121.set_title('alt power map')
                 f2_121.set_axis_off()
             f2_122 = f2.add_subplot(122)
             if aziPowerMapf is not None:
-                currfig = f2_122.imshow(ia.arrayNor(self.aziPowerMap),cmap = 'hot', vmin = 0, vmax=1, interpolation='nearest')
+                currfig = f2_122.imshow(ia.array_nor(self.aziPowerMap), cmap ='hot', vmin = 0, vmax=1, interpolation='nearest')
                 f2.colorbar(currfig)
                 f2_122.set_title('azi power map')
                 f2_122.set_axis_off()
@@ -1900,8 +1900,8 @@ class RetinotopicMappingTrial(object):
                 pos = int(len(index[0])/2)
                 print ROIcenter, index
                 print 'ROI'+str(i)+' center: ['+str(index[0][pos])+','+str(index[1][pos])+']; visual space: ['+str(altPosMapf[index[0][pos],index[1][pos]])+','+str(aziPosMapf[index[0][pos],index[1][pos]])+']'
-                mask = ia.generateRectangleMask(mov,(index[0][pos],index[1][pos]),ROIsize,ROIsize)
-                trace = ia.getTrace(mov, mask)
+                mask = ia.generate_rectangle_mask(mov, (index[0][pos], index[1][pos]), ROIsize, ROIsize)
+                trace = ia.get_trace(mov, mask)
                 t = np.arange(len(trace)) * self.imageExposureTime
                 traceP = findPhaseIndex(trace) * self.imageExposureTime
 
@@ -2262,30 +2262,30 @@ class RetinotopicMappingTrial(object):
         signMap = self.signMap
         signMapf = self.signMapf
 
-        altPosMapC = ia.centerImage(self.altPosMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-        altPosMapNor = ia.rotateImage(altPosMapC,rotationAngle,borderValue=borderValue)
+        altPosMapC = ia.center_image(self.altPosMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+        altPosMapNor = ia.rotate_image(altPosMapC, rotationAngle, borderValue=borderValue)
 
-        aziPosMapC = ia.centerImage(self.aziPosMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-        aziPosMapNor = ia.rotateImage(aziPosMapC,rotationAngle,borderValue=borderValue)
+        aziPosMapC = ia.center_image(self.aziPosMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+        aziPosMapNor = ia.rotate_image(aziPosMapC, rotationAngle, borderValue=borderValue)
 
 
         if hasattr(self, 'altPowerMap') and self.altPowerMap is not None:
-            altPowerMapC = ia.centerImage(self.altPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-            altPowerMapNor = ia.rotateImage(altPowerMapC,rotationAngle,borderValue=borderValue)
+            altPowerMapC = ia.center_image(self.altPowerMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+            altPowerMapNor = ia.rotate_image(altPowerMapC, rotationAngle, borderValue=borderValue)
         else:
             altPowerMapNor = None
 
         if hasattr(self, 'aziPowerMap') and self.aziPowerMap is not None:
-            aziPowerMapC = ia.centerImage(self.aziPowerMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-            aziPowerMapNor = ia.rotateImage(aziPowerMapC,rotationAngle,borderValue=borderValue)
+            aziPowerMapC = ia.center_image(self.aziPowerMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+            aziPowerMapNor = ia.rotate_image(aziPowerMapC, rotationAngle, borderValue=borderValue)
         else:
             aziPowerMapNor = None
 
-        signMapC = ia.centerImage(signMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-        signMapNor = ia.rotateImage(signMapC,rotationAngle,borderValue=borderValue)
+        signMapC = ia.center_image(signMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+        signMapNor = ia.rotate_image(signMapC, rotationAngle, borderValue=borderValue)
 
-        signMapfC = ia.centerImage(signMapf,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-        signMapfNor = ia.rotateImage(signMapfC,rotationAngle,borderValue=borderValue)
+        signMapfC = ia.center_image(signMapf, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+        signMapfNor = ia.rotate_image(signMapfC, rotationAngle, borderValue=borderValue)
 
         if isPlot:
 
@@ -2378,8 +2378,8 @@ class RetinotopicMappingTrial(object):
         centerPixel = centerPixel * zoom
 
         try:
-            vasMapNor = ia.centerImage(vasMap,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-            vasMapNor = ia.rotateImage(vasMapNor,rotationAngle,borderValue=borderValue)
+            vasMapNor = ia.center_image(vasMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+            vasMapNor = ia.rotate_image(vasMapNor, rotationAngle, borderValue=borderValue)
         except NameError:
             pass
 
@@ -2387,8 +2387,8 @@ class RetinotopicMappingTrial(object):
         for key, patch in patches.iteritems():
             patchArray = patch.array.astype(np.float)
             patchArrayNor = ni.zoom(patchArray,zoom=zoom)
-            patchArrayNor = ia.centerImage(patchArrayNor,centerPixel=centerPixel,newSize=mapSize,borderValue=borderValue)
-            patchArrayNor = ia.rotateImage(patchArrayNor,rotationAngle,borderValue=borderValue)
+            patchArrayNor = ia.center_image(patchArrayNor, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+            patchArrayNor = ia.rotate_image(patchArrayNor, rotationAngle, borderValue=borderValue)
             patchArrayNor = np.round(patchArrayNor).astype(np.int8)
             newPatch = Patch(patchArrayNor,patch.sign)
             patchesNor.update({key:newPatch})
@@ -2444,8 +2444,8 @@ class RetinotopicMappingTrial(object):
             patchArray = patch.array.astype(np.float32)
             patchSign = patch.sign
 
-            patchArrayC = ia.centerImage(patchArray,centerPixel=centerPixel,newSize=mapSize)
-            patchArrayN = ia.rotateImage(patchArrayC,rotationAngle)
+            patchArrayC = ia.center_image(patchArray, centerPixel=centerPixel, newSize=mapSize)
+            patchArrayN = ia.rotate_image(patchArrayC, rotationAngle)
             patchArrayN[patchArrayN < 0.5] = 0
             patchArrayN[patchArrayN >= 0.5] = 1
             newPatch = Patch(patchArrayN.astype(np.int), patchSign)
@@ -2734,7 +2734,7 @@ class RetinotopicMappingTrial(object):
         except AttributeError:
             finalPatches = self.finalPatches
 
-        vasMap = ia.arrayNor(self.vasculatureMap)
+        vasMap = ia.array_nor(self.vasculatureMap)
 
         #get V1 mean fluorscence
         try:
@@ -2785,10 +2785,10 @@ class RetinotopicMappingTrial(object):
             finalPatches = self.finalPatches
 
         try:
-            powerMap=ia.arrayNor(np.mean([self.altPowerMapf,self.aziPowerMapf],axis=0))
+            powerMap=ia.array_nor(np.mean([self.altPowerMapf, self.aziPowerMapf], axis=0))
         except AttributeError:
             _=self._getSignMap()
-            powerMap=ia.arrayNor(np.mean([self.altPowerMapf,self.aziPowerMapf],axis=0))
+            powerMap=ia.array_nor(np.mean([self.altPowerMapf, self.aziPowerMapf], axis=0))
 
         #get V1 mean fluorscence
         try:
@@ -3228,7 +3228,7 @@ class Patch(object):
         '''
         return trace of this patch in a certain movie
         '''
-        return ia.getTrace(mov,self.array)
+        return ia.get_trace(mov, self.array)
 
 
     def isTouching(self, patch2, distance = 1):
@@ -3454,7 +3454,7 @@ class Patch(object):
         plt.title('markers 2')
         plt.show()
 
-        eccMapNor = (np.round(ia.arrayNor(eccMap)*255)).astype(np.uint8)
+        eccMapNor = (np.round(ia.array_nor(eccMap) * 255)).astype(np.uint8)
         eccMapRGB = cv2.cvtColor(eccMapNor,cv2.COLOR_GRAY2RGB)
         #eccMapRGB: image type for opencv watershed, RGB, [uint8, uint8, uint8]
 
@@ -3650,7 +3650,7 @@ if __name__ == "__main__":
 #    f=plt.figure()
 #    ax=f.add_subplot(111)
 #    ax.imshow(testTrial.altPosMapf,vmin=-30,vmax=50,cmap='hsv',interpolation='nearest')
-#    pt.plotMask(patch.getMask(),plotAxis=ax)
+#    pt.plot_mask(patch.getMask(),plotAxis=ax)
 #        
 #    VSlist = patch.getVisualSpace(testTrial.altPosMapf,testTrial.aziPosMapf)
 #                                                                       
@@ -3672,7 +3672,7 @@ if __name__ == "__main__":
 #    f=plt.figure()
 #    ax=f.add_subplot(111)
 #    ax.imshow(testTrial.altPosMapf,vmin=-30,vmax=50,cmap='hsv',interpolation='nearest')
-#    pt.plotMask(patch.getMask(),plotAxis=ax)
+#    pt.plot_mask(patch.getMask(),plotAxis=ax)
 #    
 #    plt.show()
     

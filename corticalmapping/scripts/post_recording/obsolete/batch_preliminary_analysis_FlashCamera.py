@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 import corticalmapping.core.tifffile as tf
 from corticalmapping.core.FileTools import loadFile,saveFile,importRawNewJPhys
-from corticalmapping.core.ImageAnalysis import normalizeMovie,arrayNor
+from corticalmapping.core.ImageAnalysis import normalize_movie,array_nor
 from corticalmapping.core.PlottingTools import mergeNormalizedImages
 
 def preliminary_analysis(imageDate,
@@ -189,14 +189,14 @@ def preliminary_analysis(imageDate,
         preOnsetImageFrame = int(np.round(preGapFrame / (refreshRate * exposure)))
         
         baseline = np.mean(aveMov[0:preOnsetImageFrame,:,:], axis = 0)
-        _, aveMovNor, _ = normalizeMovie(aveMov, baselinePic = baseline)
+        _, aveMovNor, _ = normalize_movie(aveMov, baselinePic = baseline)
         aveMovNor = aveMovNor.astype(np.float32)
         
         #reading vasculature map     
         vasMapNameList = [a for a in allTifFiles if int(a[11:14]) in vasculatureMapList]
         
         if len(vasMapNameList)==0:
-            vasMap1 = arrayNor(rawMov[0])
+            vasMap1 = array_nor(rawMov[0])
             vasMap2 = mergeNormalizedImages([rawMov[0]])
             print 'Did not find vasculature map file. Taking the first frame of the movie as vasMap...'
         else:
@@ -204,9 +204,9 @@ def preliminary_analysis(imageDate,
             for i, currVasMapName in enumerate(vasMapNameList):
                 currVasMapPath = os.path.join(dataFolder, currVasMapName)
                 currVasMap = tf.imread(currVasMapPath).astype(np.float32)
-                vasMap.append(arrayNor(currVasMap))
+                vasMap.append(array_nor(currVasMap))
             
-            vasMap1 = arrayNor(np.mean(vasMap,axis=0))
+            vasMap1 = array_nor(np.mean(vasMap, axis=0))
             vasMap2 = mergeNormalizedImages(vasMap)
             
         #check dimension relationship of aveMovie and vasMap
