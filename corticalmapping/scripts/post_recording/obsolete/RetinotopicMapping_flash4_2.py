@@ -6,7 +6,7 @@ import corticalmapping.RetinotopicMapping as rm
 import corticalmapping.core.FileTools as ft
 
 
-trialName = "160208_M193206_Trial1.pkl"
+trialName = "150901_M177931_Trial1_2_3_Emx1;Ai93_Awake.pkl"
 isSave = True
 
 params = {'phaseMapFilterSigma': 0.5,

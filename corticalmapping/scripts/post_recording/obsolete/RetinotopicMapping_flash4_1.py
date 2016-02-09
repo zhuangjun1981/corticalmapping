@@ -14,17 +14,17 @@ import corticalmapping.RetinotopicMapping as rm
 
 
 
-dateRecorded = '160208'
-mouseID = '193206'
-userID = 'Jun'
-fileNum = 102
-vasfileNums = [100]
+dateRecorded = '150930'
+mouseID = '187474'
+fileNum = 101
+vasfileNums = None
 
-trialNum='1'
-mouseType='Emx1-IRES-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
+trialNum='1_2_3_4'
+mouseType='Emx1-IRES-Cre;Camk2a-tTA;Ai94(TITL-GCaMP6s)'
 
+displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
 dataFolder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData"
-dataFolder = os.path.join(dataFolder,dateRecorded+'-M'+mouseID+'-WF-Retinotopy')
+dataFolder = os.path.join(dataFolder,dateRecorded+'-M'+mouseID)
 fileList = os.listdir(dataFolder)
 movPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNum) in f) and ('.npy' in f)][0])
 jphysPath = os.path.join(dataFolder, [f for f in fileList if dateRecorded+'JPhys'+str(fileNum) in f][0])
@@ -50,7 +50,7 @@ vasMapMergeMethod = np.mean #np.median,np.min,np.max
 #jphys parameters
 jphysDtype = np.dtype('>f')
 jphysHeaderLength = 96 # length of the header for each channel
-jphysChannels = ('photodiode','read','trigger','visualFrame','video1','video2','runningRef','runningSig','open1','open2')# name of all channels
+jphysChannels = ('photodiode2','read','trigger','photodiode','sweep','visualFrame','runningRef','runningSig','reward','licking')# name of all channels
 jphysFs = 10000.
 
 #photodiode signal parameters
@@ -80,7 +80,7 @@ else:
     print 'No vasculature map find. Taking first frame of movie as vasculature map.'
     vasMap = BinarySlicer(movPath)[0,:,:]
 
-tf.imsave(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_Trial'+trialNum+'_vasMap.tif'),vasMap)
+tf.imsave(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_vasMap.tif'),vasMap)
 
 _, jphys = ft.importRawNewJPhys(jphysPath,dtype=jphysDtype,headerLength=jphysHeaderLength,channels=jphysChannels,sf=jphysFs)
 
@@ -90,7 +90,7 @@ displayOnsets = hl.segmentMappingPhotodiodeSignal(pd,digitizeThr=pdDigitizeThr,f
 
 imgFrameTS = ta.getOnsetTimeStamps(jphys['read'],Fs=jphysFs,threshold=readThreshold,onsetType=readOnsetType)
 
-logPath = hl.findLogPath(date=dateRecorded,mouseID=mouseID,stimulus='KSstimAllDir',userID=userID,fileNumber=str(fileNum),displayFolder=dataFolder)
+logPath = hl.findLogPath(date=dateRecorded,mouseID=mouseID,stimulus='KSstimAllDir',userID='',fileNumber=str(fileNum),displayFolder=displayFolder)
 
 displayInfo = hl.analysisMappingDisplayLog(logPath)
 
@@ -101,7 +101,7 @@ if len(displayOnsets) != sweepNum:
 
 altPosMap,aziPosMap,altPowerMap,aziPowerMap  = hl.getMappingMovies(movPath=movPath,frameTS=imgFrameTS,displayOnsets=displayOnsets,displayInfo=displayInfo,
                                                                    temporalDownSampleRate=temporalDownSampleRate,saveFolder=saveFolder,
-                                                                   savePrefix=dateRecorded+'_M'+mouseID+'_Trial'+trialNum,FFTmode='peak',cycles=1)
+                                                                   savePrefix=dateRecorded+'_M'+mouseID,FFTmode='peak',cycles=1)
 
 f = plt.figure(figsize=(12,10))
 f.suptitle(dateRecorded+'_M'+mouseID+'_Trial:'+trialNum)

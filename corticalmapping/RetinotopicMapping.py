@@ -1306,16 +1306,16 @@ class RetinotopicMappingTrial(object):
     def getName(self):
 
         trialName = str(self.dateRecorded)+\
-                    '_M'+str(self.mouseID)
-                    # '_Trial' + str(self.trialNum)+\
-                    # '_'+self.mouseType.split('-')[0]+';'+self.mouseType.split(';')[-1][0:4]
-#                    '_' + str(self.visualStimType)+\
-#                    '_' + str(self.visualStimBackground)
+                    '_M'+str(self.mouseID)+\
+                    '_Trial' + str(self.trialNum)
+                    #'_'+self.mouseType.split('-')[0]+';'+self.mouseType.split(';')[-1][0:4]
+                    #'_' + str(self.visualStimType)+\
+                    #'_' + str(self.visualStimBackground)
 
-        if self.isAnesthetized:
-            trialName += '_Anesth'
-        else:
-            trialName += '_Awake'
+        # if self.isAnesthetized:
+        #     trialName += '_Anesth'
+        # else:
+        #     trialName += '_Awake'
 
         return trialName
 

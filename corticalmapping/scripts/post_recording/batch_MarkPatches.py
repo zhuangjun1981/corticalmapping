@@ -5,24 +5,27 @@ Created on Thu Oct 30 14:46:38 2014
 @author: junz
 """
 import os
+import matplotlib.pyplot as plt
 import corticalmapping.core.FileTools as ft
+import corticalmapping.RetinotopicMapping as rm
 
-trialName = '20150116_M156569_Trial1_2_3_4.pkl'
+
+trialName = '160208_M193206_Trial1.pkl'
 
 names = [
          ['patch01', 'V1'],
          ['patch02', 'RL'],
-         ['patch03', 'PM'],
-         ['patch04', 'LI'],
-         ['patch05', 'LM'],
-         ['patch06', 'AL'],
+         ['patch03', 'LM'],
+         ['patch04', 'AL'],
+         ['patch05', 'AM'],
+         ['patch06', 'PM'],
          ['patch07', 'MMA'],
-#         ['patch08', 'AM'],
-         ['patch09', 'P'],
-         ['patch10', 'AM'],
-         ['patch11', 'LLA'],
-         ['patch12', 'MMP'],
-#         ['patch13', 'MMP']
+         ['patch08', 'MMP'],
+         ['patch09', 'LLA'],
+         # ['patch10', 'AM'],
+         # ['patch11', 'LLA'],
+         # ['patch12', 'MMP'],
+         # ['patch13', 'MMP']
          # ['patch14', 'MMP']
          ]
 
@@ -43,3 +46,11 @@ for i, namePair in enumerate(names):
 trialDict.update({'finalPatchesMarked':finalPatches})
 
 ft.saveFile(trialPath,trialDict)
+
+trial, _ = rm.loadTrial(trialPath)
+f = plt.figure(figsize=(10,10))
+ax = f.add_subplot(111)
+trial.plotFinalPatchBorders(plotAxis = ax,borderWidth=4)
+plt.show()
+f.savefig(trialName[0:-4]+'_borders.pdf',dpi=600)
+f.savefig(trialName[0:-4]+'_borders.png',dpi=300)

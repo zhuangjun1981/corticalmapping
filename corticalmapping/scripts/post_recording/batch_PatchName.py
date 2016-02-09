@@ -21,7 +21,7 @@ patchesToShow = 'finalPatches'
 columnNum = 4
 
 trialList = [
-             '20150615_M181444_Trial1_2_3_4.pkl',
+             '160208_M193206_Trial1.pkl',
              ]
 
 
