@@ -104,7 +104,7 @@ def translateHugeMovieByVasculature(inputPath,outputPath,parameterPath,outputDty
             currMovT = currMovT.astype(outputDtype)
             currMovT.reshape((np.prod(currMovT.shape),)).tofile(f)
 
-def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr=0.02,Fs=10000.):
+def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr=0.02,Fs=10000., smallestInterval=10.):
     '''
 
     :param pd: photodiode from mapping jphys file
@@ -126,10 +126,20 @@ def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr
 
     displayOnsets = ta.getOnsetTimeStamps(pdSignal, Fs, threshold = segmentThr, onsetType='raising')
 
-    print '\nNumber of sweep onsets:', len(displayOnsets)
-    print '\nDisplay onsets (sec):',displayOnsets,'\n'
+    trueDisplayOnsets=[]
+    for i, displayOnset in enumerate(displayOnsets):
+        if i == 0:
+            trueDisplayOnsets.append(displayOnset)
+            currOnset = displayOnset
+        else:
+            if displayOnset - currOnset > smallestInterval:
+                trueDisplayOnsets.append(displayOnset)
+                currOnset = displayOnset
 
-    return displayOnsets
+    print '\nNumber of sweep onsets:', len(trueDisplayOnsets)
+    print '\nDisplay onsets (sec):',trueDisplayOnsets,'\n'
+
+    return np.array(trueDisplayOnsets)
 
 '''
 def getlogPathList(date,#string
@@ -280,7 +290,7 @@ def analysisMappingDisplayLog(logPath):
     if interFrameInterval < (0.99/refreshRate): raise ValueError, 'Mean visual display too short: '+str(interFrameInterval)+'sec' # check display
 
     #get sweep start time relative to display onset
-    startTime = -1 * log['stimulation']['preGapFrame'] / refreshRate
+    startTime = -1 * log['stimulation']['preGapFrameNum'] / log['monitor']['refreshRate']
     print 'Movie chunk start time relative to sweep onset:',startTime,'sec'
     displayInfo['B2U']['startTime']=startTime;displayInfo['U2B']['startTime']=startTime
     displayInfo['L2R']['startTime']=startTime;displayInfo['R2L']['startTime']=startTime
