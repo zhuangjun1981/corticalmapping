@@ -19,8 +19,11 @@ mouseID = 'TEST'
 userID = 'Naveen'
 mouseType='Scnn1a-Tg3-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
 trialNum='2'
-fileNum = 106
 vasfileNums = [104]
+fileNum = 106
+FFTmode='valley'
+
+
 
 
 dataFolder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData"
@@ -63,7 +66,6 @@ readThreshold = 3.
 readOnsetType='raising'
 
 #pos map and power map parameters
-FFTmode='valley'
 cycles=1
 temporalDownSampleRate = 10
 
