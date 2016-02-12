@@ -14,14 +14,14 @@ import corticalmapping.RetinotopicMapping as rm
 
 
 
-dateRecorded = '160208'
-mouseID = '193206'
-userID = 'Jun'
-fileNum = 102
-vasfileNums = [100]
+dateRecorded = '160211'
+mouseID = 'TEST'
+userID = 'Naveen'
+mouseType='Scnn1a-Tg3-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
+trialNum='2'
+fileNum = 106
+vasfileNums = [104]
 
-trialNum='1'
-mouseType='Emx1-IRES-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
 
 dataFolder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData"
 dataFolder = os.path.join(dataFolder,dateRecorded+'-M'+mouseID+'-WF-Retinotopy')
@@ -63,7 +63,7 @@ readThreshold = 3.
 readOnsetType='raising'
 
 #pos map and power map parameters
-FFTmode='peak'
+FFTmode='valley'
 cycles=1
 temporalDownSampleRate = 10
 
@@ -105,11 +105,11 @@ altPosMap,aziPosMap,altPowerMap,aziPowerMap  = hl.getMappingMovies(movPath=movPa
 
 f = plt.figure(figsize=(12,10))
 f.suptitle(dateRecorded+'_M'+mouseID+'_Trial:'+trialNum)
-ax1 = f.add_subplot(221); fig1 = ax1.imshow(altPosMap, vmin=-30,vmax=50,cmap='hsv',interpolation='nearest')
+ax1 = f.add_subplot(221); fig1 = ax1.imshow(altPosMap, vmin=-40,vmax=60,cmap='hsv',interpolation='nearest')
 f.colorbar(fig1); ax1.set_title('alt position map')
 ax2 = f.add_subplot(222); fig2 = ax2.imshow(altPowerMap, vmin=0,vmax=1,cmap='hot',interpolation='nearest')
 f.colorbar(fig2); ax2.set_title('alt power map')
-ax3 = f.add_subplot(223); fig3 = ax3.imshow(aziPosMap, vmin=0,vmax=120,cmap='hsv',interpolation='nearest')
+ax3 = f.add_subplot(223); fig3 = ax3.imshow(aziPosMap, vmin=-10,vmax=130,cmap='hsv',interpolation='nearest')
 f.colorbar(fig3); ax3.set_title('azi position map')
 ax4 = f.add_subplot(224); fig4 = ax4.imshow(aziPowerMap, vmin=0,vmax=1,cmap='hot',interpolation='nearest')
 f.colorbar(fig4); ax4.set_title('alt power map')
