@@ -2614,9 +2614,9 @@ class RetinotopicMappingTrial(object):
         f3_133.set_title('patches after merge')
 
         if isSave:
-            f1.savefig(os.path.join(saveFolder,trialName+'_SignMap.pdf'), format='pdf', dpi = 1200, orientation='landscape', papertype='a4')
-            f2.savefig(os.path.join(saveFolder,trialName+'_RawPatches.pdf'), format='pdf', dpi = 1200, orientation='landscape', papertype='a4')
-            f3.savefig(os.path.join(saveFolder,trialName+'_SplitMerge.pdf'), format='pdf', dpi = 1200, orientation='landscape', papertype='a4')
+            f1.savefig(os.path.join(saveFolder,trialName+'_SignMap.pdf'), format='pdf', dpi = 600, orientation='landscape', papertype='a4')
+            f2.savefig(os.path.join(saveFolder,trialName+'_RawPatches.pdf'), format='pdf', dpi = 600, orientation='landscape', papertype='a4')
+            f3.savefig(os.path.join(saveFolder,trialName+'_SplitMerge.pdf'), format='pdf', dpi = 600, orientation='landscape', papertype='a4')
 
 
     def plotFinalPatches(self,plotAxis = None):

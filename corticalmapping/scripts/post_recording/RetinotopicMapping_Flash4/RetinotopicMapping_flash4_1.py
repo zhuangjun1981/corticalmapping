@@ -101,7 +101,7 @@ if len(displayOnsets) != sweepNum:
 
 altPosMap,aziPosMap,altPowerMap,aziPowerMap  = hl.getMappingMovies(movPath=movPath,frameTS=imgFrameTS,displayOnsets=displayOnsets,displayInfo=displayInfo,
                                                                    temporalDownSampleRate=temporalDownSampleRate,saveFolder=saveFolder,
-                                                                   savePrefix=dateRecorded+'_M'+mouseID+'_Trial'+trialNum,FFTmode='peak',cycles=1)
+                                                                   savePrefix=dateRecorded+'_M'+mouseID+'_Trial'+trialNum,FFTmode=FFTmode,cycles=1)
 
 f = plt.figure(figsize=(12,10))
 f.suptitle(dateRecorded+'_M'+mouseID+'_Trial:'+trialNum)
