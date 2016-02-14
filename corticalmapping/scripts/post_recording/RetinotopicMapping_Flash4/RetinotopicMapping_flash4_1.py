@@ -111,7 +111,7 @@ ax1 = f.add_subplot(221); fig1 = ax1.imshow(altPosMap, vmin=-40,vmax=60,cmap='hs
 f.colorbar(fig1); ax1.set_title('alt position map')
 ax2 = f.add_subplot(222); fig2 = ax2.imshow(altPowerMap, vmin=0,vmax=1,cmap='hot',interpolation='nearest')
 f.colorbar(fig2); ax2.set_title('alt power map')
-ax3 = f.add_subplot(223); fig3 = ax3.imshow(aziPosMap, vmin=-10,vmax=130,cmap='hsv',interpolation='nearest')
+ax3 = f.add_subplot(223); fig3 = ax3.imshow(aziPosMap, vmin=0,vmax=120,cmap='hsv',interpolation='nearest')
 f.colorbar(fig3); ax3.set_title('azi position map')
 ax4 = f.add_subplot(224); fig4 = ax4.imshow(aziPowerMap, vmin=0,vmax=1,cmap='hot',interpolation='nearest')
 f.colorbar(fig4); ax4.set_title('alt power map')
