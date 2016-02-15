@@ -14,15 +14,15 @@ import corticalmapping.RetinotopicMapping as rm
 
 
 
-dateRecorded = '160211'
-mouseID = 'TEST'
-userID = 'Naveen'
+dateRecorded = '160211' # str 'yymmdd'
+mouseID = 'TEST' # str, without 'M', for example: '214522'
+userID = 'Naveen' # user name, should be consistent withe the display log user name
 mouseType='Scnn1a-Tg3-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
-trialNum='2'
-vasfileNums = [104]
-fileNum = 106
-FFTmode='valley'
-
+trialNum='2' # str
+vasfileNums = [104] # file numbers of vasculature images, should be a list
+fileNum = 106 # file number of the imaged movie
+FFTmode='valley' # detecting peak of valley of the signal, 'peak' or 'valley'
+isRectify=False # should the fft method be applied to a rectify signal or not
 
 
 
@@ -101,9 +101,12 @@ if len(displayOnsets) != sweepNum:
     warningMessage = '\nNumber of detected photodiode onsets ('+str(len(displayOnsets))+') is not equal to display sweep number ('+str(sweepNum)+')!\n'
     warnings.warn(warningMessage)
 
-altPosMap,aziPosMap,altPowerMap,aziPowerMap  = hl.getMappingMovies(movPath=movPath,frameTS=imgFrameTS,displayOnsets=displayOnsets,displayInfo=displayInfo,
-                                                                   temporalDownSampleRate=temporalDownSampleRate,saveFolder=saveFolder,
-                                                                   savePrefix=dateRecorded+'_M'+mouseID+'_Trial'+trialNum,FFTmode=FFTmode,cycles=1)
+altPosMap,aziPosMap,altPowerMap,aziPowerMap  = hl.getMappingMovies(movPath=movPath,frameTS=imgFrameTS,
+                                                                   displayOnsets=displayOnsets,displayInfo=displayInfo,
+                                                                   temporalDownSampleRate=temporalDownSampleRate,
+                                                                   saveFolder=saveFolder,
+                                                                   savePrefix=dateRecorded+'_M'+mouseID+'_Trial'+trialNum,
+                                                                   FFTmode=FFTmode,cycles=1,isRectify=isRectify)
 
 f = plt.figure(figsize=(12,10))
 f.suptitle(dateRecorded+'_M'+mouseID+'_Trial:'+trialNum)

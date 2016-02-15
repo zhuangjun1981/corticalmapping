@@ -370,7 +370,7 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
 
     return aveMov, aveMovNor
 
-def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1,saveFolder=None,savePrefix='',FFTmode='peak',cycles=1):
+def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1,saveFolder=None,savePrefix='',FFTmode='peak',cycles=1,isRectify=False):
     '''
 
     :param movPath: path of total movie with all directions
@@ -382,6 +382,7 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
     :param savePrefix: prefix of file name
     :param FFTmode: FFT detect peak or valley, takes 'peak' or 'valley'
     :param cycles: how many cycles in each chunk
+    :param isRectify: if True, the fft will be done on the rectified normalized movie, anything below zero will be assigned as zero
     :return: altPosMap,aziPosMap,altPowerMap,aziPowerMap
     '''
     maps = {}
@@ -407,7 +408,14 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
                                               startTime=displayInfo[dir]['startTime'],
                                               temporalDownSampleRate=temporalDownSampleRate)
 
-        phaseMap, powerMap = rm.generatePhaseMap2(aveMov,cycles,isReverse)
+        if isRectify:
+            aveMovNorRec = np.array(aveMovNor)
+            aveMovNorRec[aveMovNorRec < 0.] = 0.
+            phaseMap, powerMap = rm.generatePhaseMap2(aveMovNorRec,cycles,isReverse)
+        else:
+            phaseMap, powerMap = rm.generatePhaseMap2(aveMov,cycles,isReverse)
+
+
         powerMap = powerMap / np.amax(powerMap)
         positionMap = phaseMap * displayInfo[dir]['slope'] + displayInfo[dir]['intercept']
         maps.update({'posMap_'+dir:positionMap,
