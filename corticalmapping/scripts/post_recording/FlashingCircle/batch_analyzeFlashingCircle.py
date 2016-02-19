@@ -72,7 +72,7 @@ for fileNum in fileNumList:
     # print 'postGapDur:',postGapDur
     # print 'displayDur:',displayDur
 
-    aveMov, aveMovNor = hl.getAverageDfMovie(movPath, imgFrameTS, displayOnsets, preGapDur+postGapDur+displayDur, startTime=preGapDur, temporalDownSampleRate=temporalDownSampleRate)
+    aveMov, aveMovNor = hl.getAverageDfMovie(movPath, imgFrameTS, displayOnsets, preGapDur+postGapDur+displayDur, startTime=-preGapDur, temporalDownSampleRate=temporalDownSampleRate)
 
     tf.imsave(dateRecorded + '_M' + mouseID + '_aveMov_' + str(fileNum) + '.tif', aveMov)
     tf.imsave(dateRecorded + '_M' + mouseID + '_aveMovNor_' + str(fileNum) + '.tif', aveMovNor)
