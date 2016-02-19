@@ -27,7 +27,7 @@ isRectify=False # should the fft method be applied to a rectify signal or not
 
 
 dataFolder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData"
-dataFolder = os.path.join(dataFolder,dateRecorded+'-M'+mouseID+'-WF-Retinotopy')
+dataFolder = os.path.join(dataFolder,dateRecorded+'-M'+mouseID+'-Retinotopy')
 fileList = os.listdir(dataFolder)
 movPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNum) in f) and ('.npy' in f)][0])
 jphysPath = os.path.join(dataFolder, [f for f in fileList if dateRecorded+'JPhys'+str(fileNum) in f][0])

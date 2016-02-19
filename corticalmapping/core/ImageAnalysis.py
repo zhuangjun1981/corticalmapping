@@ -1168,6 +1168,11 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur):
     meanFrameDur = np.mean(np.diff(frameTS))
 
     chunkFrameDur = int(np.ceil(chunkDur / meanFrameDur))
+
+    # print 'chunkDur:', chunkDur
+    # print 'meanFrameDur:', meanFrameDur
+    # print 'chunkFrameDur:', chunkFrameDur
+
     sumMov = None
     n = 0.
 

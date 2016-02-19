@@ -3100,7 +3100,11 @@ class DisplaySequence(object):
         if self.backupdir is not None:
 
             currDate = datetime.datetime.now().strftime('%y%m%d')
-            backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-WF-Retinotopy')
+            stimName = self.sequenceLog['stimulation']['stimName']
+            if 'KSstim' in stimName:
+                backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-Retinotopy')
+            else:
+                backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-'+stimName)
             if not (os.path.isdir(backupFileFolder)):os.makedirs(backupFileFolder)
             backupFilePath = os.path.join(backupFileFolder,filename)
             ft.saveFile(backupFilePath,logFile)
@@ -3134,7 +3138,7 @@ if __name__ == "__main__":
     # KS_stim=KSstim(mon,indicator)
     # displayIteration = 2
     # # print (len(KSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'C:\data',isTriggered=True,displayIteration=2)
     # ds.set_stim(KS_stim)
     # ds.trigger_display()
     # plt.show()
@@ -3146,7 +3150,7 @@ if __name__ == "__main__":
     # noise_KS_stim=NoiseKSstim(mon,indicator)
     # displayIteration = 2
     # # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'C:\data',isTriggered=True,displayIteration=2)
     # ds.set_stim(noise_KS_stim)
     # ds.trigger_display()
     # plt.show()
@@ -3158,7 +3162,7 @@ if __name__ == "__main__":
     # flash_noise=FlashingNoise(mon,indicator)
     # displayIteration = 2
     # # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'C:\data',isTriggered=True,displayIteration=2)
     # ds.set_stim(flash_noise)
     # ds.trigger_display()
     # plt.show()
@@ -3170,7 +3174,7 @@ if __name__ == "__main__":
     # gaussian_noise=GaussianNoise(mon,indicator,isWarp=True,enhanceExp=0.5)
     # displayIteration = 2
     # # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'C:\data',isTriggered=True,displayIteration=2)
     # ds.set_stim(gaussian_noise)
     # ds.trigger_display()
     # plt.show()
@@ -3181,8 +3185,8 @@ if __name__ == "__main__":
     # indicator=Indicator(mon)
     # flashing_circle=FlashingCircle(mon,indicator)
     # displayIteration = 2
-    # print (len(NoiseKSstim.generate_frames())*displayIteration)/float(mon.refreshRate)
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'\\aibsdata2\nc-ophys\corticalmapping\intrinsicimagedata',isTriggered=True,displayIteration=2)
+    # print (len(flashing_circle.generate_frames())*displayIteration)/float(mon.refreshRate)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=r'C:\data',isTriggered=True,displayIteration=2)
     # ds.set_stim(flashing_circle)
     # ds.trigger_display()
     # plt.show()
@@ -3254,13 +3258,13 @@ if __name__ == "__main__":
     #==============================================================================================================================
 
     #==============================================================================================================================
-    mon=Monitor(resolution=(1200, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=10)
-    indicator=Indicator(mon)
-    KS_stim_all_dir=ObliqueKSstimAllDir(mon,indicator,stepWidth=0.15,rotation_angle=np.pi/4)
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False,isInterpolate=True)
-    ds.set_stim(KS_stim_all_dir)
-    ds.trigger_display()
-    plt.show()
+    # mon=Monitor(resolution=(1200, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=10)
+    # indicator=Indicator(mon)
+    # KS_stim_all_dir=ObliqueKSstimAllDir(mon,indicator,stepWidth=0.15,rotation_angle=np.pi/4)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False,isInterpolate=True)
+    # ds.set_stim(KS_stim_all_dir)
+    # ds.trigger_display()
+    # plt.show()
     #==============================================================================================================================
 
     #==============================================================================================================================
