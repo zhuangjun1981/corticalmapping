@@ -21,7 +21,7 @@ mouseType='Scnn1a-Tg3-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
 trialNum='2' # str
 vasfileNums = [104] # file numbers of vasculature images, should be a list
 fileNum = 106 # file number of the imaged movie
-FFTmode='valley' # detecting peak of valley of the signal, 'peak' or 'valley'
+FFTmode='valley' # detecting peak of valley of the signal, GCaMP:'peak'; intrinsic signal: 'valley'
 isRectify=False # should the fft method be applied to a rectify signal or not
 
 
