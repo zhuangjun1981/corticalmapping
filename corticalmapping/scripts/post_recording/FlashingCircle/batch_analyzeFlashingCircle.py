@@ -17,13 +17,23 @@ import corticalmapping.RetinotopicMapping as rm
 dateRecorded = '160219' # str 'yymmdd'
 mouseID = 'TEST' # str, without 'M', for example: '214522'
 userID = 'Jun' # user name, should be consistent withe the display log user name
-fileNumList = [100] # file number of the imaged movie
+vasfileNums = [100] # file numbers of vasculature images, should be a list
+fileNumList = [101] # file number of the imaged movie
 
 
 
 dataFolder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData"
 dataFolder = os.path.join(dataFolder,dateRecorded+'-M'+mouseID+'-FlashingCircle')
 fileList = os.listdir(dataFolder)
+
+# vasculature map parameters
+vasMapDtype = np.dtype('<u2')
+vasMapHeaderLength = 116
+vasMapTailerLength = 218
+vasMapColumn = 1024
+vasMapRow = 1024
+vasMapFrame = 1
+vasMapCrop = None
 
 #jphys parameters
 jphysDtype = np.dtype('>f')
@@ -46,6 +56,13 @@ temporalDownSampleRate = 1
 
 saveFolder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(saveFolder)
+
+for fileNum in vasfileNums:
+    currVasMapPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNum) in f)][0])
+    currVasMap,_,_= ft.importRawJCamF(currVasMapPath,saveFolder=saveFolder,dtype=vasMapDtype,
+                                      headerLength=vasMapHeaderLength,tailerLength=vasMapTailerLength,
+                                      column=vasMapColumn,row=vasMapRow,frame=vasMapFrame,crop=vasMapCrop)
+    tf.imsave(dateRecorded+'_M'+mouseID+'_vasMap'+str(fileNum)+'.tif',currVasMap.astype(np.float32))
 
 for fileNum in fileNumList:
     movPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNum) in f) and ('.npy' in f)][0])
