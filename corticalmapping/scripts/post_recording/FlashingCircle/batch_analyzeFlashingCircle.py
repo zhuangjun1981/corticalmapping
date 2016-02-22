@@ -34,6 +34,7 @@ vasMapColumn = 1024
 vasMapRow = 1024
 vasMapFrame = 1
 vasMapCrop = None
+vasMapMergeMethod = np.mean #np.median,np.min,np.max
 
 #jphys parameters
 jphysDtype = np.dtype('>f')
@@ -57,12 +58,20 @@ temporalDownSampleRate = 1
 saveFolder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(saveFolder)
 
-for fileNum in vasfileNums:
-    currVasMapPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNum) in f)][0])
-    currVasMap,_,_= ft.importRawJCamF(currVasMapPath,saveFolder=saveFolder,dtype=vasMapDtype,
-                                      headerLength=vasMapHeaderLength,tailerLength=vasMapTailerLength,
-                                      column=vasMapColumn,row=vasMapRow,frame=vasMapFrame,crop=vasMapCrop)
-    tf.imsave(dateRecorded+'_M'+mouseID+'_vasMap'+str(fileNum)+'.tif',currVasMap.astype(np.float32))
+vasMapPaths = []
+if vasfileNums is not None:
+    for vasfileNum in vasfileNums:
+        fn = [f for f in fileList if 'JCamF'+str(vasfileNum) in f][0]
+        vasMapPaths.append(os.path.join(dataFolder,fn))
+
+if vasMapPaths:
+    vasMap = hl.getVasMap(vasMapPaths,dtype=vasMapDtype,headerLength=vasMapHeaderLength,tailerLength=vasMapTailerLength,
+                          column=vasMapColumn,row=vasMapRow,frame=vasMapFrame,crop=vasMapCrop,mergeMethod=vasMapMergeMethod)
+else:
+    print 'No vasculature map find. Taking first frame of movie as vasculature map.'
+    firstMovPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNumList[0]) in f) and ('.npy' in f)][0])
+    vasMap = BinarySlicer(firstMovPath)[0,:,:]
+tf.imsave(dateRecorded+'_M'+mouseID+'_vasMap.tif',vasMap.astype(np.float32))
 
 for fileNum in fileNumList:
     movPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNum) in f) and ('.npy' in f)][0])

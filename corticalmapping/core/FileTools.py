@@ -491,13 +491,16 @@ def importRawJCamF(path,
         mov = data[headerLength:len(data)-tailerLength].reshape((frame,column,row))
     
     if saveFolder:
-        
-        if crop.any():
-            mov = mov[:,crop[0]:crop[1],crop[2]:crop[3]]
-            fileName = path.split('\\')[-1] + '_cropped.tif'
+        if crop:
+            try:
+                mov = mov[:,crop[0]:crop[1],crop[2]:crop[3]]
+                fileName = path.split('\\')[-1] + '_cropped.tif'
+            except Exception as e:
+                print 'importRawJCamF: Can not understant the paramenter "crop":'+str(crop)+'\ncorp should be: [rowStart,rowEnd,colStart,colEnd]'
+                print '\nTrace back: \n' + e
         else:
             fileName = path.split('\\')[-1] + '.tif'
-            
+
         tf.imsave(os.path.join(saveFolder,fileName),mov)
     
     return mov, header, tailer
