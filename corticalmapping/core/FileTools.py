@@ -44,6 +44,15 @@ def copy(src, dest):
 
     else: raise IOError, 'Source is neither a file or a directory. Can not be copied!'
 
+def list_all_files(folder):
+    '''
+    get a list of full path of all files in a folder (including subfolder)
+    '''
+    files = []
+    for folder_path, subfolder_paths, file_names in os.walk(folder):
+        for file_name in file_names:
+            files.append(os.path.join(folder_path,file_name))
+    return files
 
 def batchCopy(pathList, destinationFolder, isDelete=False):
     '''

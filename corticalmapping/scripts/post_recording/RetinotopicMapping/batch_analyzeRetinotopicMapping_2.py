@@ -9,9 +9,9 @@ import corticalmapping.core.FileTools as ft
 trialName = "160211_M214522_Trial1.pkl"
 isSave = True
 
-params = {'phaseMapFilterSigma': 1.5,
-          'signMapFilterSigma': 10.,
-          'signMapThr': 0.2,
+params = {'phaseMapFilterSigma': 1.,
+          'signMapFilterSigma': 9.,
+          'signMapThr': 0.3,
           'eccMapFilterSigma': 15.0,
           'splitLocalMinCutStep': 10.,
           'closeIter': 3,

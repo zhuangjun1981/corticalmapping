@@ -1188,7 +1188,7 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur):
             print 'Ending frame index ('+int(onsetFrameInd+chunkFrameDur)+') is larger than frames in movie ('+int(mov.shape[0])+'.\nExclude this trigger.'
             continue
 
-    return sumMov / n
+    return sumMov.astype(np.float32) / n
 
 
 if __name__ == '__main__':

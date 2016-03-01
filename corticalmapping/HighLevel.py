@@ -176,7 +176,7 @@ def findLogPath(date,#string
         except Exception as e:
             # print 'Can not read path:',f,'\n',e
             continue
-        if (dateTime[0:6] == date) and (mouseID in mouse) and (stimulus in stim) and (userID in user) and (fileNumber == fileNum):
+        if (dateTime[0:6] == date) and (mouseID in mouse) and (stimulus in stim) and (userID in user) and (fileNumber == fileNum) and (ext == '.pkl'):
             logPathList.append(os.path.join(displayFolder,f))
     print '\n'+'\n'.join(logPathList)+'\n'
     if len(logPathList)==0: raise LookupError, 'Can not find visual display Log.'

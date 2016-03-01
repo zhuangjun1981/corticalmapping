@@ -1969,6 +1969,12 @@ class RetinotopicMappingTrial(object):
         try:del self.aziPosMapf
         except AttributeError:pass
 
+        try:del self.altPowerMapf
+        except AttributeError:pass
+
+        try:del self.aziPowerMapf
+        except AttributeError:pass
+
         try:del self.signMap
         except AttributeError:pass
 
@@ -1997,6 +2003,9 @@ class RetinotopicMappingTrial(object):
         except AttributeError:pass
 
         try:del self.finalPatches
+        except AttributeError:pass
+
+        try:del self.finalPatchesMarked
         except AttributeError:pass
 
 

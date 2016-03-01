@@ -18,11 +18,11 @@ dateRecorded = '160211' # str 'yymmdd'
 mouseID = 'TEST' # str, without 'M', for example: '214522'
 userID = 'Naveen' # user name, should be consistent withe the display log user name
 mouseType='Scnn1a-Tg3-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
-trialNum='2' # str
-vasfileNums = [104] # file numbers of vasculature images, should be a list
-fileNum = 106 # file number of the imaged movie
-FFTmode='valley' # detecting peak of valley of the signal, GCaMP:'peak'; intrinsic signal: 'valley'
-isRectify=False # should the fft method be applied to a rectify signal or not
+trialNum='1' # str
+vasfileNums = [100] # file numbers of vasculature images, should be a list
+fileNum = 103 # file number of the imaged movie
+FFTmode='peak' # detecting peak of valley of the signal, GCaMP:'peak'; intrinsic signal: 'valley'
+
 
 
 
@@ -68,6 +68,7 @@ readOnsetType='raising'
 #pos map and power map parameters
 cycles=1
 temporalDownSampleRate = 10
+isRectify=False # should the fft method be applied to a rectify signal or not
 
 #wrap experiment parameters
 isAnesthetized=False
