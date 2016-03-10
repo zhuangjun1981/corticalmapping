@@ -2245,7 +2245,6 @@ class SparseNoise(Stim):
 
         return fullSequence, fulldictionary
 
-# todo: add stimulus of drifting grating
 class DriftingGratingCircle(Stim):
     '''
     class of drifting grating circle stimulus
