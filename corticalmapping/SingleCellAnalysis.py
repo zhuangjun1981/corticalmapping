@@ -1,7 +1,8 @@
-from corticalmapping.core.ImageAnalysis import ROI, WeightedROI
-
 __author__ = 'junz'
 
+
+import os
+import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import core.PlottingTools as pt
@@ -13,7 +14,48 @@ import scipy.interpolate as ip
 
 
 
-def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
+def load_ROI_From_H5(h5Group):
+    '''
+    load ROI (either ROI or WeightedROI) object from a hdf5 data group
+    '''
+
+    dimension = h5Group.attrs['dimension']
+    pixelSize = h5Group.attrs['pixelSize']
+    if pixelSize == 'None': pixelSize = None
+    pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
+    if pixelSizeUnit == 'None': pixelSizeUnit = None
+    pixels = h5Group['pixels'].value
+
+    if 'weights' in h5Group.keys():
+        weights = h5Group['weights'].value
+        mask = np.zeros(dimension,dtype=np.float32); mask[tuple(pixels)]=weights
+        return WeightedROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
+    else:
+        mask = np.zeros(dimension,dtype=np.uint8); mask[tuple(pixels)]=1
+        return ROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
+
+
+def load_STRF_From_H5(h5Group):
+    '''
+    load SpatialTemporalReceptiveField object from a hdf5 data group
+    '''
+
+    time = h5Group.attrs['time']
+    try:name = h5Group.parent.name[1:]+'.'+h5Group.parent.attrs['name']
+    except KeyError: name=None
+    locationUnit = h5Group.attrs['retinotopic_location_unit']
+    locations = []
+    signs = []
+    traces = []
+    for key, traceItem in h5Group.iteritems():
+        locations.append(np.array([traceItem.attrs['altitude'],traceItem.attrs['azimuth']]))
+        signs.append((traceItem.attrs['sign']))
+        traces.append(list(traceItem.value))
+
+    return SpatialTemporalReceptiveField(locations,signs,traces,time,name,locationUnit)
+
+
+def getSparseNoiseOnsetIndex(sparseNoiseDisplayLog):
     '''
     return the indices of visual display frames for each square in a sparse noise display
 
@@ -48,7 +90,7 @@ def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
     return allOnsetInd, onsetIndWithLocationSign
 
 
-def get_peak_weighted_roi(arr, thr):
+def getPeakWeightedROI(arr, thr):
     '''
     return: a WeightROI object representing the mask which contains the peak of arr and cut by the threshold (thr)
     '''
@@ -58,10 +100,10 @@ def get_peak_weighted_roi(arr, thr):
     peakCoor = np.array(np.where(arr2==np.amax(arr2))).transpose()[0]
     peakMask = ia.get_marked_masks(labeled, peakCoor)
     if peakMask is None: 'Threshold too high! No ROI found. Returning None'; return None
-    else: return WeightedROI(arr2 * peakMask)
+    else: return WeightedROI(arr2*peakMask)
 
 
-def plot_2d_receptive_field(mapArray, altPos, aziPos, plotAxis=None, **kwargs):
+def plot2DReceptiveField(mapArray,altPos,aziPos,plotAxis=None,**kwargs):
     '''
     plot a 2-d receptive field in a given axis
 
@@ -82,7 +124,7 @@ def plot_2d_receptive_field(mapArray, altPos, aziPos, plotAxis=None, **kwargs):
     return fig
 
 
-def merge_weighted_rois(roi1, roi2):
+def mergeWeightedROIs(roi1,roi2):
     '''
     merge two WeightedROI objects, most useful for merge ON and OFF subfields
     '''
@@ -92,12 +134,12 @@ def merge_weighted_rois(roi1, roi2):
     if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
         raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
 
-    mask1 = roi1.get_weighted_mask(); mask2 = roi2.get_weighted_mask()
+    mask1 = roi1.getWeightedMask(); mask2 = roi2.getWeightedMask()
 
-    return WeightedROI(mask1 + mask2, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
+    return WeightedROI(mask1+mask2,pixelSize=[roi1.pixelSizeY,roi1.pixelSizeX],pixelSizeUnit=roi1.pixelSizeUnit)
 
 
-def merge_binary_rois(roi1, roi2):
+def mergeBinaryROIs(roi1,roi2):
     '''
     merge two ROI objects, most useful for merge ON and OFF subfields
     '''
@@ -107,9 +149,183 @@ def merge_binary_rois(roi1, roi2):
     if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
         raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
 
-    mask1 = roi1.get_binary_mask(); mask2 = roi2.get_binary_mask(); mask3 = np.logical_or(mask1, mask2).astype(np.int8)
+    mask1 = roi1.getBinaryMask(); mask2 = roi2.getBinaryMask(); mask3 = np.logical_or(mask1,mask2).astype(np.int8)
 
-    return ROI(mask3, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
+    return ROI(mask3,pixelSize=[roi1.pixelSizeY,roi1.pixelSizeX],pixelSizeUnit=roi1.pixelSizeUnit)
+
+
+
+class ROI(object):
+    '''
+    class of binary ROI
+    '''
+
+    def __init__(self, mask, pixelSize = None, pixelSizeUnit = None):
+        '''
+        :param mask: 2-d array, if not binary, non-zero and non-nan pixel will be included in mask,
+                     zero-pixel will be considered as background
+        :param pixelSize: float, can be None, one value (square pixel) or (width, height) for non-square pixel
+        :param pixelSizeUnit: str, the unit of pixel size
+        '''
+
+        if len(mask.shape)!=2: raise ValueError, 'Input mask should be 2d.'
+
+        self.dimension = mask.shape
+        self.pixels = np.where(np.logical_and(mask!=0, ~np.isnan(mask)))
+
+        if pixelSize is None: self.pixelSizeX = self.pixelSizeY = pixelSize
+        elif (not hasattr(pixelSize, '__len__')): self.pixelSizeX = self.pixelSizeY = pixelSize
+        elif len(pixelSize)==2: self.pixelSizeY = pixelSize[0]; self.pixelSizeX = pixelSize[1]
+        else: raise LookupError, 'pixel size should be either None or scalar or list(array) of two sclars!!'
+
+        if pixelSize is None: self.pixelSizeUnit=None
+        else: self.pixelSizeUnit = pixelSizeUnit
+
+
+    def getBinaryMask(self):
+        '''
+        generate binary mask of the ROI, return 2d array, with 0s and 1s, dtype np.uint8
+        '''
+        mask = np.zeros(self.dimension,dtype=np.uint8)
+        mask[self.pixels] = 1
+        return mask
+
+
+    def getNanMask(self):
+        '''
+        generate float mask of the ROI, return 2d array, with nans and 1s, dtype np.float32
+        '''
+        mask = np.zeros(self.dimension,dtype=np.float32)
+        mask[:] = np.nan
+        mask[self.pixels] = 1
+        return mask
+
+
+    def getPixelArea(self):
+        '''
+        return the area coverage of the ROI
+        '''
+
+        if (self.pixelSizeX is not None) and (self.pixelSizeX is not None):
+            print 'returning area with unit:' + self.pixelSizeUnit + '^2'
+            return float(len(self.pixels[0]))*self.pixelSizeX*self.pixelSizeY
+        else:
+            print 'returning area as pixel counts without unit.'
+            return len(self.pixels[0])
+
+
+    def getCenter(self):
+        '''
+        return the center coordinates [Y, X] of the centroid of the mask
+        '''
+        return np.mean(np.array(self.pixels,dtype=np.float).transpose(),axis=0)
+
+
+    def getBinaryTrace(self,mov):
+        '''
+        return trace of this ROI (binary format, 0s and 1s) in a given movie
+        '''
+        binaryMask = self.getBinaryMask()
+        trace = np.multiply(mov,np.array([binaryMask])).sum(axis=1).sum(axis=1)
+        return trace
+
+
+    def plotBinaryMask(self,plotAxis=None,color='#ff0000',alpha=1):
+        '''
+        return display image (RGBA uint8 format) which can be plotted by plt.imshow, alpha: transparency 0-1
+        '''
+        mask = self.getBinaryMask()
+        displayImg = pt.binary2RGBA(mask,foregroundColor=color,backgroundColor='#000000',foregroundAlpha=int(alpha*255),backgroundAlpha=0)
+        if plotAxis is None: f=plt.figure();plotAxis=f.add_subplot(111);plotAxis.imshow(displayImg,interpolation='nearest')
+        return displayImg
+
+
+    def plotBinaryMaskBorder(self,**kwargs):
+        pt.plotMaskBorders(self.getNanMask(),**kwargs)
+
+
+    def toH5Group(self, h5Group):
+        '''
+        add attributes and dataset to a h5 data group
+        '''
+        h5Group.attrs['dimension'] = self.dimension
+        if self.pixelSizeX is None: h5Group.attrs['pixelSize'] = 'None'
+        else: h5Group.attrs['pixelSize'] = [self.pixelSizeY, self.pixelSizeX]
+        if self.pixelSizeUnit is None: h5Group.attrs['pixelSizeUnit'] = 'None'
+        else: h5Group.attrs['pixelSizeUnit'] = self.pixelSizeUnit
+
+        dataDict = dict(self.__dict__)
+        _ = dataDict.pop('dimension');_ = dataDict.pop('pixelSizeX');_ = dataDict.pop('pixelSizeY');_ = dataDict.pop('pixelSizeUnit')
+        for key, value in dataDict.iteritems():
+            if value is None: h5Group.create_dataset(key,data='None')
+            else: h5Group.create_dataset(key,data=value)
+
+
+
+class WeightedROI(ROI):
+
+    def __init__(self, mask, pixelSize = None, pixelSizeUnit = None):
+        super(WeightedROI,self).__init__(mask, pixelSize = pixelSize, pixelSizeUnit = pixelSizeUnit)
+        self.weights = mask[self.pixels]
+
+
+    def getWeightedMask(self):
+        mask = np.zeros(self.dimension,dtype=np.float32)
+        mask[self.pixels] = self.weights
+        return mask
+
+
+    def getWeightedNanMask(self):
+        mask = np.zeros(self.dimension,dtype=np.float32)
+        mask[:]=np.nan
+        mask[self.pixels] = self.weights
+        return mask
+
+
+    def getWeightedCenter(self):
+        pixelCor = np.array(self.pixels,dtype=np.float)
+        center = np.sum(np.multiply(pixelCor,np.array(self.weights)),axis=1)/np.sum(self.weights)
+        return center
+
+
+    def getWeightedCenterInCoordinate(self,yCor,xCor):
+        '''
+        return weighted center of the ROI in the coordinate system defined by np.meshgrid(xCor, yCor)
+        '''
+        weightMask = self.getWeightedMask()
+        xMap, yMap = np.meshgrid(xCor, yCor)
+        xCenter = np.sum((xMap*weightMask).flatten())/np.sum(weightMask.flatten())
+        yCenter = np.sum((yMap*weightMask).flatten())/np.sum(weightMask.flatten())
+        return [yCenter, xCenter]
+
+
+    def getWeightedTrace(self, mov):
+        '''
+        return trace of this ROI (weighted format) in a given movie
+        '''
+        mask = self.generateWeightedMask()
+        trace = np.multiply(mov,np.array([mask])).sum(axis=1).sum(axis=1)
+        return trace
+
+
+    def plotWeightedMask(self,plotAxis=None,color='#ff0000'):
+        '''
+        return display image (RGBA uint8 format) which can be plotted by plt.imshow
+        '''
+        mask = self.getWeightedMask()
+        displayImg = pt.scalar2RGBA(mask,color=color)
+        if plotAxis is None: f=plt.figure(); plotAxis=f.add_subplot(111); plotAxis.imshow(displayImg,interpolation='nearest')
+        return displayImg
+
+
+    def getWeightedTrace(self,mov):
+        '''
+        return trace of this ROI in a given movie
+        '''
+        weightedMask = self.getWeightedMask()
+        trace = np.multiply(mov,np.array([weightedMask])).sum(axis=1).sum(axis=1)
+        return trace
+
 
 
 class SpatialReceptiveField(WeightedROI):
@@ -133,7 +349,7 @@ class SpatialReceptiveField(WeightedROI):
         else: self.threshold = None
 
 
-    def threshold_receptive_field(self, thr):
+    def thresholdReceptiveField(self, thr):
 
         '''
         threshold the current receptive field, return a new SpatialReceptiveField object after thresholding
@@ -141,10 +357,10 @@ class SpatialReceptiveField(WeightedROI):
 
         if (self.threshold is not None) and (thr<self.threshold):
             raise ValueError, 'Can not cut a thresholded receptive field with a lower thresold!'
-        cutRF = get_peak_weighted_roi(self.get_weighted_mask(), thr)
+        cutRF = getPeakWeightedROI(self.getWeightedMask(),thr)
         if cutRF is None: raise LookupError, 'No ROI found. Threshold too high!'
 
-        return SpatialReceptiveField(cutRF.get_weighted_mask(), self.sign, self.temporalWindow, self.pixelSizeUnit, self.dataType, isThresholded=True, threshold=thr)
+        return SpatialReceptiveField(cutRF.getWeightedMask(),self.sign,self.temporalWindow,self.pixelSizeUnit,self.dataType,isThresholded=True, threshold=thr)
 
 
     def interpolate(self, ratio, method='cubic',fill_value=0.):
@@ -152,7 +368,7 @@ class SpatialReceptiveField(WeightedROI):
         altInterpolation = ip.interp1d(np.arange(len(self.altPos)),self.altPos); aziInterpolation = ip.interp1d(np.arange(len(self.aziPos)),self.aziPos)
         newAltPos = altInterpolation(np.arange(0,len(self.altPos)-1,1./int(ratio)))
         newAziPos = aziInterpolation(np.arange(0,len(self.aziPos)-1,1./int(ratio)))
-        mask = self.get_weighted_mask(); aziGrid, altGrid=np.meshgrid(self.aziPos, self.altPos)
+        mask = self.getWeightedMask(); aziGrid,altGrid=np.meshgrid(self.aziPos,self.altPos)
         newAziGrid, newAltGrid = np.meshgrid(newAziPos,newAltPos)
         newMask = ip.griddata(np.array([aziGrid.flatten(),altGrid.flatten()]).transpose(),
                               mask.flatten(),
@@ -185,27 +401,27 @@ class SpatialTemporalReceptiveField(object):
         if not values: raise ValueError, 'Can not find input traces!'
 
         self.data = np.array(values,dtype=dtype)
-        self.sort_data()
+        self.sortData()
 
 
-    def merge_duplication(self):
+    def mergeDuplication(self):
         #todo: merge traces with same retinotopic loacation
         pass
 
 
-    def sort_data(self):
+    def sortData(self):
         self.data = np.sort(self.data,order=['sign','altitude','azimuth'])
 
 
-    def get_data_type(self):
+    def getDataType(self):
         return self.data.dtype
 
 
-    def get_locations(self):
+    def getLocations(self):
         return list(np.array([self.data['altitude'],self.data['azimuth'],self.data['sign']]).transpose())
 
 
-    def add_traces(self, locations, signs, traces):
+    def addTraces(self,locations,signs,traces):
 
         '''
         add traces to existing receptive field
@@ -218,7 +434,7 @@ class SpatialTemporalReceptiveField(object):
 
         locations = [np.array([x[0],x[1],x[2]]) for x in values]
 
-        objLocations = self.get_locations()
+        objLocations = self.getLocations()
 
         traceTuplesNeedToBeAdded = []
 
@@ -239,10 +455,10 @@ class SpatialTemporalReceptiveField(object):
         if traceTuplesNeedToBeAdded:
             self.data = np.concatenate((self.data,np.array(traceTuplesNeedToBeAdded,dtype=dtype)),axis=0)
 
-        self.sort_data()
+        self.sortData()
 
 
-    def to_h5_Group(self, h5Group):
+    def toH5Group(self, h5Group):
 
         h5Group.attrs['time'] = self.time
         h5Group.attrs['time_unit'] = 'second'
@@ -260,9 +476,9 @@ class SpatialTemporalReceptiveField(object):
             trace.attrs['sign'] = self.data[i]['sign']
 
 
-    def plot_traces(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None, **kwargs):
+    def plotTraces(self,f=None,figSize=(10,10),yRange=(0,20),altRange=None,aziRange=None,**kwargs):
 
-        indexLists, axisLists = self._get_axis_layout(f, figSize, yRange, altRange, aziRange, **kwargs)
+        indexLists, axisLists = self._getAxisLayout(f,figSize,yRange,altRange,aziRange,**kwargs)
 
         for i, axisList in enumerate(axisLists):
             for j, axis in enumerate(axisList):
@@ -287,9 +503,9 @@ class SpatialTemporalReceptiveField(object):
         return f
 
 
-    def _get_axis_layout(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None, **kwargs):
+    def _getAxisLayout(self,f=None,figSize=(10,10),yRange=(0,20),altRange=None,aziRange=None,**kwargs):
 
-        locations = np.array(self.get_locations())
+        locations = np.array(self.getLocations())
 
         altPositions = np.sort(np.unique(locations[:,0]))[::-1]
         if altRange is not None: altPositions = np.array([x for x in altPositions if (x>=altRange[0] and x<=altRange[1])])
@@ -302,7 +518,7 @@ class SpatialTemporalReceptiveField(object):
         if f is None: f=plt.figure(figsize=figSize)
         f.suptitle('cell:'+str(self.name)+'; xrange:['+str(self.time[0])[0:6]+','+str(self.time[-1])[0:6]+']; yrange:'+str(yRange))
 
-        axisLists = pt.tile_axis(f, len(altPositions), len(aziPositions), **kwargs)
+        axisLists = pt.tileAxis(f,len(altPositions),len(aziPositions),**kwargs)
 
         for i, altPosition in enumerate(altPositions):
             for j, aziPosition in enumerate(aziPositions):
@@ -318,7 +534,7 @@ class SpatialTemporalReceptiveField(object):
         return indexLists, axisLists
 
 
-    def get_amplitude_map(self, timeWindow=(0, 0.5)):
+    def getAmplitudeMap(self,timeWindow=(0,0.5)):
         '''
         return 2d receptive field map and altitude and azimuth coordinates
         each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
@@ -327,7 +543,7 @@ class SpatialTemporalReceptiveField(object):
 
         windowIndex = np.logical_and(self.time>=timeWindow[0], self.time<=timeWindow[1])
 
-        indON,indOFF,allAltPos,allAziPos = self._sort_index()
+        indON,indOFF,allAltPos,allAziPos = self._sortIndex()
 
         ampON = np.zeros(indON.shape); ampON[:]=np.nan; ampOFF = ampON.copy()
 
@@ -339,15 +555,15 @@ class SpatialTemporalReceptiveField(object):
         return ampON, ampOFF, allAltPos, allAziPos
 
 
-    def get_amplitude_receptive_field(self, timeWindow=(0, 0.5)):
+    def getAmplitudeReceptiveField(self,timeWindow=(0,0.5)):
         '''
-        very similar to get_amplitude_map(), only difference is that, it is returning spatial temporal receptive fields
+        very similar to getAmplitudeMap(), only difference is that, it is returning spatial temporal receptive fields
         instead of 2d matrix
         each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
         '''
 
-        ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
+        ampON, ampOFF, allAltPos, allAziPos = self.getAmplitudeMap(timeWindow)
 
         ampRFON = SpatialReceptiveField(ampON,allAltPos,allAziPos,sign=1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='amplitude')
         ampRFOFF = SpatialReceptiveField(ampOFF,allAltPos,allAziPos,sign=-1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='amplitude')
@@ -355,26 +571,26 @@ class SpatialTemporalReceptiveField(object):
         return ampRFON, ampRFOFF
 
 
-    def get_zscore_map(self, timeWindow=(0, 0.5)):
+    def getZscoreMap(self,timeWindow=(0,0.5)):
         '''
         return 2d receptive field and altitude and azimuth coordinates
         each pixel in the map represent Z score of mean amplitute of traces within the window defined by timeWindow
         '''
 
-        ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
+        ampON, ampOFF, allAltPos, allAziPos = self.getAmplitudeMap(timeWindow)
 
         return ia.zscore(ampON), ia.zscore(ampOFF), allAltPos, allAziPos
 
 
-    def get_zscore_receptive_field(self, timeWindow=(0, 0.5)):
+    def getZscoreReceptiveField(self,timeWindow=(0,0.5)):
         '''
-        very similar to get_zscore_map(), only difference is that, it is returning spatial temporal receptive fields
+        very similar to getZscoreMap(), only difference is that, it is returning spatial temporal receptive fields
         instead of 2d matrix
         each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
         '''
 
-        ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
+        ampON, ampOFF, allAltPos, allAziPos = self.getAmplitudeMap(timeWindow)
 
         zscoreRFON = SpatialReceptiveField(ia.zscore(ampON),allAltPos,allAziPos,sign=1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='zscore')
         zscoreRFOFF = SpatialReceptiveField(ia.zscore(ampOFF),allAltPos,allAziPos,sign=-1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='zscore')
@@ -382,7 +598,7 @@ class SpatialTemporalReceptiveField(object):
         return zscoreRFON, zscoreRFOFF
 
 
-    def get_zscore_rois(self, timeWindow=(0, 0.5), zscoreThr=2):
+    def getZscoreROIs(self,timeWindow=(0,0.5),zscoreThr=2):
         '''
         return ON, OFF and combined receptive field rois in the format of WeightedROI object
 
@@ -393,11 +609,11 @@ class SpatialTemporalReceptiveField(object):
         The sampled altitude positions and azimuth positions are also returned. The receptive field space coordinates
         were defined as np.meshgrid(allAziPos, allAltPos)
         '''
-        zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(timeWindow)
-        zscoreROION = get_peak_weighted_roi(zscoreON, zscoreThr)
-        zscoreROIOFF = get_peak_weighted_roi(zscoreOFF, zscoreThr)
+        zscoreON, zscoreOFF, allAltPos, allAziPos = self.getZscoreMap(timeWindow)
+        zscoreROION = getPeakWeightedROI(zscoreON,zscoreThr)
+        zscoreROIOFF = getPeakWeightedROI(zscoreOFF,zscoreThr)
         if zscoreON is not None and zscoreROIOFF is not None:
-            zscoreROIALL = WeightedROI(zscoreROION.get_weighted_mask() + zscoreROIOFF.get_weighted_mask())
+            zscoreROIALL = WeightedROI(zscoreROION.getWeightedMask()+zscoreROIOFF.getWeightedMask())
         elif zscoreROION is None and zscoreROIOFF is not None:
             zscoreROIALL = zscoreROIOFF
         elif zscoreROION is not None and zscoreROIOFF is None:
@@ -407,24 +623,24 @@ class SpatialTemporalReceptiveField(object):
         return zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos
 
 
-    def get_zscore_roi_centers(self, timeWindow=(0, 0.5), zscoreThr=2):
+    def getZscoreROICenters(self,timeWindow=(0,0.5),zscoreThr=2):
         '''
         return retinotopic location of ON subfield, OFF subfield and combined receptive field
 
-        zscore ROIs was generated by the method get_zscore_rois()
+        zscore ROIs was generated by the method getZscoreROIs()
         '''
-        zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos = self.get_zscore_rois(timeWindow, zscoreThr)
-        if zscoreROION is not None: centerON = zscoreROION.get_weighted_center_in_coordinate(allAltPos, allAziPos)
+        zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos = self.getZscoreROIs(timeWindow,zscoreThr)
+        if zscoreROION is not None: centerON = zscoreROION.getWeightedCenterInCoordinate(allAltPos,allAziPos)
         else: centerON = None
 
-        if zscoreROIOFF is not None: centerOFF = zscoreROIOFF.get_weighted_center_in_coordinate(allAltPos, allAziPos)
+        if zscoreROIOFF is not None: centerOFF = zscoreROIOFF.getWeightedCenterInCoordinate(allAltPos,allAziPos)
         else: centerOFF = None
 
-        centerALL = zscoreROIALL.get_weighted_center_in_coordinate(allAltPos, allAziPos)
+        centerALL = zscoreROIALL.getWeightedCenterInCoordinate(allAltPos,allAziPos)
         return centerON, centerOFF, centerALL
 
 
-    def _sort_index(self):
+    def _sortIndex(self):
         '''
         return ON and OFF index matrices for all combination of sampled retinotopic locations along with retinotopic
         coordinates, the retinotopic visual was defined by np.meshgrid(allAziPos, allAltPos)
@@ -467,26 +683,6 @@ class SpatialTemporalReceptiveField(object):
         ind = np.logical_and(indAlt,indAzi)
         self.data = self.data[ind]
 
-    @staticmethod
-    def from_h5_group(h5Group):
-        '''
-        load SpatialTemporalReceptiveField object from a hdf5 data group
-        '''
-
-        time = h5Group.attrs['time']
-        try:name = h5Group.parent.name[1:]+'.'+h5Group.parent.attrs['name']
-        except KeyError: name=None
-        locationUnit = h5Group.attrs['retinotopic_location_unit']
-        locations = []
-        signs = []
-        traces = []
-        for key, traceItem in h5Group.iteritems():
-            locations.append(np.array([traceItem.attrs['altitude'],traceItem.attrs['azimuth']]))
-            signs.append((traceItem.attrs['sign']))
-            traces.append(list(traceItem.value))
-
-        return SpatialTemporalReceptiveField(locations,signs,traces,time,name,locationUnit)
-
 
 
 
@@ -509,35 +705,35 @@ if __name__=='__main__':
     #=====================================================================
     # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
     # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
-    # ampRFON, ampRFOFF = STRF.get_amplitude_receptive_field()
+    # ampRFON, ampRFOFF = STRF.getAmplitudeReceptiveField()
     #
     # print ampRFON.sign
-    # print ampRFOFF.get_weighted_mask()[7,9]
+    # print ampRFOFF.getWeightedMask()[7,9]
     #
-    # plt.imshow(ampRFON.get_weighted_mask(),interpolation='nearest')
+    # plt.imshow(ampRFON.getWeightedMask(),interpolation='nearest')
     # plt.show()
     #=====================================================================
 
     #=====================================================================
     # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
     # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
-    # zscoreRFON, zscoreRFOFF = STRF.get_zscore_receptive_field()
+    # zscoreRFON, zscoreRFOFF = STRF.getZscoreReceptiveField()
     #
     # print zscoreRFON.sign
-    # print zscoreRFOFF.get_weighted_mask()[7,9]
+    # print zscoreRFOFF.getWeightedMask()[7,9]
     #
-    # plt.imshow(zscoreRFON.get_weighted_mask(),interpolation='nearest')
+    # plt.imshow(zscoreRFON.getWeightedMask(),interpolation='nearest')
     # plt.show()
     #=====================================================================
 
     #=====================================================================
     # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
     # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
-    # zscoreRFON, zscoreRFOFF = STRF.get_amplitude_receptive_field()
+    # zscoreRFON, zscoreRFOFF = STRF.getAmplitudeReceptiveField()
     #
     # zscoreRFON.interpolate(10)
     #
-    # plt.imshow(zscoreRFON.get_weighted_mask(),interpolation='nearest')
+    # plt.imshow(zscoreRFON.getWeightedMask(),interpolation='nearest')
     # plt.show()
     #=====================================================================
 
@@ -545,9 +741,9 @@ if __name__=='__main__':
     # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
     # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
     # STRF.shrink([-10,10],None)
-    # print np.unique(np.array(STRF.get_locations())[:,0])
+    # print np.unique(np.array(STRF.getLocations())[:,0])
     # STRF.shrink(None,[0,20])
-    # print np.unique(np.array(STRF.get_locations())[:,1])
+    # print np.unique(np.array(STRF.getLocations())[:,1])
     #=====================================================================
 
 

@@ -1,12 +1,10 @@
-
-
 __author__ = 'junz'
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import interpolate
 import scipy.ndimage as ni
-from matplotlib import cm, pyplot, pyplot
+from matplotlib import cm
 import matplotlib.colors as col
 import skimage.morphology as sm
 import FileTools as ft
@@ -15,7 +13,6 @@ except ImportError as e: print e
 try: from toolbox.misc import BinarySlicer
 except ImportError as e: print e
 
-from corticalmapping.core import PlottingTools as pt
 
 def resample(t1,y1,interval,kind='linear', isPlot = False):
 
@@ -596,7 +593,7 @@ def generate_rectangle_mask(shape, center, width, height, isplot = False):
 
     if isplot == True:
         f = plt.figure(); ax = f.add_subplot(111)
-        pt.plot_mask_borders(mask, plotAxis=ax)
+        plot_mask(mask, plotAxis=ax)
 
     return mask
 
@@ -619,7 +616,7 @@ def generate_oval_mask(shape, center, width, height, isplot = False):
 
     if isplot == True:
         f = plt.figure(); ax = f.add_subplot(111)
-        pt.plot_mask_borders(mask, plotAxis=ax)
+        plot_mask(mask, plotAxis=ax)
 
     return mask
 
@@ -929,6 +926,41 @@ def is_adjacent(array1, array2, borderWidth = 2):
         return False
 
 
+def plot_mask(mask, plotAxis=None, color='#ff0000', zoom=1, borderWidth = None, closingIteration = None):
+    '''
+    plot mask borders in a given color
+    '''
+
+    if not plotAxis:
+        f = plt.figure()
+        plotAxis = f.add_subplot(111)
+
+    cmap1 = col.ListedColormap(color, 'temp')
+    cm.register_cmap(cmap=cmap1)
+
+    if zoom != 1:
+        mask = ni.interpolation.zoom(mask,zoom,order=0)
+
+    mask2 = mask.astype(np.float32)
+    mask2[np.invert(np.isnan(mask2))]= 1.
+    mask2[np.isnan(mask2)] = 0.
+
+    struc = ni.generate_binary_structure(2, 2)
+    if borderWidth:
+        border=mask2 - ni.binary_erosion(mask2,struc,iterations=borderWidth).astype(np.float32)
+    else:
+        border=mask2 - ni.binary_erosion(mask2,struc).astype(np.float32)
+
+    if closingIteration:
+        border = ni.binary_closing(border,iterations=closingIteration).astype(np.float32)
+
+    border[border==0] = np.nan
+
+    currfig = plotAxis.imshow(border, cmap = 'temp', interpolation='nearest')
+
+    return currfig
+
+
 def remove_small_patches(mask, areaThr=100, structure=[[1, 1, 1], [1, 1, 1], [1, 1, 1]]):
     '''
     remove small isolated patches
@@ -1146,7 +1178,6 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur):
 
     for onset in onsetTimes:
         onsetFrameInd = np.argmin(np.abs(frameTS-onset))
-
         print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
 
         if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
@@ -1154,196 +1185,10 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur):
             sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
             n += 1.
         else:
-            print 'Ending frame index ('+str(onsetFrameInd+chunkFrameDur)+') is larger than the number of frames in movie ('+str(mov.shape[0])+').\nExclude this trigger.'
+            print 'Ending frame index ('+int(onsetFrameInd+chunkFrameDur)+') is larger than frames in movie ('+int(mov.shape[0])+'.\nExclude this trigger.'
             continue
 
     return sumMov.astype(np.float32) / n
-
-
-class ROI(object):
-    '''
-    class of binary ROI
-    '''
-
-    def __init__(self, mask, pixelSize = None, pixelSizeUnit = None):
-        '''
-        :param mask: 2-d array, if not binary, non-zero and non-nan pixel will be included in mask,
-                     zero-pixel will be considered as background
-        :param pixelSize: float, can be None, one value (square pixel) or (width, height) for non-square pixel
-        :param pixelSizeUnit: str, the unit of pixel size
-        '''
-
-        if len(mask.shape)!=2: raise ValueError, 'Input mask should be 2d.'
-
-        self.dimension = mask.shape
-        self.pixels = np.where(np.logical_and(mask!=0, ~np.isnan(mask)))
-
-        if pixelSize is None: self.pixelSizeX = self.pixelSizeY = pixelSize
-        elif (not hasattr(pixelSize, '__len__')): self.pixelSizeX = self.pixelSizeY = pixelSize
-        elif len(pixelSize)==2: self.pixelSizeY = pixelSize[0]; self.pixelSizeX = pixelSize[1]
-        else: raise LookupError, 'pixel size should be either None or scalar or list(array) of two sclars!!'
-
-        if pixelSize is None: self.pixelSizeUnit=None
-        else: self.pixelSizeUnit = pixelSizeUnit
-
-    def get_indices(self):
-        '''
-        :return: index list of the pixels in the ROI
-        '''
-        return self.pixels
-
-    def get_binary_mask(self):
-        '''
-        generate binary mask of the ROI, return 2d array, with 0s and 1s, dtype np.uint8
-        '''
-        mask = np.zeros(self.dimension,dtype=np.uint8)
-        mask[self.pixels] = 1
-        return mask
-
-    def get_nan_mask(self):
-        '''
-        generate float mask of the ROI, return 2d array, with nans and 1s, dtype np.float32
-        '''
-        mask = np.zeros(self.dimension,dtype=np.float32)
-        mask[:] = np.nan
-        mask[self.pixels] = 1
-        return mask
-
-    def get_pixel_area(self):
-        '''
-        return the area coverage of the ROI
-        '''
-
-        if (self.pixelSizeX is not None) and (self.pixelSizeX is not None):
-            print 'returning area with unit:' + self.pixelSizeUnit + '^2'
-            return float(len(self.pixels[0]))*self.pixelSizeX*self.pixelSizeY
-        else:
-            print 'returning area as pixel counts without unit.'
-            return len(self.pixels[0])
-
-    def get_center(self):
-        '''
-        return the center coordinates [Y, X] of the centroid of the mask
-        '''
-        return np.mean(np.array(self.pixels,dtype=np.float).transpose(),axis=0)
-
-    def get_binary_trace(self, mov):
-        '''
-        return trace of this ROI (binary format, 0s and 1s) in a given movie
-        '''
-        binaryMask = self.get_binary_mask()
-        trace = np.multiply(mov,np.array([binaryMask])).sum(axis=1).sum(axis=1)
-        return trace
-
-    def plot_binary_mask(self, plotAxis=None, color='#ff0000', alpha=1):
-        '''
-        return display image (RGBA uint8 format) which can be plotted by plt.imshow, alpha: transparency 0-1
-        '''
-        mask = self.get_binary_mask()
-        displayImg = pt.binary_2_rgba(mask, foregroundColor=color, backgroundColor='#000000', foregroundAlpha=int(alpha * 255), backgroundAlpha=0)
-        if plotAxis is None: f=plt.figure();plotAxis=f.add_subplot(111);plotAxis.imshow(displayImg,interpolation='nearest')
-        return displayImg
-
-    def plot_binary_mask_border(self, **kwargs):
-        pt.plot_mask_borders(self.get_nan_mask(), **kwargs)
-
-    def to_h5_group(self, h5Group):
-        '''
-        add attributes and dataset to a h5 data group
-        '''
-        h5Group.attrs['dimension'] = self.dimension
-        if self.pixelSizeX is None: h5Group.attrs['pixelSize'] = 'None'
-        else: h5Group.attrs['pixelSize'] = [self.pixelSizeY, self.pixelSizeX]
-        if self.pixelSizeUnit is None: h5Group.attrs['pixelSizeUnit'] = 'None'
-        else: h5Group.attrs['pixelSizeUnit'] = self.pixelSizeUnit
-
-        dataDict = dict(self.__dict__)
-        _ = dataDict.pop('dimension');_ = dataDict.pop('pixelSizeX');_ = dataDict.pop('pixelSizeY');_ = dataDict.pop('pixelSizeUnit')
-        for key, value in dataDict.iteritems():
-            if value is None: h5Group.create_dataset(key,data='None')
-            else: h5Group.create_dataset(key,data=value)
-
-    @staticmethod
-    def from_h5_group(h5Group):
-        '''
-        load ROI (either ROI or WeightedROI) object from a hdf5 data group
-        '''
-
-        dimension = h5Group.attrs['dimension']
-        pixelSize = h5Group.attrs['pixelSize']
-        if pixelSize == 'None': pixelSize = None
-        pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
-        if pixelSizeUnit == 'None': pixelSizeUnit = None
-        pixels = h5Group['pixels'].value
-
-        mask = np.zeros(dimension,dtype=np.uint8); mask[tuple(pixels)]=1
-        return ROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
-
-
-class WeightedROI(ROI):
-
-    def __init__(self, mask, pixelSize = None, pixelSizeUnit = None):
-        super(WeightedROI,self).__init__(mask, pixelSize = pixelSize, pixelSizeUnit = pixelSizeUnit)
-        self.weights = mask[self.pixels]
-
-    def get_weighted_mask(self):
-        mask = np.zeros(self.dimension,dtype=np.float32)
-        mask[self.pixels] = self.weights
-        return mask
-
-    def get_weighted_nan_mask(self):
-        mask = np.zeros(self.dimension,dtype=np.float32)
-        mask[:]=np.nan
-        mask[self.pixels] = self.weights
-        return mask
-
-    def get_weighted_center(self):
-        pixelCor = np.array(self.pixels,dtype=np.float)
-        center = np.sum(np.multiply(pixelCor,np.array(self.weights)),axis=1)/np.sum(self.weights)
-        return center
-
-    def get_weighted_center_in_coordinate(self, yCor, xCor):
-        '''
-        return weighted center of the ROI in the coordinate system defined by np.meshgrid(xCor, yCor)
-        '''
-        weightMask = self.get_weighted_mask()
-        xMap, yMap = np.meshgrid(xCor, yCor)
-        xCenter = np.sum((xMap*weightMask).flatten())/np.sum(weightMask.flatten())
-        yCenter = np.sum((yMap*weightMask).flatten())/np.sum(weightMask.flatten())
-        return [yCenter, xCenter]
-
-    def get_weighted_trace(self, mov):
-        '''
-        return trace of this ROI (weighted format) in a given movie
-        '''
-        mask = self.get_weighted_mask()
-        trace = np.multiply(mov,np.array([mask])).sum(axis=1).sum(axis=1)
-        return trace
-
-    def plot_weighted_mask(self, plotAxis=None, color='#ff0000'):
-        '''
-        return display image (RGBA uint8 format) which can be plotted by plt.imshow
-        '''
-        mask = self.get_weighted_mask()
-        displayImg = pt.scalar_2_rgba(mask, color=color)
-        if plotAxis is None: f=plt.figure(); plotAxis=f.add_subplot(111); plotAxis.imshow(displayImg,interpolation='nearest')
-        return displayImg
-
-    @staticmethod
-    def from_h5_group(h5Group):
-        '''
-        load WeightedROI (either ROI or WeightedROI) object from a hdf5 data group
-        '''
-
-        dimension = h5Group.attrs['dimension']
-        pixelSize = h5Group.attrs['pixelSize']
-        if pixelSize == 'None': pixelSize = None
-        pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
-        if pixelSizeUnit == 'None': pixelSizeUnit = None
-        pixels = h5Group['pixels'].value
-        weights = h5Group['weights'].value
-        mask = np.zeros(dimension,dtype=np.float32); mask[tuple(pixels)]=weights
-        return WeightedROI(mask,pixelSize=pixelSize,pixelSizeUnit=pixelSizeUnit)
 
 
 if __name__ == '__main__':
@@ -1440,5 +1285,8 @@ if __name__ == '__main__':
     #============================================================
 
     print 'for debug'
+
+
+
 
 

@@ -186,22 +186,22 @@ class AppForm(QMainWindow):
                 if filePath[-3:] == 'pkl': # mapping dictionary pkl file
 
                     self.trialDict = ft.loadFile(filePath)
-                    self.ReferenceVasMap = pt.merge_normalized_images([self.trialDict['vasculatureMap']])
+                    self.ReferenceVasMap = pt.mergeNormalizedImages([self.trialDict['vasculatureMap']])
                     self.textbrowser_RPath.setText(filePath)
 
                 elif filePath[-3:] == 'tif': # tiff file
-                    self.ReferenceVasMap = pt.merge_normalized_images([tf.imread(filePath)])
+                    self.ReferenceVasMap = pt.mergeNormalizedImages([tf.imread(filePath)])
                     self.textbrowser_RPath.setText(filePath)
 
                 else: # Raw binary file
                     fileFolder,fileName = os.path.split(filePath)
                     if 'JCamF' in fileName:
                         currMap, _, _= ft.importRawJCamF(filePath,column=1024,row=1024)
-                        self.ReferenceVasMap = pt.merge_normalized_images([currMap[0]])
+                        self.ReferenceVasMap = pt.mergeNormalizedImages([currMap[0]])
                         self.textbrowser_RPath.setText(filePath)
                     elif 'JCam' in fileName:
                         currMap, _ = ft.importRawJCam(filePath)
-                        self.ReferenceVasMap = pt.merge_normalized_images([currMap[0]])
+                        self.ReferenceVasMap = pt.mergeNormalizedImages([currMap[0]])
                         self.textbrowser_RPath.setText(filePath)
                     else:
                         print 'Can not read reference map '+filePath
@@ -235,7 +235,7 @@ class AppForm(QMainWindow):
                     self.textbrowser_RPath.clear()
                     self.ReferenceVasMap = None
                 else:
-                    self.ReferenceVasMap = pt.merge_normalized_images(mapList).astype(np.float32)
+                    self.ReferenceVasMap = pt.mergeNormalizedImages(mapList).astype(np.float32)
                     self.textbrowser_RPath.setText(displayText)
 
         except Exception, e:
@@ -279,13 +279,13 @@ class AppForm(QMainWindow):
                 if filePath[-3:] == 'pkl': # mapping dictionary pkl file
 
                     self.trialDict = ft.loadFile(filePath)
-                    self.MatchingVasMap = pt.merge_normalized_images([self.trialDict['vasculatureMap']])
+                    self.MatchingVasMap = pt.mergeNormalizedImages([self.trialDict['vasculatureMap']])
                     self.MatchingVasMapRaw = self.trialDict['vasculatureMap']
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
 
                 elif filePath[-3:] == 'tif': # tiff file
-                    self.MatchingVasMap = pt.merge_normalized_images([tf.imread(filePath)])
+                    self.MatchingVasMap = pt.mergeNormalizedImages([tf.imread(filePath)])
                     self.MatchingVasMapRaw = tf.imread(filePath)
                     self.textbrowser_MPath.setText(filePath)
                     self.MatchingVasMapAfterChange = None
@@ -294,12 +294,12 @@ class AppForm(QMainWindow):
                     fileFolder,fileName = os.path.split(filePath)
                     if 'JCamF' in fileName:
                         currMap, _, _ = ft.importRawJCamF(filePath,column=1024,row=1024)
-                        self.MatchingVasMap = pt.merge_normalized_images([currMap[0]])
+                        self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]])
                         self.MatchingVasMapRaw = currMap[0]
                         self.textbrowser_MPath.setText(filePath)
                     elif 'JCam' in fileName:
                         currMap, _ = ft.importRawJCam(filePath)
-                        self.MatchingVasMap = pt.merge_normalized_images([currMap[0]])
+                        self.MatchingVasMap = pt.mergeNormalizedImages([currMap[0]])
                         self.MatchingVasMapRaw = currMap[0]
                         self.textbrowser_MPath.setText(filePath)
                     else:
@@ -336,8 +336,8 @@ class AppForm(QMainWindow):
                     self.MatchingVasMapRaw = None
                     self.MatchingVasMapAfterChange = None
                 else:
-                    self.MatchingVasMap = pt.merge_normalized_images(mapList, dtype=np.float32)
-                    self.MatchingVasMapRaw = pt.merge_normalized_images(mapList, dtype=np.float32, isFilter=False)
+                    self.MatchingVasMap = pt.mergeNormalizedImages(mapList,dtype=np.float32)
+                    self.MatchingVasMapRaw = pt.mergeNormalizedImages(mapList,dtype=np.float32,isFilter=False)
                     self.textbrowser_MPath.setText(displayText)
                     self.MatchingVasMapAfterChange = None
 
