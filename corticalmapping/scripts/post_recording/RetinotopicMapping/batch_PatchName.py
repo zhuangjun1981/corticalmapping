@@ -40,7 +40,7 @@ for k, trialName in enumerate(trialList):
     
     for key,patch in finalPatches.iteritems():
         
-        center = patch.getCenter()
+        center = patch.get_center()
         ax.text(center[1],center[0],key,verticalalignment='center', horizontalalignment='center')
 
 plt.show()

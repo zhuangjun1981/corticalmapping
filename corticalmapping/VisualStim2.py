@@ -2300,6 +2300,8 @@ class DriftingGratingCircle(Stim):
                                                     for con in self.con_list
                                                     for size in self.size_list]
         random.shuffle(all_conditions)
+        # print ['sf', 'tf', 'dire', 'con', 'size']
+        # print '\n'.join([str(condi) for condi in all_conditions])
         return all_conditions
 
     def _generate_phase_list(self, tf):
@@ -3300,5 +3302,28 @@ if __name__ == "__main__":
     # ds.trigger_display()
     # plt.show()
     #==============================================================================================================================
+
+
+    #==============================================================================================================================
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=10)
+    # indicator=Indicator(mon)
+    # drifting_grating2 = DriftingGratingCircle(mon,indicator,
+    #                                           center=(60.,0.),
+    #                                           sf_list=[0.08],
+    #                                           tf_list=[4.,2.],
+    #                                           dire_list=np.arange(0,2*np.pi,np.pi/4),
+    #                                           con_list=[1.,0.5],
+    #                                           size_list=[40.],
+    #                                           blockDur=2.,
+    #                                           preGapDur=2.,
+    #                                           postGapDur=3.,
+    #                                           midGapDur=0.1)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 1,isTriggered=False,isSyncPulse=False,isInterpolate=False)
+    # ds.set_stim(drifting_grating2)
+    # ds.trigger_display()
+    # plt.show()
+    #==============================================================================================================================
+
+
 
     print 'for debug...'

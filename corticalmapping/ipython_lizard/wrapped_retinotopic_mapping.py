@@ -251,13 +251,13 @@ class WrappedRetinotopicMapping(RetinotopicMapping.RetinotopicMappingTrial):
         for key,patch in patches_dict.iteritems():
             patch_color = patch_colors.get(patch.sign,default_color)
             currArray = ni.binary_erosion(patch.array,iterations=2)
-            pt.plotMaskBorders(currArray,plotAxis=plotAxis,color=patch_color,
-                               alpha=0.6)
+            pt.plot_mask_borders(currArray, plotAxis=plotAxis, color=patch_color,
+                                 alpha=0.6)
             text_color = txt_colors.get((key in desired_patch_names),
                                         default_color)
-            plotAxis.text(patch.getCenter()[1],patch.getCenter()[0],key,
-                          color=text_color,horizontalalignment='center',
-                          verticalalignment='center',fontsize=15,zorder=10,fontweight='bold')
+            plotAxis.text(patch.get_center()[1], patch.get_center()[0], key,
+                          color=text_color, horizontalalignment='center',
+                          verticalalignment='center', fontsize=15, zorder=10, fontweight='bold')
             
         return plotAxis
 
