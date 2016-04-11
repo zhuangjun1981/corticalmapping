@@ -120,8 +120,6 @@ f.colorbar(fig3); ax3.set_title('azi position map')
 ax4 = f.add_subplot(224); fig4 = ax4.imshow(aziPowerMap, vmin=0,vmax=1,cmap='hot',interpolation='nearest')
 f.colorbar(fig4); ax4.set_title('alt power map')
 
-plt.show()
-
 f.savefig(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_RetinotopicMappingTrial_'+trialNum+'.png'),dpi=300)
 
 trialObj = rm.RetinotopicMappingTrial(mouseID=mouseID,
@@ -142,3 +140,5 @@ trialObj = rm.RetinotopicMappingTrial(mouseID=mouseID,
 
 trialDict = trialObj.generateTrialDict()
 ft.saveFile(os.path.join(saveFolder,trialObj.getName()+'.pkl'),trialDict)
+
+plt.show()
