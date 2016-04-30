@@ -68,26 +68,23 @@ def array_nor(A):
     '''
 
     B=A.astype(np.float)
-    B = (B-np.amin(B))/(np.amax(B)-np.amin(B))
-    return B.astype(A.dtype)
+    return (B-np.amin(B))/(np.amax(B)-np.amin(B))
 
 
 def array_nor_median(A):
     '''
     normalize array by minus median, data type will be switch to np.float
     '''
-    A=A.astype(np.float)
-    B=A-np.median(A.flatten())
-    return B
+    B=A.astype(np.float)
+    return B-np.median(B.flatten())
 
 
 def array_nor_mean(A):
     '''
     normalize array by minus mean, data type will be switch to np.float
     '''
-    A=A.astype(np.float)
-    B=A-np.mean(A.flatten())
-    return B
+    B=A.astype(np.float)
+    return B-np.mean(B.flatten())
 
 
 def array_nor_mean_std(A):
