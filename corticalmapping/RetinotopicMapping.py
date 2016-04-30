@@ -2339,7 +2339,7 @@ class RetinotopicMappingTrial(object):
         except (AttributeError, KeyError):
             centerPatchObj = self.finalPatches[centerPatchKey]
 
-        centerPixel = centerPatchObj.get_center()
+        centerPixel = centerPatchObj.getCenter()
 
         if not hasattr(self, 'aziPosMapf'): self._getSignMap()
 
@@ -2437,7 +2437,7 @@ class RetinotopicMappingTrial(object):
 
         centerPatchObj = self.finalPatches[centerPatchKey]
 
-        centerPixel = centerPatchObj.get_center()
+        centerPixel = centerPatchObj.getCenter()
 
         aziPosMapf = self.aziPosMapf
 
@@ -2681,7 +2681,7 @@ class RetinotopicMappingTrial(object):
             im = pt.plot_mask(mask, plotAxis=plotAxis, color=plotColor, zoom=zoom, borderWidth=borderWidth)
             im.set_interpolation(interpolation)
             if plotName:
-                center=patch.get_center()
+                center=patch.getCenter()
                 plotAxis.text(center[1]*zoom,center[0]*zoom,key,verticalalignment='center', horizontalalignment='center',color=plotColor,fontsize=fontSize)
 
         plotAxis.set_axis_off()
@@ -2720,7 +2720,7 @@ class RetinotopicMappingTrial(object):
             currArray = ni.binary_erosion(patch.array,iterations=1)
             im = pt.plot_mask_borders(currArray, plotAxis=plotAxis, color=plotColor, zoom=zoom, borderWidth=borderWidth)
             if plotName:
-                center=patch.get_center()
+                center=patch.getCenter()
                 plotAxis.text(center[1]*zoom,center[0]*zoom,key,verticalalignment='center', horizontalalignment='center',color=plotColor,fontsize=fontSize)
 
         plotAxis.set_axis_off()
@@ -3027,7 +3027,7 @@ class RetinotopicMappingTrial(object):
 
         for key,patch in patchesForPlotting.iteritems():
 
-            center = patch.get_center()
+            center = patch.getCenter()
             plotAxis.text(center[1],center[0],key,verticalalignment='center', horizontalalignment='center')
 
         return plotAxis.figure

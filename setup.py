@@ -49,18 +49,18 @@ class PyTest(TestCommand):
 
 setup(
     name='corticalmapping',
-    version = '0.0.0',
+    version = '2.0.0',
     url='http://stash.corp.alleninstitute.org/users/junz/repos/corticalmapping/',
     author='Jun Zhuang',
     tests_require=['pytest'],
-    install_requires=['numpy','scipy'],
+    install_requires=['numpy','scipy','opencv-python','PyDAQmx','scikit-image'],
     cmdclass={'test': PyTest},
     author_email='junz@alleninstitute.org',
     description='cortical mapping tools',
     long_description=long_description,
     packages=prepend_find_packages('corticalmapping'),
     include_package_data=True,
-    package_data={'':['*.md', '*.txt', '*.cfg']},
+    package_data={'':['*.md', '*.txt', '*.cfg', '*.hdf5']},
     platforms='any',
     classifiers = [
         'Programming Language :: Python',

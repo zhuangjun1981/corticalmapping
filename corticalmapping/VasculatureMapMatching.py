@@ -28,8 +28,8 @@ import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.tifffile as tf
 import corticalmapping.core.PlottingTools as pt
 
-try: import cv2; from core.ImageAnalysis import rigid_transform_cv2 as rigidTransform
-except ImportError as e: print e; from core.ImageAnalysis import rigid_transform as rigidTransform
+try: import cv2; from core.ImageAnalysis import rigid_transform_cv2 as rigid_transform
+except ImportError as e: print e; from core.ImageAnalysis import rigid_transform as rigid_transform
 
 
 class AppForm(QMainWindow):
