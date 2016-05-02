@@ -2753,6 +2753,10 @@ class DisplaySequence(object):
             self._remote_obj.close = self.flag_to_close()
         except Exception as e:
             print e
+
+        # set up remote zro object for sync program
+        if self.isRemoteSync:
+            self.remoteSync = Proxy(str(self.remoteSyncIP) + ':' + str(self.remoteSyncPort))
         
         if displayIteration % 1 == 0:
             self.displayIteration = displayIteration
@@ -2831,9 +2835,6 @@ class DisplaySequence(object):
             print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'.\n"
             self.displayFrames = None
 
-        #set up remote zro object for sync program
-        if self.isRemoteSync:
-            remoteSync = Proxy(str(self.remoteSyncIP)+':'+str(self.remoteSyncPort))
 
         #set up sock communication with video monitoring computer
         if self.isVideoRecord:
@@ -2861,9 +2862,9 @@ class DisplaySequence(object):
             if self.remoteSyncOutputFolder is not None:
                 if not (os.path.isdir(self.remoteSyncOutputFolder)):
                     os.makedirs(self.remoteSyncOutputFolder)
-                remoteSync.set_output_path(os.path.join(self.remoteSyncOutputFolder, self.fileName))
+                self.remoteSync.set_output_path(os.path.join(self.remoteSyncOutputFolder, self.fileName), timestamp=False)
             else:
-                remoteSync.set_output_path(os.path.join('C:/sync/output', self.fileName))
+                self.remoteSync.set_output_path(os.path.join('C:/sync/output', self.fileName), timestamp=False)
 
         self.keepDisplay = True
 
@@ -2873,7 +2874,7 @@ class DisplaySequence(object):
             if wait: # trigger is detected and manual stop signal is not detected
 
                 if self.isRemoteSync:
-                    remoteSync.start()
+                    self.remoteSync.start()
                 if self.isVideoRecord:
                     videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
 
@@ -2882,7 +2883,7 @@ class DisplaySequence(object):
                 if self.isVideoRecord:
                     videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
                 if self.isRemoteSync:
-                    remoteSync.stop()
+                    self.remoteSync.stop()
 
                 #analyze frames
                 try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2900,7 +2901,7 @@ class DisplaySequence(object):
         else: #display will not wait for trigger
 
             if self.isRemoteSync:
-                remoteSync.start()
+                self.remoteSync.start()
 
             if self.isVideoRecord:
                 videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
@@ -2909,8 +2910,9 @@ class DisplaySequence(object):
 
             if self.isVideoRecord:
                 videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+
             if self.isRemoteSync:
-                remoteSync.stop()
+                self.remoteSync.stop()
 
             #analyze frames
             try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -3147,7 +3149,7 @@ class DisplaySequence(object):
                 backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-Retinotopy')
             else:
                 backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-'+stimName)
-            if not (os.path.isdir(backupFileFolder)):os.makedirs(backupFileFolder)
+            if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
             backupFilePath = os.path.join(backupFileFolder,filename)
             ft.saveFile(backupFilePath,logFile)
 
