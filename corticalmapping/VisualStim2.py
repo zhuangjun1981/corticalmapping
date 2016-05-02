@@ -21,7 +21,7 @@ import core.FileTools as ft
 import core.ImageAnalysis as ia
 
 
-from zro import RemoteObject
+from zro import RemoteObject, Proxy
 
 try: import toolbox.IO.nidaq as iodaq
 except ImportError as e:
@@ -2695,6 +2695,10 @@ class DisplaySequence(object):
                  userid='Jun',
                  psychopyMonitor='testMonitor',
                  isInterpolate=False,
+                 isRemoteSync=False,
+                 remoteSyncIP='localhost',
+                 remoteSyncPort=10003,
+                 remoteSyncOutputFolder=None,
                  isVideoRecord=False,
                  isTriggered=True,
                  triggerNIDev='Dev1',
@@ -2719,6 +2723,10 @@ class DisplaySequence(object):
         self.sequenceLog = {}
         self.psychopyMonitor = psychopyMonitor
         self.isInterpolate = isInterpolate
+        self.isRemoteSync = isRemoteSync
+        self.remoteSyncIP = remoteSyncIP
+        self.remoteSyncPort = remoteSyncPort
+        self.remoteSyncOutputFolder = remoteSyncOutputFolder
         self.isVideoRecord = isVideoRecord 
         self.isTriggered = isTriggered
         self.triggerNIDev = triggerNIDev
@@ -2823,6 +2831,10 @@ class DisplaySequence(object):
             print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'.\n"
             self.displayFrames = None
 
+        #set up remote zro object for sync program
+        if self.isRemoteSync:
+            remoteSync = Proxy(str(self.remoteSyncIP)+':'+str(self.remoteSyncPort))
+
         #set up sock communication with video monitoring computer
         if self.isVideoRecord:
             videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -2844,6 +2856,15 @@ class DisplaySequence(object):
         self._get_file_name()
         print 'File name:',self.fileName+'\n'
 
+        # set sync output file path
+        if self.isRemoteSync:
+            if self.remoteSyncOutputFolder is not None:
+                if not (os.path.isdir(self.remoteSyncOutputFolder)):
+                    os.makedirs(self.remoteSyncOutputFolder)
+                remoteSync.set_output_path(os.path.join(self.remoteSyncOutputFolder, self.fileName))
+            else:
+                remoteSync.set_output_path(os.path.join('C:/sync/output', self.fileName))
+
         self.keepDisplay = True
 
         if self.isTriggered:
@@ -2851,9 +2872,17 @@ class DisplaySequence(object):
 
             if wait: # trigger is detected and manual stop signal is not detected
 
-                if self.isVideoRecord: videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+                if self.isRemoteSync:
+                    remoteSync.start()
+                if self.isVideoRecord:
+                    videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+
                 self._display(window, stim) #display sequence
-                if self.isVideoRecord: videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+
+                if self.isVideoRecord:
+                    videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+                if self.isRemoteSync:
+                    remoteSync.stop()
 
                 #analyze frames
                 try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2869,9 +2898,19 @@ class DisplaySequence(object):
             else: self.clear() # manual stop signal is detected
 
         else: #display will not wait for trigger
-            if self.isVideoRecord: videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+
+            if self.isRemoteSync:
+                remoteSync.start()
+
+            if self.isVideoRecord:
+                videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+
             self._display(window, stim) #display sequence
-            if self.isVideoRecord: videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+
+            if self.isVideoRecord:
+                videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+            if self.isRemoteSync:
+                remoteSync.stop()
 
             #analyze frames
             try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -3071,9 +3110,15 @@ class DisplaySequence(object):
 
     def save_log(self):
         
-        if self.displayLength == None:
+        if self.displayLength is None:
             self.clear()
             raise LookupError, "Please display sequence first!"
+
+        if self.fileName is None:
+            self.clear()
+            raise LookupError, "Please display sequence first!"
+
+
         
         #set up log object
         directory = self.logdir + '\sequence_display_log'
@@ -3087,8 +3132,6 @@ class DisplaySequence(object):
         displayLog.pop('sequence')
         logFile.update({'presentation':displayLog})
 
-        self._get_file_name()
-
         filename =  self.fileName + ".pkl"
         
         #generate full log dictionary
@@ -3098,7 +3141,7 @@ class DisplaySequence(object):
         
         if self.backupdir is not None:
 
-            currDate = datetime.datetime.now().strftime('%y%m%d')
+            currDate = self.fileName[0:6]
             stimName = self.sequenceLog['stimulation']['stimName']
             if 'KSstim' in stimName:
                 backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-Retinotopy')
@@ -3107,13 +3150,6 @@ class DisplaySequence(object):
             if not (os.path.isdir(backupFileFolder)):os.makedirs(backupFileFolder)
             backupFilePath = os.path.join(backupFileFolder,filename)
             ft.saveFile(backupFilePath,logFile)
-
-            # backupfolder = self.backupdir + r'\sequence_display_log'
-            # if not(os.path.isdir(backupfolder)):os.makedirs(backupfolder)
-            # backuppath = os.path.join(backupfolder,filename)
-            # backupoutput = open(backuppath,'wb')
-            # pickle.dump(logFile,backupoutput)
-            # backupoutput.close()
 
             print ".pkl backup file generate successfully"
             
