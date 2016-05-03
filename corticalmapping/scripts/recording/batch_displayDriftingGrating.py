@@ -1,23 +1,28 @@
-import matplotlib.pyplot as plt
 import corticalmapping.VisualStim2 as vs
+import matplotlib.pyplot as plt
+import numpy as np
 
 
-mouseID = '199911' #'147861' #'TEST'
-userID = 'Naveen'
-numOfTrials = 20 # 20
-color = 1. # [-1., 1.]
-background = -1. # [-1. 1.]
-center = (40., 10.) # (azi, alt), degree
-radius = 5. # degree
-duration = 0.05 # second
+
+mouseID = '225835' #'147861' #'TEST'
+userID = 'Natalia'
+numOfTrials = 3 # 20
+
+sf_list=(0.04,) # (0.16,0.08,0.04), spatial frequency, cycle/unit
+tf_list=(0.5,1.,2.,4.,8)  # (15.,4.,0.5), temporal frequency, Hz
+dire_list=np.arange(0,2*np.pi,np.pi/2)  # np.arange(0,2*np.pi,np.pi/2), direction, arc
+con_list=(0.7,) # (0.01,0.02,0.05,0.11,0.23,0.43,0.73,0.95), contrast, [0, 1]
+size_list=(500.,)  # (1.,2.,5.,10.), radius of the circle, unit defined by self.coordinate
+blockDur=4.  # duration of each condition, second
+midGapDur=4  # duration of gap between conditions
+iteration=3  # iteration of whole sequence
+
 isTriggered = True
 
-
-# do not change the following code
-refreshRate = 60.
 psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
+
 logFolder = r'C:\data'
-backupFolder = r'\\W7DTMJ38BBB\data'
+backupFolder = r'\\W7DTMJ03jgl2\data'
 
 isRemoteSync = False
 remoteSyncIP = 'localhost'
@@ -31,8 +36,8 @@ mon=vs.Monitor(resolution=(1080, 1920),
                C2Tcm=31.1,
                C2Acm=41.91,
                monTilt=26.56,
-               downSampleRate=5,
-               refreshRate=refreshRate)
+               downSampleRate=5)
+                  
 #mon.plot_map()
 #plt.show()                  
                   
@@ -43,17 +48,22 @@ indicator=vs.Indicator(mon,
                        isSync=True,
                        freq=1.)
 
-stim = vs.FlashingCircle(mon,
-                         indicator,
-                         coordinate='degree', # 'degree' or 'linear'
-                         center=center, # center coordinate of the circle (degree)
-                         radius=radius, # radius of the circle
-                         color=color, # color of the circle [-1: 1]
-                         iteration=1, # total number of flashes
-                         flashFrame=int(duration*refreshRate), # frame number for display circle of each flash
-                         preGapDur=2., # gap frame number before flash
-                         postGapDur=3., # gap frame number after flash
-                         background=background)
+
+DriftingGrating=vs.DriftingGratingCircle(mon,
+                                         indicator,
+                                         background=0., # back ground color [-1,1]
+                                         coordinate='degree', # 'degree' or 'linear'
+                                         center=(60.,0.), # (azi, alt), unit defined by self.coordinate
+                                         sf_list=sf_list, # (0.16,0.08,0.04), spatial frequency, cycle/unit
+                                         tf_list=tf_list, # (15.,4.,0.5), temporal frequency, Hz
+                                         dire_list=dire_list, # np.arange(0,2*np.pi,np.pi/2), direction, arc
+                                         con_list=con_list, # (0.01,0.02,0.05,0.11,0.23,0.43,0.73,0.95), contrast, [0, 1]
+                                         size_list=size_list, # (1.,2.,5.,10.), radius of the circle, unit defined by self.coordinate
+                                         blockDur=blockDur, # duration of each condition, second
+                                         midGapDur=midGapDur, # duration of gap between conditions
+                                         iteration=iteration, # iteration of whole sequence
+                                         preGapDur=2.,
+                                         postGapDur=3.)
 
 ds = vs.DisplaySequence(logdir=logFolder,
                         backupdir=backupFolder,
@@ -87,7 +97,7 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         fileNumNIPort = 0,
                         fileNumNILines = '0:7')
 
-ds.set_stim(stim)
+ds.set_stim(DriftingGrating)
 
 ds.trigger_display()
 
