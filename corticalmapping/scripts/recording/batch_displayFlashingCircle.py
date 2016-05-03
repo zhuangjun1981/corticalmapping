@@ -2,25 +2,24 @@ import matplotlib.pyplot as plt
 import corticalmapping.VisualStim2 as vs
 
 
-mouseID = '199911' #'147861' #'TEST'
-userID = 'Naveen'
-numOfTrials = 20 # 20
+mouseID = '239255'#'147861' #'TEST'
+userID = 'Jun'
+numOfTrials = 40 # 20
 color = 1. # [-1., 1.]
 background = -1. # [-1. 1.]
 center = (40., 10.) # (azi, alt), degree
-radius = 5. # degree
+radius = 10. # degree
 duration = 0.05 # second
 isTriggered = True
+isRemoteSync = False
 
 
 # do not change the following code
 refreshRate = 60.
 psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
 logFolder = r'C:\data'
-backupFolder = r'\\W7DTMJ38BBB\data'
-
-isRemoteSync = False
-remoteSyncIP = 'localhost'
+backupFolder = r'\\W7DTMJ03jgl2\data'
+remoteSyncIP = 'w7dtmj19vtx'
 remoteSyncPort = 11001
 syncOutputFolder = None
 
@@ -63,6 +62,7 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
+                        waitTime=3,
                         isRemoteSync=isRemoteSync,
                         remoteSyncIP=remoteSyncIP,
                         remoteSyncPort=remoteSyncPort,

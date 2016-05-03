@@ -18,6 +18,7 @@ postGapDur=0.
 
 
 isTriggered = True
+isRemoteSync = False
 
 
 
@@ -26,8 +27,7 @@ psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
 logFolder = r'C:\data'
 backupFolder = r'\\W7DTMJ03jgl2\data'
 
-isRemoteSync = False
-remoteSyncIP = 'localhost'
+remoteSyncIP = 'w7dtmj19vtx'
 remoteSyncPort = 11001
 syncOutputFolder = None
 
@@ -74,6 +74,7 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
+                        waitTime=3,
                         isRemoteSync=isRemoteSync,
                         remoteSyncIP=remoteSyncIP,
                         remoteSyncPort=remoteSyncPort,

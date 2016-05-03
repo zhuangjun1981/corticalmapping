@@ -2702,6 +2702,7 @@ class DisplaySequence(object):
                  mouseid='Test',
                  userid='Jun',
                  psychopyMonitor='testMonitor',
+                 waitTime=3, # wait time before display, sec
                  isInterpolate=False,
                  isRemoteSync=False,
                  remoteSyncIP='localhost',
@@ -2730,6 +2731,7 @@ class DisplaySequence(object):
         self.sequence = None
         self.sequenceLog = {}
         self.psychopyMonitor = psychopyMonitor
+        self.waitTime = waitTime
         self.isInterpolate = isInterpolate
         self.isRemoteSync = isRemoteSync
         self.remoteSyncIP = remoteSyncIP
@@ -2886,6 +2888,7 @@ class DisplaySequence(object):
                 if self.isVideoRecord:
                     videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
 
+                time.sleep(self.waitTime)
                 self._display(window, stim) #display sequence
 
                 if self.isVideoRecord:
@@ -2904,7 +2907,9 @@ class DisplaySequence(object):
                 #clear display data
                 self.clear()
 
-            else: self.clear() # manual stop signal is detected
+            else:
+                window.close()
+                self.clear() # manual stop signal is detected
 
         else: #display will not wait for trigger
 
@@ -2914,6 +2919,7 @@ class DisplaySequence(object):
             if self.isVideoRecord:
                 videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
 
+            time.sleep(self.waitTime)
             self._display(window, stim) #display sequence
 
             if self.isVideoRecord:
@@ -3140,6 +3146,7 @@ class DisplaySequence(object):
         displayLog.pop('sequenceLog')
         displayLog.pop('displayControlSock')
         displayLog.pop('sequence')
+        displayLog.pop('remoteSync')
         logFile.update({'presentation':displayLog})
 
         filename =  self.fileName + ".pkl"
