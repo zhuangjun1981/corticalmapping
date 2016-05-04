@@ -2863,36 +2863,35 @@ class DisplaySequence(object):
         displayTime = float(self.sequence.shape[0]) * self.displayIteration / refreshRate
         print '\n Expected display time: ', displayTime, ' seconds\n'
 
-        # generate file name
-        self._get_file_name()
-        print 'File name:',self.fileName+'\n'
-
-        # set sync output file path
-        if self.isRemoteSync:
-            if self.syncOutputFolder is not None:
-                if not (os.path.isdir(self.syncOutputFolder)):
-                    os.makedirs(self.syncOutputFolder)
-                self.remoteSync.set_output_path(os.path.join(self.syncOutputFolder, self.fileName), timestamp=False)
-            else:
-                self.remoteSync.set_output_path(os.path.join('C:/sync/output', self.fileName), timestamp=False)
-
         self.keepDisplay = True
 
         if self.isTriggered:
             wait = self._wait_for_trigger()
 
             if wait: # trigger is detected and manual stop signal is not detected
+                
+                # generate file name
+                self._get_file_name()
+                print 'File name:',self.fileName+'\n'
+                
+                # set remote sync local path
+                if self.isRemoteSync:
+                    self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName+'-sync.h5'), timestamp=False)
 
                 if self.isRemoteSync:
                     self.remoteSync.start()
+                
+                time.sleep(self.waitTime)
+                
                 if self.isVideoRecord:
                     videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
 
-                time.sleep(self.waitTime)
                 self._display(window, stim) #display sequence
+                time.sleep(self.waitTime)
 
                 if self.isVideoRecord:
                     videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+                
                 if self.isRemoteSync:
                     self.remoteSync.stop()
 
@@ -2902,8 +2901,27 @@ class DisplaySequence(object):
                     print "No monitor refresh rate information, assuming 60Hz."
                     self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = 60.)
 
+                if self.keepDisplay == True: self.fileName += '-complete'
+                elif self.keepDisplay == False: self.fileName += '-incomplete'
+                
                 #write log file
                 self.save_log()
+                
+                # backup remote dataset            
+                if self.isRemoteSync:
+                    try:
+                        backupFileFolder = self._get_backup_folder()
+                        if backupFileFolder is not None:
+                            if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
+                            backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
+                            self.remoteSync.copy_last_dataset(backupFilePath)
+                            print "remote sync dataset saved successfully."
+                        else:
+                            print "did not find backup path, no remote sync dataset has been saved."
+                    except Exception as e:
+                        print "remote sync dataset is not saved successfully!\n", e
+                        
+                    
                 #clear display data
                 self.clear()
 
@@ -2912,6 +2930,14 @@ class DisplaySequence(object):
                 self.clear() # manual stop signal is detected
 
         else: #display will not wait for trigger
+            
+            # generate file name
+            self._get_file_name()
+            print 'File name:',self.fileName+'\n'
+            
+            # set remote sync local path
+            if self.isRemoteSync:
+                self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName+'-sync.h5'), timestamp=False)
 
             if self.isRemoteSync:
                 self.remoteSync.start()
@@ -2934,8 +2960,26 @@ class DisplaySequence(object):
                 print "No monitor refresh rate information, assuming 60Hz."
                 self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = 60.)
 
+            if self.keepDisplay == True: self.fileName += '-complete'
+            elif self.keepDisplay == False: self.fileName += '-incomplete'            
+            
             #write log file
             self.save_log()
+            
+            # backup remote dataset            
+            if self.isRemoteSync:
+                try:
+                    backupFileFolder = self._get_backup_folder()
+                    if backupFileFolder is not None:
+                        if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
+                        backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
+                        self.remoteSync.copy_last_dataset(backupFilePath)
+                        print "remote sync dataset saved successfully."
+                    else:
+                        print "did not find backup path, no remote sync dataset has been saved."
+                except Exception as e:
+                    print "remote sync dataset is not saved successfully!\n", e
+            
             #clear display data
             self.clear()
 
@@ -3012,15 +3056,14 @@ class DisplaySequence(object):
         if self.isTriggered: self.fileName += '-' + str(fileNumber)+'-Triggered'
         else: self.fileName += '-' + str(fileNumber) + '-notTriggered'
 
-        if self.keepDisplay == True: self.fileName += '-complete'
-        elif self.keepDisplay == False: self.fileName += '-incomplete'
+
 
 
     def _get_file_number(self):
         """
         get synced file number for log file name
         """
-
+        
         try:
             fileNumTask = iodaq.DigitalInput(self.fileNumNIDev,self.fileNumNIPort,self.fileNumNILines)
             fileNumTask.StartTask()
@@ -3134,8 +3177,6 @@ class DisplaySequence(object):
             self.clear()
             raise LookupError, "Please display sequence first!"
 
-
-        
         #set up log object
         directory = self.logdir + '\sequence_display_log'
         if not(os.path.isdir(directory)):os.makedirs(directory)
@@ -3156,19 +3197,35 @@ class DisplaySequence(object):
         ft.saveFile(path,logFile)
         print ".pkl file generated successfully."
         
-        if self.backupdir is not None:
-
-            currDate = self.fileName[0:6]
-            stimName = self.sequenceLog['stimulation']['stimName']
-            if 'KSstim' in stimName:
-                backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-Retinotopy')
-            else:
-                backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-'+stimName)
+        
+        backupFileFolder = self._get_backup_folder()
+        if backupFileFolder is not None:
             if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
             backupFilePath = os.path.join(backupFileFolder,filename)
             ft.saveFile(backupFilePath,logFile)
-
             print ".pkl backup file generate successfully"
+        else:
+            print "did not find backup path, no backup has been saved."
+            
+            
+    def _get_backup_folder(self):
+        
+        if self.fileName is None:
+            raise LookupError, 'self.fileName not found.'
+        else:
+        
+            if self.backupdir is not None:
+
+                currDate = self.fileName[0:6]
+                stimName = self.sequenceLog['stimulation']['stimName']
+                if 'KSstim' in stimName:
+                    backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-Retinotopy')
+                else:
+                    backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-'+stimName)
+                return backupFileFolder
+            else:
+                return None
+                
             
 
     def clear(self):
