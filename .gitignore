@@ -2,10 +2,15 @@
 ### JetBrains template
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm
 
-*.iml
+#*.iml
+*.pyc
+
 
 ## Directory-based project format:
 .idea/
+.cache/
+
+
 # if you remove the above rule, at least ignore the following:
 
 # User-specific stuff:
@@ -48,9 +53,8 @@ crashlytics.properties
 crashlytics-build.properties
 
 
-.pyc
+
 test.hdf5
 /corticalmapping/ipython_lizard/res/test_pkls
 .ipynb_checkpoints
 
-.cache/
