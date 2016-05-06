@@ -448,7 +448,7 @@ def dilationPatches(rawPatches,smallPatchThr = 5,borderWidth = 1): #pixel width 
     newPatches = np.multiply(-1 * (patchBorder - 1), total_area)
 
     #removing small edges
-    labeledPatches, patchNum = ni.measurements.label(newPatches)
+    labeledPatches, patchNum = ni.label(newPatches)
 
     for i in xrange(1, patchNum + 1):
         currPatch = np.array(labeledPatches)
@@ -482,7 +482,7 @@ def dilationPatches2(rawPatches,dilationIter = 20,borderWidth = 1): #pixel width
     #thinning patch borders
     patchBorder = sm.skeletonize(patchBorder)
 
-    #thicking patch borders
+    #thickening patch borders
     if borderWidth > 1:
         patchBorder = ni.binary_dilation(patchBorder, iterations = borderWidth - 1).astype(np.int)
 
@@ -490,7 +490,7 @@ def dilationPatches2(rawPatches,dilationIter = 20,borderWidth = 1): #pixel width
     newPatches = np.multiply(-1 * (patchBorder - 1), total_area)
 
     #removing small edges
-    labeledPatches, patchNum = ni.measurements.label(newPatches)
+    labeledPatches, patchNum = ni.label(newPatches)
 
     newPatches2 = np.zeros(newPatches.shape, dtype = np.int)
 
@@ -513,17 +513,16 @@ def labelPatches(patchmap, signMap, connectivity=4):
     a single patch, sorted by area
     '''
 
-    labeledPatches = sm.label(patchmap, connectivity, background = 0)
-    patchNum = np.amax(labeledPatches)+1
+    labeledPatches, patchNum = ni.label(patchmap)
 
     #list of area of every patch, first column: patch label, second column: area
     patchArea = np.zeros((patchNum,2),dtype=np.int)
 
-    for i in range(patchNum):
+    for i in range(1, patchNum+1):
         currPatch = np.zeros(labeledPatches.shape, dtype = np.int)
         currPatch[labeledPatches == i] = 1
         currPatch[labeledPatches != i] = 0
-        patchArea[i] = [i, np.sum(currPatch[:])]
+        patchArea[i-1] = [i, np.sum(currPatch[:])]
 
     #sort patches by the area, from largest to the smallest
     sortArea=patchArea[patchArea[:,1].argsort(axis=0)][::-1,:]
