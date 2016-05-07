@@ -2,10 +2,10 @@ import matplotlib.pyplot as plt
 import corticalmapping.VisualStim2 as vs
 
 
-mouseID = 'TEST' #'147861' #'TEST'
-userID = 'Jun'
+mouseID = '235518' #'147861' #'TEST'
+userID = 'Naveen'
 numOfTrials = 40 # 20
-isTriggered = False
+isTriggered = True
 isRemoteSync = False
 
 
@@ -16,7 +16,6 @@ backupFolder = r'\\W7DTMJ03jgl2\data'
 
 remoteSyncIP = 'w7dtmj19vtx'
 remoteSyncPort = 11001
-syncOutputFolder = None
 
 mon=vs.Monitor(resolution=(1080, 1920),
                dis=15.3,
@@ -57,11 +56,11 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
-                        waitTime=3,
+                        waitTime=2.,
                         isRemoteSync=isRemoteSync,
                         remoteSyncIP=remoteSyncIP,
                         remoteSyncPort=remoteSyncPort,
-                        syncOutputFolder=syncOutputFolder,
+                        syncOutputFolder=backupFolder,
                         isTriggered=isTriggered,
                         triggerNIDev='Dev1',
                         triggerNIPort=1,

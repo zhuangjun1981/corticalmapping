@@ -2,16 +2,16 @@ import matplotlib.pyplot as plt
 import corticalmapping.VisualStim2 as vs
 
 
-mouseID = '239255'#'147861' #'TEST'
-userID = 'Jun'
-numOfTrials = 40 # 20
+mouseID = '217450'#'147861' #'TEST'
+userID = 'Rylan'
+numOfTrials = 100 # 20
 color = 1. # [-1., 1.]
 background = -1. # [-1. 1.]
 center = (40., 10.) # (azi, alt), degree
 radius = 10. # degree
 duration = 0.05 # second
 isTriggered = True
-isRemoteSync = False
+isRemoteSync = True
 
 
 # do not change the following code
@@ -62,7 +62,7 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
-                        waitTime=3,
+                        waitTime=2.,
                         isRemoteSync=isRemoteSync,
                         remoteSyncIP=remoteSyncIP,
                         remoteSyncPort=remoteSyncPort,
@@ -71,7 +71,7 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         triggerNIDev='Dev1',
                         triggerNIPort=1,
                         triggerNILine=0,
-                        triggerType="NegativeEdge",
+                        triggerType="PositiveEdge",
                         isSyncPulse=True,
                         syncPulseNIDev='Dev1',
                         syncPulseNIPort=1,
