@@ -21,7 +21,7 @@ import core.FileTools as ft
 import core.ImageAnalysis as ia
 
 
-from zro import RemoteObject
+from zro import RemoteObject, Proxy
 
 try: import toolbox.IO.nidaq as iodaq
 except ImportError as e:
@@ -36,11 +36,12 @@ def gaussian(x, mu=0, sig=1.):
     
     return np.exp(np.divide(-np.power(x - mu, 2.) , 2 * np.power(sig, 2.)))
 
+
 def analyze_frames(ts, refreshRate, checkPoint=(0.02, 0.033, 0.05, 0.1)):
-    '''
+    """
     analyze frame durations. input is the time stamps of each frame and
     the refresh rate of the monitor
-    '''
+    """
     
     frameDuration = ts[1::] - ts[0:-1]
     plt.figure()
@@ -65,13 +66,14 @@ def analyze_frames(ts, refreshRate, checkPoint=(0.02, 0.033, 0.05, 0.1)):
     
     return frameDuration, frame_stats
 
+
 def noise_movie(frameFilter, widthFilter, heightFilter, isplot = False):
-    '''
+    """
     creating a numpy array with shape [len(frameFilter), len(heightFilter), len(widthFilter)]
     
     this array is random noize filtered by these three filters in Fourier domain
     each pixel of the movie have the value in [-1 1]
-    '''
+    """
     
     rawMov = np.random.rand(len(frameFilter), len(heightFilter), len(widthFilter))
     
@@ -101,15 +103,16 @@ def noise_movie(frameFilter, widthFilter, heightFilter, isplot = False):
     
     return noise_movie
 
+
 def generate_filter(length, # length of filter
                    Fs, # sampling frequency
                    Flow, # low cutoff frequency
                    Fhigh, # high cutoff frequency
                    mode = 'box'): # filter mode, '1/f' or 'box'
 
-    '''
+    """
     generate one dimensional filter on Fourier domain, with symmetrical structure
-    '''
+    """
     
     freqs = np.fft.fftfreq(int(length), d = (1./float(Fs)))
     
@@ -133,10 +136,11 @@ def generate_filter(length, # length of filter
     
     return filterArray
 
+
 def lookup_image(img, lookupI, lookupJ):
-    '''
+    """
     generate warpped image from img, using look up talbel: lookupI and lookupJ
-    '''
+    """
     
     if not img.shape == lookupI.shape:
         raise LookupError, 'The image and lookupI should have same size!!'
@@ -151,6 +155,7 @@ def lookup_image(img, lookupI, lookupJ):
             img2[i,j] = img[lookupI[i,j],lookupJ[i,j]]
             
     return img2
+
 
 def in_hull(p, hull):
     """
@@ -167,14 +172,15 @@ def in_hull(p, hull):
 
     return hull.find_simplex(p)>=0
 
+
 def get_warped_square(degCorX,degCorY,center,width,height,ori,foregroundColor=1,backgroundColor=0.):
-    '''
+    """
     generate a frame (matrix) with single square defined by center, width, height and orientation in degress
     visual degree value of each pixel is defined by degCorX, and degCorY
     dtype = np.float32, color space, -1:black, 1:white
 
     ori: angle in degree, should be 0~180
-    '''
+    """
 
     frame = np.ones(degCorX.shape,dtype=np.float32)*backgroundColor
 
@@ -190,8 +196,9 @@ def get_warped_square(degCorX,degCorY,center,width,height,ori,foregroundColor=1,
 
     return frame
 
+
 def circle_mask(map_x, map_y, center, radius):
-    '''
+    """
     generate a binary mask of a circle with given center and radius on a map with coordinates for each pixel defined by
     map_x and map_y
 
@@ -200,7 +207,7 @@ def circle_mask(map_x, map_y, center, radius):
     :param center: center coordinates of circle center {x, y}
     :param radius: radius of the circle
     :return: binary mask for the circle, value range [0., 1.]
-    '''
+    """
 
     if map_x.shape != map_y.shape: raise ValueError, 'map_x and map_y should have same shape!'
 
@@ -214,8 +221,9 @@ def circle_mask(map_x, map_y, center, radius):
 
     return circle_mask
 
+
 def get_grating(map_x, map_y, ori=0., spatial_freq=0.1, center=(0.,60.), phase=0., contrast=1.):
-    '''
+    """
     generate a grating frame with defined spatial frequency, center location, phase and contrast
 
     :param map_x: x coordinates for each pixel on a map
@@ -225,7 +233,7 @@ def get_grating(map_x, map_y, ori=0., spatial_freq=0.1, center=(0.,60.), phase=0
     :param phase: in arc
     :param contrast: [0., 1.]
     :return: a frame as floating point 2-d array with grating, value range [0., 1.]
-    '''
+    """
 
     if map_x.shape != map_y.shape: raise ValueError, 'map_x and map_y should have same shape!'
 
@@ -244,13 +252,11 @@ def get_grating(map_x, map_y, ori=0., spatial_freq=0.1, center=(0.,60.), phase=0
 
 
 
-
-
 class Monitor(object):
-    '''
+    """
     monitor object created by Jun, has the method "remap" to generate the 
     spherical corrected coordinates in degrees
-    '''
+    """
     
     def __init__(self, 
                  resolution, 
@@ -424,12 +430,12 @@ class Monitor(object):
         pass
     
     def generate_Lookup_table(self):
-        '''
+        """
         generate lookup talbe between degree corrdinates and linear corrdinates
         return two matrix: 
         lookupI: i index in linear matrix to this pixel after warping
         lookupJ: j index in linear matrix to this pixel after warping
-        '''
+        """
         
         #length of one degree on monitor at gaze point
         degDis = np.tan(np.pi / 180) * self.dis
@@ -461,9 +467,9 @@ class Monitor(object):
 
 
 class Indicator(object):
-    '''
+    """
     flashing indicator for photodiode
-    '''
+    """
 
     def __init__(self,
                  monitor,
@@ -525,10 +531,10 @@ class Indicator(object):
 
     def get_frames(self):
 
-        '''
+        """
         if not synchronized with stimulation, get frame numbers of each update
         of indicator
-        '''
+        """
 
         refreshRate = self.monitor.refreshRate
 
@@ -539,9 +545,9 @@ class Indicator(object):
 
         
 class Stim(object):
-    '''
+    """
     generic class for visual stimulation
-    '''
+    """
     def __init__(self,
                  monitor, # Monitor object
                  indicator, # indicator object,
@@ -559,16 +565,16 @@ class Stim(object):
         self.clear()
 
     def generate_frames(self):
-        '''
+        """
         place holder of function "generate_frames" for each specific stimulus
-        '''
+        """
         print 'Nothing executed! This is place holder of function "generate_frames" for each specific stimulus.'
         print 'This function should return a list of tuples, each tuple represents a single frame of the stimulus and contains all the information to recreate the frame.'
         
     def generate_movie(self):
-        '''
+        """
         place holder of function "generate_movie" for each specific stimulus
-        '''
+        """
         print 'Nothing executed! This is place holder of function "generate_movie" for each specific stimulus.'
         print 'This function should return two things:'
         print 'First: a 3-d array (with format of uint8) of the stimulus to be displayed.'
@@ -587,10 +593,10 @@ class Stim(object):
 
 
 class KSstim(Stim):
-    '''
+    """
     generate Kalatsky & Stryker stimulation integrats flashing indicator for 
     photodiode
-    '''
+    """
     def __init__(self,
                  monitor,
                  indicator,
@@ -627,9 +633,9 @@ class KSstim(Stim):
         
 
     def generate_squares(self):
-        '''
+        """
         generate checker board squares
-        '''
+        """
         
         
         if self.coordinate == 'degree':
@@ -678,16 +684,16 @@ class KSstim(Stim):
         return squares
 
     def plot_squares(self):
-        '''
+        """
         plot checkerboare squares
-        '''
+        """
         plt.figure()
         plt.imshow(self.squares)
 
     def generate_sweeps(self):
-        '''
+        """
         generate full screen sweep sequence
-        '''
+        """
         sweepWidth = self.sweepWidth
         stepWidth =  self.stepWidth
         direction = self.direction
@@ -742,7 +748,7 @@ class KSstim(Stim):
         return sweeps.astype(np.bool), sweepTable
 
     def generate_frames(self):
-        '''
+        """
         function to generate all the frames needed for KS stimulation
         
         returning a list of information of all frames, list of tuples
@@ -756,7 +762,7 @@ class KSstim(Stim):
                        synchronized: gap:0, then alternating between -1 and 1 for each sweep
                        non-synchronized: alternating between -1 and 1 at defined frequency
         for gap frames the second and third elements should be 'None'
-        '''
+        """
         
         sweeps, _ = self.generate_sweeps()
         sweepFrame = self.sweepFrame
@@ -820,9 +826,9 @@ class KSstim(Stim):
         return tuple(fullFrames)
 
     def generate_movie(self):
-        '''
+        """
         Function to Generate Kalatsky & Stryker visual stimulus frame by frame
-        '''
+        """
         
         self.squares = self.generate_squares()
         
@@ -891,13 +897,14 @@ class KSstim(Stim):
         self.sweepWidth = sweepWidth
         self.clear()
 
+
 class NoiseKSstim(Stim):
-    '''
+    """
     generate Kalatsky & Stryker stimulation but with noise movie not flashing 
     squares 
     
     it also integrats flashing indicator for photodiode
-    '''
+    """
     def __init__(self,
                  monitor,
                  indicator,
@@ -943,9 +950,9 @@ class NoiseKSstim(Stim):
         
 
     def generate_noise_movie(self, frameNum):
-        '''
+        """
         generate filtered noise movie with defined number of frames
-        '''
+        """
         
         Fs_T = self.monitor.refreshRate
         Flow_T = 0
@@ -976,9 +983,9 @@ class NoiseKSstim(Stim):
         return movie
 
     def generate_sweeps(self):
-        '''
+        """
         generate full screen sweep sequence
-        '''
+        """
         sweepSigma = self.sweepSigma
         stepWidth =  self.stepWidth
         direction = self.direction
@@ -1050,7 +1057,7 @@ class NoiseKSstim(Stim):
         return sweeps, sweepTable
 
     def generate_frames(self):
-        '''
+        """
         function to generate all the frames needed for KS stimulation
         
         returning a list of information of all frames, list of tuples
@@ -1062,7 +1069,7 @@ class NoiseKSstim(Stim):
         third element: sweeps, index in sweep table
         forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
         for gap frames the second and third elements should be 'None'
-        '''
+        """
         
         if not(self.sweepTable):
             _, self.sweepTable = self.generate_sweeps()
@@ -1124,9 +1131,9 @@ class NoiseKSstim(Stim):
         return tuple(fullFrames)
 
     def generate_movie(self):
-        '''
+        """
         Function to Generate Kalatsky & Stryker visual stimulus frame by frame
-        '''
+        """
         
         sweeps, self.sweepTable = self.generate_sweeps()
         
@@ -1196,11 +1203,12 @@ class NoiseKSstim(Stim):
         self.sweepWidth = sweepWidth
         self.clear()
 
+
 class ObliqueKSstim(Stim):
-    '''
+    """
     generate Kalatsky & Stryker stimulation integrats flashing indicator for
     photodiode
-    '''
+    """
     def __init__(self,
                  monitor,
                  indicator,
@@ -1239,9 +1247,9 @@ class ObliqueKSstim(Stim):
 
 
     def generate_squares(self):
-        '''
+        """
         generate checker board squares
-        '''
+        """
 
 
         if self.coordinate == 'degree':
@@ -1290,16 +1298,16 @@ class ObliqueKSstim(Stim):
         return squares
 
     def plot_squares(self):
-        '''
+        """
         plot checkerboare squares
-        '''
+        """
         plt.figure()
         plt.imshow(self.squares)
 
     def generate_sweeps(self):
-        '''
+        """
         generate full screen sweep sequence
-        '''
+        """
         sweepWidth = self.sweepWidth
         stepWidth =  self.stepWidth
         direction = self.direction
@@ -1360,7 +1368,7 @@ class ObliqueKSstim(Stim):
         return sweeps.astype(np.bool), sweepTable
 
     def generate_frames(self):
-        '''
+        """
         function to generate all the frames needed for KS stimulation
 
         returning a list of information of all frames, list of tuples
@@ -1374,7 +1382,7 @@ class ObliqueKSstim(Stim):
                        synchronized: gap:0, then alternating between -1 and 1 for each sweep
                        non-synchronized: alternating between -1 and 1 at defined frequency
         for gap frames the second and third elements should be 'None'
-        '''
+        """
 
         sweeps, _ = self.generate_sweeps()
         sweepFrame = self.sweepFrame
@@ -1438,9 +1446,9 @@ class ObliqueKSstim(Stim):
         return tuple(fullFrames)
 
     def generate_movie(self):
-        '''
+        """
         Function to Generate Kalatsky & Stryker visual stimulus frame by frame
-        '''
+        """
 
         self.squares = self.generate_squares()
 
@@ -1509,13 +1517,14 @@ class ObliqueKSstim(Stim):
         self.sweepWidth = sweepWidth
         self.clear()
 
+
 class FlashingNoise(Stim):
 
-    '''
+    """
     generate flashing full field noise with background displayed before and after
 
     it also integrats flashing indicator for photodiode
-    '''
+    """
 
     def __init__(self,
                  monitor,
@@ -1540,9 +1549,9 @@ class FlashingNoise(Stim):
         self.isWarp = isWarp
 
     def generate_noise_movie(self):
-        '''
+        """
         generate filtered noise movie with defined number of frames
-        '''
+        """
 
         frameNum = self.flashFrameNum * self.iteration
         filter_T = np.ones((frameNum))
@@ -1566,7 +1575,7 @@ class FlashingNoise(Stim):
         return movie
 
     def generate_frames(self):
-        '''
+        """
         function to generate all the frames needed for KS stimulation
 
         returning a list of information of all frames, list of tuples
@@ -1577,7 +1586,7 @@ class FlashingNoise(Stim):
         second element: iteration start, first frame of each iteration: 1; other frames: 0
         third element: current iteration
         forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
-        '''
+        """
 
         #frame number for each iteration
         iterationFrameNum = self.preGapFrameNum+self.flashFrameNum+self.postGapFrameNum
@@ -1615,9 +1624,9 @@ class FlashingNoise(Stim):
         return tuple(frames)
 
     def generate_movie(self):
-        '''
+        """
         generating movie
-        '''
+        """
 
         self.frames = self.generate_frames()
         noise_movie = self.generate_noise_movie()
@@ -1667,10 +1676,11 @@ class FlashingNoise(Stim):
         self.flashFrameNum = flashFrameNum
         self.clear()
 
+
 class GaussianNoise(Stim):
-    '''
+    """
     generate full field noise movie with contrast modulated by gaussian function
-    '''
+    """
     def __init__(self,
                  monitor,
                  indicator,
@@ -1711,9 +1721,9 @@ class GaussianNoise(Stim):
 
 
     def generate_noise_movie(self, frameNum):
-        '''
+        """
         generate filtered noise movie with defined number of frames
-        '''
+        """
 
         Fs_T = self.monitor.refreshRate
         Flow_T = 0
@@ -1744,7 +1754,7 @@ class GaussianNoise(Stim):
         return movie
 
     def generate_frames(self):
-        '''
+        """
         function to generate all the frames needed for KS stimulation
 
         returning a list of information of all frames, list of tuples
@@ -1756,7 +1766,7 @@ class GaussianNoise(Stim):
         third element: current iteration
         forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
         fifth element: if is display, the contrast
-        '''
+        """
 
         sweepEdge = self.sweepEdgeWidth * self.sweepSigma
 
@@ -1817,9 +1827,9 @@ class GaussianNoise(Stim):
         return tuple(frames)
 
     def generate_movie(self):
-        '''
+        """
         generating movie
-        '''
+        """
 
         self.frames = self.generate_frames()
         iterationFrameNum = len(self.frames) / self.iteration
@@ -1888,10 +1898,11 @@ class GaussianNoise(Stim):
         self.contrast = contrast
         self.clear()
 
+
 class FlashingCircle(Stim):
-    '''
+    """
     flashing circle stimulation.
-    '''
+    """
 
     def __init__(self,
                  monitor,
@@ -1934,7 +1945,7 @@ class FlashingCircle(Stim):
         self.clear()
 
     def generate_frames(self):
-        '''
+        """
         function to generate all the frames needed for the stimulation
 
         returning a list of information of all frames, list of tuples
@@ -1945,7 +1956,7 @@ class FlashingCircle(Stim):
         second element: iteration start, first frame of each iteration: 1; other frames: 0
         third element: current iteration
         forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
-        '''
+        """
 
         #frame number for each iteration
         iterationFrameNum = self.preGapFrameNum+self.flashFrame+self.postGapFrameNum
@@ -1983,9 +1994,9 @@ class FlashingCircle(Stim):
         return tuple(frames)
 
     def generate_movie(self):
-        '''
+        """
         generating movie
-        '''
+        """
 
         self.frames = self.generate_frames()
 
@@ -2037,10 +2048,11 @@ class FlashingCircle(Stim):
 
         return fullSequence, fullDictionary
 
+
 class SparseNoise(Stim):
-    '''
+    """
     generate sparse noise stimulus integrates flashing indicator for photodiode
-    '''
+    """
 
     def __init__(self,
                  monitor,
@@ -2072,9 +2084,9 @@ class SparseNoise(Stim):
         self.clear()
 
     def _generate_subregion(self):
-        '''
+        """
         get subregion for displaying
-        '''
+        """
 
         if self.coordinate == 'degree':
             subregion=[np.amin(self.monitor.degCorY),np.amax(self.monitor.degCorY),
@@ -2086,10 +2098,10 @@ class SparseNoise(Stim):
         return subregion
 
     def _getGridPoints(self):
-        '''
+        """
         generate all the grid points in display area (subregion and monitor coverage)
         [azi, alt]
-        '''
+        """
 
         subregion = self._generate_subregion()
 
@@ -2110,11 +2122,11 @@ class SparseNoise(Stim):
         return gridPoints
 
     def _generate_grid_points_sequence(self):
-        '''
+        """
         generate pseudorandomized grid point sequence. if ON-OFF, continuous frame shold not
         present stimulus at same location
         :return: list of [gridPoint, sign]
-        '''
+        """
 
         gridPoints = self._getGridPoints()
 
@@ -2146,7 +2158,7 @@ class SparseNoise(Stim):
             return allGridPoints
 
     def generate_frames(self):
-        '''
+        """
         function to generate all the frames needed for SparseNoiseStimu
 
         returning a list of information of all frames, list of tuples
@@ -2160,7 +2172,7 @@ class SparseNoise(Stim):
                        synchronized: gap:0, 1 for onset frame for each square, -1 for the rest
                        non-synchronized: alternating between -1 and 1 at defined frequency
         for gap frames the second and third elements should be 'None'
-        '''
+        """
 
         frames = []
 
@@ -2190,9 +2202,9 @@ class SparseNoise(Stim):
         return tuple(frames)
 
     def generate_movie(self):
-        '''
+        """
         generate movie for display
-        '''
+        """
 
         self.frames = self.generate_frames()
 
@@ -2245,10 +2257,11 @@ class SparseNoise(Stim):
 
         return fullSequence, fulldictionary
 
+
 class DriftingGratingCircle(Stim):
-    '''
+    """
     class of drifting grating circle stimulus
-    '''
+    """
 
     def __init__(self,
                  monitor,
@@ -2290,10 +2303,10 @@ class DriftingGratingCircle(Stim):
                 raise ValueError, error_msg
 
     def _generate_all_conditions(self):
-        '''
+        """
         generate all possible conditions for one iteration given the lists of parameters
         :return:
-        '''
+        """
         all_conditions = [(sf, tf, dire, con, size) for sf in self.sf_list
                                                     for tf in self.tf_list
                                                     for dire in self.dire_list
@@ -2303,14 +2316,14 @@ class DriftingGratingCircle(Stim):
         return all_conditions
 
     def _generate_phase_list(self, tf):
-        '''
+        """
 
         get a list of phases will be displayed for each frame in the block duration, also make the first frame of each
         cycle
 
         :param tf: temporal frequency
         :return: list of phases in one block, number of frames for each circle
-        '''
+        """
 
         block_frame_num = int(self.blockDur * self.monitor.refreshRate)
 
@@ -2329,13 +2342,13 @@ class DriftingGratingCircle(Stim):
 
     @staticmethod
     def _get_ori(dire):
-        '''
+        """
         get orientation from direction
-        '''
+        """
         return (dire + np.pi / 2) % np.pi
 
     def generate_frames(self):
-        '''
+        """
         function to generate all the frames needed for DriftingGratingCircle
 
         returning a list of information of all frames, list of tuples
@@ -2352,7 +2365,7 @@ class DriftingGratingCircle(Stim):
         eighth element: phase
         ninth element: indicator color [-1, 1]
         for gap frames from the second to the eighth elements should be 'None'
-        '''
+        """
 
         frames = []
 
@@ -2400,9 +2413,9 @@ class DriftingGratingCircle(Stim):
         return tuple(frames)
     
     def _generate_circle_mask_dict(self):
-        '''
+        """
         generate a dictionary of circle masks for each size in size list
-        '''
+        """
         
         masks = {}
         if self.coordinate=='degree':corX=self.monitor.degCorX;corY=self.monitor.degCorY
@@ -2474,17 +2487,11 @@ class DriftingGratingCircle(Stim):
 
         return mov, log
 
-
-
-
-
-
-
    
 class KSstimAllDir(object):
-    '''
+    """
     generate Kalatsky & Stryker stimulation in all four direction contiuously
-    '''
+    """
     def __init__(self,
                  monitor,
                  indicator,
@@ -2579,10 +2586,11 @@ class KSstimAllDir(object):
 
         return mov, log
 
+
 class ObliqueKSstimAllDir(object):
-    '''
+    """
     generate Kalatsky & Stryker stimulation in all four direction contiuously
-    '''
+    """
     def __init__(self,
                  monitor,
                  indicator,
@@ -2682,19 +2690,24 @@ class ObliqueKSstimAllDir(object):
 
          
 class DisplaySequence(object):
-    '''
+    """
     Display the numpy sequence from memory
-    '''        
+    """        
     
     def __init__(self,
                  logdir,
                  backupdir=None,
                  displayIteration=1,
-                 displayOrder=1, # 1: the right order; -1: the reverse order
+                 displayOrder=1,  # 1: the right order; -1: the reverse order
                  mouseid='Test',
                  userid='Jun',
                  psychopyMonitor='testMonitor',
+                 waitTime=3, # wait time before display, sec
                  isInterpolate=False,
+                 isRemoteSync=False,
+                 remoteSyncIP='localhost',
+                 remoteSyncPort=10003,
+                 syncOutputFolder=None,
                  isVideoRecord=False,
                  isTriggered=True,
                  triggerNIDev='Dev1',
@@ -2704,7 +2717,7 @@ class DisplaySequence(object):
                  syncPulseNIDev='Dev1',
                  syncPulseNIPort=1,
                  syncPulseNILine=1,
-                 triggerType="NegativeEdge", # should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"
+                 triggerType="NegativeEdge",  # should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"
                  displayScreen=0,
                  initialBackgroundColor=0,
                  videoRecordIP='localhost',
@@ -2718,7 +2731,12 @@ class DisplaySequence(object):
         self.sequence = None
         self.sequenceLog = {}
         self.psychopyMonitor = psychopyMonitor
+        self.waitTime = waitTime
         self.isInterpolate = isInterpolate
+        self.isRemoteSync = isRemoteSync
+        self.remoteSyncIP = remoteSyncIP
+        self.remoteSyncPort = remoteSyncPort
+        self.syncOutputFolder = syncOutputFolder
         self.isVideoRecord = isVideoRecord 
         self.isTriggered = isTriggered
         self.triggerNIDev = triggerNIDev
@@ -2745,6 +2763,10 @@ class DisplaySequence(object):
             self._remote_obj.close = self.flag_to_close()
         except Exception as e:
             print e
+
+        # set up remote zro object for sync program
+        if self.isRemoteSync:
+            self.remoteSync = Proxy(str(self.remoteSyncIP) + ':' + str(self.remoteSyncPort))
         
         if displayIteration % 1 == 0:
             self.displayIteration = displayIteration
@@ -2772,9 +2794,9 @@ class DisplaySequence(object):
 
 
     def set_any_array(self, anyArray, logDict = None):
-        '''
+        """
         to display any numpy 3-d array.
-        '''
+        """
         if len(anyArray.shape) != 3:
             raise LookupError, "Input numpy array should have dimension of 3!"
         
@@ -2795,9 +2817,9 @@ class DisplaySequence(object):
     
 
     def set_stim(self, stim):
-        '''
+        """
         to display defined stim object
-        '''
+        """
         self.sequence, self.sequenceLog = stim.generate_movie()
         self.clear()
 
@@ -2823,6 +2845,7 @@ class DisplaySequence(object):
             print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'.\n"
             self.displayFrames = None
 
+
         #set up sock communication with video monitoring computer
         if self.isVideoRecord:
             videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -2840,20 +2863,37 @@ class DisplaySequence(object):
         displayTime = float(self.sequence.shape[0]) * self.displayIteration / refreshRate
         print '\n Expected display time: ', displayTime, ' seconds\n'
 
-        # generate file name
-        self._get_file_name()
-        print 'File name:',self.fileName+'\n'
-
         self.keepDisplay = True
 
         if self.isTriggered:
             wait = self._wait_for_trigger()
 
             if wait: # trigger is detected and manual stop signal is not detected
+                
+                # generate file name
+                self._get_file_name()
+                print 'File name:',self.fileName+'\n'
+                
+                # set remote sync local path
+                if self.isRemoteSync:
+                    self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName+'-sync.h5'), timestamp=False)
 
-                if self.isVideoRecord: videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+                if self.isRemoteSync:
+                    self.remoteSync.start()
+                
+                time.sleep(self.waitTime)
+                
+                if self.isVideoRecord:
+                    videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+
                 self._display(window, stim) #display sequence
-                if self.isVideoRecord: videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+                time.sleep(self.waitTime)
+
+                if self.isVideoRecord:
+                    videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+                
+                if self.isRemoteSync:
+                    self.remoteSync.stop()
 
                 #analyze frames
                 try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2861,17 +2901,58 @@ class DisplaySequence(object):
                     print "No monitor refresh rate information, assuming 60Hz."
                     self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = 60.)
 
+                if self.keepDisplay == True: self.fileName += '-complete'
+                elif self.keepDisplay == False: self.fileName += '-incomplete'
+                
                 #write log file
                 self.save_log()
+                
+                # backup remote dataset            
+                if self.isRemoteSync:
+                    try:
+                        backupFileFolder = self._get_backup_folder()
+                        if backupFileFolder is not None:
+                            if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
+                            backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
+                            self.remoteSync.copy_last_dataset(backupFilePath)
+                            print "remote sync dataset saved successfully."
+                        else:
+                            print "did not find backup path, no remote sync dataset has been saved."
+                    except Exception as e:
+                        print "remote sync dataset is not saved successfully!\n", e
+                        
+                    
                 #clear display data
                 self.clear()
 
-            else: self.clear() # manual stop signal is detected
+            else:
+                window.close()
+                self.clear() # manual stop signal is detected
 
         else: #display will not wait for trigger
-            if self.isVideoRecord: videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+            
+            # generate file name
+            self._get_file_name()
+            print 'File name:',self.fileName+'\n'
+            
+            # set remote sync local path
+            if self.isRemoteSync:
+                self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName+'-sync.h5'), timestamp=False)
+
+            if self.isRemoteSync:
+                self.remoteSync.start()
+
+            if self.isVideoRecord:
+                videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+
+            time.sleep(self.waitTime)
             self._display(window, stim) #display sequence
-            if self.isVideoRecord: videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+
+            if self.isVideoRecord:
+                videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
+
+            if self.isRemoteSync:
+                self.remoteSync.stop()
 
             #analyze frames
             try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
@@ -2879,19 +2960,37 @@ class DisplaySequence(object):
                 print "No monitor refresh rate information, assuming 60Hz."
                 self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = 60.)
 
+            if self.keepDisplay == True: self.fileName += '-complete'
+            elif self.keepDisplay == False: self.fileName += '-incomplete'            
+            
             #write log file
             self.save_log()
+            
+            # backup remote dataset            
+            if self.isRemoteSync:
+                try:
+                    backupFileFolder = self._get_backup_folder()
+                    if backupFileFolder is not None:
+                        if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
+                        backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
+                        self.remoteSync.copy_last_dataset(backupFilePath)
+                        print "remote sync dataset saved successfully."
+                    else:
+                        print "did not find backup path, no remote sync dataset has been saved."
+                except Exception as e:
+                    print "remote sync dataset is not saved successfully!\n", e
+            
             #clear display data
             self.clear()
 
 
     def _wait_for_trigger(self):
-        '''
+        """
         time place holder for waiting for trigger
 
         return True if trigger is detected
                False if manual stop signal is detected
-        '''
+        """
 
         #check NI signal
         triggerTask = iodaq.DigitalInput(self.triggerNIDev, self.triggerNIPort, self.triggerNILine)
@@ -2935,9 +3034,9 @@ class DisplaySequence(object):
 
 
     def _get_file_name(self):
-        '''
+        """
         generate the file name of log file
-        '''
+        """
 
         try:
             self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
@@ -2957,15 +3056,14 @@ class DisplaySequence(object):
         if self.isTriggered: self.fileName += '-' + str(fileNumber)+'-Triggered'
         else: self.fileName += '-' + str(fileNumber) + '-notTriggered'
 
-        if self.keepDisplay == True: self.fileName += '-complete'
-        elif self.keepDisplay == False: self.fileName += '-incomplete'
+
 
 
     def _get_file_number(self):
-        '''
+        """
         get synced file number for log file name
-        '''
-
+        """
+        
         try:
             fileNumTask = iodaq.DigitalInput(self.fileNumNIDev,self.fileNumNIPort,self.fileNumNILines)
             fileNumTask.StartTask()
@@ -3071,10 +3169,14 @@ class DisplaySequence(object):
 
     def save_log(self):
         
-        if self.displayLength == None:
+        if self.displayLength is None:
             self.clear()
             raise LookupError, "Please display sequence first!"
-        
+
+        if self.fileName is None:
+            self.clear()
+            raise LookupError, "Please display sequence first!"
+
         #set up log object
         directory = self.logdir + '\sequence_display_log'
         if not(os.path.isdir(directory)):os.makedirs(directory)
@@ -3085,9 +3187,11 @@ class DisplaySequence(object):
         displayLog.pop('sequenceLog')
         displayLog.pop('displayControlSock')
         displayLog.pop('sequence')
+        try:
+            displayLog.pop('remoteSync')
+        except Exception as e:
+            print ""
         logFile.update({'presentation':displayLog})
-
-        self._get_file_name()
 
         filename =  self.fileName + ".pkl"
         
@@ -3096,30 +3200,39 @@ class DisplaySequence(object):
         ft.saveFile(path,logFile)
         print ".pkl file generated successfully."
         
-        if self.backupdir is not None:
-
-            currDate = datetime.datetime.now().strftime('%y%m%d')
-            stimName = self.sequenceLog['stimulation']['stimName']
-            if 'KSstim' in stimName:
-                backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-Retinotopy')
-            else:
-                backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-'+stimName)
-            if not (os.path.isdir(backupFileFolder)):os.makedirs(backupFileFolder)
+        
+        backupFileFolder = self._get_backup_folder()
+        if backupFileFolder is not None:
+            if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
             backupFilePath = os.path.join(backupFileFolder,filename)
             ft.saveFile(backupFilePath,logFile)
-
-            # backupfolder = self.backupdir + r'\sequence_display_log'
-            # if not(os.path.isdir(backupfolder)):os.makedirs(backupfolder)
-            # backuppath = os.path.join(backupfolder,filename)
-            # backupoutput = open(backuppath,'wb')
-            # pickle.dump(logFile,backupoutput)
-            # backupoutput.close()
-
             print ".pkl backup file generate successfully"
+        else:
+            print "did not find backup path, no backup has been saved."
+            
+            
+    def _get_backup_folder(self):
+        
+        if self.fileName is None:
+            raise LookupError, 'self.fileName not found.'
+        else:
+        
+            if self.backupdir is not None:
+
+                currDate = self.fileName[0:6]
+                stimName = self.sequenceLog['stimulation']['stimName']
+                if 'KSstim' in stimName:
+                    backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-Retinotopy')
+                else:
+                    backupFileFolder = os.path.join(self.backupdir,currDate+'-M'+self.mouseid+'-'+stimName)
+                return backupFileFolder
+            else:
+                return None
+                
             
 
     def clear(self):
-        ''' clear display information. '''
+        """ clear display information. """
         self.displayLength = None
         self.timeStamp = None
         self.frameDuration = None
@@ -3300,5 +3413,7 @@ if __name__ == "__main__":
     # ds.trigger_display()
     # plt.show()
     #==============================================================================================================================
+
+
 
     print 'for debug...'

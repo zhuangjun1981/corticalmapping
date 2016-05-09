@@ -1,32 +1,29 @@
 import corticalmapping.VisualStim2 as vs
 import matplotlib.pyplot as plt
+import numpy as np
+
 
 
 mouseID = '225835' #'147861' #'TEST'
 userID = 'Natalia'
 numOfTrials = 3 # 20
 
-gridSpace=(10.,10.) #(alt,azi)
-probeSize=(10.,10.) #size of flicker probes (width,height)
-probeOrientation=0. #orientation of flicker probes
-probeFrameNum=6 #how many frames each probe is displayed
-subregion=[-15, 50, -20, 70] #mapping region
-sign='ON-OFF' # 'ON', 'OFF' or 'ON-OFF'
-iteration=1
-preGapDur=0.
-postGapDur=0.
-
+sf_list=(0.04,) # (0.16,0.08,0.04), spatial frequency, cycle/unit
+tf_list=(0.5,1.,2.,4.,8)  # (15.,4.,0.5), temporal frequency, Hz
+dire_list=np.arange(0,2*np.pi,np.pi/2)  # np.arange(0,2*np.pi,np.pi/2), direction, arc
+con_list=(0.7,) # (0.01,0.02,0.05,0.11,0.23,0.43,0.73,0.95), contrast, [0, 1]
+size_list=(500.,)  # (1.,2.,5.,10.), radius of the circle, unit defined by self.coordinate
+blockDur=4.  # duration of each condition, second
+midGapDur=4  # duration of gap between conditions
+iteration=3  # iteration of whole sequence
 
 isTriggered = True
 isRemoteSync = False
-
-
 
 psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
 
 logFolder = r'C:\data'
 backupFolder = r'\\W7DTMJ03jgl2\data'
-
 remoteSyncIP = 'w7dtmj19vtx'
 remoteSyncPort = 11001
 syncOutputFolder = None
@@ -51,20 +48,21 @@ indicator=vs.Indicator(mon,
                        freq=1.)
 
 
-SparseNoise=vs.SparseNoise(mon,
-                           indicator,
-                           coordinate='degree', #'degree' or 'linear'
-                           background=0., #back ground color [-1,1]
-                           gridSpace=gridSpace, #(alt,azi)
-                           probeSize=probeSize, #size of flicker probes (width,height)
-                           probeOrientation=probeOrientation, #orientation of flicker probes
-                           probeFrameNum=probeFrameNum,
-                           subregion=subregion,
-                           sign=sign,
-                           iteration=iteration,
-                           preGapDur=preGapDur,
-                           postGapDur=postGapDur)
-
+DriftingGrating=vs.DriftingGratingCircle(mon,
+                                         indicator,
+                                         background=0., # back ground color [-1,1]
+                                         coordinate='degree', # 'degree' or 'linear'
+                                         center=(60.,0.), # (azi, alt), unit defined by self.coordinate
+                                         sf_list=sf_list, # (0.16,0.08,0.04), spatial frequency, cycle/unit
+                                         tf_list=tf_list, # (15.,4.,0.5), temporal frequency, Hz
+                                         dire_list=dire_list, # np.arange(0,2*np.pi,np.pi/2), direction, arc
+                                         con_list=con_list, # (0.01,0.02,0.05,0.11,0.23,0.43,0.73,0.95), contrast, [0, 1]
+                                         size_list=size_list, # (1.,2.,5.,10.), radius of the circle, unit defined by self.coordinate
+                                         blockDur=blockDur, # duration of each condition, second
+                                         midGapDur=midGapDur, # duration of gap between conditions
+                                         iteration=iteration, # iteration of whole sequence
+                                         preGapDur=2.,
+                                         postGapDur=3.)
 
 ds = vs.DisplaySequence(logdir=logFolder,
                         backupdir=backupFolder,
@@ -99,8 +97,8 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         fileNumNIPort = 0,
                         fileNumNILines = '0:7')
 
-ds.setStim(SparseNoise)
+ds.set_stim(DriftingGrating)
 
-ds.triggerDisplay()
+ds.trigger_display()
 
 plt.show()

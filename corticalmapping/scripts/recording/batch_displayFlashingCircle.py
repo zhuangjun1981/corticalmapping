@@ -2,22 +2,26 @@ import matplotlib.pyplot as plt
 import corticalmapping.VisualStim2 as vs
 
 
-mouseID = 'TEST' #'147861' #'TEST'
-userID = 'Jun'
-numOfTrials = 30 # 20
+mouseID = '217450'#'147861' #'TEST'
+userID = 'Rylan'
+numOfTrials = 100 # 20
 color = 1. # [-1., 1.]
 background = -1. # [-1. 1.]
-center = (60., 10.) # (azi, alt), degree
+center = (40., 10.) # (azi, alt), degree
 radius = 10. # degree
 duration = 0.05 # second
 isTriggered = True
+isRemoteSync = True
 
 
 # do not change the following code
 refreshRate = 60.
 psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
 logFolder = r'C:\data'
-backupFolder = r'\\W7DTMJ38BBB\data'
+backupFolder = r'\\W7DTMJ03jgl2\data'
+remoteSyncIP = 'w7dtmj19vtx'
+remoteSyncPort = 11001
+syncOutputFolder = None
 
 mon=vs.Monitor(resolution=(1080, 1920),
                dis=15.3,
@@ -28,7 +32,6 @@ mon=vs.Monitor(resolution=(1080, 1920),
                monTilt=26.56,
                downSampleRate=5,
                refreshRate=refreshRate)
-                  
 #mon.plot_map()
 #plt.show()                  
                   
@@ -59,11 +62,16 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
+                        waitTime=2.,
+                        isRemoteSync=isRemoteSync,
+                        remoteSyncIP=remoteSyncIP,
+                        remoteSyncPort=remoteSyncPort,
+                        syncOutputFolder=syncOutputFolder,
                         isTriggered=isTriggered,
                         triggerNIDev='Dev1',
                         triggerNIPort=1,
                         triggerNILine=0,
-                        triggerType="NegativeEdge",
+                        triggerType="PositiveEdge",
                         isSyncPulse=True,
                         syncPulseNIDev='Dev1',
                         syncPulseNIPort=1,

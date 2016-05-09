@@ -2,15 +2,20 @@ import matplotlib.pyplot as plt
 import corticalmapping.VisualStim2 as vs
 
 
-mouseID = '205364' #'147861' #'TEST'
+mouseID = '235518' #'147861' #'TEST'
 userID = 'Naveen'
-numOfTrials = 30 # 20
+numOfTrials = 40 # 20
 isTriggered = True
+isRemoteSync = False
+
 
 psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
 
 logFolder = r'C:\data'
-backupFolder = r'\\W7DTMJ38BBB\data'
+backupFolder = r'\\W7DTMJ03jgl2\data'
+
+remoteSyncIP = 'w7dtmj19vtx'
+remoteSyncPort = 11001
 
 mon=vs.Monitor(resolution=(1080, 1920),
                dis=15.3,
@@ -51,11 +56,16 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
+                        waitTime=2.,
+                        isRemoteSync=isRemoteSync,
+                        remoteSyncIP=remoteSyncIP,
+                        remoteSyncPort=remoteSyncPort,
+                        syncOutputFolder=backupFolder,
                         isTriggered=isTriggered,
                         triggerNIDev='Dev1',
                         triggerNIPort=1,
                         triggerNILine=0,
-                        triggerType="NegativeEdge",
+                        triggerType="PositiveEdge",
                         isSyncPulse=True,
                         syncPulseNIDev='Dev1',
                         syncPulseNIPort=1,

@@ -1,35 +1,16 @@
-import corticalmapping.VisualStim2 as vs
 import matplotlib.pyplot as plt
+import corticalmapping.VisualStim2 as vs
 
 
-mouseID = '225835' #'147861' #'TEST'
-userID = 'Natalia'
-numOfTrials = 3 # 20
-
-gridSpace=(10.,10.) #(alt,azi)
-probeSize=(10.,10.) #size of flicker probes (width,height)
-probeOrientation=0. #orientation of flicker probes
-probeFrameNum=6 #how many frames each probe is displayed
-subregion=[-15, 50, -20, 70] #mapping region
-sign='ON-OFF' # 'ON', 'OFF' or 'ON-OFF'
-iteration=1
-preGapDur=0.
-postGapDur=0.
-
-
+mouseID = '205364' #'147861' #'TEST'
+userID = 'Naveen'
+numOfTrials = 30 # 20
 isTriggered = True
-isRemoteSync = False
-
-
 
 psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
 
 logFolder = r'C:\data'
-backupFolder = r'\\W7DTMJ03jgl2\data'
-
-remoteSyncIP = 'w7dtmj19vtx'
-remoteSyncPort = 11001
-syncOutputFolder = None
+backupFolder = r'\\W7DTMJ38BBB\data'
 
 mon=vs.Monitor(resolution=(1080, 1920),
                dis=15.3,
@@ -50,21 +31,17 @@ indicator=vs.Indicator(mon,
                        isSync=True,
                        freq=1.)
 
-
-SparseNoise=vs.SparseNoise(mon,
-                           indicator,
-                           coordinate='degree', #'degree' or 'linear'
-                           background=0., #back ground color [-1,1]
-                           gridSpace=gridSpace, #(alt,azi)
-                           probeSize=probeSize, #size of flicker probes (width,height)
-                           probeOrientation=probeOrientation, #orientation of flicker probes
-                           probeFrameNum=probeFrameNum,
-                           subregion=subregion,
-                           sign=sign,
-                           iteration=iteration,
-                           preGapDur=preGapDur,
-                           postGapDur=postGapDur)
-
+stim = vs.KSstimAllDir(mon,
+                       indicator,
+                       background=0.,
+                       iteration=1,
+                       squareSize=25.,
+                       sweepWidth=20.,
+                       stepWidth=0.15,
+                       sweepFrame=1,
+                       flickerFrame=10,
+                       preGapDur=2.,
+                       postGapDur=3.)
 
 ds = vs.DisplaySequence(logdir=logFolder,
                         backupdir=backupFolder,
@@ -74,16 +51,11 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
-                        waitTime=2.,
-                        isRemoteSync=isRemoteSync,
-                        remoteSyncIP=remoteSyncIP,
-                        remoteSyncPort=remoteSyncPort,
-                        syncOutputFolder=syncOutputFolder,
                         isTriggered=isTriggered,
                         triggerNIDev='Dev1',
                         triggerNIPort=1,
                         triggerNILine=0,
-                        triggerType="PositiveEdge",
+                        triggerType="NegativeEdge",
                         isSyncPulse=True,
                         syncPulseNIDev='Dev1',
                         syncPulseNIPort=1,
@@ -99,8 +71,8 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         fileNumNIPort = 0,
                         fileNumNILines = '0:7')
 
-ds.setStim(SparseNoise)
+ds.set_stim(stim)
 
-ds.triggerDisplay()
+ds.trigger_display()
 
 plt.show()
