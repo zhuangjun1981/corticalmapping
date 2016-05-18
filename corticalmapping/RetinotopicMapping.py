@@ -541,10 +541,7 @@ def labelPatches(patchmap, signMap, connectivity=4):
         else:
             raise LookupError, 'This patch has no visual Sign!!'
 
-        if i <= 8:
-            patchname = 'patch0' + str(i + 1)
-        else:
-            patchname = 'patch' + str(i + 1)
+        patchname = 'patch' + ft.int2str(i, 2)
 
         patches.update({patchname : Patch(currPatch, currSign)})
 
@@ -783,10 +780,8 @@ def sortPatches(patchDict):
     patches = sorted(patches, key=lambda a:a[1], reverse=True)
 
     for i, item in enumerate(patches):
-        if i <= 8:
-            patchName = 'patch0' + str(i+1)
-        else:
-            patchName = 'patch' + str(i+1)
+
+        patchName = 'patch' + ft.int2str(i + 1, 2)
 
         newPatchDict.update({patchName:item[0]})
 
@@ -1005,9 +1000,9 @@ def plotPatchBorders2(patches,
 
         #ploting current border
         if value[3] == -1:
-            pt.plotMask(value[2], plotAxis=plotAxis, color='#0000ff', borderWidth = borderWidth, closingIteration = closingIteration)
+            pt.plot_mask(value[2], plotAxis=plotAxis, color='#0000ff', borderWidth = borderWidth, closingIteration = closingIteration)
         elif value[3] == 1:
-            pt.plotMask(value[2], plotAxis=plotAxis, color='#ff0000', borderWidth = borderWidth, closingIteration = closingIteration)
+            pt.plot_mask(value[2], plotAxis=plotAxis, color='#ff0000', borderWidth = borderWidth, closingIteration = closingIteration)
 
         # expanding center coordinate for each patch
         value[0][0] = value[0][0] + expandN
@@ -1141,10 +1136,10 @@ def plotPatchBorders3(patches,
 
         #ploting current border
         if currPatch.sign == -1:
-            pt.plotMask(zoomedArray, plotAxis=plotAxis, color='#0000ff', borderWidth = borderWidth, closingIteration = closingIteration)
+            pt.plot_mask(zoomedArray, plotAxis=plotAxis, color='#0000ff', borderWidth = borderWidth, closingIteration = closingIteration)
             plotAxis.plot(zoomedCenter[1],zoomedCenter[0], '.b', markersize = markerSize)
         elif currPatch.sign == 1:
-            pt.plotMask(zoomedArray, plotAxis=plotAxis, color='#ff0000', borderWidth = borderWidth, closingIteration = closingIteration)
+            pt.plot_mask(zoomedArray, plotAxis=plotAxis, color='#ff0000', borderWidth = borderWidth, closingIteration = closingIteration)
             plotAxis.plot(zoomedCenter[1],zoomedCenter[0], '.r', markersize = markerSize)
 
         #get gradiant vectors for current patch
@@ -1456,9 +1451,7 @@ class RetinotopicMappingTrial(object):
         smallPatchThr = self.params['smallPatchThr']
         vasculatureMap = self.vasculatureMap
 
-        patchMapDilated = dilationPatches2(rawPatchMap,
-                                              dilationIter = dilationIter,
-                                              borderWidth = borderWidth)
+        patchMapDilated = dilationPatches2(rawPatchMap, dilationIter=dilationIter, borderWidth=borderWidth)
 
         #generate raw patch dictionary
         rawPatches = labelPatches(patchMapDilated, signMapf, connectivity = 4)
@@ -1932,7 +1925,7 @@ class RetinotopicMappingTrial(object):
             ROIlegend = []
             for i in range(len(traces)):
                 try:
-                    pt.plotMask(traces[i]['mask'], plotAxis = ax1, borderWidth=5,zoom=zoom,color=traces[i]['ROIcolor'])
+                    pt.plot_mask(traces[i]['mask'], plotAxis = ax1, borderWidth=5, zoom=zoom, color=traces[i]['ROIcolor'])
                     currT=traces[i]['trace'][0]
                     currTrace=traces[i]['trace'][1]
                     ax2.plot(currT,currTrace-np.mean(currTrace), '-', color=traces[i]['ROIcolor'], lw=2)
@@ -2181,7 +2174,7 @@ class RetinotopicMappingTrial(object):
             ROIlegend=[]
 
             for i in range(len(traces)):
-                pt.plotMask(traces[i]['mask'], plotAxis = f_331, borderWidth=5,zoom=zoom,color=traces[i]['ROIcolor'])
+                pt.plot_mask(traces[i]['mask'], plotAxis = f_331, borderWidth=5, zoom=zoom, color=traces[i]['ROIcolor'])
 
                 currT=traces[i]['trace'][0]
                 currTrace=traces[i]['trace'][1]
@@ -2341,7 +2334,7 @@ class RetinotopicMappingTrial(object):
         except (AttributeError, KeyError):
             centerPatchObj = self.finalPatches[centerPatchKey]
 
-        centerPixel = centerPatchObj.getCenter()
+        centerPixel = centerPatchObj.get_center()
 
         if not hasattr(self, 'aziPosMapf'): self._getSignMap()
 
@@ -2439,7 +2432,7 @@ class RetinotopicMappingTrial(object):
 
         centerPatchObj = self.finalPatches[centerPatchKey]
 
-        centerPixel = centerPatchObj.getCenter()
+        centerPixel = centerPatchObj.get_center()
 
         aziPosMapf = self.aziPosMapf
 
@@ -2680,10 +2673,10 @@ class RetinotopicMappingTrial(object):
                 else:plotColor='#000000'
             else:plotColor='#000000'
 
-            im = pt.plotMask(mask,plotAxis=plotAxis,color=plotColor,zoom=zoom,borderWidth=borderWidth)
+            im = pt.plot_mask(mask, plotAxis=plotAxis, color=plotColor, zoom=zoom, borderWidth=borderWidth)
             im.set_interpolation(interpolation)
             if plotName:
-                center=patch.getCenter()
+                center=patch.get_center()
                 plotAxis.text(center[1]*zoom,center[0]*zoom,key,verticalalignment='center', horizontalalignment='center',color=plotColor,fontsize=fontSize)
 
         plotAxis.set_axis_off()
@@ -2720,9 +2713,9 @@ class RetinotopicMappingTrial(object):
             else:plotColor='#000000'
 
             currArray = ni.binary_erosion(patch.array,iterations=1)
-            im = pt.plotMaskBorders(currArray,plotAxis=plotAxis,color=plotColor,zoom=zoom,borderWidth=borderWidth)
+            im = pt.plot_mask_borders(currArray, plotAxis=plotAxis, color=plotColor, zoom=zoom, borderWidth=borderWidth)
             if plotName:
-                center=patch.getCenter()
+                center=patch.get_center()
                 plotAxis.text(center[1]*zoom,center[0]*zoom,key,verticalalignment='center', horizontalalignment='center',color=plotColor,fontsize=fontSize)
 
         plotAxis.set_axis_off()
@@ -3014,7 +3007,7 @@ class RetinotopicMappingTrial(object):
         mask=mask.astype(np.float)
         mask[mask==0]=np.nan
 
-        pt.plotMask(mask,plotAxis=plotAxis,color=color,borderWidth=borderWidth)
+        pt.plot_mask(mask, plotAxis=plotAxis, color=color, borderWidth=borderWidth)
 
 
     def plotPatchesWithName(self,patchDict,plotAxis=None):
@@ -3029,7 +3022,7 @@ class RetinotopicMappingTrial(object):
 
         for key,patch in patchesForPlotting.iteritems():
 
-            center = patch.getCenter()
+            center = patch.get_center()
             plotAxis.text(center[1],center[0],key,verticalalignment='center', horizontalalignment='center')
 
         return plotAxis.figure
@@ -3048,7 +3041,7 @@ class RetinotopicMappingTrial(object):
             self.processTrial()
 
         visualFieldOrigin = self.getVisualFieldOrigin()
-        figList, axList = pt.gridAxis(3,4,len(finalPatches.keys()),figsize=(12,10))
+        figList, axList = pt.grid_axis(3, 4, len(finalPatches.keys()), figsize=(12, 10))
 
         i = 0
 
@@ -3706,7 +3699,7 @@ if __name__ == "__main__":
 #                    [0.,50.],
 #                    [0.,60.]]
 #                    
-#    colorList = pt.randomColor(len(locationList))
+#    colorList = pt.random_color(len(locationList))
 #    
 #    f=plt.figure(figsize=(12,12))
 #    ax=f.add_subplot(111)

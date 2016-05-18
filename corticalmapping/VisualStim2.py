@@ -2313,6 +2313,9 @@ class DriftingGratingCircle(Stim):
                                                     for con in self.con_list
                                                     for size in self.size_list]
         random.shuffle(all_conditions)
+        # print ['sf', 'tf', 'dire', 'con', 'size']
+        # print '\n'.join([str(condi) for condi in all_conditions])
+
         return all_conditions
 
     def _generate_phase_list(self, tf):

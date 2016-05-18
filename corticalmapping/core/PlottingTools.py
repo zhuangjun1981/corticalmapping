@@ -19,14 +19,14 @@ import ImageAnalysis as ia
 import cv2
 
 
-def getRGB(colorStr):
+def get_rgb(colorStr):
     '''
     get R,G,B int value from a hex color string
     '''
     return int(colorStr[1:3],16),int(colorStr[3:5],16),int(colorStr[5:7],16)
 
 
-def getColorStr(R,G,B):
+def get_color_str(R, G, B):
     '''
     get hex color string from R,G,B value (integer with uint8 format)
     '''
@@ -37,7 +37,7 @@ def getColorStr(R,G,B):
     return '#'+''.join(map(chr, (R,G,B))).encode('hex')
 
 
-def binary2RGBA(img,foregroundColor='#ff0000',backgroundColor='#000000',foregroundAlpha=255,backgroundAlpha=0):
+def binary_2_rgba(img, foregroundColor='#ff0000', backgroundColor='#000000', foregroundAlpha=255, backgroundAlpha=0):
     '''
     generate display image in (RGBA).(np.uint8) format which can be displayed by imshow
     :param img: input image, should be a binary array (np.bool, or np.(u)int
@@ -61,8 +61,8 @@ def binary2RGBA(img,foregroundColor='#ff0000',backgroundColor='#000000',foregrou
         if backgroundAlpha<0 or backgroundAlpha>255:raise ValueError, 'Value of backGroundAlpha should be between 0 and 255.'
     else: raise TypeError, 'Data type of backGroundAlpha should be integer.'
 
-    fR,fG,fB=getRGB(foregroundColor)
-    bR,bG,bB=getRGB(backgroundColor)
+    fR,fG,fB=get_rgb(foregroundColor)
+    bR,bG,bB=get_rgb(backgroundColor)
 
     displayImg = np.zeros((img.shape[0],img.shape[1],4)).astype(np.uint8)
     displayImg[img==1]=np.array([fR,fG,fB,foregroundAlpha]).astype(np.uint8)
@@ -71,7 +71,7 @@ def binary2RGBA(img,foregroundColor='#ff0000',backgroundColor='#000000',foregrou
     return displayImg
 
 
-def scalar2RGBA(img,color='#ff0000'):
+def scalar_2_rgba(img, color='#ff0000'):
     '''
     generate display a image in (RGBA).(np.uint8) format which can be displayed by imshow
     alpha is defined by values in the img
@@ -81,7 +81,7 @@ def scalar2RGBA(img,color='#ff0000'):
     :return: displayImg, (RGBA).(np.uint8) format, ready for imshow
     '''
 
-    R,G,B=getRGB(color)
+    R,G,B=get_rgb(color)
 
     RMatrix = (R * ia.array_nor(img.astype(np.float32))).astype(np.uint8)
     GMatrix = (G * ia.array_nor(img.astype(np.float32))).astype(np.uint8)
@@ -95,18 +95,18 @@ def scalar2RGBA(img,color='#ff0000'):
     return displayImg
 
 
-def barGraph(left,
-             height,
-             error,
-             errorDir = 'both', # 'both', 'positive' or 'negative'
-             width = 0.1,            
-             plotAxis = None,
-             lw = 3,
-             faceColor = '#000000',
-             edgeColor = 'none',
-             capSize = 10,
-             label = None
-             ):
+def bar_graph(left,
+              height,
+              error,
+              errorDir = 'both',  # 'both', 'positive' or 'negative'
+             width = 0.1,
+              plotAxis = None,
+              lw = 3,
+              faceColor = '#000000',
+              edgeColor = 'none',
+              capSize = 10,
+              label = None
+              ):
     '''
     plot a single bar with error bar
     '''
@@ -143,7 +143,7 @@ def barGraph(left,
     return plotAxis
     
 
-def randomColor(numOfColor=10):
+def random_color(numOfColor=10):
     '''
     generate as list of random colors
     '''
@@ -172,11 +172,11 @@ def randomColor(numOfColor=10):
     return colors
 
 
-def showMovie(path, #tif file path or numpy arrary of the movie
-              mode = 'raw', # 'raw', 'dF' or 'dFoverF'
-              baselinePic = None, # picuture of baseline
-              baselineType = 'mean', # way to calculate baseline
-              cmap = 'gray'):
+def show_movie(path,  #tif file path or numpy arrary of the movie
+               mode = 'raw',  # 'raw', 'dF' or 'dFoverF'
+               baselinePic = None,  # picuture of baseline
+               baselineType = 'mean',  # way to calculate baseline
+               cmap = 'gray'):
     
     '''
     plot tf movie in the way defined by mode
@@ -216,7 +216,7 @@ def showMovie(path, #tif file path or numpy arrary of the movie
     return mov
 
 
-def standaloneColorBar(vmin,vmax,cmap,sectionNum=10):
+def standalone_color_bar(vmin, vmax, cmap, sectionNum=10):
     '''
     plot a stand alone color bar.
     '''
@@ -231,7 +231,7 @@ def standaloneColorBar(vmin,vmax,cmap,sectionNum=10):
     cbar.set_ticks(np.linspace(vmin,vmax,num=sectionNum+1))
     
 
-def alphaBlending(image,alphaData,vmin,vmax,cmap='Paired',sectionNum=10,background=-1,interpolation='nearest',isSave=False,savePath=None):
+def alpha_blending(image, alphaData, vmin, vmax, cmap='Paired', sectionNum=10, background=-1, interpolation='nearest', isSave=False, savePath=None):
     '''
     Generate image with transparency weighted by another matrix.
     
@@ -285,7 +285,7 @@ def alphaBlending(image,alphaData,vmin,vmax,cmap='Paired',sectionNum=10,backgrou
     return colorImage
 
 
-def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closingIteration=None):
+def plot_mask(mask, plotAxis=None, color='#ff0000', zoom=1, borderWidth = None, closingIteration=None):
     '''
     plot mask borders in a given color
     '''
@@ -320,7 +320,7 @@ def plotMask(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth = None,closin
     return currfig
 
 
-def plotMaskBorders(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth=2,closingIteration=None,**kwargs):
+def plot_mask_borders(mask, plotAxis=None, color='#ff0000', zoom=1, borderWidth=2, closingIteration=None, **kwargs):
     '''
     plot mask (ROI) borders by using pyplot.contour function. all the 0s and Nans in the input mask will be considered
     as background, and non-zero, non-nan pixel will be considered in ROI.
@@ -356,7 +356,7 @@ def plotMaskBorders(mask,plotAxis=None,color='#ff0000',zoom=1,borderWidth=2,clos
     return currfig
 
 
-def gridAxis(rowNum,columnNum,totalPlotNum,**kwarg):
+def grid_axis(rowNum, columnNum, totalPlotNum, **kwarg):
     '''
     return figure handles and axis handels for multiple subplots and figures
     '''
@@ -379,7 +379,7 @@ def gridAxis(rowNum,columnNum,totalPlotNum,**kwarg):
     return figureHandles, axisHandles
 
 
-def tileAxis(f,rowNum,columnNum,topDownMargin=0.05,leftRightMargin=0.05,rowSpacing=0.05,columnSpacing=0.05):
+def tile_axis(f, rowNum, columnNum, topDownMargin=0.05, leftRightMargin=0.05, rowSpacing=0.05, columnSpacing=0.05):
 
     if 2*topDownMargin+((rowNum-1)*rowSpacing) >= 1: raise ValueError, 'Top down margin or row spacing are too big!'
     if 2*leftRightMargin+((columnNum-1)*columnSpacing) >= 1: raise ValueError, 'Left right margin or column spacing are too big!'
@@ -395,10 +395,10 @@ def tileAxis(f,rowNum,columnNum,topDownMargin=0.05,leftRightMargin=0.05,rowSpaci
     return axisList
 
 
-def saveFigureWithoutBorders(f,
-                             savePath,
-                             removeSuperTitle = True,
-                             **kwargs):
+def save_figure_without_borders(f,
+                                savePath,
+                                removeSuperTitle = True,
+                                **kwargs):
     '''
     remove borders of a figure
     '''
@@ -410,7 +410,7 @@ def saveFigureWithoutBorders(f,
     f.savefig(savePath,pad_inches = 0,bbox_inches='tight',**kwargs)
 
 
-def mergeNormalizedImages(imgList,isFilter=True,sigma=50,mergeMethod='mean',dtype=np.float32):
+def merge_normalized_images(imgList, isFilter=True, sigma=50, mergeMethod='mean', dtype=np.float32):
 
     '''
     merge images in a list in to one, for each image, local intensity variability will be removed by subtraction of
@@ -447,10 +447,10 @@ def mergeNormalizedImages(imgList,isFilter=True,sigma=50,mergeMethod='mean',dtyp
 #     if hue > 1: hue = 1
 #     color = colorsys.hsv_to_rgb(hue,1,1)
 #     color = [int(x*255) for x in color]
-#     return getColorStr(*color)
+#     return get_color_str(*color)
 #
 #
-def hot2RGB(hot):
+def hot_2_rgb(hot):
     '''
     get the RGB value as format as hex string from the decimal ratio of hot colormap (from 0 to 1)
     '''
@@ -458,10 +458,10 @@ def hot2RGB(hot):
     if hot>1: hot = 1
     cmap_hot = plt.get_cmap('hot')
     color=cmap_hot(hot)[0:3];color = [int(x*255) for x in color]
-    return getColorStr(*color)
+    return get_color_str(*color)
 
 
-def value2RGB(value,cmap):
+def value_2_rgb(value, cmap):
     '''
     get the RGB value as format as hex string from the decimal ratio of a given colormap (from 0 to 1)
     '''
@@ -469,7 +469,7 @@ def value2RGB(value,cmap):
     if value>1: value=1
     cmap = plt.get_cmap(cmap)
     color = cmap(value)[0:3]; color = [int(x*255) for x in color]
-    return getColorStr(*color)
+    return get_color_str(*color)
 
 
 
@@ -490,18 +490,18 @@ if __name__=='__main__':
     maskNan[20:30,50:60]=1
     f=plt.figure(); ax=f.add_subplot(111)
     ax.imshow(bg,cmap='gray')
-    _ = plotMaskBorders(maskNan,plotAxis=ax,color='#0000ff',zoom=1,closingIteration=20)
+    _ = plot_mask_borders(maskNan, plotAxis=ax, color='#0000ff', zoom=1, closingIteration=20)
     plt.show()
     #----------------------------------------------------
 
     #----------------------------------------------------
-    # ax = barGraph(0.5,1,0.1,label='xx')
+    # ax = bar_graph(0.5,1,0.1,label='xx')
     # ax.legend()
     # plt.show()
     #----------------------------------------------------
     
     #----------------------------------------------------
-    # figures, axises = gridAxis(2,3,20)
+    # figures, axises = grid_axis(2,3,20)
     # for i, ax in enumerate(axises):
     #     ax.imshow(np.random.rand(5,5))
     # plt.show()
@@ -521,7 +521,7 @@ if __name__=='__main__':
     # aa=np.random.rand(20,20)
     # mask = np.zeros((20,20),dtype=np.bool)
     # mask[4:7,13:16]=True
-    # displayMask = binary2RGBA(mask)
+    # displayMask = binary_2_rgba(mask)
     # plt.figure()
     # plt.imshow(aa)
     # plt.imshow(displayMask,interpolation='nearest')
@@ -530,7 +530,7 @@ if __name__=='__main__':
 
     #----------------------------------------------------
     # b=np.random.rand(5,5)
-    # displayImg = scalar2RGBA(b)
+    # displayImg = scalar_2_rgba(b)
     # plt.imshow(displayImg,interpolation='nearest')
     # plt.show()
     #----------------------------------------------------
@@ -545,19 +545,19 @@ if __name__=='__main__':
     # f.suptitle('test')
     # ax=f.add_subplot(111)
     # ax.imshow(np.random.rand(20,20))
-    # saveFigureWithoutBorders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_title.png',removeSuperTitle=False,dpi=300)
-    # saveFigureWithoutBorders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_notitle.png',removeSuperTitle=True,dpi=300)
+    # save_figure_without_borders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_title.png',removeSuperTitle=False,dpi=300)
+    # save_figure_without_borders(f,r'C:\JunZhuang\labwork\data\python_temp_folder\test_notitle.png',removeSuperTitle=True,dpi=300)
     #----------------------------------------------------
 
     #----------------------------------------------------
     # f=plt.figure(figsize=(12,9))
-    # axisList = tileAxis(f,4,3,0.05,0.05,0.05,0.05)
+    # axisList = tile_axis(f,4,3,0.05,0.05,0.05,0.05)
     # print np.array(axisList).shape
     # plt.show()
     #----------------------------------------------------
 
     #----------------------------------------------------
-    # assert(hot2RGB(0.5) == value2RGB(0.5,'hot'))
+    # assert(hot_2_rgb(0.5) == value_2_rgb(0.5,'hot'))
     #----------------------------------------------------
 
     print 'for debug'

@@ -53,8 +53,6 @@ crashlytics.properties
 crashlytics-build.properties
 
 
-
-test.hdf5
 /corticalmapping/ipython_lizard/res/test_pkls
 .ipynb_checkpoints
 

@@ -16,7 +16,7 @@ import scipy.stats.stats as stats
 import corticalmapping.core.tifffile as tf
 from corticalmapping.core.FileTools import loadFile,saveFile,importRawJCam,importRawNewJPhys
 from corticalmapping.core.ImageAnalysis import normalize_movie,array_nor
-from corticalmapping.core.PlottingTools import mergeNormalizedImages
+from corticalmapping.core.PlottingTools import merge_normalized_images
 
 
 def preliminary_analysis(imageDate,
@@ -202,11 +202,11 @@ def preliminary_analysis(imageDate,
 
         if len(vasMap)==0:
             vasMap1 = array_nor(rawMov[0])
-            vasMap2 = mergeNormalizedImages([rawMov[0]])
+            vasMap2 = merge_normalized_images([rawMov[0]])
             print 'Did not find vasculature map file. Taking the first frame of the movie as vasMap...'
         else:
             vasMap1 = array_nor(np.mean(vasMap, axis=0))
-            vasMap2 = mergeNormalizedImages(vasMap)
+            vasMap2 = merge_normalized_images(vasMap)
 
         
         fileName = 'File' + imageFileNum

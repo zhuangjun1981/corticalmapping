@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import corticalmapping.core.tifffile as tf
 from corticalmapping.core.FileTools import loadFile,saveFile,importRawNewJPhys
 from corticalmapping.core.ImageAnalysis import normalize_movie,array_nor
-from corticalmapping.core.PlottingTools import mergeNormalizedImages
+from corticalmapping.core.PlottingTools import merge_normalized_images
 
 def preliminary_analysis(imageDate,
                          mouseID,
@@ -197,7 +197,7 @@ def preliminary_analysis(imageDate,
         
         if len(vasMapNameList)==0:
             vasMap1 = array_nor(rawMov[0])
-            vasMap2 = mergeNormalizedImages([rawMov[0]])
+            vasMap2 = merge_normalized_images([rawMov[0]])
             print 'Did not find vasculature map file. Taking the first frame of the movie as vasMap...'
         else:
             vasMap = []
@@ -207,7 +207,7 @@ def preliminary_analysis(imageDate,
                 vasMap.append(array_nor(currVasMap))
             
             vasMap1 = array_nor(np.mean(vasMap, axis=0))
-            vasMap2 = mergeNormalizedImages(vasMap)
+            vasMap2 = merge_normalized_images(vasMap)
             
         #check dimension relationship of aveMovie and vasMap
         if len(aveMov.shape) != 3:
