@@ -2897,10 +2897,15 @@ class DisplaySequence(object):
                 window.close()
                 self.clear()
                 return None
+
             try:
+                self._get_file_name()
+                print 'File name:', self.fileName + '\n'
+                self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName + '-sync.h5'),
+                                                timestamp=False)
                 self.remoteSync.start()
             except Exception as err:
-                print "remote sync object is not started correctly. \n" + str(err)
+                print "remote sync object is not started correctly. \n" + str(err) + "\n\n"
         else:
             time.sleep(self.waitTime)
 
@@ -2931,6 +2936,11 @@ class DisplaySequence(object):
         if self.isRemoteSync:
             syncWait = self._wait_for_trigger(event=self.remoteSyncTriggerEvent)
             if not syncWait:
+                try: 
+                    self.remoteSync.stop()
+                except Exception as err:
+                    print "remote sync object is not stopped correctly. \n" + str(err)
+                
                 self.save_log()
                 # analyze frames
                 try:
@@ -2948,12 +2958,6 @@ class DisplaySequence(object):
                 print "remote sync object is not stopped correctly. \n" + str(err)
         else:
             time.sleep(self.waitTime)
-
-        # write log file
-        if self.keepDisplay == True:
-            self.fileName += '-complete'
-        elif self.keepDisplay == False:
-            self.fileName += '-incomplete'
 
         self.save_log()
 
@@ -3171,8 +3175,12 @@ class DisplaySequence(object):
             raise LookupError, "Please display sequence first!"
 
         if self.fileName is None:
-            self.clear()
-            raise LookupError, "Please display sequence first!"
+            self._get_file_name()
+            
+        if self.keepDisplay == True:
+            self.fileName += '-complete'
+        elif self.keepDisplay == False:
+            self.fileName += '-incomplete'
 
         #set up log object
         directory = self.logdir + '\sequence_display_log'
