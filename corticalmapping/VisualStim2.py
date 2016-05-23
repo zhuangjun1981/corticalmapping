@@ -2897,11 +2897,10 @@ class DisplaySequence(object):
                 window.close()
                 self.clear()
                 return None
-
             try:
-                self.remoteSync.stop()
+                self.remoteSync.start()
             except Exception as err:
-                print "remote sync object is not stopped correctly. \n" + str(err)
+                print "remote sync object is not started correctly. \n" + str(err)
         else:
             time.sleep(self.waitTime)
 
@@ -2909,6 +2908,10 @@ class DisplaySequence(object):
         if self.isTriggered:
             displayWait = self._wait_for_trigger(event=self.displayTriggerEvent)
             if not displayWait:
+                try:
+                    self.remoteSync.stop()
+                except Exception:
+                    pass
                 window.close()
                 self.clear()
                 return None
@@ -2937,7 +2940,6 @@ class DisplaySequence(object):
                 except KeyError:
                     print "No monitor refresh rate information, assuming 60Hz."
                     self.frameDuration, self.frame_stats = analyze_frames(ts=self.timeStamp, refreshRate=60.)
-                window.close()
                 self.clear()
                 return None
             try:
@@ -2993,7 +2995,7 @@ class DisplaySequence(object):
         triggerTask = iodaq.DigitalInput(self.triggerNIDev, self.triggerNIPort, self.triggerNILine)
         triggerTask.StartTask()
 
-        print "Waiting for trigger: " + self.triggerType + ' on ' + triggerTask.devstr
+        print "Waiting for trigger: " + event + ' on ' + triggerTask.devstr
 
         if event == 'LowLevel':
             lastTTL = triggerTask.read()
