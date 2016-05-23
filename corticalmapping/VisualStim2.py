@@ -2705,12 +2705,12 @@ class DisplaySequence(object):
                  mouseid='Test',
                  userid='Jun',
                  psychopyMonitor='testMonitor',
-                 waitTime=3, # wait time before display, sec
+                 waitTime = 3.,
                  isInterpolate=False,
                  isRemoteSync=False,
                  remoteSyncIP='localhost',
                  remoteSyncPort=10003,
-                 syncOutputFolder=None,
+                 remoteSyncTriggerEvent="PositiveEdge",
                  isVideoRecord=False,
                  isTriggered=True,
                  triggerNIDev='Dev1',
@@ -2720,7 +2720,7 @@ class DisplaySequence(object):
                  syncPulseNIDev='Dev1',
                  syncPulseNIPort=1,
                  syncPulseNILine=1,
-                 triggerType="NegativeEdge",  # should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"
+                 displayTriggerEvent="NegativeEdge",  # should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"
                  displayScreen=0,
                  initialBackgroundColor=0,
                  videoRecordIP='localhost',
@@ -2739,13 +2739,13 @@ class DisplaySequence(object):
         self.isRemoteSync = isRemoteSync
         self.remoteSyncIP = remoteSyncIP
         self.remoteSyncPort = remoteSyncPort
-        self.syncOutputFolder = syncOutputFolder
+        self.remoteSyncTriggerEvent = remoteSyncTriggerEvent
         self.isVideoRecord = isVideoRecord 
         self.isTriggered = isTriggered
         self.triggerNIDev = triggerNIDev
         self.triggerNIPort = triggerNIPort
         self.triggerNILine = triggerNILine
-        self.triggerType = triggerType
+        self.displayTriggerEvent = displayTriggerEvent
         self.isSyncPulse = isSyncPulse
         self.syncPulseNIDev = syncPulseNIDev
         self.syncPulseNIPort = syncPulseNIPort
@@ -2829,9 +2829,17 @@ class DisplaySequence(object):
 
     def trigger_display(self):
 
+
+        # --------------------------- early preparation for display-----------------------------------------------------
         #test monitor resolution
         try: resolution = self.sequenceLog['monitor']['resolution'][::-1]
         except KeyError: resolution = (800,600)
+
+        try:
+            refreshRate = self.sequenceLog['monitor']['refreshRate']
+        except KeyError:
+            print "No monitor refresh rate information, assuming 60Hz.\n"
+            refreshRate = 60.
 
         #prepare display frames log
         if self.sequence is None:
@@ -2848,148 +2856,134 @@ class DisplaySequence(object):
             print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'.\n"
             self.displayFrames = None
 
-
-        #set up sock communication with video monitoring computer
-        if self.isVideoRecord:
-            videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-        # start psychopy window
-        window = visual.Window(size=resolution,monitor=self.psychopyMonitor,fullscr=True,screen=self.displayScreen,color=self.initialBackgroundColor)
-        stim = visual.ImageStim(window, size=(2,2), interpolate=self.isInterpolate)
-        
-        try: refreshRate = self.sequenceLog['monitor']['refreshRate']
-        except KeyError:
-            print "No monitor refresh rate information, assuming 60Hz.\n"
-            refreshRate = 60.
-
         # calculate expected display time
         displayTime = float(self.sequence.shape[0]) * self.displayIteration / refreshRate
         print '\n Expected display time: ', displayTime, ' seconds\n'
 
+        # generate file name
+        self._get_file_name()
+        print 'File name:', self.fileName + '\n'
+        # ---------------------------- early preparation for display----------------------------------------------------
+
+
+        # ---------------------------setup necessary communication link-------------------------------------------------
+        #set up sock communication with video monitoring computer
+        if self.isVideoRecord:
+            videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        # set remote sync local path
+        if self.isRemoteSync:
+            self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName + '-sync.h5'),
+                                            timestamp=False)
+
+        # ----------------------------setup necessary communication link------------------------------------------------
+
+
+        # ----------------------------setup psychopy window and stimulus------------------------------------------------
+        # start psychopy window
+        window = visual.Window(size=resolution,monitor=self.psychopyMonitor,fullscr=True,screen=self.displayScreen,
+                               color=self.initialBackgroundColor)
+        stim = visual.ImageStim(window, size=(2,2), interpolate=self.isInterpolate)
+        # ----------------------------setup psychopy window and stimulus------------------------------------------------
+
+
+        # initialize keepDisplay
         self.keepDisplay = True
 
+        # handle remote sync start
+        if self.isRemoteSync:
+            syncWait = self._wait_for_trigger(event=self.remoteSyncTriggerEvent)
+            if not syncWait:
+                window.close()
+                self.clear()
+                return None
+
+            try:
+                self.remoteSync.stop()
+            except Exception as err:
+                print "remote sync object is not stopped correctly. \n" + str(err)
+        else:
+            time.sleep(self.waitTime)
+
+        # handle display trigger
         if self.isTriggered:
-            wait = self._wait_for_trigger()
+            displayWait = self._wait_for_trigger(event=self.displayTriggerEvent)
+            if not displayWait:
+                window.close()
+                self.clear()
+                return None
 
-            if wait: # trigger is detected and manual stop signal is not detected
-                
-                # generate file name
-                self._get_file_name()
-                print 'File name:',self.fileName+'\n'
-                
-                # set remote sync local path
-                if self.isRemoteSync:
-                    self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName+'-sync.h5'), timestamp=False)
+        # handle video monitoring trigger start
+        if self.isVideoRecord:
+            videoRecordSock.sendto("1" + self.fileName, (self.videoRecordIP, self.videoRecordPort))  # start eyetracker
 
-                if self.isRemoteSync:
-                    self.remoteSync.start()
-                
-                time.sleep(self.waitTime)
-                
-                if self.isVideoRecord:
-                    videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
+        # display
+        self._display(window, stim)  # display sequence
 
-                self._display(window, stim) #display sequence
-                time.sleep(self.waitTime)
+        # handle video monitoring trigger stop
+        if self.isVideoRecord:
+            videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
 
-                if self.isVideoRecord:
-                    videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
-                
-                if self.isRemoteSync:
-                    self.remoteSync.stop()
-
-                #analyze frames
-                try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
+        # handle remote sync stop
+        if self.isRemoteSync:
+            syncWait = self._wait_for_trigger(event=self.remoteSyncTriggerEvent)
+            if not syncWait:
+                self.save_log()
+                # analyze frames
+                try:
+                    self.frameDuration, self.frame_stats = analyze_frames(ts=self.timeStamp,
+                                                                          refreshRate=self.sequenceLog['monitor'][
+                                                                              'refreshRate'])
                 except KeyError:
                     print "No monitor refresh rate information, assuming 60Hz."
-                    self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = 60.)
-
-                if self.keepDisplay == True: self.fileName += '-complete'
-                elif self.keepDisplay == False: self.fileName += '-incomplete'
-                
-                #write log file
-                self.save_log()
-                
-                # backup remote dataset            
-                if self.isRemoteSync:
-                    try:
-                        backupFileFolder = self._get_backup_folder()
-                        if backupFileFolder is not None:
-                            if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
-                            backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
-                            self.remoteSync.copy_last_dataset(backupFilePath)
-                            print "remote sync dataset saved successfully."
-                        else:
-                            print "did not find backup path, no remote sync dataset has been saved."
-                    except Exception as e:
-                        print "remote sync dataset is not saved successfully!\n", e
-                        
-                    
-                #clear display data
-                self.clear()
-
-            else:
+                    self.frameDuration, self.frame_stats = analyze_frames(ts=self.timeStamp, refreshRate=60.)
                 window.close()
-                self.clear() # manual stop signal is detected
-
-        else: #display will not wait for trigger
-            
-            # generate file name
-            self._get_file_name()
-            print 'File name:',self.fileName+'\n'
-            
-            # set remote sync local path
-            if self.isRemoteSync:
-                self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName+'-sync.h5'), timestamp=False)
-
-            if self.isRemoteSync:
-                self.remoteSync.start()
-
-            if self.isVideoRecord:
-                videoRecordSock.sendto("1"+self.fileName, (self.videoRecordIP, self.videoRecordPort)) #start eyetracker
-
-            time.sleep(self.waitTime)
-            self._display(window, stim) #display sequence
-
-            if self.isVideoRecord:
-                videoRecordSock.sendto("0"+self.fileName,(self.videoRecordIP,self.videoRecordPort)) #end eyetracker
-
-            if self.isRemoteSync:
+                self.clear()
+                return None
+            try:
                 self.remoteSync.stop()
+            except Exception as err:
+                print "remote sync object is not stopped correctly. \n" + str(err)
+        else:
+            time.sleep(self.waitTime)
 
-            #analyze frames
-            try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
-            except KeyError:
-                print "No monitor refresh rate information, assuming 60Hz."
-                self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = 60.)
+        # write log file
+        if self.keepDisplay == True:
+            self.fileName += '-complete'
+        elif self.keepDisplay == False:
+            self.fileName += '-incomplete'
 
-            if self.keepDisplay == True: self.fileName += '-complete'
-            elif self.keepDisplay == False: self.fileName += '-incomplete'            
-            
-            #write log file
-            self.save_log()
-            
-            # backup remote dataset            
-            if self.isRemoteSync:
-                try:
-                    backupFileFolder = self._get_backup_folder()
-                    if backupFileFolder is not None:
-                        if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
-                        backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
-                        self.remoteSync.copy_last_dataset(backupFilePath)
-                        print "remote sync dataset saved successfully."
-                    else:
-                        print "did not find backup path, no remote sync dataset has been saved."
-                except Exception as e:
-                    print "remote sync dataset is not saved successfully!\n", e
-            
-            #clear display data
-            self.clear()
+        self.save_log()
+
+        #analyze frames
+        try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
+        except KeyError:
+            print "No monitor refresh rate information, assuming 60Hz."
+            self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = 60.)
+
+        # backup remote dataset
+        if self.isRemoteSync:
+            try:
+                backupFileFolder = self._get_backup_folder()
+                if backupFileFolder is not None:
+                    if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
+                    backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
+                    self.remoteSync.copy_last_dataset(backupFilePath)
+                    print "remote sync dataset saved successfully."
+                else:
+                    print "did not find backup path, no remote sync dataset has been saved."
+            except Exception as e:
+                print "remote sync dataset is not saved successfully!\n", e
+
+        #clear display data
+        self.clear()
 
 
-    def _wait_for_trigger(self):
+    def _wait_for_trigger(self, event):
         """
         time place holder for waiting for trigger
+
+        event should be: 'LowLevel', 'HighLevel', 'NegativeEdge' or 'PositiveEdge'
 
         return True if trigger is detected
                False if manual stop signal is detected
@@ -3001,7 +2995,7 @@ class DisplaySequence(object):
 
         print "Waiting for trigger: " + self.triggerType + ' on ' + triggerTask.devstr
 
-        if self.triggerType == 'LowLevel':
+        if event == 'LowLevel':
             lastTTL = triggerTask.read()
             while lastTTL != 0 and self.keepDisplay:
                 lastTTL = triggerTask.read()[0]
@@ -3009,7 +3003,7 @@ class DisplaySequence(object):
             else:
                 if self.keepDisplay: triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n'; return True
                 else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
-        elif self.triggerType == 'HighLevel':
+        elif event == 'HighLevel':
             lastTTL = triggerTask.read()[0]
             while lastTTL != 1 and self.keepDisplay:
                 lastTTL = triggerTask.read()[0]
@@ -3017,7 +3011,7 @@ class DisplaySequence(object):
             else:
                 if self.keepDisplay: triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n'; return True
                 else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
-        elif self.triggerType == 'NegativeEdge':
+        elif event == 'NegativeEdge':
             lastTTL = triggerTask.read()[0]
             while self.keepDisplay:
                 currentTTL = triggerTask.read()[0]
@@ -3025,7 +3019,7 @@ class DisplaySequence(object):
                 else:lastTTL = int(currentTTL);self._update_display_status()
             else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.';return False
             triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n'; return True
-        elif self.triggerType == 'PositiveEdge':
+        elif event == 'PositiveEdge':
             lastTTL = triggerTask.read()[0]
             while self.keepDisplay:
                 currentTTL = triggerTask.read()[0]
@@ -3058,8 +3052,6 @@ class DisplaySequence(object):
         
         if self.isTriggered: self.fileName += '-' + str(fileNumber)+'-Triggered'
         else: self.fileName += '-' + str(fileNumber) + '-notTriggered'
-
-
 
 
     def _get_file_number(self):
