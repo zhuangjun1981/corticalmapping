@@ -2872,9 +2872,9 @@ class DisplaySequence(object):
             videoRecordSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         # set remote sync local path
-        if self.isRemoteSync:
-            self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName + '-sync.h5'),
-                                            timestamp=False)
+        # if self.isRemoteSync:
+        #     self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName + '-sync.h5'),
+        #                                     timestamp=False)
 
         # ----------------------------setup necessary communication link------------------------------------------------
 
@@ -2940,8 +2940,25 @@ class DisplaySequence(object):
                     self.remoteSync.stop()
                 except Exception as err:
                     print "remote sync object is not stopped correctly. \n" + str(err)
+                    
+                # backup remote sync file 
+                try:
+                    backupFileFolder = self._get_backup_folder()
+                    print '\nRemote sync backup file folder: ' + backupFileFolder + '\n'
+                    if backupFileFolder is not None:
+                        if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
+                        backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
+                        time.sleep(5.) # wait remote sync to finish saving
+                        self.remoteSync.copy_last_dataset(backupFilePath)
+                        print "remote sync dataset saved successfully."
+                    else:
+                        print "did not find backup path, no remote sync dataset has been saved."
+                except Exception as e:
+                    print "remote sync dataset is not saved successfully!\n", e
                 
+                # save display log
                 self.save_log()
+                                
                 # analyze frames
                 try:
                     self.frameDuration, self.frame_stats = analyze_frames(ts=self.timeStamp,
@@ -2971,9 +2988,11 @@ class DisplaySequence(object):
         if self.isRemoteSync:
             try:
                 backupFileFolder = self._get_backup_folder()
+                print '\nRemote sync backup file folder: ' + backupFileFolder + '\n'
                 if backupFileFolder is not None:
                     if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
                     backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
+                    time.sleep(5.)  # wait remote sync to finish saving
                     self.remoteSync.copy_last_dataset(backupFilePath)
                     print "remote sync dataset saved successfully."
                 else:
