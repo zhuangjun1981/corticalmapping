@@ -2705,12 +2705,12 @@ class DisplaySequence(object):
                  mouseid='Test',
                  userid='Jun',
                  psychopyMonitor='testMonitor',
-                 waitTime = 3.,
                  isInterpolate=False,
                  isRemoteSync=False,
                  remoteSyncIP='localhost',
                  remoteSyncPort=10003,
                  remoteSyncTriggerEvent="PositiveEdge",
+                 remoteSyncSaveWaitTime=3.,
                  isVideoRecord=False,
                  isTriggered=True,
                  triggerNIDev='Dev1',
@@ -2734,7 +2734,7 @@ class DisplaySequence(object):
         self.sequence = None
         self.sequenceLog = {}
         self.psychopyMonitor = psychopyMonitor
-        self.waitTime = waitTime
+        self.remoteSyncSaveWaitTime = remoteSyncSaveWaitTime
         self.isInterpolate = isInterpolate
         self.isRemoteSync = isRemoteSync
         self.remoteSyncIP = remoteSyncIP
@@ -2906,8 +2906,6 @@ class DisplaySequence(object):
                 self.remoteSync.start()
             except Exception as err:
                 print "remote sync object is not started correctly. \n" + str(err) + "\n\n"
-        else:
-            time.sleep(self.waitTime)
 
         # handle display trigger
         if self.isTriggered:
@@ -2948,7 +2946,7 @@ class DisplaySequence(object):
                     if backupFileFolder is not None:
                         if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
                         backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
-                        time.sleep(5.) # wait remote sync to finish saving
+                        time.sleep(self.remoteSyncSaveWaitTime ) # wait remote sync to finish saving
                         self.remoteSync.copy_last_dataset(backupFilePath)
                         print "remote sync dataset saved successfully."
                     else:
@@ -2973,8 +2971,6 @@ class DisplaySequence(object):
                 self.remoteSync.stop()
             except Exception as err:
                 print "remote sync object is not stopped correctly. \n" + str(err)
-        else:
-            time.sleep(self.waitTime)
 
         self.save_log()
 
@@ -2992,7 +2988,7 @@ class DisplaySequence(object):
                 if backupFileFolder is not None:
                     if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
                     backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
-                    time.sleep(5.)  # wait remote sync to finish saving
+                    time.sleep(self.remoteSyncSaveWaitTime )  # wait remote sync to finish saving
                     self.remoteSync.copy_last_dataset(backupFilePath)
                     print "remote sync dataset saved successfully."
                 else:
