@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import corticalmapping.VisualStim2 as vs
+import corticalmapping.VisualStim as vs
 
 
 mouseID = '217450'#'147861' #'TEST'

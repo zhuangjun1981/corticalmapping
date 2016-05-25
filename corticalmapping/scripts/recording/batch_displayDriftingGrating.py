@@ -1,4 +1,4 @@
-import corticalmapping.VisualStim2 as vs
+import corticalmapping.VisualStim as vs
 import matplotlib.pyplot as plt
 import numpy as np
 
