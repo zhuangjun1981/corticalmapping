@@ -3,10 +3,12 @@ __author__ = 'junz'
 import os
 import json
 import numpy as np
+import itertools
+import scipy.stats as stats
 import matplotlib.pyplot as plt
 import core.ImageAnalysis as ia
 import core.TimingAnalysis as ta
-import core.tifffile as tf
+import tifffile as tf
 import RetinotopicMapping as rm
 import core.FileTools as ft
 import scipy.ndimage as ni
@@ -439,6 +441,53 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
     aziPowerMap = aziPowerMap / np.amax(aziPowerMap)
 
     return altPosMap,aziPosMap,altPowerMap,aziPowerMap
+
+
+def regression_detrend(mov, roi, verbose=True):
+    """
+    detrend a movie by subtracting global trend as average activity in side the roi. It work on a pixel by pixel bases
+    and use linear regress to determine the contribution of the global signal to the pixel activity.
+
+    ref:
+    1. J Neurosci. 2016 Jan 27;36(4):1261-72. doi: 10.1523/JNEUROSCI.2744-15.2016. Resolution of High-Frequency
+    Mesoscale Intracortical Maps Using the Genetically Encoded Glutamate Sensor iGluSnFR. Xie Y, Chan AW, McGirr A,
+    Xue S, Xiao D, Zeng H, Murphy TH.
+    2. Neuroimage. 1998 Oct;8(3):302-6. The inferential impact of global signal covariates in functional neuroimaging
+    analyses. Aguirre GK1, Zarahn E, D'Esposito M.
+
+    :param mov: input movie
+    :param roi: binary, weight and binaryNan roi to define global signal
+    :return: detrended movie, trend, amp_map, rvalue_map
+    """
+
+    if len(mov.shape) != 3:
+        raise(ValueError, 'Input movie should be 3-dimensional!')
+
+    roi = ia.WeightedROI(roi)
+    trend = roi.get_weighted_trace(mov)
+
+    mov_new = np.empty(mov.shape, dtype=np.float32)
+    slopes = np.empty((mov.shape[1], mov.shape[2]), dtype=np.float32)
+    rvalues = np.empty((mov.shape[1], mov.shape[2]), dtype=np.float32)
+
+    pixel_num = mov.shape[1] * mov.shape[2]
+
+    n = 0
+
+    for i, j in itertools.product(range(mov.shape[1]), range(mov.shape[2])):
+        pixel_trace = mov[:, i, j]
+        slope, intercept, r_value, p_value, stderr = stats.linregress(trend, pixel_trace)
+        slopes[i, j] = slope
+        rvalues[i, j] = r_value
+        mov_new[:, i, j] = pixel_trace - trend * slope
+
+        if verbose:
+            if n % (pixel_num // 10) == 0:
+                print 'progress:', int(round(float(n) * 100 / pixel_num)), '%'
+        n += 1
+
+    return mov_new, trend, slopes, rvalues
+
 
 
 if __name__ == '__main__':

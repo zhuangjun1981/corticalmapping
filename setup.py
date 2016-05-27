@@ -53,7 +53,7 @@ setup(
     url='http://stash.corp.alleninstitute.org/users/junz/repos/corticalmapping/',
     author='Jun Zhuang',
     tests_require=['pytest'],
-    install_requires=['numpy','scipy','opencv-python','PyDAQmx','scikit-image'],
+    install_requires=['numpy','scipy','opencv-python','PyDAQmx','scikit-image','tifffile'],
     cmdclass={'test': PyTest},
     author_email='junz@alleninstitute.org',
     description='cortical mapping tools',

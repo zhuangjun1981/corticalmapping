@@ -25,7 +25,7 @@ from matplotlib.figure import Figure
 
 import corticalmapping.core.FileTools as ft
 import corticalmapping.core.ImageAnalysis as ia
-import corticalmapping.core.tifffile as tf
+import tifffile as tf
 import corticalmapping.core.PlottingTools as pt
 
 try: import cv2; from core.ImageAnalysis import rigid_transform_cv2 as rigid_transform

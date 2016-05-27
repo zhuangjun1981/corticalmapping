@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from toolbox.misc import BinarySlicer
 import warnings
-import corticalmapping.core.tifffile as tf
+import tifffile as tf
 import corticalmapping.core.FileTools as ft
 import corticalmapping.core.TimingAnalysis as ta
 import corticalmapping.HighLevel as hl

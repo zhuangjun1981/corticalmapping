@@ -18,7 +18,7 @@ from matplotlib import cm
 import core.FileTools as ft
 import core.ImageAnalysis as ia
 import core.PlottingTools as pt
-import core.tifffile as tf
+import tifffile as tf
 
 
 

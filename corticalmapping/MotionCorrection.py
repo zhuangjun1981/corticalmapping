@@ -2,14 +2,14 @@ __author__ = 'junz'
 
 import os
 import numpy as np
-import core.tifffile as tf
+import tifffile as tf
 import core.ImageAnalysis as ia
 import core.FileTools as ft
 import matplotlib.pyplot as plt
 
 
-try: import cv2; from core.ImageAnalysis import rigid_transform_cv2 as rigidTransform
-except ImportError as e: print e; from core.ImageAnalysis import rigid_transform as rigidTransform
+try: import cv2; from core.ImageAnalysis import rigid_transform_cv2 as rigid_transform
+except ImportError as e: print e; from core.ImageAnalysis import rigid_transform as rigid_transform
 
 
 plt.ioff()
