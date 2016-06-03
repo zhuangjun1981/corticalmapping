@@ -255,7 +255,7 @@ class WrappedRetinotopicMapping(RetinotopicMapping.RetinotopicMappingTrial):
                                  alpha=0.6)
             text_color = txt_colors.get((key in desired_patch_names),
                                         default_color)
-            plotAxis.text(patch.get_center()[1], patch.get_center()[0], key,
+            plotAxis.text(patch.getCenter()[1], patch.getCenter()[0], key,
                           color=text_color, horizontalalignment='center',
                           verticalalignment='center', fontsize=15, zorder=10, fontweight='bold')
             

@@ -511,7 +511,7 @@ def boxcartime_dff(data,
 
 def normalize_movie(movie,
                     baselinePic = None,  # picture for baseline
-                   baselineType = 'mean'  # 'mean' or 'median'
+                    baselineType = 'mean'  # 'mean' or 'median'
                     ):
     '''
     return average image, movie minus avearage, and dF over F for each pixel
@@ -1079,7 +1079,7 @@ def get_marked_masks(labeled, markCoor):
 
     masks = get_masks(labeled)
     for key, value in masks.iteritems():
-        if hit_or_miss(markCoor, value): return value; break
+        if hit_or_miss(markCoor, value): return value
     return None
 
 def sort_masks(masks, keyPrefix='', labelLength=3):
