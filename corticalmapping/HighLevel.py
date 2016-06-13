@@ -139,7 +139,9 @@ def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr
                 currOnset = displayOnset
 
     print '\nNumber of sweep onsets:', len(trueDisplayOnsets)
-    print '\nDisplay onsets (sec):',trueDisplayOnsets,'\n'
+    print '\nDisplay onsets (sec):'
+    print '\n'.join([str(o) for o in trueDisplayOnsets])
+    print '\n'
 
     return np.array(trueDisplayOnsets)
 
