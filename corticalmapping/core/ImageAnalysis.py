@@ -6,11 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import interpolate
 import scipy.ndimage as ni
-from matplotlib import cm
-import matplotlib.colors as col
 import skimage.morphology as sm
 import FileTools as ft
-from corticalmapping.core import PlottingTools as pt
+import PlottingTools as pt
 try: import cv2
 except ImportError as e: print e
 try: from toolbox.misc import BinarySlicer

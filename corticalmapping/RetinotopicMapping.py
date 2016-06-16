@@ -2009,13 +2009,20 @@ class RetinotopicMappingTrial(object):
 
     def processTrial(self, isPlot = False):
         self.cleanMaps()
-        self._getSignMap(isPlot=isPlot)
-        self._getRawPatchMap(isPlot=isPlot)
-        self._getRawPatches(isPlot=isPlot)
-        self._getDeterminantMap(isPlot=isPlot)
-        self._getEccentricityMap(isPlot=isPlot)
-        self._splitPatches(isPlot=isPlot)
-        self._mergePatches(isPlot=isPlot)
+        _ = self._getSignMap(isPlot=isPlot)
+        if isPlot: plt.show()
+        _ = self._getRawPatchMap(isPlot=isPlot)
+        if isPlot: plt.show()
+        _ = self._getRawPatches(isPlot=isPlot)
+        if isPlot: plt.show()
+        _ = self._getDeterminantMap(isPlot=isPlot)
+        if isPlot: plt.show()
+        _ = self._getEccentricityMap(isPlot=isPlot)
+        if isPlot: plt.show()
+        _ = self._splitPatches(isPlot=isPlot)
+        if isPlot: plt.show()
+        _ = self._mergePatches(isPlot=isPlot)
+        if isPlot: plt.show()
 
 
     def refresh(self,
