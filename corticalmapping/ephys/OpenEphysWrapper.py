@@ -3,16 +3,13 @@ import glob
 import os
 import h5py
 import numpy as np
-import core.FileTools as ft
-
-
+import corticalmapping.core.FileTools as ft
 
 CONTINUOUS_TIMESTAMP_DEYPE = np.dtype('<i8') # dtype timestamp field in each record (block) of .continuous file
 CONTINUOUS_SAMPLE_PER_RECORD_DTYPE = np.dtype('<u2') # dtype of samples per record field in each record (block) of .continuous file
 CONTINUOUS_RECORDING_NUMBER_DTYPE = np.dtype('<u2') # dtype of recording number field in each record (block) of .continuous file
 CONTINUOUS_SAMPLE_DTYPE = np.dtype('>i2') # dtype of each sample in each record (block) of .continuous file
 CONTINUOUS_MARKER_BYTES = 10 # number of bytes of marker field in each record (block) of .continuous file
-
 
 def load_continuous(file_path, dtype=float, verbose=True):
     """
@@ -158,7 +155,7 @@ def pack_folder(folder, channels, prefix, dtype=np.float32):
     :param channels: list of channels, specify channel order
     :param prefix:
     :param dtype
-    :return: 1-d array of numbers (np.float32), number of samples
+    :return: 1-d array of numbers (np.float32), number of samples, sampling rate (float)
     """
 
     all_files = os.listdir(folder)
@@ -168,20 +165,30 @@ def pack_folder(folder, channels, prefix, dtype=np.float32):
             if prefix + '_CH'+str(channel) in file and '.continuous' in file:
                 file_list.append(os.path.join(folder, file))
 
+    print '\nLoad .continuous files from source folder: ', folder
+    print '.continuous files tobe loaded:'
     print '\n'.join(file_list)
 
     traces = []
     sample_nums = []
+    fs = None
 
     for file in file_list:
         curr_header, curr_trace = load_continuous2(file, dtype=dtype)
+        if fs is None:
+            fs = curr_header['sampleRate']
+        else:
+            if fs != curr_header['sampleRate']:
+                raise ValueError('sampling rate of current file does not match sampling rate of other files in this '
+                                 'folder!')
+
         traces.append(curr_trace)
         sample_nums.append(curr_trace.shape[0])
 
     min_sample_num = min(sample_nums)
     traces = np.array([trace[0:min_sample_num] for trace in traces]).astype(dtype)
 
-    return traces.flatten(order='F'), min_sample_num
+    return traces.flatten(order='F'), min_sample_num, float(fs)
 
 
 def pack_folders(folder_list, output_folder, output_filename, channels, prefix, dtype):
@@ -205,25 +212,34 @@ def pack_folders(folder_list, output_folder, output_filename, channels, prefix, 
     channels_h5 = h5_file.create_dataset('channel_order', data=channels)
     channels_h5.attrs['device'] = 'tetrode'
 
-    # data_set = h5_file.create_dataset('data', (10,), maxshape=(None,), dtype=np.float32)
+    data_set = h5_file.create_dataset('data', (10, ), maxshape=(None, ), chunks=(30000 * len(channels), ), dtype=dtype)
 
-    # curr_data_start_ind = 0
+    curr_data_start_ind = 0
     curr_folder_start_ind = 0
     data_all = []
+    sampling_rate = None
 
     for i, folder in enumerate(folder_list):
 
-        curr_data_array, curr_sample_num = pack_folder(folder, channels, prefix, dtype)
+        curr_data_array, curr_sample_num, fs = pack_folder(folder, channels, prefix, dtype)
         print curr_data_array.shape
+
+        if sampling_rate is None:
+            sampling_rate = fs
+        else:
+            if fs != sampling_rate:
+                err = 'The sampling rate (' + str(fs) + 'Hz) of folder: (' + folder + ') does not match the sampling' +\
+                    ' rate (' + str(sampling_rate) + ') of other folders.'
+                raise ValueError(err)
 
         data_all.append(curr_data_array)
 
-        # print 'start resizing dataset ...'
-        # data_set.resize((curr_data_start_ind + curr_data_array.shape[0],))
-        # print 'end of resizeing. \nstart writing dataset ...'
-        # data_set[curr_data_start_ind:curr_data_start_ind + curr_data_array.shape[0]] = curr_data_array
-        # print 'end of writing.'
-        # curr_data_start_ind += + curr_data_array.shape[0]
+        print '\nstart resizing dataset ...'
+        data_set.resize((curr_data_start_ind + curr_data_array.shape[0],))
+        print 'end of resizeing. \n\nstart writing dataset ...'
+        data_set[curr_data_start_ind:curr_data_start_ind + curr_data_array.shape[0]] = curr_data_array
+        print 'end of writing.\n'
+        curr_data_start_ind += + curr_data_array.shape[0]
 
         curr_group = h5_file.create_group('folder'+ft.int2str(i,4))
         curr_group.attrs['path'] = folder
@@ -231,16 +247,13 @@ def pack_folders(folder_list, output_folder, output_filename, channels, prefix, 
         curr_group.attrs['end_index'] = curr_folder_start_ind + curr_sample_num
         curr_folder_start_ind += curr_sample_num
 
+    h5_file.create_dataset('fs', data=float(sampling_rate))
+
     h5_file.close()
 
     data_all = np.concatenate(data_all)
 
     data_all.tofile(output_path_dat)
-
-
-
-
-
 
 
 if __name__ == '__main__':
