@@ -125,6 +125,8 @@ def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr
     pdFilteredDiff = np.diff(pdFiltered)
     pdFilteredDiff = np.hstack(([0],pdFilteredDiff))
     pdSignal = np.multiply(pd, pdFilteredDiff)
+    plt.plot(pdSignal[:1000000])
+    plt.show()
 
     displayOnsets = ta.getOnsetTimeStamps(pdSignal, Fs, threshold = segmentThr, onsetType='raising')
 

@@ -110,7 +110,8 @@ def get_spike_timestamps(spike_ind, h5_path):
             curr_spike_ind = [spk for spk in spikes if spk >= curr_start_ind and spk < curr_end_ind]
             curr_spike_ind = np.array(curr_spike_ind, dtype=np.float32) - curr_start_ind
             curr_spike_timestamps = curr_spike_ind / fs
-            curr_group.create_dataset(unit, data=curr_spike_timestamps)
+            curr_dataset = curr_group.create_dataset(unit, data=curr_spike_timestamps)
+            curr_dataset.attrs['unit'] = 'second'
 
 
 if __name__ == "__main__":
