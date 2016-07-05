@@ -2899,11 +2899,14 @@ class DisplaySequence(object):
 
         # handle remote sync start
         if self.isRemoteSync:
-            syncWait = self._wait_for_trigger(event=self.remoteSyncTriggerEvent)
-            if not syncWait:
-                window.close()
-                self.clear()
-                return None
+            if self.isTriggered:
+                syncWait = self._wait_for_trigger(event=self.remoteSyncTriggerEvent)
+                if not syncWait:
+                    window.close()
+                    self.clear()
+                    return None
+            else:
+                pass
 
             try:
                 self._get_file_name()
@@ -2925,6 +2928,8 @@ class DisplaySequence(object):
                 window.close()
                 self.clear()
                 return None
+            else:
+                time.sleep(5.) # wait remote object to start
 
         # handle video monitoring trigger start
         if self.isVideoRecord:
