@@ -379,7 +379,7 @@ def grid_axis(rowNum, columnNum, totalPlotNum, **kwarg):
     return figureHandles, axisHandles
 
 
-def tile_axis(f, rowNum, columnNum, topDownMargin=0.05, leftRightMargin=0.05, rowSpacing=0.05, columnSpacing=0.05):
+def tile_axis(f, rowNum, columnNum, topDownMargin=0.05, leftRightMargin=0.01, rowSpacing=0.01, columnSpacing=0.01):
 
     if 2*topDownMargin+((rowNum-1)*rowSpacing) >= 1: raise ValueError, 'Top down margin or row spacing are too big!'
     if 2*leftRightMargin+((columnNum-1)*columnSpacing) >= 1: raise ValueError, 'Left right margin or column spacing are too big!'

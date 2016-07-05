@@ -68,8 +68,10 @@ def getOnsetTimeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
     pos = trace > threshold
     if onsetType == 'raising':
         return ((~pos[:-1] & pos[1:]).nonzero()[0]+1)/float(Fs)
-    if onsetType == 'falling':
+    elif onsetType == 'falling':
         return ((pos[:-1] & ~pos[1:]).nonzero()[0]+1)/float(Fs)
+    else:
+        raise LookupError('onsetType should be either "raising" or "falling"!')
 
 def power_spectrum(trace, fs, is_plot=False):
     '''

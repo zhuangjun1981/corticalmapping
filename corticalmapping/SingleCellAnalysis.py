@@ -273,8 +273,8 @@ class SpatialTemporalReceptiveField(object):
 
                 for index in indexList:
                     traces = self.data[index]['traces']
-                    meanTrace = np.mean(traces,axis=0)
-                    stdTrace = np.std(traces,axis=0)
+                    meanTrace = np.mean(np.array(traces, dtype=np.float32),axis=0)
+                    stdTrace = np.std(np.array(traces, dtype=np.float32),axis=0)
                     semTrace = stdTrace/np.sqrt(float(len(traces)))
                     if self.data[index]['sign'] == 1: color = '#ff0000'
                     if self.data[index]['sign'] == -1: color = '#0000ff'

@@ -57,7 +57,7 @@ jphysChannels = ('photodiode','read','trigger','visualFrame','video1','video2','
 jphysFs = 10000.
 
 #photodiode signal parameters
-pdDigitizeThr=0.9
+pdDigitizeThr=0.8
 pdFilterSize=0.01
 pdSegmentThr=0.02
 

@@ -93,7 +93,10 @@ def get_spike_timestamps(spike_ind, h5_path):
     """
     h5_file = h5py.File(h5_path, 'r+')
     folder_list = [f for f in h5_file.keys() if f[0:6] == 'folder']
-    fs = h5_file['fs'].value
+    fs = h5_file['fs_hz'].value
+    units = spike_ind.keys()
+    units.sort()
+    h5_file.create_dataset('units', data=units)
 
     print folder_list
     print fs
@@ -110,16 +113,16 @@ def get_spike_timestamps(spike_ind, h5_path):
             curr_spike_ind = [spk for spk in spikes if spk >= curr_start_ind and spk < curr_end_ind]
             curr_spike_ind = np.array(curr_spike_ind, dtype=np.float32) - curr_start_ind
             curr_spike_timestamps = curr_spike_ind / fs
-            curr_dataset = curr_group.create_dataset(unit, data=curr_spike_timestamps)
+            curr_dataset = curr_group['timestamps'].create_dataset(unit, data=curr_spike_timestamps)
             curr_dataset.attrs['unit'] = 'second'
 
 
 if __name__ == "__main__":
 
-    csv_path = r"G:\160610-M240652\processed\cluster_groups.csv"
-    spike_cluster_path = r"G:\160610-M240652\processed\spike_clusters.npy"
-    spike_times_path = r"G:\160610-M240652\processed\spike_times.npy"
-    h5_path = r"G:\160610-M240652\processed\160610-M240652.hdf5"
+    csv_path = r"G:\160610-M240652\processed_1\cluster_groups.csv"
+    spike_cluster_path = r"G:\160610-M240652\processed_1\spike_clusters.npy"
+    spike_times_path = r"G:\160610-M240652\processed_1\spike_times.npy"
+    h5_path = r"G:\160610-M240652\processed_1\160610-M240652.hdf5"
 
     cluster_group = read_csv(csv_path)
     print 'cluster_group:'

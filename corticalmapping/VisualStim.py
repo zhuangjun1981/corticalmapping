@@ -759,7 +759,7 @@ class KSstim(Stim):
         second element: square polarity, 1: not reversed; -1: reversed
         third element: sweeps, index in sweep table
         forth element: color of indicator
-                       synchronized: gap:0, then alternating between -1 and 1 for each sweep
+                       synchronized: gap:-1, sweep on: 1
                        non-synchronized: alternating between -1 and 1 at defined frequency
         for gap frames the second and third elements should be 'None'
         """
@@ -2175,6 +2175,14 @@ class SparseNoise(Stim):
         """
 
         frames = []
+        if self.probeFrameNum == 1:
+            indicatorONFrame = 1
+        elif self.probeFrameNum >1:
+            indicatorONFrame = self.probeFrameNum // 2
+        else:
+            raise ValueError('self.probeFrameNum should be an integer larger than 0!')
+
+        indicatorOFFFrame = self.postGapFrameNum - indicatorONFrame
 
         for i in range(self.iteration):
 
@@ -2183,9 +2191,8 @@ class SparseNoise(Stim):
             iterGridPoints = self._generate_grid_points_sequence()
 
             for gridPoint in iterGridPoints:
-                frames += [[1,gridPoint[0],gridPoint[1],1]]
-                if self.probeFrameNum > 1:
-                    frames += [[1,gridPoint[0],gridPoint[1],-1]] * (self.probeFrameNum-1)
+                frames += [[1,gridPoint[0],gridPoint[1],1]] * indicatorONFrame
+                frames += [[1,gridPoint[0],gridPoint[1],-1]] * indicatorOFFFrame
 
             if self.postGapFrameNum>0: frames += [[0,None,None,-1]]*self.postGapFrameNum
 
