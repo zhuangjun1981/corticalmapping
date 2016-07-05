@@ -2182,7 +2182,7 @@ class SparseNoise(Stim):
         else:
             raise ValueError('self.probeFrameNum should be an integer larger than 0!')
 
-        indicatorOFFFrame = self.postGapFrameNum - indicatorONFrame
+        indicatorOFFFrame = self.probeFrameNum - indicatorONFrame
 
         for i in range(self.iteration):
 
