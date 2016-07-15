@@ -20,14 +20,16 @@ def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
     onsetIndWithLocationSign: indices of frames for each white square, list with element structure [np.array([alt, azi]),sign,[list of indices]]
     '''
 
-    framesSingleIter = sparseNoiseDisplayLog['stimulation']['frames']
 
-    frames = framesSingleIter * sparseNoiseDisplayLog['presentation']['displayIteration']
+    frames = sparseNoiseDisplayLog['presentation']['displayFrames']
     frames = [tuple([np.array([x[1][1],x[1][0]]),x[2],x[3],i]) for i, x in enumerate(frames)]
     dtype = [('location',np.ndarray),('sign',int),('isOnset',int),('index',int)]
     frames = np.array(frames, dtype = dtype)
 
-    allOnsetInd = np.where(frames['isOnset']==1)[0]
+    allOnsetInd = []
+    for i in range(len(frames)):
+        if frames[i]['isOnset'] == 1 and (i == 0 or frames[i-1]['isOnset'] == -1):
+            allOnsetInd.append(i)
 
     onsetFrames = frames[allOnsetInd]
 

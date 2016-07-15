@@ -348,6 +348,53 @@ def analysisMappingDisplayLog(logPath):
 
     return displayInfo
 
+def analyzeSparseNoiseDisplayLog(logPath):
+    '''
+    return the indices of visual display frames for each square in a sparse noise display
+
+    return:
+    allOnsetInd: the indices of frames for each square, list
+    onsetIndWithLocationSign: indices of squares for each location and sign,
+                              list with element structure [np.array([alt, azi]),sign,[list of indices of square onset]]
+    '''
+
+    log = ft.loadFile(logPath)
+
+    if log['stimulation']['stimName'] != 'SparseNoise':
+        raise LookupError('The stimulus type should be sparse noise!')
+
+
+    frames = log['presentation']['displayFrames']
+    frames = [tuple([np.array([x[1][1],x[1][0]]),x[2],x[3],i]) for i, x in enumerate(frames)]
+    dtype = [('location',np.ndarray),('sign',int),('isOnset',int),('index',int)]
+    frames = np.array(frames, dtype = dtype)
+
+    allOnsetInd = []
+    for i in range(len(frames)):
+        if frames[i]['isOnset'] == 1 and (i == 0 or frames[i-1]['isOnset'] == -1):
+            allOnsetInd.append(i)
+
+    onsetFrames = frames[allOnsetInd]
+
+    # todo: finish this function!!
+
+
+
+    allSquares = list(set([tuple([x[0][0],x[0][1],x[1]]) for x in onsetFrames]))
+
+    onsetIndWithLocationSign = []
+
+    for square in allSquares:
+        indices = []
+        for j, onsetFrame in enumerate(onsetFrames):
+            if onsetFrame['location'][0]==square[0] and onsetFrame['location'][1]==square[1] and onsetFrame['sign']==square[2]:
+                indices.append(j)
+
+        onsetIndWithLocationSign.append([np.array([square[0],square[1]]),square[2],indices])
+
+    return allOnsetInd, onsetIndWithLocationSign
+
+
 def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temporalDownSampleRate=1):
     '''
     :param movPath: path to the image movie
@@ -447,7 +494,6 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
     aziPowerMap = aziPowerMap / np.amax(aziPowerMap)
 
     return altPosMap,aziPosMap,altPowerMap,aziPowerMap
-
 
 def regression_detrend(mov, roi, verbose=True):
     """

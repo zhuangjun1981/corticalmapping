@@ -2077,25 +2077,21 @@ class SparseNoise(Stim):
         self.probeSize = probeSize
         self.probeOrientationt = probeOrientation
         self.probeFrameNum = probeFrameNum
-        self.subregion = subregion
+
+        if subregion is None:
+            if self.coordinate == 'degree':
+                self.subregion = [np.amin(self.monitor.degCorY), np.amax(self.monitor.degCorY),
+                                  np.amin(self.monitor.degCorX), np.amax(self.monitor.degCorX)]
+            if self.coordinate == 'linear':
+                self.subregion = [np.amin(self.monitor.linCorY), np.amax(self.monitor.linCorY),
+                                  np.amin(self.monitor.linCorX), np.amax(self.monitor.linCorX)]
+        else:
+            self.subregion = subregion
+
         self.sign = sign
         self.iteration = iteration
 
         self.clear()
-
-    def _generate_subregion(self):
-        """
-        get subregion for displaying
-        """
-
-        if self.coordinate == 'degree':
-            subregion=[np.amin(self.monitor.degCorY),np.amax(self.monitor.degCorY),
-                       np.amin(self.monitor.degCorX),np.amax(self.monitor.degCorX)]
-        if self.coordinate == 'linear':
-            subregion=[np.amin(self.monitor.linCorY),np.amax(self.monitor.linCorY),
-                       np.amin(self.monitor.linCorX),np.amax(self.monitor.linCorX)]
-
-        return subregion
 
     def _getGridPoints(self):
         """
@@ -2103,18 +2099,18 @@ class SparseNoise(Stim):
         [azi, alt]
         """
 
-        subregion = self._generate_subregion()
-
-        rows = np.arange(subregion[0],subregion[1],self.gridSpace[0])
-        columns = np.arange(subregion[2],subregion[3],self.gridSpace[1])
+        rows = np.arange(self.subregion[0], self.subregion[1] + self.gridSpace[0], self.gridSpace[0])
+        columns = np.arange(self.subregion[2], self.subregion[3] + self.gridSpace[1], self.gridSpace[1])
 
         xx,yy = np.meshgrid(columns,rows)
 
         gridPoints = np.transpose(np.array([xx.flatten(),yy.flatten()]))
 
         #get all the visual points for each pixels on monitor
-        if self.coordinate == 'degree':monitorPoints = np.transpose(np.array([self.monitor.degCorX.flatten(),self.monitor.degCorY.flatten()]))
-        if self.coordinate == 'linear':monitorPoints = np.transpose(np.array([self.monitor.linCorX.flatten(),self.monitor.linCorY.flatten()]))
+        if self.coordinate == 'degree':
+            monitorPoints = np.transpose(np.array([self.monitor.degCorX.flatten(),self.monitor.degCorY.flatten()]))
+        if self.coordinate == 'linear':
+            monitorPoints = np.transpose(np.array([self.monitor.linCorX.flatten(),self.monitor.linCorY.flatten()]))
 
         #get the grid points within the coverage of monitor
         gridPoints = gridPoints[in_hull(gridPoints,monitorPoints)]
@@ -2123,7 +2119,7 @@ class SparseNoise(Stim):
 
     def _generate_grid_points_sequence(self):
         """
-        generate pseudorandomized grid point sequence. if ON-OFF, continuous frame shold not
+        generate pseudorandomized grid point sequence. if ON-OFF, consecutive frames should not
         present stimulus at same location
         :return: list of [gridPoint, sign]
         """
@@ -3340,10 +3336,11 @@ if __name__ == "__main__":
     # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=20)
     # monitorPoints = np.transpose(np.array([mon.degCorX.flatten(),mon.degCorY.flatten()]))
     # indicator=Indicator(mon)
-    # sparse_noise=SparseNoise(mon,indicator, subregion=(-20.,20.,40.,60.))
-    # gridPoints = sparse_noise._generateGridPoints()
+    # sparse_noise=SparseNoise(mon,indicator, subregion=(-20.,20.,40.,60.), gridSpace=(10, 10))
+    # gridPoints = sparse_noise._generate_grid_points_sequence()
+    # gridLocations = np.array([l[0] for l in gridPoints])
     # plt.plot(monitorPoints[:,0],monitorPoints[:,1],'or',mec='#ff0000',mfc='none')
-    # plt.plot(gridPoints[:,0],gridPoints[:,1],'.k')
+    # plt.plot(gridLocations[:,0], gridLocations[:,1],'.k')
     # plt.show()
     #==============================================================================================================================
 
