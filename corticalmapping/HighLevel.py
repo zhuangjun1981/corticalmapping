@@ -130,7 +130,7 @@ def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr
     # plt.plot(pdSignal[:1000000])
     # plt.show()
 
-    displayOnsets = ta.getOnsetTimeStamps(pdSignal, Fs, threshold = segmentThr, onsetType='raising')
+    displayOnsets = ta.get_onset_timeStamps(pdSignal, Fs, threshold = segmentThr, onsetType='raising')
 
     trueDisplayOnsets=[]
     for i, displayOnset in enumerate(displayOnsets):
@@ -660,7 +660,7 @@ if __name__ == '__main__':
     #                                                segmentThr=pdSegmentThr,
     #                                                Fs=jphysFs)
     #
-    # imgFrameTS = ta.getOnsetTimeStamps(jphys['read'],
+    # imgFrameTS = ta.get_onset_timeStamps(jphys['read'],
     #                                    Fs=jphysFs,
     #                                    threshold=readThreshold,
     #                                    onsetType=readOnsetType)

@@ -84,7 +84,7 @@ for fileNum in fileNumList:
 
     displayOnsets = hl.segmentMappingPhotodiodeSignal(pd,digitizeThr=pdDigitizeThr,filterSize=pdFilterSize,segmentThr=pdSegmentThr,Fs=jphysFs,smallestInterval=smallestInterval)
 
-    imgFrameTS = ta.getOnsetTimeStamps(jphys['read'],Fs=jphysFs,threshold=readThreshold,onsetType=readOnsetType)
+    imgFrameTS = ta.get_onset_timeStamps(jphys['read'], Fs=jphysFs, threshold=readThreshold, onsetType=readOnsetType)
 
     logPath = hl.findLogPath(date=dateRecorded,mouseID=mouseID,stimulus='FlashingCircle',userID=userID,fileNumber=str(fileNum),displayFolder=dataFolder)
 

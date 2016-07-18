@@ -9,16 +9,19 @@ def up_crossings(data, threshold=0):
     pos = data > threshold
     return (~pos[:-1] & pos[1:]).nonzero()[0]
 
+
 def down_crossings(data, threshold=0):
     pos = data > threshold
     return (pos[:-1] & ~pos[1:]).nonzero()[0]
+
 
 def all_crossings(data, threshold=0):
     pos = data > threshold
     npos = ~pos
     return ((pos[:-1] & npos[1:]) | (npos[:-1] & pos[1:])).nonzero()[0]
 
-def thresholdOnset(data, threshold=0, direction='up', fs=10000.):
+
+def threshold_onset(data, threshold=0, direction='up', fs=10000.):
     '''
 
     :param data: time trace
@@ -33,7 +36,8 @@ def thresholdOnset(data, threshold=0, direction='up', fs=10000.):
     elif direction == 'both': onsetInd = all_crossings(data, threshold)
     return onsetInd/float(fs)
 
-def discreteCrossCorrelation(ts1,ts2,range=(-1.,1.),bins=100, isPlot=False):
+
+def discrete_cross_correlation(ts1, ts2, range=(-1., 1.), bins=100, isPlot=False):
 
     binWidth = (float(range[1])-float(range[0]))/bins
     t = np.arange((range[0]+binWidth/2),(range[1]+binWidth/2),binWidth)
@@ -51,14 +55,16 @@ def discreteCrossCorrelation(ts1,ts2,range=(-1.,1.),bins=100, isPlot=False):
 
     return t,values
 
-def findNearest(trace,value):
+
+def find_nearest(trace, value):
     '''
     return the index in "trace" having the closest value to "value"
     '''
 
     return np.argmin(np.abs(trace-value))
 
-def getOnsetTimeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
+
+def get_onset_timeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
     '''
     param trace: time trace of digital signal recorded as analog
     param Fs: sampling rate
@@ -72,6 +78,7 @@ def getOnsetTimeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
         return ((pos[:-1] & ~pos[1:]).nonzero()[0]+1)/float(Fs)
     else:
         raise LookupError('onsetType should be either "raising" or "falling"!')
+
 
 def power_spectrum(trace, fs, is_plot=False):
     '''
@@ -89,6 +96,7 @@ def power_spectrum(trace, fs, is_plot=False):
         plt.show()
 
     return spectrum, freqs
+
 
 def sliding_power_spectrum(trace, fs, sliding_window_length, sliding_step_length=None, is_plot=False):
     '''
@@ -128,7 +136,7 @@ def sliding_power_spectrum(trace, fs, sliding_window_length, sliding_step_length
             sorting_idx = np.argsort(freqs)
             spectrum = np.empty((len(freqs), len(times)))
             for idx, time in enumerate(times):
-                starting_point = findNearest(time_line, time)
+                starting_point = find_nearest(time_line, time)
                 ending_point = starting_point + points_in_window
                 current_trace = trace[starting_point:ending_point]
                 current_spectrum, _ = power_spectrum(current_trace, fs, is_plot=False)
@@ -153,15 +161,15 @@ if __name__=='__main__':
     #============================================================================================================
     # a=np.arange(100,dtype=np.float)
     # b=a+0.5+(np.random.rand(100)-0.5)*0.1
-    # c=discreteCrossCorrelation(a,b,range=(0,1),bins=50,isPlot=True)
+    # c=discrete_cross_correlation(a,b,range=(0,1),bins=50,isPlot=True)
     # plt.show()
     #============================================================================================================
 
     #============================================================================================================
     # trace = np.array(([0.] * 5 + [5.] * 5) * 5)
-    # ts = getOnsetTimeStamps(trace, Fs=10000., onsetType='raising')
+    # ts = get_onset_timeStamps(trace, Fs=10000., onsetType='raising')
     # assert(ts[2] == 0.0025)
-    # ts2 = getOnsetTimeStamps(trace, Fs=10000., onsetType='falling')
+    # ts2 = get_onset_timeStamps(trace, Fs=10000., onsetType='falling')
     # assert(ts2[2] == 0.0030)
     #============================================================================================================
 

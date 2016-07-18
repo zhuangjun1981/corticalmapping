@@ -1245,6 +1245,7 @@ def plotPairedPatches(patch1,
 def getPatchDict(patch):
     return {'sparseArray':patch.sparseArray,'sign':patch.sign}
 
+
 class RetinotopicMappingTrial(object):
 
 
@@ -2334,6 +2335,102 @@ class RetinotopicMappingTrial(object):
         return altPosMapNor, aziPosMapNor, altPowerMapNor, aziPowerMapNor, signMapNor, signMapfNor
 
 
+    def generateNormalizedTrial(self,centerPatchKey='patch01', mapSize=512, isPlot=False, borderValue=0.):
+
+        if not hasattr(self, 'finalPatches'):
+            self.processTrial()
+
+        centerPixel, rotationAngle = self.getNormalizeTransform(centerPatchKey=centerPatchKey)
+
+        altPosMapC = ia.center_image(self.altPosMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+        altPosMapNor = ia.rotate_image(altPosMapC, rotationAngle, borderValue=borderValue)
+
+        aziPosMapC = ia.center_image(self.aziPosMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+        aziPosMapNor = ia.rotate_image(aziPosMapC, rotationAngle, borderValue=borderValue)
+
+        # # normalize visual origin
+        # altPosOrigin, aziPosOrigin = self.getVisualFieldOrigin()
+        # altPosMapNor = altPosMapNor - altPosOrigin
+        # aziPosMapNor = aziPosMapNor - aziPosOrigin
+
+        if hasattr(self, 'altPowerMap') and self.altPowerMap is not None:
+            altPowerMapC = ia.center_image(self.altPowerMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+            altPowerMapNor = ia.rotate_image(altPowerMapC, rotationAngle, borderValue=borderValue)
+        else:
+            altPowerMapNor = None
+
+        if hasattr(self, 'aziPowerMap') and self.aziPowerMap is not None:
+            aziPowerMapC = ia.center_image(self.aziPowerMap, centerPixel=centerPixel, newSize=mapSize, borderValue=borderValue)
+            aziPowerMapNor = ia.rotate_image(aziPowerMapC, rotationAngle, borderValue=borderValue)
+        else:
+            aziPowerMapNor = None
+
+        if hasattr(self, 'vasculatureMap'):
+            vasMap = self.vasculatureMap
+
+            if vasMap.shape[0] % self.altPosMap.shape[0] == 0:
+                zoom = vasMap.shape[0] / self.altPosMap.shape[0]
+            else:
+                raise ValueError('Vasculature map size is not whole number of times larger than position maps!')
+
+            vasMapC = ia.center_image(vasMap, centerPixel=[centerPixel[0] * zoom, centerPixel[1] * zoom],
+                                      newSize=mapSize * zoom, borderValue=borderValue)
+            vasMapNor = ia.rotate_image(vasMapC, rotationAngle, borderValue=borderValue)
+        else:
+            vasMap = None
+            vasMapNor = None
+
+        if isPlot:
+
+            trialName = self.getName()
+
+            f = plt.figure(figsize=(15,8))
+            f.suptitle('normalized maps for'+trialName)
+
+            f_231 = f.add_subplot(231)
+            currfig = f_231.imshow(self.altPosMap, vmin=-30, vmax=50, cmap='hsv', interpolation='nearest')
+            f.colorbar(currfig)
+            f_231.set_axis_off()
+            f_231.set_title('original altitude map')
+
+            f_232 = f.add_subplot(232)
+            currfig = f_232.imshow(self.aziPosMap, vmin=0, vmax=120, cmap='hsv', interpolation='nearest')
+            f.colorbar(currfig)
+            f_232.set_axis_off()
+            f_232.set_title('original altitude map')
+
+            if vasMap is not None:
+                f_233 = f.add_subplot(233)
+                currfig = f_233.imshow(vasMap, cmap='gray', interpolation='nearest')
+                f.colorbar(currfig)
+                f_233.set_axis_off()
+                f_233.set_title('original vas map')
+
+            f_234 = f.add_subplot(234)
+            currfig = f_234.imshow(altPosMapNor, vmin=-30, vmax=50, cmap='hsv', interpolation='nearest')
+            f.colorbar(currfig)
+            f_234.set_axis_off()
+            f_234.set_title('normalized altitude map')
+
+            f_235 = f.add_subplot(235)
+            currfig = f_235.imshow(aziPosMapNor, vmin=0, vmax=120, cmap='hsv', interpolation='nearest')
+            f.colorbar(currfig)
+            f_235.set_axis_off()
+            f_235.set_title('normalized azimuth map')
+
+            if vasMapNor is not None:
+                f_235 = f.add_subplot(236)
+                currfig = f_235.imshow(vasMapNor, cmap='gray', interpolation='nearest')
+                f.colorbar(currfig)
+                f_235.set_axis_off()
+                f_235.set_title('normalized vas map')
+
+        return RetinotopicMappingTrial(self.mouseID, self.dateRecorded, self.trialNum, self.mouseType,
+                                       self.visualStimType, self.visualStimBackground, self.imageExposureTime,
+                                       altPosMapNor, aziPosMapNor, altPosMapNor, aziPowerMapNor, vasMapNor, params={},
+                                       isAnesthetized=self.isAnesthetized)
+
+
     def getNormalizeTransform(self,centerPatchKey = 'patch01'):
 
         try:
@@ -3174,6 +3271,7 @@ class RetinotopicMappingTrial(object):
         aziAxis.set_title('Azimuth Positions')
         
         return altAxis, aziAxis
+
 
 class Patch(object):
 
