@@ -5,6 +5,7 @@ import os
 import h5py
 import numpy as np
 import corticalmapping.core.FileTools as ft
+import warnings
 
 CONTINUOUS_TIMESTAMP_DEYPE = np.dtype('<i8') # dtype timestamp field in each record (block) of .continuous file
 CONTINUOUS_SAMPLE_PER_RECORD_DTYPE = np.dtype('<u2') # dtype of samples per record field in each record (block) of .continuous file
@@ -224,7 +225,6 @@ def get_digital_line_for_plot(h5_group):
     return plot_data
 
 
-
 def load_continuous(file_path, dtype=np.float32):
     """
     Jun's wrapper to load .continuous data from OpenEphys data files
@@ -259,7 +259,13 @@ def load_continuous(file_path, dtype=np.float32):
     samples = np.empty(oe.SAMPLES_PER_RECORD * block_num, dtype)
 
     for i in range(block_num):
-        _ = np.fromfile(f, CONTINUOUS_TIMESTAMP_DEYPE, 1)
+        if i == 0:
+            # to get the timestamp of the very first record (block)
+            # for alignment of the digital event
+            start_ind = np.fromfile(f, CONTINUOUS_TIMESTAMP_DEYPE, 1)
+            start_time = float(start_ind) / float(header['sampleRate'])
+        else:
+            _ = np.fromfile(f, CONTINUOUS_TIMESTAMP_DEYPE, 1)
         N = np.fromfile(f, CONTINUOUS_SAMPLE_PER_RECORD_DTYPE, 1)[0]
 
         if N != oe.SAMPLES_PER_RECORD:
@@ -279,10 +285,12 @@ def load_continuous(file_path, dtype=np.float32):
 
         _ = f.read(10)
 
+    header.update({'start_time': start_time})
+
     return header, samples
 
 
-def load_events(file_path, channels=('cam_read', 'cam_trigger', 'visual_frame')):
+def load_events(file_path, channels=None):
     """
     return time stamps in seconds of each digital channel
 
@@ -303,14 +311,23 @@ def load_events(file_path, channels=('cam_read', 'cam_trigger', 'visual_frame'))
 
     events = oe.loadEvents(file_path)
 
-    detected_channel_number = max(events['channel']) + 1
-    if detected_channel_number != len(channels):
-        raise LookupError('the number of digital channels detected: ' + str(detected_channel_number) + \
-                          ' does not match input channel number: ' + str(len(channels)))
+    detected_channel_number = int(max(events['channel']) + 1)
+    real_channels = ['ch_' + ft.int2str(c, 3) for c in range(detected_channel_number)]
+
+    if channels is not None:
+        if detected_channel_number != len(channels):
+            warning_msg = '\nThe number of digital channels detected: ' + str(detected_channel_number) + \
+                          ' does not match input channel number: ' + str(len(channels))
+            warnings.warn(warning_msg)
+
+        if len(channels) <= detected_channel_number:
+            real_channels[0:len(channels)] = channels
+        else:
+            real_channels = channels[0:detected_channel_number]
 
     output = {}
 
-    for i, ch in enumerate(channels):
+    for i, ch in enumerate(real_channels):
         output.update({ch : {'rise' : [],
                              'fall' : []}
                        })
@@ -342,6 +359,7 @@ def pack_folder(folder, prefix, digital_channels=('cam_read', 'cam_trigger', 'vi
     continuous_files = [f for f in all_files if f[0:len(prefix)+1] == prefix+'_' and f[-11:] == '.continuous']
     events_files = [f for f in all_files if f[-7:] == '.events' and 'all_channels' in f ]
     fs = None
+    start_time = None
     output = {}
     sample_num = []
 
@@ -357,6 +375,7 @@ def pack_folder(folder, prefix, digital_channels=('cam_read', 'cam_trigger', 'vi
         else:
             curr_header, curr_trace = load_continuous(curr_path, dtype=np.float32)
 
+        # check fs for each continuous channel
         if fs is None:
             fs = curr_header['sampleRate']
         else:
@@ -364,10 +383,17 @@ def pack_folder(folder, prefix, digital_channels=('cam_read', 'cam_trigger', 'vi
                 raise ValueError('sampling rate of current file does not match sampling rate of other files in this '
                                  'folder!')
 
+        # check start time for each continuous channel
+        if start_time is None:
+            start_time = curr_header['start_time']
+        else:
+            if start_time != curr_header['start_time']:
+                raise ValueError('start time of current file does not match start time of other files in this '
+                                 'folder!')
+
         curr_name = file[:-11]
         output.update({curr_name: curr_trace})
         sample_num.append(curr_trace.shape[0])
-
 
     min_sample_num = min(sample_num)
     for ch in output.iterkeys():
@@ -375,8 +401,10 @@ def pack_folder(folder, prefix, digital_channels=('cam_read', 'cam_trigger', 'vi
     # for ch, trace in output.iteritems():
     #     print ch, ':', trace.shape
 
-
     events = load_events(os.path.join(folder, events_files[0]), channels=digital_channels)
+    for ch, event in events.iteritems():
+        event['rise'] = event['rise'] - start_time
+        event['fall'] = event['fall'] - start_time
     output.update({'events': events})
 
     return output, min_sample_num, float(fs)
@@ -443,7 +471,7 @@ def pack_folders(folder_list, output_folder, output_filename, continous_channels
                 raise LookupError('more than one files are found in ' + folder +' for channel ' + str(channel) + '!')
             curr_key = curr_key[0]
             curr_dset = curr_con_group.create_dataset('channel_' + ft.int2str(int(channel), 4),
-                                                  data=curr_trace_dict[curr_key])
+                                                      data=curr_trace_dict[curr_key])
             curr_dset.attrs['unit'] = 'arbitrary_unit'
             curr_data_array.append(curr_trace_dict[curr_key])
         curr_data_array = np.array(curr_data_array, dtype=np.int16)

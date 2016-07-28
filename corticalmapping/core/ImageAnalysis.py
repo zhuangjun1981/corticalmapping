@@ -1080,6 +1080,7 @@ def get_marked_masks(labeled, markCoor):
         if hit_or_miss(markCoor, value): return value
     return None
 
+
 def sort_masks(masks, keyPrefix='', labelLength=3):
     '''
     sort a dictionary of binary masks, big to small
@@ -1119,6 +1120,7 @@ def temp_downsample(A, rate, verbose=False):
             newA[i,:,:]=currFrame.astype(dataType)
     return newA
 
+
 def get_average_movie(mov, frameTS, onsetTimes, chunkDur):
     '''
     :param mov: image movie
@@ -1140,18 +1142,60 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur):
     n = 0.
 
     for onset in onsetTimes:
-        onsetFrameInd = np.argmin(np.abs(frameTS-onset))
-        print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
+        if onset >= frameTS[0] and onset + chunkDur <= frameTS[-1]:
+            onsetFrameInd = np.argmin(np.abs(frameTS-onset))
+            print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
 
-        if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
-            if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
-            sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
-            n += 1.
-        else:
-            print 'Ending frame index ('+int(onsetFrameInd+chunkFrameDur)+') is larger than frames in movie ('+int(mov.shape[0])+'.\nExclude this trigger.'
-            continue
+            if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
+                if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
+                sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
+                n += 1.
+            else:
+                print 'Ending frame index ('+str(int(onsetFrameInd+chunkFrameDur))+') is larger than frames in movie ('+\
+                      str(int(mov.shape[0]))+'.\nExclude this trigger.'
+                continue
 
     return sumMov.astype(np.float32) / n
+
+
+def get_average_movie2(mov, frameTS, onsetTimes, chunkDur):
+    '''
+    :param mov: image movie
+    :param frameTS: the timestamps for each frame of the raw movie
+    :param onsetTimes: time stamps of onset of each trigger
+    :param chunkDur: duration of each chunk
+    :return: averageed movie of all chunks, number of chunks that were averaged
+    '''
+
+    meanFrameDur = np.mean(np.diff(frameTS))
+
+    chunkFrameDur = int(np.ceil(chunkDur / meanFrameDur))
+
+    # print 'chunkDur:', chunkDur
+    # print 'meanFrameDur:', meanFrameDur
+    # print 'chunkFrameDur:', chunkFrameDur
+
+    sumMov = None
+    n = 0.
+
+    for onset in onsetTimes:
+        if onset >= frameTS[0] and onset + chunkDur <= frameTS[-1]:
+            onsetFrameInd = np.argmin(np.abs(frameTS-onset))
+            print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
+
+            if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
+                if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
+                sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
+                n += 1.
+            else:
+                print 'Ending frame index ('+str(int(onsetFrameInd+chunkFrameDur))+') is larger than frames in movie ('+\
+                      str(int(mov.shape[0]))+'.\nExclude this trigger.'
+                continue
+
+    if sumMov is None:
+        return np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]), dtype=np.float32), 0
+    else:
+        return sumMov.astype(np.float32) / n, int(n)
 
 
 class ROI(object):

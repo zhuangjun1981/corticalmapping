@@ -51,6 +51,7 @@ def translateMovieByVasculature(mov,parameterPath,matchingDecimation=2,reference
 
     return movT
 
+
 def translateHugeMovieByVasculature(inputPath,outputPath,parameterPath,outputDtype=None,matchingDecimation=2,referenceDecimation=2,chunkLength=100,verbose=True):
     '''
     translate huge .npy matrix with alignment parameters into another huge .npy matrix without loading everything into memory
@@ -105,6 +106,7 @@ def translateHugeMovieByVasculature(inputPath,outputPath,parameterPath,outputDty
             currMovT = translateMovieByVasculature(currMov,parameterPath=parameterPath,matchingDecimation=matchingDecimation,referenceDecimation=referenceDecimation,verbose=False)
             currMovT = currMovT.astype(outputDtype)
             currMovT.reshape((np.prod(currMovT.shape),)).tofile(f)
+
 
 def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr=0.02,Fs=10000., smallestInterval=10.):
     '''
@@ -190,6 +192,7 @@ def findLogPath(date,#string
     if len(logPathList)==0: raise LookupError, 'Can not find visual display Log.'
     elif len(logPathList)>1: raise LookupError, 'Find more than one visual display Log!'
     return logPathList[0]
+
 
 def getVasMap(vasMapPaths,
               dtype = np.dtype('<u2'),
@@ -348,6 +351,7 @@ def analysisMappingDisplayLog(logPath):
 
     return displayInfo
 
+
 def analyzeSparseNoiseDisplayLog(logPath):
     '''
     return the indices of visual display frames for each square in a sparse noise display
@@ -425,6 +429,7 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
 
     return aveMov, aveMovNor
 
+
 def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1,saveFolder=None,savePrefix='',FFTmode='peak',cycles=1,isRectify=False):
     '''
 
@@ -494,6 +499,7 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
     aziPowerMap = aziPowerMap / np.amax(aziPowerMap)
 
     return altPosMap,aziPosMap,altPowerMap,aziPowerMap
+
 
 def regression_detrend(mov, roi, verbose=True):
     """

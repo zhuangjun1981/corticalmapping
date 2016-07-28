@@ -2,6 +2,7 @@ __author__ = 'junz'
 
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.signal as sig
 
 plt.ioff()
 
@@ -155,6 +156,136 @@ def sliding_power_spectrum(trace, fs, sliding_window_length, sliding_step_length
     return spectrum, times, freqs
 
 
+def get_burst(spikes, pre_isi=(-np.inf, -0.1), inter_isi=0.004, spk_num_thr=2):
+    """
+
+    detect bursts with certain pre inter-spike-interval (ISI) and within ISI.
+
+    :param spikes: timestamps of the spike train
+    :param pre_isi: the criterion of the pre burst ISI. all burst should have pre ISIs within this duration.
+         unit: second. default: [-inf, -0.1]
+    :param inter_isi:  the criterion of the inter burst ISI. The spikes within a burst should have ISIs no longer than
+        this duration. unit: second. default: 0.004
+    :param spk_num_thr: the criterion of the number of spike within a burst. All bursts should have no less than this
+        number of spikes, int (larger than 1), default: 2
+    :return:
+        burst_ts: timestamps of each burst
+        burst_ind: N x 2 np.array, np.uint32, each row is a burst, first column is the onset index if this burst in the
+                   spike train, second column is the number of spikes in this burst
+    """
+
+    if inter_isi >= -pre_isi[1]:
+        raise ValueError('inter_isi should be way shorter than pre_isi threshold.')
+
+    burst_ts = []
+    burst_ind = []
+
+    i = 1
+
+    while i <= len(spikes)-2:
+
+        curr_pre_isi = spikes[i-1] - spikes[i]
+        curr_post_isi = spikes[i+1] - spikes[i]
+
+        if pre_isi[0] <= curr_pre_isi <= pre_isi[1] and curr_post_isi<=inter_isi:
+            burst_ts.append(spikes[i])
+
+            j = 2
+
+            while (i + j) <= len(spikes) - 1:
+                next_isi = spikes[i + j] - spikes[i + j - 1]
+                if next_isi <= inter_isi:
+                    j += 1
+                else:
+                    break
+
+            burst_ind.append([i, j])
+
+            i += j
+
+        else:
+
+            i += 1
+
+    burst_ts = np.array(burst_ts, dtype=np.float)
+    burst_ind = np.array(burst_ind, dtype=np.uint)
+
+    burst_ts = burst_ts[burst_ind[:, 1] >= spk_num_thr]
+    burst_ind = burst_ind[burst_ind[:, 1] >= spk_num_thr]
+
+    return burst_ts, burst_ind
+
+
+def check_monotonicity(arr, direction='increasing'):
+    """
+    check monotonicity of a 1-d array, usually a time series
+
+    :param arr: input array, should be 1 dimensional
+    :param direction: 'increasing', 'decreasing', 'non-increasing', 'non-decreasing'
+    :return: True or False
+    """
+
+    if len(arr.shape) != 1:
+        raise ValueError('Input array should be one dimensional!')
+
+    if arr.shape[0] < 2:
+        raise ValueError('Input array should have at least two elements!')
+
+    diff = np.diff(arr)
+    min_diff = np.min(diff)
+    max_diff = np.max(diff)
+
+    if direction == 'increasing':
+        if min_diff > 0:
+            return True
+        else:
+            return False
+
+    elif direction == 'decreasing':
+        if max_diff < 0:
+            return True
+        else:
+            return False
+
+    elif direction == 'non-increasing':
+        if max_diff <= 0:
+            return True
+        else:
+            return False
+
+    elif direction == 'non-decreasing':
+        if min_diff >= 0:
+            return True
+        else:
+            return False
+
+    else:
+        raise LookupError('direction should one of the following: "increasing", "decreasing", '
+                          '"non-increasing", "non-decreasing"!')
+
+
+def butter_bandpass(trace, cutoffs=(300., 6000.), fs=30000., order=5):
+    """
+    band pass filter a 1-d signal using butterworth filter design
+
+    :param trace: input signal
+    :param cutoffs: [low cutoff frequency, high cutoff frequency], Hz
+    :param fs: sampling rate, Hz
+    :param order:
+    :return: filtered signal
+    """
+
+    nyq = 0.5 * fs
+    low = cutoffs[0] /  nyq
+    high = cutoffs[1] / nyq
+
+    b, a = sig.butter(order, [low, high], btype='band')
+
+    filtered = sig.lfilter(b, a, trace)
+
+    return filtered
+
+
 
 if __name__=='__main__':
 
@@ -180,15 +311,25 @@ if __name__=='__main__':
     #============================================================================================================
 
     #============================================================================================================
-    time_line = np.arange(5000) * 0.01
-    trace = np.sin(time_line * (2 * np.pi))
-    trace2 = np.cos(np.arange(2500) * 0.05 * (2 * np.pi))
-    trace3 = np.cos(np.arange(2500) * 0.1 * (2 * np.pi))
-    trace = trace + np.concatenate((trace2, trace3))
-
-    spectrum, times, freqs = sliding_power_spectrum(trace, 100, 1., is_plot=True)
-    print 'times:',times
-    print 'freqs:', freqs
+    # time_line = np.arange(5000) * 0.01
+    # trace = np.sin(time_line * (2 * np.pi))
+    # trace2 = np.cos(np.arange(2500) * 0.05 * (2 * np.pi))
+    # trace3 = np.cos(np.arange(2500) * 0.1 * (2 * np.pi))
+    # trace = trace + np.concatenate((trace2, trace3))
+    #
+    # spectrum, times, freqs = sliding_power_spectrum(trace, 100, 1., is_plot=True)
+    # print 'times:',times
+    # print 'freqs:', freqs
     #============================================================================================================
+
+    # ============================================================================================================
+    spikes = [0.3, 0.5, 0.501, 0.503, 0.505, 0.65, 0.7, 0.73, 0.733, 0.734, 0.735, 0.9, 1.5, 1.6,
+              1.602, 1.603, 1.605, 1.94, 1.942]
+
+    burst_ts, burst_ind = get_burst(spikes,  pre_isi=(-np.inf, -0.1), inter_isi=0.004, spk_num_thr=2)
+
+    print burst_ts
+    print burst_ind
+    # ============================================================================================================
 
     print 'for debugging...'
