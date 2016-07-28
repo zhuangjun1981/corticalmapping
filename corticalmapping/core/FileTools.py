@@ -497,6 +497,7 @@ def importRawJCamF(path,
         header = data[0:headerLength]
         tailer = data[len(data)-tailerLength:len(data)]
         frame = (len(data)-headerLength-tailerLength)/(column*row)
+        # print len(data[headerLength:len(data)-tailerLength])
         mov = data[headerLength:len(data)-tailerLength].reshape((frame,column,row))
     
     if saveFolder:
