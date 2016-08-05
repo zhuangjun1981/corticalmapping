@@ -36,8 +36,8 @@ def test_getSparseNoiseOnsetIndex():
     allOnsetInd, onsetIndWithLocationSign = sca.get_sparse_noise_onset_index(ft.loadFile(sparseNoiseDisplayLogPath))
     # print list(allOnsetInd[0:10])
     # print onsetIndWithLocationSign[2][0]
-    assert(list(allOnsetInd[0:10])==[0, 3, 6, 9, 12, 15, 18, 21, 24, 27])
-    assert(np.array_equal(onsetIndWithLocationSign[2][0],np.array([-41.53125,  96.25])))
+    assert(list(allOnsetInd[0:10])==[0, 6, 12, 18, 24, 30, 36, 42, 48, 54])
+    assert(np.array_equal(onsetIndWithLocationSign[2][0],np.array([0.,  70.])))
 
 
 def test_SpatialTemporalReceptiveField_from_h5_group():
@@ -170,3 +170,6 @@ def test_SpatialReceptiveField_interpolate():
     assert(SRF.get_weighted_mask().shape == (20, 20))
 
 plt.show()
+
+if __name__ == '__main__':
+    test_getSparseNoiseOnsetIndex()

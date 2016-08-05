@@ -6,7 +6,7 @@ import corticalmapping.core.ImageAnalysis as ia
 
 def test_getTrace():
     mov = np.arange(64).reshape((4,4,4))
-    print mov
+    # print mov
 
     mask1 = np.zeros((4,4)); mask1[2,2]=1; mask1[1,1]=1
     trace1 = ia.get_trace(mov, mask1, maskMode='binary')
@@ -23,3 +23,18 @@ def test_getTrace():
     mask4 = np.zeros((4,4),dtype=np.float); mask4[:]=np.nan; mask4[2,2]=1; mask4[1,1]=2
     trace4 = ia.get_trace(mov, mask4, maskMode='weightedNan')
     assert(trace4[2] == 58)
+
+
+def test_ROI_binary_overlap():
+    roi1 = np.zeros((10, 10))
+    roi1[4:8, 3:7] = 1
+    roi1 = ia.ROI(roi1)
+    roi2 = np.zeros((10, 10))
+    roi2[5:9, 5:8] = 1
+    roi2 = ia.ROI(roi2)
+    assert(roi1.binary_overlap(roi2) == 6)
+
+
+if __name__ == "__main__":
+    test_getTrace()
+    test_ROI_binary_overlap()

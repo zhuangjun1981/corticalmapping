@@ -1231,6 +1231,25 @@ class ROI(object):
         '''
         return self.pixels
 
+    def get_pixel_array(self):
+        """
+        :return: ndarray version of list of pixels, each row is a pixel, each column is dimension [row, col]
+        """
+        return np.array(self.pixels).transpose()
+
+    def get_pixel_list(self):
+        """
+        :return: list version of pixels, each item of the list is a pixel, [row, col]
+        """
+        pixel_array = self.get_pixel_array()
+        return [list(p) for p in pixel_array]
+
+    def get_pixel_tuple(self):
+        """
+        :return: tuple version of pixels, each item of the list is a pixel, [row, col]
+        """
+        pixel_array = self.get_pixel_array()
+        return tuple([tuple(p) for p in pixel_array])
 
     def get_binary_mask(self):
         '''
@@ -1240,7 +1259,6 @@ class ROI(object):
         mask[self.pixels] = 1
         return mask
 
-
     def get_nan_mask(self):
         '''
         generate float mask of the ROI, return 2d array, with nans and 1s, dtype np.float32
@@ -1249,7 +1267,6 @@ class ROI(object):
         mask[:] = np.nan
         mask[self.pixels] = 1
         return mask
-
 
     def get_pixel_area(self):
         '''
@@ -1263,13 +1280,17 @@ class ROI(object):
             print 'returning area as pixel counts without unit.'
             return len(self.pixels[0])
 
+    def get_binary_area(self):
+        '''
+        :return: number of pixels in the roi
+        '''
+        return len(self.pixels[0])
 
     def get_center(self):
         '''
         return the center coordinates [Y, X] of the centroid of the mask
         '''
         return np.mean(np.array(self.pixels,dtype=np.float).transpose(),axis=0)
-
 
     def get_binary_trace(self, mov):
         '''
@@ -1278,7 +1299,6 @@ class ROI(object):
         binaryMask = self.get_binary_mask()
         trace = np.multiply(mov,np.array([binaryMask])).sum(axis=1).sum(axis=1)
         return trace
-
 
     def plot_binary_mask(self, plotAxis=None, color='#ff0000', alpha=1):
         '''
@@ -1289,10 +1309,8 @@ class ROI(object):
         if plotAxis is None: f=plt.figure();plotAxis=f.add_subplot(111);plotAxis.imshow(displayImg,interpolation='nearest')
         return displayImg
 
-
     def plot_binary_mask_border(self, **kwargs):
         pt.plot_mask_borders(self.get_nan_mask(), **kwargs)
-
 
     def to_h5_group(self, h5Group):
         '''
@@ -1309,6 +1327,19 @@ class ROI(object):
         for key, value in dataDict.iteritems():
             if value is None: h5Group.create_dataset(key,data='None')
             else: h5Group.create_dataset(key,data=value)
+
+    def binary_overlap(self, roi):
+        """
+        :param roi: another ROI object, should have same dimension as self
+        :return: the number of overlapping pixels between self and the input roi
+        """
+        if roi.dimension != self.dimension:
+            raise ValueError('the dimensions of input roi are different from self dimensions!')
+
+        pixel_list = list(self.get_pixel_list()) + list(roi.get_pixel_list())
+        pixel_tuple = tuple([tuple(p) for p in pixel_list])
+        pixel_set = set(pixel_tuple)
+        return len(pixel_tuple) - len(pixel_set)
 
     @staticmethod
     def from_h5_group(h5Group):
@@ -1486,19 +1517,34 @@ if __name__ == '__main__':
     #============================================================
 
     #============================================================
-    mov = np.arange(64).reshape((4,4,4))
-    np.save(r'E:\data\python_temp_folder\test_array.npy',mov)
-    bl_obj = BinarySlicer(r'E:\data\python_temp_folder\test_array.npy')
-
-    mask1 = np.zeros((4,4)); mask1[2,2]=1; mask1[1,1]=1
-    mask2 = np.zeros((4,4)); mask2[3,0]=1; mask2[3,1]=1
-
-    masks = {'mask1':mask1, 'mask2':mask2}
-    traces = get_trace_binaryslicer3(bl_obj,masks,mask_mode='binary',loading_frame_num=2)
-    print traces
-    assert(traces['trace_mask1'][2] == 39.5)
-    assert(traces['trace_mask2'][3] == 60.5)
+    # mov = np.arange(64).reshape((4,4,4))
+    # np.save(r'E:\data\python_temp_folder\test_array.npy',mov)
+    # bl_obj = BinarySlicer(r'E:\data\python_temp_folder\test_array.npy')
+    #
+    # mask1 = np.zeros((4,4)); mask1[2,2]=1; mask1[1,1]=1
+    # mask2 = np.zeros((4,4)); mask2[3,0]=1; mask2[3,1]=1
+    #
+    # masks = {'mask1':mask1, 'mask2':mask2}
+    # traces = get_trace_binaryslicer3(bl_obj,masks,mask_mode='binary',loading_frame_num=2)
+    # print traces
+    # assert(traces['trace_mask1'][2] == 39.5)
+    # assert(traces['trace_mask2'][3] == 60.5)
     #============================================================
+
+
+    # ============================================================
+    roi1 = np.zeros((10, 10))
+    roi1[4:8, 3:7] = 1
+    roi1 = ROI(roi1)
+    print roi1.get_pixel_array()
+    print roi1.get_pixel_list()
+    print roi1.get_pixel_tuple()
+    roi2 = np.zeros((10, 10))
+    roi2[5:9, 5:8] = 1
+    roi2 = ROI(roi2)
+    print roi1.binary_overlap(roi2)
+    # ============================================================
+
 
     print 'for debug'
 

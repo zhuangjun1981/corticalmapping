@@ -437,19 +437,19 @@ def merge_normalized_images(imgList, isFilter=True, sigma=50, mergeMethod='mean'
     else: return ia.array_nor(mergedImg).astype(dtype)
 
 
-# def hue2RGB(hue):
-#     '''
-#     get the RGB value as format as hex string from the decimal ratio of hue (from 0 to 1)
-#     color model as described in:
-#     https://en.wikipedia.org/wiki/Hue
-#     '''
-#     if hue < 0: hue = 0
-#     if hue > 1: hue = 1
-#     color = colorsys.hsv_to_rgb(hue,1,1)
-#     color = [int(x*255) for x in color]
-#     return get_color_str(*color)
-#
-#
+def hue_2_rgb(hue):
+    '''
+    get the RGB value as format as hex string from the decimal ratio of hue (from 0 to 1)
+    color model as described in:
+    https://en.wikipedia.org/wiki/Hue
+    '''
+    if hue < 0: hue = 0
+    if hue > 1: hue = 1
+    color = colorsys.hsv_to_rgb(hue,1,1)
+    color = [int(x*255) for x in color]
+    return get_color_str(*color)
+
+
 def hot_2_rgb(hot):
     '''
     get the RGB value as format as hex string from the decimal ratio of hot colormap (from 0 to 1)

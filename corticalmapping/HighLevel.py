@@ -380,10 +380,6 @@ def analyzeSparseNoiseDisplayLog(logPath):
 
     onsetFrames = frames[allOnsetInd]
 
-    # todo: finish this function!!
-
-
-
     allSquares = list(set([tuple([x[0][0],x[0][1],x[1]]) for x in onsetFrames]))
 
     onsetIndWithLocationSign = []
@@ -399,7 +395,7 @@ def analyzeSparseNoiseDisplayLog(logPath):
     return allOnsetInd, onsetIndWithLocationSign
 
 
-def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temporalDownSampleRate=1):
+def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temporalDownSampleRate=1, is_load_all=False):
     '''
     :param movPath: path to the image movie
     :param frameTS: the timestamps for each frame of the raw movie
@@ -417,7 +413,19 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
     else:
         raise ValueError, 'temporal downsampling rate can not be less than 1!'
 
-    mov = BinarySlicer(movPath)
+    if is_load_all:
+        if movPath[-4:] == '.npy':
+            try:
+                mov = np.load(movPath)
+            except ValueError:
+                print 'Cannot load the entire npy file into memroy. Trying BinarySlicer...'
+                mov = BinarySlicer(movPath)
+        elif movPath[-4:] == '.tif':
+            mov = tf.imread(movPath)
+        else:
+            mov, _, _ = ft.importRawJCamF(movPath)
+    else:
+        mov = BinarySlicer(movPath)
 
     aveMov = ia.get_average_movie(mov, frameTS_real, onsetTimes + startTime, chunkDur)
 
@@ -430,7 +438,8 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
     return aveMov, aveMovNor
 
 
-def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1,saveFolder=None,savePrefix='',FFTmode='peak',cycles=1,isRectify=False):
+def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1,saveFolder=None,savePrefix='',
+                     FFTmode='peak',cycles=1,isRectify=False,is_load_all=False):
     '''
 
     :param movPath: path of total movie with all directions
@@ -443,6 +452,7 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
     :param FFTmode: FFT detect peak or valley, takes 'peak' or 'valley'
     :param cycles: how many cycles in each chunk
     :param isRectify: if True, the fft will be done on the rectified normalized movie, anything below zero will be assigned as zero
+    :param is_load_all: load the whole movie into memory or not
     :return: altPosMap,aziPosMap,altPowerMap,aziPowerMap
     '''
     maps = {}
@@ -466,7 +476,8 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
                                               onsetTimes=displayOnsets[onsetInd],
                                               chunkDur=displayInfo[dir]['sweepDur'],
                                               startTime=displayInfo[dir]['startTime'],
-                                              temporalDownSampleRate=temporalDownSampleRate)
+                                              temporalDownSampleRate=temporalDownSampleRate,
+                                              is_load_all=is_load_all)
 
         if isRectify:
             aveMovNorRec = np.array(aveMovNor)

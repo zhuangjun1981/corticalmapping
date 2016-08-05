@@ -9,6 +9,7 @@ import core.ImageAnalysis as ia
 import core.FileTools as ft
 import scipy.ndimage as ni
 import scipy.interpolate as ip
+import math
 
 
 def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
@@ -275,6 +276,7 @@ class SpatialTemporalReceptiveField(object):
 
                 for index in indexList:
                     traces = self.data[index]['traces']
+                    traces = [t for t in traces if not math.isnan(t[0])]
                     meanTrace = np.mean(np.array(traces, dtype=np.float32),axis=0)
                     stdTrace = np.std(np.array(traces, dtype=np.float32),axis=0)
                     semTrace = stdTrace/np.sqrt(float(len(traces)))
