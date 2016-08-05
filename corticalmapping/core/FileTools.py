@@ -10,7 +10,7 @@ import tifffile as tf
 
 
 try: import cv2
-except ImportError as e: print 'can not import OpenCV. ' + e
+except ImportError as e: print 'can not import OpenCV. ' + str(e)
 
 
 def saveFile(path,data):

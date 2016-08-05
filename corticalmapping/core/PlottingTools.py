@@ -16,7 +16,8 @@ import scipy.ndimage as ni
 
 import tifffile as tf
 import ImageAnalysis as ia
-import cv2
+try: import cv2
+except ImportError as e: print 'can not import OpenCV. ' + str(e)
 
 
 def get_rgb(colorStr):
