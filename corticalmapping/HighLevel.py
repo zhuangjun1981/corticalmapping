@@ -14,6 +14,13 @@ import core.FileTools as ft
 import scipy.ndimage as ni
 from toolbox.misc import BinarySlicer
 
+try:
+    # from r_neuropil import NeuropilSubtract as NS
+    from allensdk.brain_observatory.r_neuropil import NeuropilSubtract as NS
+except Exception as e:
+    print 'fail to import neural pil subtraction module ...'
+    print e
+
 
 def translateMovieByVasculature(mov,parameterPath,matchingDecimation=2,referenceDecimation=2,verbose=True):
     '''
@@ -44,8 +51,8 @@ def translateMovieByVasculature(mov,parameterPath,matchingDecimation=2,reference
 
     movT = ia.rigid_transform_cv2(mov, zoom=matchingParams['Zoom'], rotation=matchingParams['Rotation'], offset=offset, outputShape=outputShape)
 
-    if referenceDecimation/matchingDecimation != 1:
-        movT = ia.rigid_transform_cv2(movT, zoom=referenceDecimation / matchingDecimation)
+    if matchingDecimation / referenceDecimation != 1:
+        movT = ia.rigid_transform_cv2(movT, zoom=matchingDecimation / referenceDecimation)
 
     if verbose: print 'shape of output movie:', movT.shape
 
@@ -558,6 +565,43 @@ def regression_detrend(mov, roi, verbose=True):
     return mov_new, trend, slopes, rvalues
 
 
+def neural_pil_subtraction(trace_center, trace_surround, lam=0.05):
+    """
+    use allensdk neural pil subtraction
+
+    :param trace_center: input center trace
+    :param trace_surround: input surround trace
+    :param lam:
+    :return:
+        r: contribution of the surround to the center
+        error: final cross-validation error
+        trace: trace after neuropil subtracction
+    """
+
+
+    if trace_center.shape != trace_surround.shape:
+        raise ValueError('center trace and surround trace should have same shape')
+
+    if len(trace_center.shape) != 1:
+        raise ValueError('input traces should be 1 dimensional!')
+
+
+    trace_center = trace_center.astype(np.float)
+    trace_surround = trace_surround.astype(np.float)
+
+    ns = NS(lam=lam)
+
+    ''' normalize to have F_N in (0,1)'''
+    F_M = (trace_center - float(np.amin(trace_center))) / float(np.amax(trace_center) - np.amin(trace_center))
+    F_N = (trace_surround - float(np.amin(trace_surround))) / float(np.amax(trace_surround) - np.amin(trace_surround))
+
+    '''fitting model'''
+    ns.set_F(F_M, F_N)
+
+    '''stop gradient descent at first increase of cross-validation error'''
+    ns.fit()
+
+    return ns.r, ns.error_vals[-1], trace_center - ns.r * trace_surround
 
 if __name__ == '__main__':
 

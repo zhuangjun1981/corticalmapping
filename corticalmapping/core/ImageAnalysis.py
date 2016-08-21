@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import interpolate
 import scipy.ndimage as ni
+import scipy.stats as stats
 import skimage.morphology as sm
 import FileTools as ft
 import PlottingTools as pt
@@ -924,7 +925,7 @@ def is_adjacent(array1, array2, borderWidth = 2):
         return False
 
 
-def remove_small_patches(mask, areaThr=100, structure=[[1, 1, 1], [1, 1, 1], [1, 1, 1]]):
+def remove_small_patches(mask, areaThr=100, structure=([1, 1, 1], [1, 1, 1], [1, 1, 1])):
     '''
     remove small isolated patches
     '''
@@ -1028,7 +1029,7 @@ def z_downsample(img, downSampleRate):
         raise ValueError, 'Input array shoud be 3D!'
 
 
-    newFrameNum = (img.shape[0] - (img.shape[0]%downSampleRate))/downSampleRate
+    newFrameNum = img.shape[0] //downSampleRate
     newImg = np.empty((newFrameNum,img.shape[1],img.shape[2]),dtype=img.dtype)
 
     print 'Start downsampling...'
@@ -1176,26 +1177,82 @@ def get_average_movie2(mov, frameTS, onsetTimes, chunkDur):
     # print 'chunkFrameDur:', chunkFrameDur
 
     sumMov = None
-    n = 0.
+    real_count = 0
+    count = -1
 
     for onset in onsetTimes:
-        if onset >= frameTS[0] and onset + chunkDur <= frameTS[-1]:
+
+        count += 1
+
+        if onset < frameTS[0]:
+            print 'onset number:', count, 'is before imaging start time. Exclude this onset.'
+
+        else:
+
             onsetFrameInd = np.argmin(np.abs(frameTS-onset))
-            print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
+            print 'Chunk:',int(count),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
 
             if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
                 if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
                 sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
-                n += 1.
+                real_count += 1.
             else:
-                print 'Ending frame index ('+str(int(onsetFrameInd+chunkFrameDur))+') is larger than frames in movie ('+\
-                      str(int(mov.shape[0]))+'.\nExclude this trigger.'
-                continue
+                print 'the chunk of onset number', count, 'exceeds the end of imaging. Exclude this onset.'
 
     if sumMov is None:
+        print '\nNo valid chunk found!'
         return np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]), dtype=np.float32), 0
     else:
-        return sumMov.astype(np.float32) / n, int(n)
+        print '\n' + str(int(real_count)) + ' valid chunks found.'
+        return sumMov.astype(np.float32) / real_count, int(real_count)
+
+
+def regression_detrend_1d(sig, trend):
+    """
+    detrend a signal trace by subtracting global trend (surround neural pil). It uses linear regress to determine the
+    contribution of the global trend to the signal.
+
+    ref:
+    1. J Neurosci. 2016 Jan 27;36(4):1261-72. doi: 10.1523/JNEUROSCI.2744-15.2016. Resolution of High-Frequency
+    Mesoscale Intracortical Maps Using the Genetically Encoded Glutamate Sensor iGluSnFR. Xie Y, Chan AW, McGirr A,
+    Xue S, Xiao D, Zeng H, Murphy TH.
+    2. Neuroimage. 1998 Oct;8(3):302-6. The inferential impact of global signal covariates in functional neuroimaging
+    analyses. Aguirre GK1, Zarahn E, D'Esposito M.
+
+    :param sig: input signal, 1-d array
+    :param trend: binary, global trend, same shape as sig
+    :return: detrended signal, contribution, rvalue
+    """
+
+    if len(sig.shape) != 1:
+        raise ValueError('Input signal should be 1-dimensional!')
+
+    if len(trend.shape) != 1:
+        raise ValueError('Input trend should be 1-dimensional!')
+
+    if sig.shape != trend.shape:
+        raise ValueError('Input trend should have same shape as input signal')
+
+    sig = sig.astype(np.float)
+    trend = trend.astype(np.float)
+    trend = trend - np.mean(trend)
+
+    slope, intercept, r_value, p_value, stderr = stats.linregress(trend, sig)
+
+    sig_detrend = (sig - trend * slope).astype(sig.dtype)
+
+    return sig_detrend, slope, r_value
+
+
+def get_surround_pixels(shape, (i, j), connectivity=8):
+    """
+    given a 2-d shape and a pixel location [i, j], return the locations of its surround pixels.
+
+    :param shape: tuple or list of integers, should have length of 2
+    :param i:
+    :param j:
+    :return:
+    """
 
 
 class ROI(object):
@@ -1298,7 +1355,7 @@ class ROI(object):
         '''
         binaryMask = self.get_binary_mask()
         trace = np.multiply(mov,np.array([binaryMask])).sum(axis=1).sum(axis=1)
-        return trace
+        return trace /self.get_binary_area()
 
     def plot_binary_mask(self, plotAxis=None, color='#ff0000', alpha=1):
         '''
@@ -1417,8 +1474,8 @@ class WeightedROI(ROI):
         return trace of this ROI in a given movie
         '''
         weightedMask = self.get_weighted_mask()
-        trace = np.multiply(mov,np.array([weightedMask])).sum(axis=1).sum(axis=1)
-        return trace
+        trace = np.multiply(mov, np.array([weightedMask])).sum(axis=1).sum(axis=1)
+        return trace / self.get_binary_area()
 
     @staticmethod
     def from_h5_group(h5Group):
@@ -1533,17 +1590,42 @@ if __name__ == '__main__':
 
 
     # ============================================================
-    roi1 = np.zeros((10, 10))
-    roi1[4:8, 3:7] = 1
-    roi1 = ROI(roi1)
-    print roi1.get_pixel_array()
-    print roi1.get_pixel_list()
-    print roi1.get_pixel_tuple()
-    roi2 = np.zeros((10, 10))
-    roi2[5:9, 5:8] = 1
-    roi2 = ROI(roi2)
-    print roi1.binary_overlap(roi2)
+    # roi1 = np.zeros((10, 10))
+    # roi1[4:8, 3:7] = 1
+    # roi1 = ROI(roi1)
+    # print roi1.get_pixel_array()
+    # print roi1.get_pixel_list()
+    # print roi1.get_pixel_tuple()
+    # roi2 = np.zeros((10, 10))
+    # roi2[5:9, 5:8] = 1
+    # roi2 = ROI(roi2)
+    # print roi1.binary_overlap(roi2)
     # ============================================================
+
+    # ============================================================
+    # sig = np.arange(100) * 0.1
+    # trend = np.zeros((100,))
+    # trend[5] = 1
+    # detrended, slope, r = regression_detrend_1d(sig, trend)
+    # print detrended
+    # print slope
+    # print r
+    # ============================================================
+
+    # ============================================================
+    mov = np.arange(27).reshape((3,3,3)).astype(np.float)
+    print mov
+    mask1 = np.array([[0.,0.,0.],[0.,3.,0.],[0.,0.,0.]])
+    roi1 = WeightedROI(mask1)
+    mask2 = np.array([[1,1,1],[1,0,1],[1,1,0]])
+    roi2 = ROI(mask2)
+    trace1 = roi1.get_weighted_trace(mov)
+    trace2 = roi2.get_binary_trace(mov)
+
+
+
+    print trace1
+    print trace2
 
 
     print 'for debug'
