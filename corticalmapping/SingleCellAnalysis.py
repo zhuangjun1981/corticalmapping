@@ -10,6 +10,7 @@ import core.FileTools as ft
 import scipy.ndimage as ni
 import scipy.interpolate as ip
 import math
+import h5py
 
 
 def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
@@ -51,7 +52,7 @@ def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
 
 def get_peak_weighted_roi(arr, thr):
     """
-    return: a WeightROI object representing the mask which contains the peak of arr and cut by the threshold (thr)
+    return: a WeightROI object representing the mask which contains the peak of arr and cut by the thr (thr)
     """
     nanLabel = np.isnan(arr)
     arr2=arr.copy();arr2[nanLabel]=np.nanmin(arr)
@@ -62,24 +63,24 @@ def get_peak_weighted_roi(arr, thr):
     else: return WeightedROI(arr2 * peakMask)
 
 
-def plot_2d_receptive_field(mapArray, altPos, aziPos, plotAxis=None, **kwargs):
+def plot_2d_receptive_field(mapArray, altPos, aziPos, plot_axis=None, **kwargs):
     """
     plot a 2-d receptive field in a given axis
 
     :param mapArray: 2-d array, should be in the same coordinate system as meshgrid(aziPos,altPos)
     :param altPos: 1-d array, list of sample altitude positions, sorted from high to low
     :param aziPos: 1-d array, list of sample azimuth position, sorted from low to high
-    :param plotAxis:
+    :param plot_axis:
     :param kwargs: input to matplotlib.pyplot.imshow() function
-    :return: plotAxis
+    :return: plot_axis
     """
 
-    if plotAxis == None: f=plt.figure(figsize=(10,10)); plotAxis=f.add_subplot(111)
-    fig = plotAxis.imshow(mapArray,**kwargs)
-    plotAxis.set_yticks(np.arange(len(altPos)))
-    plotAxis.set_xticks(np.arange(len(aziPos)))
-    plotAxis.set_yticklabels(altPos.astype(np.int))
-    plotAxis.set_xticklabels(aziPos.astype(np.int))
+    if plot_axis == None: f=plt.figure(figsize=(10,10)); plot_axis=f.add_subplot(111)
+    fig = plot_axis.imshow(mapArray,**kwargs)
+    plot_axis.set_yticks(np.arange(len(altPos)))
+    plot_axis.set_xticks(np.arange(len(aziPos)))
+    plot_axis.set_yticklabels(altPos.astype(np.int))
+    plot_axis.set_xticklabels(aziPos.astype(np.int))
     return fig
 
 
@@ -118,42 +119,195 @@ class SpatialReceptiveField(WeightedROI):
     Object for spatial receptive field, a subclass of WeightedROI object
     """
 
-    def __init__(self, mask, altPos, aziPos, sign=None,temporalWindow=None, pixelSizeUnit=None, dataType=None, isThresholded=False, threshold=None):
+    def __init__(self, mask, altPos, aziPos, sign=None, temporalWindow=None, pixelSizeUnit=None, dataType=None,
+                 thr=None, filter_sigma=None, interpolate_rate=None):
         """
         subclass of WeightedROI object, because the pixel coordinates are defined by np.meshgrid(aziPos, altPos),
         the old WeightedROI attribute: pixelSize does not make sense, so set it to be None.
+
+        sign: sign of the receptive, stf, 'ON', 'OFF', 'ON_OFF', None if not defined
+        dataType: type of data stored, str, example can be 'df/f', 'zscore', or 'firing_rate' ...
+
+        thr: None, float, if not applied
+        filter_sigma: gaussian filter sigma in pixel, float, None if not applied
+        interpolate_rate: rate for interpolation, int, None if not applied
+
+        the correct way to process RF: gaussian filter first, interpolation second, and thr third
         """
         super(SpatialReceptiveField,self).__init__(mask, pixelSize = None, pixelSizeUnit = pixelSizeUnit)
         self.altPos = altPos
         self.aziPos = aziPos
         self.dataType = dataType
-        self.sign=sign
+
+        if (sign is None or sign=='ON' or sign=='OFF' or sign=='ON_OFF'):
+            self.sign=sign
+        elif sign==1:
+            self.sign='ON'
+        elif sign==-1:
+            self.sign='OFF'
+        else:
+            raise ValueError('sign should be 1, -2, "ON", "OFF", "ON_OFF" or None!')
         self.temporalWindow = temporalWindow
-        self.isThresholded = isThresholded
-        if isThresholded: self.threshold = threshold
-        else: self.threshold = None
+        self.thr = thr
+        self.filter_sigma = filter_sigma
+
+        if interpolate_rate is None:
+            self.interpolate_rate = interpolate_rate
+        else:
+            if isinstance(interpolate_rate, int):
+                if interpolate_rate > 1:
+                    self.interpolate_rate = interpolate_rate
+                else:
+                    raise ValueError('interpolate_rate should be an integer larger than 1!')
+            else:
+                print 'interpolate_rate is not an integer. convert it into an integer.'
+                interpolate_rate_int = int(round(interpolate_rate))
+                if interpolate_rate_int > 1:
+                    self.interpolate_rate = interpolate_rate_int
+                else:
+                    raise ValueError('interpolate_rate should be an integer larger than 1!')
 
 
-    def threshold_receptive_field(self, thr):
+    def get_name(self):
+
+        name = []
+
+        if self.sign is not None:
+            name.append(str(self.sign))
+        if self.dataType is not None:
+            name.append(self.dataType)
+
+        name.append('RF')
+
+        if self.thr is not None:
+            name.append('thr:' + str(self.thr)[0:3])
+        else:
+            name.append('thr:None')
+
+        if self.filter_sigma is not None:
+            name.append('sigma:'+str(self.filter_sigma))
+        else:
+            name.append('sigma:None')
+
+        if self.interpolate_rate is not None:
+            name.append('interp:'+str(self.interpolate_rate))
+        else:
+            name.append('interp:None')
+
+        return ' '.join(name)
+
+    def plot_rf(self, plot_axis=None, is_colorbar=False, cmap='Reds', interpolation='nearest', **kwargs):
+        '''
+        return display image (RGBA uint8 format) which can be plotted by plt.imshow
+        '''
+        mask = self.get_weighted_mask()
+
+        if plot_axis is None:
+            f = plt.figure();
+            plot_axis = f.add_subplot(111)
+
+        curr_plot = plot_axis.imshow(mask, cmap=cmap, interpolation=interpolation, **kwargs)
+        plot_axis.set_title(self.get_name())
+
+        if self.interpolate_rate is not None:
+            plot_axis.set_yticks(range(len(self.altPos))[::self.interpolate_rate])
+            plot_axis.set_xticks(range(len(self.aziPos))[::self.interpolate_rate])
+            plot_axis.set_yticklabels(self.altPos[::self.interpolate_rate])
+            plot_axis.set_xticklabels(self.aziPos[::self.interpolate_rate])
+
+        if is_colorbar:
+            plot_axis.get_figure().colorbar(curr_plot)
+
+        return plot_axis.get_figure()
+
+    def plot_contour(self, plot_axis=None, peak_amplitude=None, level_num=10, **kwargs):
+        '''
+        return display image (RGBA uint8 format) which can be plotted by plt.imshow
+        '''
+        mask = self.get_weighted_mask()
+
+        if plot_axis is None:
+            f = plt.figure()
+            plot_axis = f.add_subplot(111)
+
+        if peak_amplitude is None:
+            peak_amplitude = np.amax(self.get_weighted_mask())
+
+        if self.sign == 'ON':
+            colors = 'r'
+        elif self.sign == 'OFF':
+            colors = 'b'
+        else:
+            colors ='k'
+
+        contour_levels = list(np.arange(level_num) *  (float(peak_amplitude) / (level_num)))
+
+        if self.thr is not None:
+            contour_levels = [l for l in contour_levels if l >= self.thr]
+            if len(contour_levels) == 0:
+                contour_levels = [self.thr]
+
+        X, Y = np.meshgrid(np.arange(len(self.aziPos)),
+                           np.arange(len(self.altPos)))
+
+        if len(self.weights) > 0:
+            plot_axis.contour(X, Y, self.get_weighted_mask(), levels=contour_levels, colors=colors, **kwargs)
+
+        name = self.get_name()
+        name = name.split(' ')
+        name = ' '.join(name[1:])
+        plot_axis.set_title(name)
+        ylim = list(plot_axis.get_ylim())
+        ylim.sort(reverse=True)
+        plot_axis.set_ylim(ylim)
+        plot_axis.set_aspect('equal')
+
+        if self.interpolate_rate is not None:
+            plot_axis.set_yticks(range(len(self.altPos))[::self.interpolate_rate])
+            plot_axis.set_xticks(range(len(self.aziPos))[::self.interpolate_rate])
+            plot_axis.set_yticklabels(self.altPos[::self.interpolate_rate])
+            plot_axis.set_xticklabels(self.aziPos[::self.interpolate_rate])
+        else:
+            plot_axis.set_yticks(range(len(self.altPos)))
+            plot_axis.set_xticks(range(len(self.aziPos)))
+            plot_axis.set_yticklabels(self.altPos)
+            plot_axis.set_xticklabels(self.aziPos)
+
+        return plot_axis.get_figure()
+
+    def threshold(self, thr):
 
         """
-        threshold the current receptive field, return a new SpatialReceptiveField object after thresholding
+        thr the current receptive field, return a new SpatialReceptiveField object after thresholding
         """
 
-        if (self.threshold is not None) and (thr<self.threshold):
+        if (self.thr is not None) and (thr<self.thr):
             raise ValueError, 'Can not cut a thresholded receptive field with a lower thresold!'
         cutRF = get_peak_weighted_roi(self.get_weighted_mask(), thr)
         if cutRF is None:
             print 'No ROI found. Threshold too high!'
             cutRF = ia.WeightedROI(np.zeros(self.dimension))
 
-        return SpatialReceptiveField(cutRF.get_weighted_mask(), self.sign, self.temporalWindow, self.pixelSizeUnit, self.dataType, isThresholded=True, threshold=thr)
+        return SpatialReceptiveField(cutRF.get_weighted_mask(), self.altPos, self.aziPos, sign=self.sign,
+                                     temporalWindow=self.temporalWindow, pixelSizeUnit=self.pixelSizeUnit,
+                                     dataType=self.dataType, thr=thr, filter_sigma=self.filter_sigma,
+                                     interpolate_rate=self.interpolate_rate)
 
     def interpolate(self, ratio, method='cubic',fill_value=0.):
 
-        altInterpolation = ip.interp1d(np.arange(len(self.altPos)),self.altPos); aziInterpolation = ip.interp1d(np.arange(len(self.aziPos)),self.aziPos)
-        newAltPos = altInterpolation(np.arange(0,len(self.altPos)-1,1./int(ratio)))
-        newAziPos = aziInterpolation(np.arange(0,len(self.aziPos)-1,1./int(ratio)))
+        if not isinstance(ratio, int):
+            print 'interpolate ratio is not an integer. convert it into an integer.'
+            ratio_int = int(round(ratio))
+        else:
+            ratio_int = ratio
+
+        if ratio_int <= 1:
+            raise ValueError('interpolate_rate should be an integer larger than 1!')
+
+        altInterpolation = ip.interp1d(np.arange(len(self.altPos)),self.altPos)
+        aziInterpolation = ip.interp1d(np.arange(len(self.aziPos)),self.aziPos)
+        newAltPos = altInterpolation(np.arange(0,len(self.altPos)-1,1./int(ratio_int)))
+        newAziPos = aziInterpolation(np.arange(0,len(self.aziPos)-1,1./int(ratio_int)))
         mask = self.get_weighted_mask(); aziGrid, altGrid=np.meshgrid(self.aziPos, self.altPos)
         newAziGrid, newAltGrid = np.meshgrid(newAziPos,newAltPos)
         newMask = ip.griddata(np.array([aziGrid.flatten(),altGrid.flatten()]).transpose(),
@@ -161,7 +315,22 @@ class SpatialReceptiveField(WeightedROI):
                               (newAziGrid,newAltGrid),
                               method=method,fill_value=fill_value)
 
-        self.__init__(newMask,newAltPos,newAziPos,self.sign,self.temporalWindow,self.pixelSizeUnit,self.dataType,self.isThresholded,self.threshold)
+        return SpatialReceptiveField(newMask, newAltPos, newAziPos, sign=self.sign, temporalWindow=self.temporalWindow,
+                                     pixelSizeUnit=self.pixelSizeUnit, dataType=self.dataType, thr=self.thr,
+                                     filter_sigma=self.filter_sigma, interpolate_rate=ratio_int)
+
+    def gaussian_filter(self, sigma):
+        """
+        return a new SpatialReceptiveField object, with mask filtered by a gaussian filter with width sigma pixels
+        """
+
+        mask = self.get_weighted_mask()
+        mask_f = ni.gaussian_filter(mask, sigma=sigma)
+
+        return SpatialReceptiveField(mask_f, self.altPos, self.aziPos, sign=self.sign,
+                                     temporalWindow=self.temporalWindow, pixelSizeUnit=self.pixelSizeUnit,
+                                     dataType=self.dataType, thr=self.thr, filter_sigma=sigma,
+                                     interpolate_rate=self.interpolate_rate)
 
     def get_weighted_rf_center(self):
         """
@@ -169,15 +338,19 @@ class SpatialReceptiveField(WeightedROI):
         """
         return self.get_weighted_center_in_coordinate(self.altPos, self.aziPos)
 
-    # def get_weighted_rf_area(self):
-    #     """
-    #     return weighted area of the receptive field in the coordinate system defined by self.altPos and self.aziPos
-    #     """
-    #     altStep = np.abs(np.min(np.diff(self.altPos)))
-    #     aziStep = np.abs(np.min(np.diff(self.aziPos)))
-    #     print 'altStep:', altStep, '; aziStep:', aziStep
+    def get_binary_rf_area(self):
+        """
+        return the thresholded binary receptive field area in the coordinate system defined by self.altPos and
+        self.aziPos
+        """
 
+        if self.thr is None:
+            raise LookupError('To th area, the receptive field should be thresholded!!')
 
+        alt_step = abs(np.mean(np.diff(self.altPos).astype(np.float)))
+        azi_step = abs(np.mean(np.diff(self.aziPos).astype(np.float)))
+
+        return len(self.weights) * alt_step * azi_step
 
 
 class SpatialTemporalReceptiveField(object):
@@ -420,6 +593,9 @@ class SpatialTemporalReceptiveField(object):
 
     def get_zscore_receptive_field(self, timeWindow=(0, 0.5)):
         """
+        outdated
+
+
         very similar to get_zscore_map(), only difference is that, it is returning spatial temporal receptive fields
         instead of 2d matrix
         each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
@@ -428,14 +604,19 @@ class SpatialTemporalReceptiveField(object):
 
         ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
 
-        zscoreRFON = SpatialReceptiveField(ia.zscore(ampON),allAltPos,allAziPos,sign=1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='zscore')
-        zscoreRFOFF = SpatialReceptiveField(ia.zscore(ampOFF),allAltPos,allAziPos,sign=-1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='zscore')
+        zscoreRFON = SpatialReceptiveField(ia.zscore(ampON),allAltPos,allAziPos,sign='ON',temporalWindow=timeWindow,
+                                           pixelSizeUnit=self.locationUnit,dataType='zscore')
+        zscoreRFOFF = SpatialReceptiveField(ia.zscore(ampOFF),allAltPos,allAziPos,sign='OFF',temporalWindow=timeWindow,
+                                            pixelSizeUnit=self.locationUnit,dataType='zscore')
 
         return zscoreRFON, zscoreRFOFF
 
 
     def get_zscore_rois(self, timeWindow=(0, 0.5), zscoreThr=2):
         """
+        outdated
+
+
         return ON, OFF and combined receptive field rois in the format of WeightedROI object
 
         Amplitude for each pixel was calculated as mean dF over F signal trace within the timeWindow
@@ -462,12 +643,17 @@ class SpatialTemporalReceptiveField(object):
         return zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos
 
 
-    def get_zscore_thresholded_receptive_fields(self, timeWindow=(0, 0.5), zscoreThr=2):
+    def get_zscore_thresholded_receptive_fields(self, timeWindow=(0, 0.3), thr_ratio=0.3, filter_sigma=None,
+                                                interpolate_rate=None, absolute_thr=None):
         """
         return ON, OFF and combined receptive fields in the format of SpatialReceptiveField
 
-        Amplitude for each pixel was calculated as mean dF over F signal trace within the timeWindow
-        mask of ON and OFF receptive field was generated by cutting zscore map by zscoreThr
+        both ON and OFF RF mask will be filtered, interpolated as defined by the filter_sigma (in pixels) and
+        interpolate_ratio respectively.
+
+        Then the max value will be defined as maximum of ON RF peak and OFF RF peak. this max value times the thr_ratio
+        (default 0.3, meaning 30% of the maximum) will be applied as a uniform cutting threshold to get thresholded RF
+        mask for both ON and OFF RF. If calculated threshold is lower than absolute_thr, then absolute_thr will be used
 
         Combined receptive is the sum of ON and OFF thresholded zscore receptive field
 
@@ -475,65 +661,44 @@ class SpatialTemporalReceptiveField(object):
 
         zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(timeWindow)
 
-        zscoreROION = get_peak_weighted_roi(zscoreON, zscoreThr)
-        zscoreROIOFF = get_peak_weighted_roi(zscoreOFF, zscoreThr)
+        zscoreRFON = SpatialReceptiveField(zscoreON, allAltPos, allAziPos, sign='ON',temporalWindow=timeWindow,
+                                           pixelSizeUnit=self.locationUnit, dataType='zscore')
 
-        if zscoreROION is not None and zscoreROIOFF is not None:
-            zscoreRFON = SpatialReceptiveField(zscoreROION.get_weighted_mask(), allAltPos, allAziPos, sign='ON',
-                                               temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                               dataType='zscore')
-            zscoreRFOFF = SpatialReceptiveField(zscoreROIOFF.get_weighted_mask(), allAltPos, allAziPos, sign='OFF',
-                                                temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                                dataType='zscore')
+        zscoreRFOFF = SpatialReceptiveField(zscoreOFF, allAltPos, allAziPos, sign='OFF', temporalWindow=timeWindow,
+                                           pixelSizeUnit=self.locationUnit, dataType='zscore')
 
-            zscoreROIALL = WeightedROI(zscoreROION.get_weighted_mask() + zscoreROIOFF.get_weighted_mask())
-            zscoreRFALL = SpatialReceptiveField(zscoreROIALL.get_weighted_mask(), allAltPos, allAziPos, sign='ON-OFF',
-                                                temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                                dataType='zscore')
+        if filter_sigma is not None:
+            zscoreRFON = zscoreRFON.gaussian_filter(filter_sigma)
+            zscoreRFOFF = zscoreRFOFF.gaussian_filter(filter_sigma)
 
-        elif zscoreROION is None and zscoreROIOFF is not None:
-            print 'No zscore receptive field found for ON channel. Threshold too high.'
-            mask_zero = np.zeros(zscoreROION.get_weighted_mask().shape)
-            zscoreRFON = SpatialReceptiveField(mask_zero, allAltPos, allAziPos, sign='ON',
-                                               temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                               dataType='zscore')
-            zscoreRFOFF = SpatialReceptiveField(zscoreROIOFF.get_weighted_mask(), allAltPos, allAziPos, sign='OFF',
-                                                temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                                dataType='zscore')
-            zscoreRFALL = SpatialReceptiveField(zscoreROIOFF.get_weighted_mask(), allAltPos, allAziPos, sign='ON-OFF',
-                                                temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                                dataType='zscore')
+        if interpolate_rate is not None:
+            zscoreRFON = zscoreRFON.interpolate(interpolate_rate)
+            zscoreRFOFF = zscoreRFOFF.interpolate(interpolate_rate)
 
-        elif zscoreROION is not None and zscoreROIOFF is None:
-            print 'No zscore receptive field found for OFF channel. Threshold too high.'
-            mask_zero = np.zeros(zscoreROIOFF.get_weighted_mask().shape)
-            zscoreRFON = SpatialReceptiveField(zscoreROION.get_weighted_mask(), allAltPos, allAziPos, sign='ON',
-                                               temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                               dataType='zscore')
-            zscoreRFOFF = SpatialReceptiveField(mask_zero, allAltPos, allAziPos, sign='OFF',
-                                                temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                                dataType='zscore')
-            zscoreRFALL = SpatialReceptiveField(zscoreROION.get_weighted_mask(), allAltPos, allAziPos, sign='ON-OFF',
-                                                temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                                dataType='zscore')
+        max_value = max([np.amax(zscoreRFON.get_weighted_mask()), np.amax(zscoreRFOFF.get_weighted_mask())])
 
-        else:
-            mask_zero = np.zeros(zscoreROIOFF.get_weighted_mask().shape)
-            zscoreRFON = SpatialReceptiveField(mask_zero, allAltPos, allAziPos, sign='ON',
-                                               temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                               dataType='zscore')
-            zscoreRFOFF = SpatialReceptiveField(mask_zero, allAltPos, allAziPos, sign='OFF',
-                                                temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                                dataType='zscore')
-            zscoreRFALL = SpatialReceptiveField(mask_zero, allAltPos, allAziPos, sign='ON-OFF',
-                                                temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                                dataType='zscore')
+        thr =  max_value * thr_ratio
+
+        if absolute_thr is not None:
+            thr = max([thr, absolute_thr])
+
+        zscoreRFON = zscoreRFON.threshold(thr)
+        zscoreRFOFF = zscoreRFOFF.threshold(thr)
+
+        zscoreRFALL = SpatialReceptiveField(zscoreRFON.get_weighted_mask()+zscoreRFOFF.get_weighted_mask(),
+                                            zscoreRFON.altPos, zscoreRFON.aziPos, sign='ON_OFF',
+                                            temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
+                                            dataType='zscore', thr=thr, filter_sigma=filter_sigma,
+                                            interpolate_rate=interpolate_rate)
 
         return zscoreRFON, zscoreRFOFF, zscoreRFALL
 
 
     def get_zscore_roi_centers(self, timeWindow=(0, 0.5), zscoreThr=2):
         """
+        outdated
+
+
         return retinotopic location of ON subfield, OFF subfield and combined receptive field
 
         zscore ROIs was generated by the method get_zscore_rois()
@@ -587,7 +752,7 @@ class SpatialTemporalReceptiveField(object):
 
     def shrink(self,altRange=None,aziRange=None):
         """
-        shrink the current spatial temporal receptive field into the
+        shrink the current spatial temporal receptive field into the defined altitude and/or azimuth range
         """
 
         if altRange is None and aziRange is None: raise LookupError, 'At least one of altRange and aziRange should be defined!'
@@ -669,6 +834,25 @@ if __name__=='__main__':
     # STRF.shrink(None,[0,20])
     # print np.unique(np.array(STRF.get_locations())[:,1])
     #=====================================================================
+
+    # =====================================================================
+    dfile = h5py.File(r"G:\2016-08-15-160815-M238599-wf2p-Retinotopy\sparse_noise_2p\cells_refined.hdf5", 'r')
+    strf = SpatialTemporalReceptiveField.from_h5_group(dfile['cell0519']['spatial_temporal_receptive_field'])
+
+    rf_on, rf_off, rf_all = strf.get_zscore_thresholded_receptive_fields(timeWindow=(0., 0.3), thr_ratio=0.4,
+                                                                         filter_sigma=1., interpolate_rate=10,
+                                                                         absolute_thr=0.8)
+
+    peak_amplitude = max([np.amax(rf_on.get_weighted_mask()), np.amax(rf_off.get_weighted_mask())])
+
+    f = plt.figure(figsize=(6, 8))
+    ax = f.add_subplot(111)
+    rf_on.plot_contour(ax, peak_amplitude=peak_amplitude, level_num=10, linewidths=1.5)
+    rf_off.plot_contour(ax, peak_amplitude=peak_amplitude, level_num=10, linewidths=1.5)
+    plt.show()
+
+
+    # =====================================================================
 
 
     print 'for debug...'

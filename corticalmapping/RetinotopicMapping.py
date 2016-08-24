@@ -2789,7 +2789,8 @@ class RetinotopicMappingTrial(object):
         return plotAxis.get_figure()
 
 
-    def plotFinalPatchBorders2(self,plotAxis=None,plotName=True,plotVasMap=True,isTitle=True,isColor=True,positiveColor='#ff0000',negativeColor='#0000ff',borderWidth=2,fontSize=15):
+    def plotFinalPatchBorders2(self, plotAxis=None, plotName=True, plotVasMap=True, isTitle=True, isColor=True,
+                               positiveColor='#ff0000', negativeColor='#0000ff', borderWidth=2, fontSize=15):
 
         if hasattr(self,'finalPatchesMarked'):finalPatches=self.finalPatchesMarked
         elif hasattr(self, 'finalPatches'):finalPatches=self.finalPatches
@@ -3132,9 +3133,11 @@ class RetinotopicMappingTrial(object):
         return plotAxis.figure
 
 
-    def plotVisualCoverage(self):
+    def plotVisualCoverage(self, is_normalize=False):
         '''
         plot the visual coverage of each visual area in a compact way
+
+        if is_normalize is True, the retinotopy will correct for visual origin
         '''
 
         if hasattr(self,'finalPatchesMarked'):
@@ -3144,7 +3147,11 @@ class RetinotopicMappingTrial(object):
         else:
             self.processTrial()
 
-        visualFieldOrigin = self.getVisualFieldOrigin()
+        if is_normalize:
+            visualFieldOrigin = self.getVisualFieldOrigin()
+        else:
+            visualFieldOrigin = None
+
         figList, axList = pt.grid_axis(3, 4, len(finalPatches.keys()), figsize=(12, 10))
 
         i = 0

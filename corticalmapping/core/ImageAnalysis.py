@@ -1459,14 +1459,21 @@ class WeightedROI(ROI):
         return [yCenter, xCenter]
 
 
-    def plot_weighted_mask(self, plotAxis=None, color='#ff0000'):
+    def plot_weighted_mask(self, plotAxis=None, is_colorbar=False, cmap='Reds', interpolation='nearest', **kwargs):
         '''
         return display image (RGBA uint8 format) which can be plotted by plt.imshow
         '''
         mask = self.get_weighted_mask()
-        displayImg = pt.scalar_2_rgba(mask, color=color)
-        if plotAxis is None: f=plt.figure(); plotAxis=f.add_subplot(111); plotAxis.imshow(displayImg,interpolation='nearest')
-        return displayImg
+
+        if plotAxis is None:
+            f=plt.figure(); plotAxis=f.add_subplot(111)
+
+        curr_plot = plotAxis.imshow(mask, cmap=cmap, interpolation=interpolation, **kwargs)
+
+        if is_colorbar:
+            plotAxis.get_figure().colorbar(curr_plot)
+
+        return plotAxis.get_figure()
 
 
     def get_weighted_trace(self, mov):

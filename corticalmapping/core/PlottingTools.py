@@ -100,7 +100,7 @@ def bar_graph(left,
               height,
               error,
               errorDir = 'both',  # 'both', 'positive' or 'negative'
-             width = 0.1,
+              width = 0.1,
               plotAxis = None,
               lw = 3,
               faceColor = '#000000',
