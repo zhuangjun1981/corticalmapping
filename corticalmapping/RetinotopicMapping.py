@@ -575,90 +575,32 @@ def phaseFilter(phaseMap,
     return phaseMapf
 
 
-def visualSpace(patch,
-                altMap,
-                aziMap,
-                pixelSize = 2., # pixel size in visual space
-                closeIter = None,
-                isPlot = False): # dilation iterations for final map
-    '''
-    get the visual response space of a cortical patch
-    '''
-
-    pixelSize = np.float(pixelSize)
-
-    altRange = np.array([-40., 60.])
-    aziRange = np.array([-20., 120.])
-
-    gridAzi, gridAlt = np.meshgrid(np.arange(aziRange[0],aziRange[1],pixelSize),
-                                   np.arange(altRange[0],altRange[1],pixelSize))
-
-    visualSpace = np.zeros((np.ceil((altRange[1]-altRange[0]) / pixelSize),
-                            np.ceil((aziRange[1]-aziRange[0]) / pixelSize)))
-
-    patchArray = patch.array
-    for i in range(patchArray.shape[0]):
-        for j in range(patchArray.shape[1]):
-            if patchArray[i,j]:
-                corAlt = altMap[i,j]
-                corAzi = aziMap[i,j]
-                if (corAlt >= altRange[0]) & (corAlt < altRange[1]) & (corAzi >= aziRange[0]) & (corAzi < aziRange[1]):
-                    indAlt = (corAlt - altRange[0]) // pixelSize
-                    indAzi = (corAzi - aziRange[0]) // pixelSize
-                    visualSpace[np.int(indAlt), np.int(indAzi)] = 1
-
-    if closeIter >= 1:
-        visualSpace = ni.binary_closing(visualSpace, iterations = closeIter).astype(np.int)
-
-    uniqueArea = np.sum(visualSpace[:]) * (pixelSize ** 2)
-
-    visualAltCenter = np.mean(gridAlt[visualSpace != 0])
-    visualAziCenter = np.mean(gridAzi[visualSpace != 0])
-
-    if isPlot:
-        plotVisualSpace(visualSpace,pixelSize=pixelSize)
-
-    return visualSpace, uniqueArea, visualAltCenter, visualAziCenter
-
-
-def plotVisualSpace(visualSpace,
-                    pixelSize, # deg
-                    altStart = -40,
-                    aziStart = -20,
-                    tickSpace = 10, # deg
-                    plotAxis = None):
+def plotVisualSpace(visualSpace, altAxis, aziAxis, tickSpace=10, plotAxis=None, lineColor='#000000', lineWidth=2):
     '''
     plot visual space in given plotAxis
-    '''
-    
-    pixelSize = np.float(pixelSize)
-    
-    altRange = np.arange(altStart, altStart+pixelSize*visualSpace.shape[0], pixelSize)
-    aziRange = np.arange(aziStart, aziStart+pixelSize*visualSpace.shape[1], pixelSize)
-    
-    tickPixelSpace = int(tickSpace/pixelSize)
-    xtickInd = np.arange(int((aziStart%tickSpace)/pixelSize),
-                         visualSpace.shape[1],
-                         tickPixelSpace)
-    ytickInd = np.arange(int((altStart%tickSpace)/pixelSize),
-                         visualSpace.shape[0],
-                         tickPixelSpace)
-                        
-    xtickLabel = [str(int(round(aziRange[x]))) for x in xtickInd]
-    ytickLabel = [str(int(round(altRange[x]))) for x in ytickInd]                
 
-    if not plotAxis:
+    tidkSpace: int, gap between labelled ticks in pixels
+    '''
+
+    if plotAxis is None:
         f = plt.figure()
         ax = f.add_subplot(111)
     else:
         ax = plotAxis
-    ax.imshow(visualSpace,cmap='hot_r',interpolation = 'nearest')
-    ax.invert_yaxis()
+
+    pt.plot_mask_borders(visualSpace, plotAxis=ax, color=lineColor, borderWidth=lineWidth)
+    ax.set_aspect('equal')
+    altTickInds = range(len(altAxis))[::tickSpace]
+    aziTickInds = range(len(aziAxis))[::tickSpace]
+
+    altTickLabels = [str(int(round(altAxis[altTickInd]))) for altTickInd in altTickInds]
+    aziTickLabels = [str(int(round(aziAxis[aziTickInd]))) for aziTickInd in aziTickInds]
+
     ax.set_aspect(1)
-    ax.set_xticks(xtickInd)
-    ax.set_xticklabels(xtickLabel)
-    ax.set_yticks(ytickInd)
-    ax.set_yticklabels(ytickLabel)
+    ax.set_xticks(aziTickInds)
+    ax.set_xticklabels(aziTickLabels)
+    ax.set_yticks(altTickInds)
+    ax.set_yticklabels(altTickLabels)
 
 
 def localMin(eccMap, binSize):
@@ -672,6 +614,9 @@ def localMin(eccMap, binSize):
     cutStep = np.arange(np.nanmin(eccMap2[:]) - binSize,
                         np.nanmax(eccMap2[:]) + binSize * 2,
                         binSize)
+
+    # cutStep = np.arange(0, np.nanmax(eccMap2.flatten()) + binSize * 2, binSize)
+
     NumOfMin = 0
     i = 0
     while (NumOfMin <= 1) and (i < len(cutStep)):
@@ -1179,15 +1124,17 @@ def plotPairedPatches(patch1,
                       pixelSize = 1,
                       closeIter = None):
 
-    visualSpace1, area1, _, _ = patch1.getVisualSpace(altMap = altMap,
-                                                      aziMap = aziMap,
-                                                      pixelSize = pixelSize,
-                                                      closeIter = closeIter)
+    visualSpace1, _, _ = patch1.getVisualSpace(altMap = altMap,
+                                               aziMap = aziMap,
+                                               pixelSize = pixelSize,
+                                               closeIter = closeIter)
+    area1 = np.sum(visualSpace1[:]) * (pixelSize ** 2)
 
-    visualSpace2, area2, _, _ = patch2.getVisualSpace(altMap = altMap,
-                                                      aziMap = aziMap,
-                                                      pixelSize = pixelSize,
-                                                      closeIter = closeIter)
+    visualSpace2, _, _ = patch2.getVisualSpace(altMap = altMap,
+                                               aziMap = aziMap,
+                                               pixelSize = pixelSize,
+                                               closeIter = closeIter)
+    area2 = np.sum(visualSpace2[:]) * (pixelSize ** 2)
 
     visualSpace1 = np.array(visualSpace1, dtype = np.float32)
     visualSpace2 = np.array(visualSpace2, dtype = np.float32)
@@ -1591,10 +1538,12 @@ class RetinotopicMappingTrial(object):
         newPatchesDict = {}
 
         for key, value in patches.iteritems():
-            visualSpace, AU, _, _ = value.getVisualSpace(altPosMapf,
-                                                         aziPosMapf,
-                                                         pixelSize = visualSpacePixelSize,
-                                                         closeIter = visualSpaceCloseIter)
+            visualSpace, _, _ = value.getVisualSpace(altPosMapf,
+                                                     aziPosMapf,
+                                                     pixelSize = visualSpacePixelSize,
+                                                     closeIter = visualSpaceCloseIter)
+            AU = np.sum(visualSpace[:]) * (visualSpacePixelSize ** 2)
+
             AS = value.getSigmaArea(detMap)
             print key, 'AU='+str(AU), ' AS='+str(AS), ' ratio='+str(AS/AU)
 
@@ -1637,10 +1586,10 @@ class RetinotopicMappingTrial(object):
                             currArray[currArray==1]=currPatchValue
                             f121.imshow(currArray,interpolation='nearest', vmin=0, vmax=len(newPatches.keys()))
                             f121.set_axis_off()
-                            currVisualSpace, _, _, _ = value2.getVisualSpace(altPosMapf,
-                                                                             aziPosMapf,
-                                                                             pixelSize = visualSpacePixelSize,
-                                                                             closeIter = visualSpaceCloseIter)
+                            currVisualSpace, _, _ = value2.getVisualSpace(altPosMapf,
+                                                                          aziPosMapf,
+                                                                          pixelSize = visualSpacePixelSize,
+                                                                          closeIter = visualSpaceCloseIter)
                             currVisualSpace=currVisualSpace.astype(np.float32)
                             currVisualSpace[currVisualSpace==0]=np.nan
                             currVisualSpace[currVisualSpace==1]=currPatchValue
@@ -1737,23 +1686,26 @@ class RetinotopicMappingTrial(object):
                                             sign = patch1.sign)
 
                     #calculate unique area of the merged patch
-                    _, AU, _, _ = currMergedPatch.getVisualSpace(altPosMapf,
-                                                                 aziPosMapf,
-                                                                 pixelSize = visualSpacePixelSize,
-                                                                 closeIter = visualSpaceCloseIter)
+                    visualSpace, _, _ = currMergedPatch.getVisualSpace(altPosMapf,
+                                                                       aziPosMapf,
+                                                                       pixelSize = visualSpacePixelSize,
+                                                                       closeIter = visualSpaceCloseIter)
 
+                    AU = np.sum(visualSpace[:]) * (visualSpacePixelSize ** 2)
 
                     #calculate the visual space and unique area of the first patch
-                    visualSpace1, AU1, _, _ =patch1.getVisualSpace(altPosMapf,
-                                                                   aziPosMapf,
-                                                                   pixelSize = visualSpacePixelSize,
-                                                                   closeIter = visualSpaceCloseIter)
+                    visualSpace1, _, _ =patch1.getVisualSpace(altPosMapf,
+                                                              aziPosMapf,
+                                                              pixelSize = visualSpacePixelSize,
+                                                              closeIter = visualSpaceCloseIter)
+                    AU1 = np.sum(visualSpace1[:]) * (visualSpacePixelSize ** 2)
 
                     #calculate the visual space and unique area of the second patch
-                    visualSpace2, AU2, _, _ =patch2.getVisualSpace(altPosMapf,
-                                                                   aziPosMapf,
-                                                                   pixelSize = visualSpacePixelSize,
-                                                                   closeIter = visualSpaceCloseIter)
+                    visualSpace2, _, _ =patch2.getVisualSpace(altPosMapf,
+                                                              aziPosMapf,
+                                                              pixelSize = visualSpacePixelSize,
+                                                              closeIter = visualSpaceCloseIter)
+                    AU2 = np.sum(visualSpace2[:]) * (visualSpacePixelSize ** 2)
 
                     #calculate the overlapping area of these two patches
                     sumSpace = visualSpace1 + visualSpace2
@@ -1854,10 +1806,10 @@ class RetinotopicMappingTrial(object):
                   moviePath,
                   resampleFrequency = 10, # at which frequency the traces are resampled
                   centerPatch = 'patch01', # the patch to get ROI
-                  ROIcenters = [[30.,0.],[60.,0.],[90.,0.]], # visual space centers of ROIs
+                  ROIcenters = ([30.,0.],[60.,0.],[90.,0.]), # visual space centers of ROIs
                   ROIsearchRange = 0.5, #range to search pixels in ROI
                   ROIsize = 10, # ROI size (pixel)
-                  ROIcolor = ['#ff0000','#00ff00','#0000ff'],#color for each ROI
+                  ROIcolor = ('#ff0000','#00ff00','#0000ff'),#color for each ROI
                   isPlot = False,
                   ):
 
@@ -3133,7 +3085,7 @@ class RetinotopicMappingTrial(object):
         return plotAxis.figure
 
 
-    def plotVisualCoverage(self, is_normalize=False):
+    def plotVisualCoverage(self, is_normalize=False, altRange=(-40., 60.), aziRange=(-20., 100.)):
         '''
         plot the visual coverage of each visual area in a compact way
 
@@ -3146,6 +3098,7 @@ class RetinotopicMappingTrial(object):
             finalPatches = self.finalPatches
         else:
             self.processTrial()
+            finalPatches = self.finalPatches
 
         if is_normalize:
             visualFieldOrigin = self.getVisualFieldOrigin()
@@ -3161,17 +3114,29 @@ class RetinotopicMappingTrial(object):
 
         for key, patch in finalPatches.iteritems():
             currAx = axList[i]
-            visualSpace, _, _, _=patch.getVisualSpace(
-                                                      self.altPosMapf,
-                                                      self.aziPosMapf,
-                                                      visualFieldOrigin=visualFieldOrigin,
-                                                      pixelSize = pixelSize,
-                                                      closeIter = closeIter,
-                                                      isplot = False)
+            visualSpace, altAxis, aziAxis=patch.getVisualSpace(self.altPosMapf,
+                                                               self.aziPosMapf,
+                                                               altRange=altRange,
+                                                               aziRange=aziRange,
+                                                               visualFieldOrigin=visualFieldOrigin,
+                                                               pixelSize = pixelSize,
+                                                               closeIter = closeIter,
+                                                               isplot = False)
+
+            if patch.sign == 1:
+                plotColor = '#ff0000'
+            elif patch.sign == -1:
+                plotColor = '#0000ff'
+            else:
+                plotColor = '#000000'
 
             plotVisualSpace(visualSpace,
-                            pixelSize=pixelSize,
-                            plotAxis=currAx)
+                            altAxis=altAxis,
+                            aziAxis=aziAxis,
+                            plotAxis=currAx,
+                            lineColor=plotColor,
+                            lineWidth=1,
+                            tickSpace=10)
 
             currAx.set_title(key)
 
@@ -3307,13 +3272,11 @@ class Patch(object):
         center = np.mean(pixels.astype(np.float32), axis = 0)
         return np.round(center).astype(np.int)
 
-
     def getArea(self):
         '''
         return pixel number in the patch
         '''
         return np.sum(self.array[:])
-
 
     def getMask(self):
         '''
@@ -3323,7 +3286,6 @@ class Patch(object):
         mask[mask == 0] = np.nan
         return mask
 
-
     def getSignedMask(self):
         '''
         generating ploting mask with visual sign for the patch
@@ -3332,17 +3294,14 @@ class Patch(object):
         signedMask[signedMask == 0] = np.nan
         return signedMask
 
-
     def getDict(self):
         return {'sparseArray':self.sparseArray,'sign':self.sign}
-
 
     def getTrace(self,mov):
         '''
         return trace of this patch in a certain movie
         '''
         return ia.get_trace(mov, self.array)
-
 
     def isTouching(self, patch2, distance = 1):
         '''
@@ -3360,60 +3319,53 @@ class Patch(object):
         else:
             return False
 
-
-    def getVisualSpace(self,altMap,aziMap,visualFieldOrigin = None,pixelSize = 1.,closeIter = None,isplot = False):
+    def getVisualSpace(self, altMap, aziMap, altRange=(-40., 60.), aziRange=(-20., 120.), visualFieldOrigin=None,
+                       pixelSize=1., closeIter=None, isplot=False):
         '''
         get the visual response space, visual response space center unique area and
         eccentricity map of a cortical patch
         '''
 
-#        altRange = np.array([np.amin(altMap)-10., np.amax(altMap)+10.])
-#        aziRange = np.array([np.amin(aziMap)-10., np.amax(aziMap)+10.])
+        #        altRange = np.array([np.amin(altMap)-10., np.amax(altMap)+10.])
+        #        aziRange = np.array([np.amin(aziMap)-10., np.amax(aziMap)+10.])
 
         pixelSize = np.float(pixelSize)
 
-        altRange = np.array([-40., 60.])
-        aziRange = np.array([-20., 120.])
-        
         if visualFieldOrigin:
             altMap = altMap - visualFieldOrigin[0]
             aziMap = aziMap - visualFieldOrigin[1]
 
-        gridAzi, gridAlt = np.meshgrid(np.arange(aziRange[0],aziRange[1],pixelSize),
-                                       np.arange(altRange[0],altRange[1],pixelSize))
+        altAxis = np.arange(altRange[0], altRange[1], pixelSize)[::-1]
+        aziAxis = np.arange(aziRange[0], aziRange[1], pixelSize)
 
-        visualSpace = np.zeros((np.ceil((altRange[1]-altRange[0]) / pixelSize),
-                                np.ceil((aziRange[1]-aziRange[0]) / pixelSize)))
+        visualSpace = np.zeros((np.ceil((altRange[1] - altRange[0]) / pixelSize),
+                                np.ceil((aziRange[1] - aziRange[0]) / pixelSize)))
 
         patchArray = self.array
         for i in range(patchArray.shape[0]):
             for j in range(patchArray.shape[1]):
-                if patchArray[i,j]:
-                    corAlt = altMap[i,j]
-                    corAzi = aziMap[i,j]
-                    if (corAlt >= altRange[0]) & (corAlt < altRange[1]) & (corAzi >= aziRange[0]) & (corAzi < aziRange[1]):
-                        indAlt = (corAlt - altRange[0]) // pixelSize
+                if patchArray[i, j]:
+                    corAlt = altMap[i, j]
+                    corAzi = aziMap[i, j]
+                    if (corAlt >= altRange[0]) & (corAlt <= altRange[1]) & (corAzi >= aziRange[0]) & (corAzi <= aziRange[1]):
+                        indAlt = (altRange[1] - corAlt) // pixelSize
                         indAzi = (corAzi - aziRange[0]) // pixelSize
                         visualSpace[np.int(indAlt), np.int(indAzi)] = 1
 
         if closeIter >= 1:
-            visualSpace = ni.binary_closing(visualSpace, iterations = closeIter).astype(np.int)
+            visualSpace = ni.binary_closing(visualSpace, iterations=closeIter)
 
-        uniqueArea = np.sum(visualSpace[:]) * (pixelSize ** 2)
-
-        visualAltCenter = np.mean(gridAlt[visualSpace != 0])
-        visualAziCenter = np.mean(gridAzi[visualSpace != 0])
+        visualSpace = visualSpace.astype(np.uint8)
 
         if isplot:
-
             f = plt.figure()
             ax = f.add_subplot(111)
             plotVisualSpace(visualSpace,
-                            pixelSize=pixelSize,
+                            altAxis,
+                            aziAxis,
                             plotAxis=ax)
 
-        return visualSpace, uniqueArea, visualAltCenter, visualAziCenter
-
+        return visualSpace, altAxis, aziAxis
 
     def getSigmaArea(self, detMap):
         '''
@@ -3421,7 +3373,6 @@ class Patch(object):
         '''
         sigmaArea = np.sum((self.array * detMap)[:])
         return sigmaArea
-
 
     def getPixelVisualCenter(self, altMap, aziMap):
         '''
@@ -3435,7 +3386,6 @@ class Patch(object):
         meanAzi = np.mean(aziPatch[aziPatch != 0])
 
         return meanAlt, meanAzi
-
 
     def eccentricityMap(self, altMap, aziMap, altCenter, aziCenter):
         '''
@@ -3471,7 +3421,6 @@ class Patch(object):
         eccMap = eccMap * 180 / np.pi
         eccMap[self.array==0]=np.nan
         return eccMap
-
 
     def split2(self, eccMap, patchName = 'patch00', cutStep = 1, borderWidth = 2, isplot = False):
         '''
@@ -3534,7 +3483,6 @@ class Patch(object):
 
 
         return newPatchDict
-
 
     def split(self, eccMap, patchName = 'patch00', cutStep = 1, borderWidth = 2, isplot = False):
         '''
@@ -3630,7 +3578,6 @@ class Patch(object):
 
 
         return newPatchDict
-
 
     def getBorder(self, borderWidth = 2):
         '''
