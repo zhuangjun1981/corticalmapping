@@ -98,13 +98,14 @@ def scalar_2_rgba(img, color='#ff0000'):
 
 def bar_graph(left,
               height,
-              error,
+              error=None,
               errorDir = 'both',  # 'both', 'positive' or 'negative'
               width = 0.1,
               plotAxis = None,
               lw = 3,
-              faceColor = '#000000',
-              edgeColor = 'none',
+              errorColor='#000000',
+              faceColor='none',
+              edgeColor='#000000',
               capSize = 10,
               label = None
               ):
@@ -115,21 +116,24 @@ def bar_graph(left,
     if not plotAxis:
         f = plt.figure()
         plotAxis = f.add_subplot(111)
-    
-    if errorDir == 'both':
-        yerr = error
-    elif errorDir == 'positive':
-        yerr = [[0],[error]]
-    elif errorDir == 'negative':
-        yerr = [[error],[0]]
-    
-    plotAxis.errorbar(left+width/2,
-                      height,
-                      yerr = yerr,
-                      lw=lw,
-                      capsize = capSize,
-                      capthick = lw,
-                      color = edgeColor)
+
+    if error is not None:
+        if errorDir == 'both':
+            yerr = error
+        elif errorDir == 'positive':
+            yerr = [[0],[error]]
+        elif errorDir == 'negative':
+            yerr = [[error],[0]]
+        else:
+            raise(ValueError, '"errorDir" should be one of the following: "both", "positive" of "negative".')
+
+        plotAxis.errorbar(left+width/2,
+                          height,
+                          yerr = yerr,
+                          lw=lw,
+                          capsize = capSize,
+                          capthick = lw,
+                          color = errorColor)
     
     plotAxis.bar(left,
                  height,
@@ -343,9 +347,41 @@ def plot_mask_borders(mask, plotAxis=None, color='#ff0000', zoom=1, borderWidth=
     if closingIteration is not None:
         plotingMask = ni.binary_closing(plotingMask,iterations=closingIteration).astype(np.uint8)
 
-    plotingMask = ni.binary_erosion(plotingMask,iterations=borderWidth)
-
     currfig = plotAxis.contour(plotingMask, levels=[0.5], colors=color, linewidths=borderWidth,**kwargs)
+
+    # put y axis in decreasing order
+    y_lim = list(plotAxis.get_ylim())
+    y_lim.sort()
+    plotAxis.set_ylim(y_lim[::-1])
+
+    plotAxis.set_aspect('equal')
+
+    return currfig
+
+
+def plot_mask2(mask, plotAxis=None, color='#ff0000', zoom=1, closingIteration=None, **kwargs):
+    '''
+    plot mask (ROI) borders by using pyplot.contour function. all the 0s and Nans in the input mask will be considered
+    as background, and non-zero, non-nan pixel will be considered in ROI.
+    '''
+    if not plotAxis:
+        f = plt.figure()
+        plotAxis = f.add_subplot(111)
+
+    plotingMask = np.ones(mask.shape,dtype=np.uint8)
+
+    plotingMask[np.logical_or(np.isnan(mask),mask==0)]=0
+
+    if zoom != 1:
+        plotingMask = cv2.resize(plotingMask.astype(np.float),dsize=(int(plotingMask.shape[1]*zoom),int(plotingMask.shape[0]*zoom)))
+        plotingMask[plotingMask<0.5]=0
+        plotingMask[plotingMask>=0.5]=1
+        plotingMask=plotingMask.astype(np.uint8)
+
+    if closingIteration is not None:
+        plotingMask = ni.binary_closing(plotingMask,iterations=closingIteration).astype(np.uint8)
+
+    currfig = plotAxis.contourf(plotingMask, levels=[0.5, 1], colors=color,**kwargs)
 
     # put y axis in decreasing order
     y_lim = list(plotAxis.get_ylim())
@@ -472,31 +508,37 @@ def value_2_rgb(value, cmap):
     color = cmap(value)[0:3]; color = [int(x*255) for x in color]
     return get_color_str(*color)
 
-
-
-
-
-
-
     
 if __name__=='__main__':
     
     plt.ioff()
 
     #----------------------------------------------------
-    bg = np.random.rand(100,100)
-    maskBin=np.zeros((100,100),dtype=np.uint8)
-    maskBin[20:30,50:60]=1
-    maskNan=np.zeros((100,100),dtype=np.float32)
-    maskNan[20:30,50:60]=1
-    f=plt.figure(); ax=f.add_subplot(111)
-    ax.imshow(bg,cmap='gray')
-    _ = plot_mask_borders(maskNan, plotAxis=ax, color='#0000ff', zoom=1, closingIteration=20)
-    plt.show()
+    # bg = np.random.rand(100,100)
+    # maskBin=np.zeros((100,100),dtype=np.uint8)
+    # maskBin[20:30,50:60]=1
+    # maskNan=np.zeros((100,100),dtype=np.float32)
+    # maskNan[20:30,50:60]=1
+    # f=plt.figure(); ax=f.add_subplot(111)
+    # ax.imshow(bg,cmap='gray')
+    # _ = plot_mask_borders(maskNan, plotAxis=ax, color='#0000ff', zoom=1, closingIteration=20)
+    # plt.show()
     #----------------------------------------------------
 
+    # ----------------------------------------------------
+    # bg = np.random.rand(100,100)
+    # maskBin=np.zeros((100,100),dtype=np.uint8)
+    # maskBin[20:30,50:60]=1
+    # maskNan=np.zeros((100,100),dtype=np.float32)
+    # maskNan[20:30,50:60]=1
+    # f=plt.figure(); ax=f.add_subplot(111)
+    # ax.imshow(bg,cmap='gray', interpolation='nearest')
+    # _ = plot_mask2(maskBin, plotAxis=ax, color='#0000ff', zoom=1, closingIteration=None)
+    # plt.show()
+    # ----------------------------------------------------
+
     #----------------------------------------------------
-    # ax = bar_graph(0.5,1,0.1,label='xx')
+    # ax = bar_graph(0.5,1,error=0.1,label='xx')
     # ax.legend()
     # plt.show()
     #----------------------------------------------------

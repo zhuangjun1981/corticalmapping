@@ -420,17 +420,11 @@ class SpatialTemporalReceptiveField(object):
         if not (len(locations) == len(signs) == len(traces)):
             raise ValueError('length of "locations", "signs", "traces" should be the same!')
 
-        trace_shape = traces[0].shape
-
         for i, trace in enumerate(traces):
-            if trace.shape != trace_shape:
-                error_msg = "the " + str(i) + "th trace does not have required shape!"
+            if trace.shape[1] != self.time.shape[0]:
+                error_msg = "The number of sample points of " + str(i) + "th trace does not equal to number of data " \
+                                                                         "points in time axis!"
                 raise ValueError(error_msg)
-
-        if self.time.shape[0] != trace_shape[1]:
-            raise ValueError(
-                "The number of sample points of each trace does not equal to number of data points in time "
-                "axis!")
 
         dtype = [('altitude',float),('azimuth',float),('sign',int),('traces',np.ndarray)]
 

@@ -132,7 +132,7 @@ trialObj = rm.RetinotopicMappingTrial(mouseID=mouseID,
                                       altPosMap=altPosMap,
                                       aziPosMap=aziPosMap,
                                       altPowerMap=altPowerMap,
-                                      aziPowerMap=altPowerMap,
+                                      aziPowerMap=aziPowerMap,
                                       vasculatureMap=vasMap,
                                       isAnesthetized=isAnesthetized,
                                       params=analysisParams

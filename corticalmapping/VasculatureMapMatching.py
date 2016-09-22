@@ -88,7 +88,7 @@ class AppForm(QMainWindow):
         if path:
             bigDict = {}
 
-            if type(self.ReferenceVasMap) != type(None):
+            if self.ReferenceVasMap is not None:
                 bigDict.update({'ReferencePathList': str(self.textbrowser_RPath.toPlainText()).split(';'),
                                 'ReferenceMapHeight': self.ReferenceVasMap.shape[0],
                                 'ReferenceMapWidth': self.ReferenceVasMap.shape[1]})
@@ -97,7 +97,7 @@ class AppForm(QMainWindow):
                                 'ReferenceMapHeight': None,
                                 'ReferenceMapWidth': None})
 
-            if type(self.MatchingVasMap) != type(None):
+            if self.MatchingVasMap is not None:
                 bigDict.update({'MatchingPathList': str(self.textbrowser_MPath.toPlainText()).split(';'),
                                 'MatchingMapHeight': self.MatchingVasMap.shape[0],
                                 'MatchingMapWidth': self.MatchingVasMap.shape[1],
@@ -120,7 +120,7 @@ class AppForm(QMainWindow):
                 path_surfix = path
 
             with open(path_surfix+'_VasculatureMapMatchingParameters.json', 'w') as f:
-                json.dump(bigDict,f,sort_keys=True,indent=4, separators=(',',': '))
+                json.dump(bigDict, f, sort_keys=True, indent=4, separators=(',',': '))
 
             if self.MatchingVasMapRaw is not None:
                 tf.imsave(path_surfix+'_VasculatureMapBeforeMatching.tif',self.MatchingVasMapRaw)
