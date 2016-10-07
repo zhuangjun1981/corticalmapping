@@ -1429,6 +1429,10 @@ class WeightedROI(ROI):
         self.weights = mask[self.pixels]
 
 
+    def get_peak(self):
+        return np.max(self.weights)
+
+
     def get_weighted_mask(self):
         mask = np.zeros(self.dimension,dtype=np.float32)
         mask[self.pixels] = self.weights
@@ -1453,10 +1457,14 @@ class WeightedROI(ROI):
         return weighted center of the ROI in the coordinate system defined by np.meshgrid(xCor, yCor)
         '''
         weightMask = self.get_weighted_mask()
-        xMap, yMap = np.meshgrid(xCor, yCor)
-        xCenter = np.sum((xMap*weightMask).flatten())/np.sum(weightMask.flatten())
-        yCenter = np.sum((yMap*weightMask).flatten())/np.sum(weightMask.flatten())
-        return [yCenter, xCenter]
+
+        if np.sum(weightMask.flatten()) == 0:
+            return None
+        else:
+            xMap, yMap = np.meshgrid(xCor, yCor)
+            xCenter = np.sum((xMap*weightMask).flatten())/np.sum(weightMask.flatten())
+            yCenter = np.sum((yMap*weightMask).flatten())/np.sum(weightMask.flatten())
+            return [yCenter, xCenter]
 
 
     def plot_weighted_mask(self, plotAxis=None, is_colorbar=False, cmap='Reds', interpolation='nearest', **kwargs):

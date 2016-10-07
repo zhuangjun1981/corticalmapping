@@ -146,7 +146,7 @@ class SpatialReceptiveField(WeightedROI):
         elif sign==-1:
             self.sign='OFF'
         else:
-            raise ValueError('sign should be 1, -2, "ON", "OFF", "ON_OFF" or None!')
+            raise ValueError('sign should be 1, -1, "ON", "OFF", "ON_OFF" or None!')
         self.temporalWindow = temporalWindow
         self.thr = thr
         self.filter_sigma = filter_sigma
@@ -166,7 +166,6 @@ class SpatialReceptiveField(WeightedROI):
                     self.interpolate_rate = interpolate_rate_int
                 else:
                     raise ValueError('interpolate_rate should be an integer larger than 1!')
-
 
     def get_name(self):
 
@@ -358,7 +357,7 @@ class SpatialTemporalReceptiveField(object):
     class of spatial temporal receptive field represented by traces for each specified retinotopic location
     """
 
-    def __init__(self,locations,signs,traces,time,name=None,locationUnit='degree'):
+    def __init__(self,locations,signs,traces,time,name=None,locationUnit='degree', trace_data_type='dF_over_F'):
         """
         locations: list of retinotopic locations mapped, array([altitude, azimuth])
         signs: list of signs for each location
@@ -385,6 +384,7 @@ class SpatialTemporalReceptiveField(object):
         self.time = time
         self.name = name
         self.locationUnit = locationUnit
+        self.trace_data_type = trace_data_type
         dtype = [('altitude',float),('azimuth',float),('sign',int),('traces',list)]
         values = [ (location[0], location[1], signs[i], traces[i]) for i, location in enumerate(locations)]
         if len(values) == 0:
@@ -462,8 +462,7 @@ class SpatialTemporalReceptiveField(object):
         h5Group.attrs['time'] = self.time
         h5Group.attrs['time_unit'] = 'second'
         h5Group.attrs['retinotopic_location_unit'] = self.locationUnit
-        h5Group.attrs['trace_data_type'] = 'dF_over_F'
-        h5Group.attrs['trace_data_unit'] = '%'
+        h5Group.attrs['trace_data_type'] = self.trace_data_type
         h5Group.attrs['trace_representation_axis'] = 0
         h5Group.attrs['trace_time_point_axis'] = 1
 
@@ -488,6 +487,7 @@ class SpatialTemporalReceptiveField(object):
                     axis.spines[pos].set_linewidth(0.5)
                     axis.spines[pos].set_color('#888888')
                 axis.plot([0,0],[yRange[0],yRange[1]*0.5],'--',color='#888888',lw=0.5)
+                axis.plot([self.time[0], self.time[-1]], [0., 0.], color='#888888', lw=0.5)
 
                 for index in indexList:
                     traces = self.data[index]['traces']
@@ -570,6 +570,58 @@ class SpatialTemporalReceptiveField(object):
 
         ampRFON = SpatialReceptiveField(ampON,allAltPos,allAziPos,sign=1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='amplitude')
         ampRFOFF = SpatialReceptiveField(ampOFF,allAltPos,allAziPos,sign=-1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='amplitude')
+
+        return ampRFON, ampRFOFF
+
+    def get_delta_amplitude_map(self, timeWindow=(0, 0.5)):
+        """
+        return 2d receptive field map and altitude and azimuth coordinates
+        each pixel in the map represent mean delta amplitute (raw amplitude minus the mean amplitude before trigger
+        onset) of traces within the window defined by timeWindow, and the
+        coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
+        """
+
+        windowIndex = np.logical_and(self.time >= timeWindow[0], self.time <= timeWindow[1])
+
+        baseline_index = self.time < 0
+
+        indON, indOFF, allAltPos, allAziPos = self._sort_index()
+
+        ampON = np.zeros(indON.shape);
+        ampON[:] = np.nan;
+        ampOFF = ampON.copy()
+
+        for i in np.ndindex(indON.shape):
+            traceIndON = indON[i];
+            traceIndOFF = indOFF[i]
+            if traceIndON is not None:
+                curr_trace_ON = np.mean(self.data[traceIndON]['traces'], axis=0)
+                curr_baseline_ON = np.mean(curr_trace_ON[baseline_index])
+                curr_delta_trace_ON = curr_trace_ON - curr_baseline_ON
+                ampON[i] = np.mean(curr_delta_trace_ON[windowIndex])
+            if traceIndOFF is not None:
+                curr_trace_OFF = np.mean(self.data[traceIndOFF]['traces'], axis=0)
+                curr_baseline_OFF = np.mean(curr_trace_OFF[baseline_index])
+                curr_delta_trace_OFF = curr_trace_OFF - curr_baseline_OFF
+                ampOFF[i] = np.mean(curr_delta_trace_OFF[windowIndex])
+
+        return ampON, ampOFF, allAltPos, allAziPos
+
+
+    def get_delta_amplitude_receptive_field(self, timeWindow=(0, 0.5)):
+        """
+        very similar to get_delta_amplitude_map(), only difference is that, it is returning SpatialReceptiveFields
+        instead of 2d matrix
+        each pixel in the map represent mean delta amplitute of traces within the window defined by timeWindow, and the
+        coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
+        """
+
+        ampON, ampOFF, allAltPos, allAziPos = self.get_delta_amplitude_map(timeWindow)
+
+        ampRFON = SpatialReceptiveField(ampON, allAltPos, allAziPos, sign=1, temporalWindow=timeWindow,
+                                        pixelSizeUnit=self.locationUnit, dataType='delta_amplitude')
+        ampRFOFF = SpatialReceptiveField(ampOFF, allAltPos, allAziPos, sign=-1,temporalWindow=timeWindow,
+                                         pixelSizeUnit=self.locationUnit, dataType='delta_amplitude')
 
         return ampRFON, ampRFOFF
 
@@ -770,6 +822,7 @@ class SpatialTemporalReceptiveField(object):
         except KeyError:
             name = None
         locationUnit = h5Group.attrs['retinotopic_location_unit']
+        trace_data_type = h5Group.attrs['trace_data_type']
         locations = []
         signs = []
         traces = []
@@ -778,7 +831,7 @@ class SpatialTemporalReceptiveField(object):
             signs.append((traceItem.attrs['sign']))
             traces.append(traceItem.value)
 
-        return SpatialTemporalReceptiveField(locations, signs, traces, time, name, locationUnit)
+        return SpatialTemporalReceptiveField(locations, signs, traces, time, name, locationUnit, trace_data_type)
 
 
 if __name__=='__main__':

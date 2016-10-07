@@ -585,23 +585,24 @@ def neural_pil_subtraction(trace_center, trace_surround, lam=0.05):
     if len(trace_center.shape) != 1:
         raise ValueError('input traces should be 1 dimensional!')
 
-
     trace_center = trace_center.astype(np.float)
     trace_surround = trace_surround.astype(np.float)
 
     ns = NS(lam=lam)
 
-    ''' normalize to have F_N in (0,1)'''
-    F_M = (trace_center - float(np.amin(trace_center))) / float(np.amax(trace_center) - np.amin(trace_center))
-    F_N = (trace_surround - float(np.amin(trace_surround))) / float(np.amax(trace_surround) - np.amin(trace_surround))
+    # ''' normalize to have F_N in (0,1)'''
+    # F_M = (trace_center - float(np.amin(trace_surround))) / float(np.amax(trace_surround) - np.amin(trace_surround))
+    # F_N = (trace_surround - float(np.amin(trace_surround))) / float(np.amax(trace_surround) - np.amin(trace_surround))
 
     '''fitting model'''
-    ns.set_F(F_M, F_N)
+    # ns.set_F(F_M, F_N)
+    ns.set_F(trace_center, trace_surround)
 
     '''stop gradient descent at first increase of cross-validation error'''
     ns.fit()
+    # ns.fit_block_coordinate_desc()
 
-    return ns.r, ns.error_vals[-1], trace_center - ns.r * trace_surround
+    return ns.r, ns.error, trace_center - ns.r * trace_surround
 
 if __name__ == '__main__':
 
