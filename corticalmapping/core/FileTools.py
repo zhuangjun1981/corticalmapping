@@ -607,3 +607,31 @@ if __name__=='__main__':
 
     print 'well done!'
 
+
+def update_key(group, dataset_name, dataset_data, is_overwrite=True):
+    '''
+    check if a dataset exists in a h5file group. if not create this dataset in group with dataset_name and dataset_data,
+    if yes: do nothing or overwrite
+
+    :param group: h5file group instance
+    :param dataset_name: str
+    :param dataset_data: data type can be used as h5file dataset
+    :param is_overwrite: bool, if True, automatically overwrite
+                               if False, ask for manual confirmation for overwriting.
+    '''
+    try:
+        group.create_dataset(dataset_name, data=dataset_data)
+    except RuntimeError:
+        if is_overwrite:
+            print('overwriting dataset "' + dataset_name + '" in group "' + str(group) + '".')
+            del group[dataset_name]
+            group.create_dataset(dataset_name, data=dataset_data)
+        else:
+            check = ''
+            while check != 'y' and check != 'n':
+                check = raw_input(dataset_name + ' already exists in group ' + str(group) + '. Overwrite? (y/n)\n')
+                if check == 'y':
+                    del group[dataset_name]
+                    group.create_dataset(dataset_name, data=dataset_data)
+                elif check == 'n':
+                    pass
