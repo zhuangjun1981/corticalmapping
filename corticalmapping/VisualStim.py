@@ -498,8 +498,8 @@ class Indicator(object):
         screen_width = self.monitor.resolution[1] / self.monitor.downSampleRate
         screen_height = self.monitor.resolution[0] / self.monitor.downSampleRate
 
-        indicator_width = ((self.width_cm / self.monitor.monWcm ) * screen_width) // 1
-        indicator_height = ((self.height_cm / self.monitor.monHcm ) * screen_height) // 1
+        indicator_width = int((self.width_cm / self.monitor.monWcm ) * screen_width)
+        indicator_height = int((self.height_cm / self.monitor.monHcm ) * screen_height)
 
         return indicator_width, indicator_height
 
@@ -527,7 +527,7 @@ class Indicator(object):
         else:
             raise LookupError, '"position" attributor should be "northeast", "southeast", "northwest" and "southwest"'
 
-        return centerW, centerH
+        return int(centerW), int(centerH)
 
     def get_frames(self):
 
@@ -559,10 +559,18 @@ class Stim(object):
         self.indicator = indicator
         self.background = background
         self.coordinate = coordinate
-        self.preGapFrameNum = int(preGapDur * self.monitor.refreshRate)
-        self.postGapFrameNum = int(postGapDur * self.monitor.refreshRate)
+        self.preGapDur = preGapDur
+        self.postGapDur = postGapDur
 
         self.clear()
+
+    @property
+    def preGapFrameNum(self):
+        return int(self.preGapDur * self.monitor.refreshRate)
+
+    @property
+    def postGapFrameNum(self):
+        return int(self.postGapDur * self.monitor.refreshRate)
 
     def generate_frames(self):
         """
@@ -590,6 +598,90 @@ class Stim(object):
     def set_post_gap_dur(self,postGapDur):
         self.postGapFrameNum = int(postGapDur * self.monitor.refreshRate)
         self.clear()
+
+
+class UniformContrast(Stim):
+    """
+    full field uniform luminance for recording spontaneous activity.
+    """
+
+    def __init__(self, monitor, indicator, duration, color=0., preGapDur=2., postGapDur=3., background=0.,
+                 coordinate='degree'):
+
+        super(UniformContrast, self).__init__(monitor=monitor, indicator=indicator,
+                                              coordinate=coordinate, background=background,
+                                              preGapDur=preGapDur, postGapDur=postGapDur)
+        self.stimName = 'UniformContrast'
+        self.duration=duration
+        self.color=color
+
+    def generate_frames(self):
+        """
+        generate a tuple of parameters of each frame.
+
+        for each frame:
+
+        first element: gap:0 or display:1
+        forth element: color of indicator, gap:0, display:1
+        """
+
+        displayFrameNum = int(self.duration * self.monitor.refreshRate)
+
+        frames = [(0, 0.)] * self.preGapFrameNum + [(1, 1.)] * displayFrameNum + \
+                 [(0, 0.)] * self.postGapFrameNum
+
+        return tuple(frames)
+
+    def generate_movie(self):
+        """
+        generate move for uniform contrast display for recording of spontaneous activity
+        """
+
+        self.frames = self.generate_frames()
+
+        fullSequence = np.zeros((len(self.frames), self.monitor.degCorX.shape[0], self.monitor.degCorX.shape[1]),
+                                dtype=np.float16)
+
+        indicatorWmin = self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
+        indicatorWmax = self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
+        indicatorHmin = self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
+        indicatorHmax = self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
+
+        background = self.background * np.ones((np.size(self.monitor.degCorX, 0), np.size(self.monitor.degCorX, 1)),
+                                               dtype=np.float16)
+
+        display = self.color * np.ones((np.size(self.monitor.degCorX, 0), np.size(self.monitor.degCorX, 1)),
+                                       dtype=np.float16)
+
+        if not (self.coordinate == 'degree' or self.coordinate == 'linear'):
+            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+
+        for i in range(len(self.frames)):
+            currFrame = self.frames[i]
+
+            if currFrame[0] == 0:
+                currFCsequence = background
+            else:
+                currFCsequence = display
+
+            currFCsequence[indicatorHmin:indicatorHmax, indicatorWmin:indicatorWmax] = currFrame[1]
+
+            fullSequence[i] = currFCsequence
+
+            if i in range(0, len(self.frames), len(self.frames) / 10):
+                print ['Generating numpy sequence: ' + str(int(100 * (i + 1) / len(self.frames))) + '%']
+
+        mondict = dict(self.monitor.__dict__)
+        indicatordict = dict(self.indicator.__dict__)
+        indicatordict.pop('monitor')
+        NFdict = dict(self.__dict__)
+        NFdict.pop('monitor')
+        NFdict.pop('indicator')
+        fullDictionary = {'stimulation': NFdict,
+                          'monitor': mondict,
+                          'indicator': indicatordict}
+
+        return fullSequence, fullDictionary
 
 
 class KSstim(Stim):
@@ -1917,7 +2009,8 @@ class FlashingCircle(Stim):
                  postGapDur=3., # gap frame number after flash
                  background = 0.):
 
-        super(FlashingCircle,self).__init__(monitor=monitor,indicator=indicator,background=background,coordinate=coordinate,preGapDur=preGapDur,postGapDur=postGapDur)
+        super(FlashingCircle,self).__init__(monitor=monitor, indicator=indicator, background=background,
+                                            coordinate=coordinate, preGapDur=preGapDur, postGapDur=postGapDur)
 
         self.stimName = 'FlashingCircle'
         self.center = center
@@ -1955,7 +2048,7 @@ class FlashingCircle(Stim):
         first element: gap:0 or display:1
         second element: iteration start, first frame of each iteration: 1; other frames: 0
         third element: current iteration
-        forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
+        forth element: color of indicator, gap:0, display:1
         """
 
         #frame number for each iteration
@@ -3443,6 +3536,15 @@ if __name__ == "__main__":
     # plt.show()
     #==============================================================================================================================
 
+    # ==============================================================================================================================
+    mon=Monitor(resolution=(1200, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
+    indicator=Indicator(mon)
+    uniform_contrast = UniformContrast(mon,indicator, duration=10., color=0.)
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration=2,isTriggered=False,isSyncPulse=False)
+    ds.set_stim(uniform_contrast)
+    ds.trigger_display()
+    plt.show()
+    # ==============================================================================================================================
 
 
     print 'for debug...'
