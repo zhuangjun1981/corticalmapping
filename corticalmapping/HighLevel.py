@@ -22,7 +22,7 @@ except Exception as e:
     print e
 
 
-def translateMovieByVasculature(mov,parameterPath,matchingDecimation=2,referenceDecimation=2,verbose=True):
+def translateMovieByVasculature(mov, parameterPath, matchingDecimation=2, referenceDecimation=2, verbose=True):
     '''
 
     :param mov: movie before translation (could be 2d (just one frame) or 3d)
@@ -59,7 +59,8 @@ def translateMovieByVasculature(mov,parameterPath,matchingDecimation=2,reference
     return movT
 
 
-def translateHugeMovieByVasculature(inputPath,outputPath,parameterPath,outputDtype=None,matchingDecimation=2,referenceDecimation=2,chunkLength=100,verbose=True):
+def translateHugeMovieByVasculature(inputPath, outputPath, parameterPath, outputDtype=None, matchingDecimation=2,
+                                    referenceDecimation=2,chunkLength=100,verbose=True):
     '''
     translate huge .npy matrix with alignment parameters into another huge .npy matrix without loading everything into memory
     :param inputPath: path of input movie (.npy file)
@@ -115,7 +116,8 @@ def translateHugeMovieByVasculature(inputPath,outputPath,parameterPath,outputDty
             currMovT.reshape((np.prod(currMovT.shape),)).tofile(f)
 
 
-def segmentMappingPhotodiodeSignal(pd,digitizeThr=0.9,filterSize=0.01,segmentThr=0.02,Fs=10000., smallestInterval=10.):
+def segmentMappingPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.02, Fs=10000.,
+                                   smallestInterval=10.):
     '''
 
     :param pd: photodiode from mapping jphys file
@@ -402,7 +404,8 @@ def analyzeSparseNoiseDisplayLog(logPath):
     return allOnsetInd, onsetIndWithLocationSign
 
 
-def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temporalDownSampleRate=1, is_load_all=False):
+def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temporalDownSampleRate=1,
+                      is_load_all=False):
     '''
     :param movPath: path to the image movie
     :param frameTS: the timestamps for each frame of the raw movie

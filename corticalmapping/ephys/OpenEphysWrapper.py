@@ -165,6 +165,9 @@ def pack_folder(folder, prefix, digital_channels=('cam_read', 'cam_trigger', 'vi
     electrode channel will extracted as int16
     other analog channels will be extracted as float32, volts
 
+    the universal start time will be subtracted from all channels. so the time stamps of continuous channels should
+    all start from 0.0 second
+
     :param folder:
     :param prefix:
     :digital_channels:
@@ -231,6 +234,9 @@ def pack_folder_for_nwb(folder, prefix, digital_channels=('cam_read', 'cam_trigg
     pack .continuous and .events files in the folder into a dictionary.
     continuous channel will extracted as int16
     bitVolts of each channel will be returned
+
+    the universal start time will be subtracted from all channels. so the time stamps of continuous channels should
+    all start from 0.0 second
 
     :param folder:
     :param prefix:

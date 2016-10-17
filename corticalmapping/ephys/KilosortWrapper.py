@@ -51,18 +51,19 @@ def get_clusters(csv_output):
     return output
 
 
-def get_spike_times_indices(clusters, spike_cluster_path, spike_times_path):
+def get_spike_times_indices(clusters, spike_clusters_path, spike_times_path):
     """
     get spike timestamps of defined clusters
     :param clusters: output of get_clusters function.
                      dictionary {unit_name : cluster_id, 'mua' : list of mua cluster_ids}
-    :param spike_cluster_path:
-    :param spike_times_path:
-    :return:
+    :param spike_clusters_path: path to spike_clusters.npy
+    :param spike_times_path: path to spike_times.npy
+    :return: dict, {unit_name: list of spike indices,
+                    'unit_mua': list of mua spike indices}
     """
 
     spike_times = np.load(spike_times_path).flatten()
-    spike_cluster = np.load(spike_cluster_path).flatten()
+    spike_cluster = np.load(spike_clusters_path).flatten()
 
     if len(spike_cluster) != len(spike_times):
         raise ValueError('length of spike_cluster does not match length of spike_times!')
