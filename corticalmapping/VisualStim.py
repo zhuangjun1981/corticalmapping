@@ -1971,7 +1971,7 @@ class FlashingCircle(Stim):
         for i in xrange(frames.shape[0]):
 
             # current iteration number
-            frames[i,2] = i // iterationFrameNum
+            frames[i, 2] = i // iterationFrameNum
 
             # mark start frame of every iteration
             if i % iterationFrameNum == 0:
@@ -3147,7 +3147,7 @@ class DisplaySequence(object):
             self._update_display_status()
             i=i+1
             
-        timeStamp.append(time.clock()-startTime)
+        # timeStamp.append(time.clock()-startTime)
         stopTime = time.clock()
         window.close()
         
@@ -3156,7 +3156,7 @@ class DisplaySequence(object):
         self.timeStamp = np.array(timeStamp)
         self.displayLength = stopTime-startTime
         if self.displayFrames is not None:
-            self.displayFrames = self.displayFrames[:i-1]
+            self.displayFrames = self.displayFrames[:i]
 
         if self.keepDisplay == True: print '\nDisplay successfully completed.'
 
