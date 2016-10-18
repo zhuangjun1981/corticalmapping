@@ -251,7 +251,6 @@ def get_grating(map_x, map_y, ori=0., spatial_freq=0.1, center=(0.,60.), phase=0
     return grating.astype(map_x.dtype)
 
 
-
 class Monitor(object):
     """
     monitor object created by Jun, has the method "remap" to generate the 
@@ -625,6 +624,8 @@ class KSstim(Stim):
         self.direction = direction
         self.sweepFrame = sweepFrame
         self.iteration = iteration
+        self.frameConfig = ('isDisplay', 'squarePolarity', 'sweepIndex', 'indicatorColor')
+        self.sweepConfig = ('orientation', 'sweepStartCoordinate', 'sweepEndCoordinate')
         
         self.sweepSpeed = self.monitor.refreshRate * self.stepWidth / self.sweepFrame #the speed of sweeps deg/sec
         self.flickerHZ = self.monitor.refreshRate / self.flickerFrame
@@ -1925,6 +1926,7 @@ class FlashingCircle(Stim):
         self.color = color
         self.iteration = iteration
         self.flashFrame = flashFrame
+        self.frameConfig = ('isDisplay', 'isIterationStart', 'currentIteration', 'indicatorColor')
 
         self.clear()
 
@@ -2077,6 +2079,7 @@ class SparseNoise(Stim):
         self.probeSize = probeSize
         self.probeOrientationt = probeOrientation
         self.probeFrameNum = probeFrameNum
+        self.frameConfig = ('isDisplay', '(azimuth, altitude)', 'polarity', 'indicatorColor')
 
         if subregion is None:
             if self.coordinate == 'degree':
@@ -2295,6 +2298,8 @@ class DriftingGratingCircle(Stim):
         self.blockDur = blockDur
         self.midGapDur = midGapDur
         self.iteration = iteration
+        self.frameConfig = ('isDisplay', 'isCycleStart', 'spatialFrequency', 'temporalFrequency', 'direction',
+                            'contrast', 'radius', 'phase', 'indicatorColor')
 
         for tf in tf_list:
             period = 1. / tf
@@ -2589,6 +2594,8 @@ class KSstimAllDir(object):
         stimulation['sweepTable'] = [tuple(x) for x in sweepTable]
 
         log['stimulation'] = stimulation
+        log['stimulation']['frameConfig'] = ('isDisplay', 'squarePolarity', 'sweepIndex', 'indicatorColor')
+        log['stimulation']['sweepConfig'] = ('orientation', 'sweepStartCoordinate', 'sweepEndCoordinate')
 
         return mov, log
 

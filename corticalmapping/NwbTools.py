@@ -53,6 +53,12 @@ DEFAULT_GENERAL = {
 
 
 class RecordedFile(NWB):
+    """
+    Jun's wrapper of nwb file. Designed for LGN-ephys/V1-ophys dual recording experiments. Should be able to save
+    ephys, wide field, 2-photon data in a single file.
+
+    Each file should have only one visual stimulation.
+    """
 
     def __init__(self, filename, **kwargs):
 
@@ -196,7 +202,7 @@ class RecordedFile(NWB):
         if ind_end == None:
             ind_end = self.file_pointer['acquisition/timeseries/photodiode/num_samples'].value
 
-        if ind_start <= ind_end:
+        if ind_start >= ind_end:
             raise ValueError('ind_end should be larger than ind_start.')
 
         try:
@@ -227,10 +233,36 @@ class RecordedFile(NWB):
         unit_times.finalize()
         mod.finalize()
 
+    def add_kilosort_clusters(self, folder, module_name, ind_start=None, ind_end=None):
+        """
+        expects spike clusters.npy, spike_templates.npy, and spike_times.npy in the folder. use only for the direct outputs of kilosort,
+        that haven't been modified with phy-template.
+        :param folder:
+        :return:
+        """
 
+        if ind_start == None:
+            ind_start = 0
 
-    def add_visual_stimulation(self):
+        if ind_end == None:
+            ind_end = self.file_pointer['acquisition/timeseries/photodiode/num_samples'].value
+
+        if ind_start >= ind_end:
+            raise ValueError('ind_end should be larger than ind_start.')
+
+        spike_clusters = np.load(os.path.join(folder, 'spike_clusters.npy'))
+        spike_templates = np.load(os.path.join(folder, 'spike_templates.npy'))
+        spikes_times = np.load(os.path.join(folder, 'spike_times.npy'))
+        templates = np.load(os.path.join(folder, 'templates.npy'))
+        # todo: finish this method
         pass
+
+    def add_visual_stimulation(self, log_path):
+        pass
+
+
+
+
 
     def add_segmentation_result(self):
         pass
@@ -244,22 +276,6 @@ class RecordedFile(NWB):
     def add_sync_data(self):
         # not for now
         pass
-
-    def add_kilosort_clusters(self, folder):
-        """
-        expects spike_templates.npy, and spike_times.npy in the folder. use only for the direct outputs of kilosort,
-        that haven't been modified with phy-template.
-        :param folder:
-        :return:
-        """
-        # clusters = np.load(open(os.path.join(folder, 'spike_clusters.npy')))
-        # clusters_data = np.load(open(os.path.join(folder, 'spike_templates.npy')))
-        # spikes_data = np.load(open(os.path.join(folder, 'spike_times.npy')))
-        # templates = np.load(open(os.path.join(folder, 'templates.npy')))
-
-        # not for now
-        pass
-
 
 
 
@@ -288,9 +304,17 @@ if __name__ == '__main__':
     # =========================================================================================================
 
     # =========================================================================================================
+    # tmp_path = r"E:\data\python_temp_folder\test.nwb"
+    # data_path = r"E:\data\2016-07-25-160722-M256896\processed_1"
+    # rf = RecordedFile(tmp_path)
+    # rf.add_phy_template_clusters(folder=data_path, module_name='LGN')
+    # rf.close()
+    # =========================================================================================================
+
+    # =========================================================================================================
     tmp_path = r"E:\data\python_temp_folder\test.nwb"
     data_path = r"E:\data\2016-07-25-160722-M256896\processed_1"
     rf = RecordedFile(tmp_path)
-    rf.add_phy_template_clusters(folder=data_path, module_name='LGN')
+    rf.add_kilosort_clusters(folder=data_path, module_name='LGN_kilosort')
     rf.close()
     # =========================================================================================================
