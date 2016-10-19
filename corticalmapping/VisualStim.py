@@ -2463,7 +2463,7 @@ class DriftingGratingCircle(Stim):
     @staticmethod
     def _get_ori(dire):
         """
-        get orientation from direction
+        get orientation from direction, [0, pi)
         """
         return (dire + np.pi / 2) % np.pi
 
@@ -2479,11 +2479,11 @@ class DriftingGratingCircle(Stim):
         second element: first frame in a cycle:1; rest:0
         third element: spatial frequency
         forth element: temporal frequency
-        fifth element: direction
+        fifth element: direction, [0, 2*pi)
         sixth element: contrast
         seventh element: size (raidus of the circle)
-        eighth element: phase
-        ninth element: indicator color [-1, 1]
+        eighth element: phase, [0, 2*pi)
+        ninth element: indicator color [-1, 1], gap:-1, first frame of cycle:1, rest frames of cycle: 0
         for gap frames from the second to the eighth elements should be 'None'
         """
 
@@ -2512,7 +2512,8 @@ class DriftingGratingCircle(Stim):
                     # mark first frame of each cycle
                     if k % frame_per_cycle == 0:
                         first_in_cycle = 1
-                    else: first_in_cycle = 0
+                    else:
+                        first_in_cycle = 0
 
                     frames.append([1,first_in_cycle,sf,tf,dire,con,size,phase,float(first_in_cycle)])
 
@@ -3525,48 +3526,48 @@ if __name__ == "__main__":
     #==============================================================================================================================
 
     #==============================================================================================================================
-    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=5)
-    # indicator=Indicator(mon)
-    #
-    # grating = get_grating(mon.degCorX, mon.degCorY, ori=0., spatial_freq=0.1, center=(60.,0.), contrast=1)
-    # print grating.max()
-    # print grating.min()
-    # plt.imshow(grating,cmap='gray',interpolation='nearest',vmin=0., vmax=1.)
-    # plt.show()
-    #
-    # drifting_grating = DriftingGratingCircle(mon,indicator, sf_list=(0.08,0.16),
-    #                                          tf_list=(4.,8.), dire_list=(0.,0.1),
-    #                                          con_list=(0.5,1.), size_list=(5.,10.),)
-    # print '\n'.join([str(cond) for cond in drifting_grating._generate_all_conditions()])
-    #
-    # drifting_grating2 = DriftingGratingCircle(mon,indicator,
-    #                                           center=(60.,0.),
-    #                                           sf_list=[0.08, 0.16],
-    #                                           tf_list=[4.,2.],
-    #                                           dire_list=[np.pi/6],
-    #                                           con_list=[1.,0.5],
-    #                                           size_list=[40.],
-    #                                           blockDur=2.,
-    #                                           preGapDur=2.,
-    #                                           postGapDur=3.,
-    #                                           midGapDur=1.)
-    # frames =  drifting_grating2.generate_frames()
-    # print '\n'.join([str(frame) for frame in frames])
-    #
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False,isInterpolate=False)
-    # ds.set_stim(drifting_grating2)
-    # ds.trigger_display()
-    # plt.show()
+    mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=5)
+    indicator=Indicator(mon)
+
+    grating = get_grating(mon.degCorX, mon.degCorY, ori=0., spatial_freq=0.1, center=(60.,0.), contrast=1)
+    print grating.max()
+    print grating.min()
+    plt.imshow(grating,cmap='gray',interpolation='nearest',vmin=0., vmax=1.)
+    plt.show()
+
+    drifting_grating = DriftingGratingCircle(mon,indicator, sf_list=(0.08,0.16),
+                                             tf_list=(4.,8.), dire_list=(0.,0.1),
+                                             con_list=(0.5,1.), size_list=(5.,10.),)
+    print '\n'.join([str(cond) for cond in drifting_grating._generate_all_conditions()])
+
+    drifting_grating2 = DriftingGratingCircle(mon,indicator,
+                                              center=(60.,0.),
+                                              sf_list=[0.08, 0.16],
+                                              tf_list=[4.,2.],
+                                              dire_list=[np.pi/6],
+                                              con_list=[1.,0.5],
+                                              size_list=[40.],
+                                              blockDur=2.,
+                                              preGapDur=2.,
+                                              postGapDur=3.,
+                                              midGapDur=1.)
+    frames =  drifting_grating2.generate_frames()
+    print '\n'.join([str(frame) for frame in frames])
+
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False,isInterpolate=False)
+    ds.set_stim(drifting_grating2)
+    ds.trigger_display()
+    plt.show()
     #==============================================================================================================================
 
     # ==============================================================================================================================
-    mon=Monitor(resolution=(1200, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
-    indicator=Indicator(mon)
-    uniform_contrast = UniformContrast(mon,indicator, duration=10., color=0.)
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration=2,isTriggered=False,isSyncPulse=False)
-    ds.set_stim(uniform_contrast)
-    ds.trigger_display()
-    plt.show()
+    # mon=Monitor(resolution=(1200, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
+    # indicator=Indicator(mon)
+    # uniform_contrast = UniformContrast(mon,indicator, duration=10., color=0.)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration=2,isTriggered=False,isSyncPulse=False)
+    # ds.set_stim(uniform_contrast)
+    # ds.trigger_display()
+    # plt.show()
     # ==============================================================================================================================
 
 

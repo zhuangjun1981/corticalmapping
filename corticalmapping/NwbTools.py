@@ -284,12 +284,11 @@ class RecordedFile(NWB):
             self._add_flashing_circle_stimulation(log_dict, display_order=display_order)
         elif stim_name == 'UniformContrast':
             self._add_uniform_contrast_stimulation(log_dict, display_order=display_order)
-        elif stim_name == 'KSstim':
-            # not for now
+        elif stim_name == 'DriftingGratingCircle':
+            self._add_drifting_grating_circle_stimulation(log_dict, display_order=display_order)
             pass
-        elif stim_name == 'DriftingGrating':
-            # not for now
-            pass
+        else:
+            raise ValueError('stimulation name {} unrecognizable!'.format(stim_name))
 
     def _add_sparse_noise_stimulation(self, log_dict, display_order):
 
@@ -371,12 +370,8 @@ class RecordedFile(NWB):
         display_frames = log_dict['presentation']['displayFrames']
         time_stamps = log_dict['presentation']['timeStamp']
 
-        for i, frame in enumerate(display_frames):
-            if frame[0] == 0 or frame[0] == 1:
-                frame_array = np.array(display_frames, dtype=np.int8)
-            else:
-                raise ValueError('The first value of ' + str(i) + 'th display frame: ' + str(frame) + ' should' + \
-                                 ' be only 0 or 1.')
+        frame_array = np.array(display_frames, dtype=np.int8)
+
         stim = self.create_timeseries('TimeSeries', ft.int2str(display_order, 2) + '_' + stim_name,
                                       'stimulus')
         stim.set_time(time_stamps)
@@ -390,6 +385,44 @@ class RecordedFile(NWB):
         stim.set_source('corticalmapping.VisualStim.UniformContrast for stimulus; '
                         'corticalmapping.VisualStim.DisplaySequence for display')
         stim.set_value('color', log_dict['stimulation']['color'])
+        stim.set_value('background_color', log_dict['stimulation']['background'])
+        stim.finalize()
+
+    def _add_drifting_grating_circle_stimulation(self, log_dict, display_order):
+
+        stim_name = log_dict['stimulation']['stimName']
+
+        if stim_name != 'DriftingGratingCircle':
+            raise ValueError('stimulus should be drifting grating circle.')
+
+        display_frames = log_dict['presentation']['displayFrames']
+        time_stamps = log_dict['presentation']['timeStamp']
+
+        frame_array = np.array(display_frames)
+        frame_array[np.equal(frame_array, None)] = np.nan
+        frame_array = frame_array.astype(np.float32)
+
+        stim = self.create_timeseries('TimeSeries', ft.int2str(display_order, 2) + '_' + stim_name,
+                                      'stimulus')
+        stim.set_time(time_stamps)
+        stim.set_data(frame_array, unit='', conversion=np.nan, resolution=np.nan)
+        stim.set_comments('the timestamps of displayed frames (saved in data) are referenced to the start of'
+                          'this particular display, not the master time clock. For more useful timestamps, check'
+                          '/processing for aligned photodiode onset timestamps.')
+        stim.set_description('data formatting: [isDisplay (0:gap; 1:display), '
+                             'firstFrameInCycle (first frame in cycle:1, rest display frames: 0), '
+                             'spatialFrequency (cyc/deg), '
+                             'temporalFrequency (Hz), '
+                             'direction ([0, 2*pi)), '
+                             'contrast ([0, 1]), '
+                             'radius (deg), '
+                             'phase ([0, 2*pi)'
+                             'indicatorColor (for photodiode, from -1 to 1)]. '
+                             'for gap frames, the 2ed to 8th elements should be np.nan.')
+        stim.set_value('data_formatting', ['isDisplay', 'firstFrameInCycle', 'spatialFrequency', 'temporalFrequency',
+                                           'direction', 'contrast', 'radius', 'phase', 'indicatorColor'])
+        stim.set_source('corticalmapping.VisualStim.DriftingGratingCircle for stimulus; '
+                        'corticalmapping.VisualStim.DisplaySequence for display')
         stim.set_value('background_color', log_dict['stimulation']['background'])
         stim.finalize()
 
@@ -420,17 +453,15 @@ class RecordedFile(NWB):
         for i, log_path in enumerate(log_paths):
             self.add_visual_stimulation(log_path, i + len(exist_stimuli))
 
+
+
+
     def analyze_photodiode(self):
         # todo: finish this method
         pass
 
-
     def add_motion_correction(self):
         pass
-
-
-
-
 
     def add_segmentation_result(self):
         pass
@@ -515,8 +546,17 @@ if __name__ == '__main__':
     # =========================================================================================================
 
     # =========================================================================================================
+    # tmp_path = r"E:\data\python_temp_folder\test.nwb"
+    # log_paths = [r"C:\data\sequence_display_log\161018164347-UniformContrast-MTest-Jun-255-notTriggered-complete.pkl"]
+    # rf = RecordedFile(tmp_path)
+    # rf.add_visual_stimulations(log_paths)
+    # rf.close()
+    # =========================================================================================================
+
+    # =========================================================================================================
     tmp_path = r"E:\data\python_temp_folder\test.nwb"
-    log_paths = [r"C:\data\sequence_display_log\161018164347-UniformContrast-MTest-Jun-255-notTriggered-complete.pkl"]
+    # log_paths = [r"C:\data\sequence_display_log\160205131514-ObliqueKSstimAllDir-MTest-Jun-255-notTriggered-incomplete.pkl"]
+    log_paths = [r"C:\data\sequence_display_log\161018174812-DriftingGratingCircle-MTest-Jun-255-notTriggered-complete.pkl"]
     rf = RecordedFile(tmp_path)
     rf.add_visual_stimulations(log_paths)
     rf.close()
