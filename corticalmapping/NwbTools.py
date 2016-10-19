@@ -335,7 +335,7 @@ class RecordedFile(NWB):
         display_frames = log_dict['presentation']['displayFrames']
         time_stamps = log_dict['presentation']['timeStamp']
 
-        frame_array = np.empty((len(display_frames), 2), dtype=np.uint8)
+        frame_array = np.empty((len(display_frames), 2), dtype=np.int8)
         for i, frame in enumerate(display_frames):
             if frame[0] == 0 or frame[0] == 1:
                 frame_array[i] = np.array([frame[0], frame[3]])
@@ -352,7 +352,7 @@ class RecordedFile(NWB):
         stim.set_description('data formatting: [isDisplay (0:gap; 1:display), '
                              'indicatorColor (for photodiode, from -1 to 1)]')
         stim.set_value('data_formatting', ['isDisplay', 'indicatorColor'])
-        stim.set_source('corticalmapping.VisualStim.SparseNoise for stimulus; '
+        stim.set_source('corticalmapping.VisualStim.FlashingCircle for stimulus; '
                         'corticalmapping.VisualStim.DisplaySequence for display')
         stim.set_value('radius_deg', log_dict['stimulation']['radius'])
         stim.set_value('center_location_deg', log_dict['stimulation']['center'])
@@ -368,8 +368,30 @@ class RecordedFile(NWB):
         if stim_name != 'UniformContrast':
             raise ValueError('stimulus should be uniform contrast.')
 
-        # todo: finish this method
-        pass
+        display_frames = log_dict['presentation']['displayFrames']
+        time_stamps = log_dict['presentation']['timeStamp']
+
+        for i, frame in enumerate(display_frames):
+            if frame[0] == 0 or frame[0] == 1:
+                frame_array = np.array(display_frames, dtype=np.int8)
+            else:
+                raise ValueError('The first value of ' + str(i) + 'th display frame: ' + str(frame) + ' should' + \
+                                 ' be only 0 or 1.')
+        stim = self.create_timeseries('TimeSeries', ft.int2str(display_order, 2) + '_' + stim_name,
+                                      'stimulus')
+        stim.set_time(time_stamps)
+        stim.set_data(frame_array, unit='', conversion=np.nan, resolution=np.nan)
+        stim.set_comments('the timestamps of displayed frames (saved in data) are referenced to the start of'
+                          'this particular display, not the master time clock. For more useful timestamps, check'
+                          '/processing for aligned photodiode onset timestamps.')
+        stim.set_description('data formatting: [isDisplay (0:gap; 1:display), '
+                             'indicatorColor (for photodiode, from -1 to 1)]')
+        stim.set_value('data_formatting', ['isDisplay', 'indicatorColor'])
+        stim.set_source('corticalmapping.VisualStim.UniformContrast for stimulus; '
+                        'corticalmapping.VisualStim.DisplaySequence for display')
+        stim.set_value('color', log_dict['stimulation']['color'])
+        stim.set_value('background_color', log_dict['stimulation']['background'])
+        stim.finalize()
 
     def _check_display_order(self, display_order=None):
         """
@@ -484,9 +506,17 @@ if __name__ == '__main__':
     # =========================================================================================================
 
     # =========================================================================================================
+    # tmp_path = r"E:\data\python_temp_folder\test.nwb"
+    # log_paths = [r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData\161017-M274376-FlashingCircle\161017162026-FlashingCircle-M274376-Sahar-101-Triggered-complete.pkl",
+    #              r"E:\data\2016-06-29-160610-M240652-Ephys\101_160610172256-SparseNoise-M240652-Jun-0-notTriggered-complete.pkl",]
+    # rf = RecordedFile(tmp_path)
+    # rf.add_visual_stimulations(log_paths)
+    # rf.close()
+    # =========================================================================================================
+
+    # =========================================================================================================
     tmp_path = r"E:\data\python_temp_folder\test.nwb"
-    log_paths = [r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData\161017-M274376-FlashingCircle\161017162026-FlashingCircle-M274376-Sahar-101-Triggered-complete.pkl",
-                 r"E:\data\2016-06-29-160610-M240652-Ephys\101_160610172256-SparseNoise-M240652-Jun-0-notTriggered-complete.pkl",]
+    log_paths = [r"C:\data\sequence_display_log\161018164347-UniformContrast-MTest-Jun-255-notTriggered-complete.pkl"]
     rf = RecordedFile(tmp_path)
     rf.add_visual_stimulations(log_paths)
     rf.close()

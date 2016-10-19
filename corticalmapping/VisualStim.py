@@ -621,13 +621,13 @@ class UniformContrast(Stim):
         for each frame:
 
         first element: gap:0 or display:1
-        forth element: color of indicator, gap:0, display:1
+        second element: color of indicator, gap:-1, display:1
         """
 
         displayFrameNum = int(self.duration * self.monitor.refreshRate)
 
-        frames = [(0, 0.)] * self.preGapFrameNum + [(1, 1.)] * displayFrameNum + \
-                 [(0, 0.)] * self.postGapFrameNum
+        frames = [(0, -1)] * self.preGapFrameNum + [(1, 1.)] * displayFrameNum + \
+                 [(0, -1)] * self.postGapFrameNum
 
         return tuple(frames)
 
@@ -993,6 +993,8 @@ class KSstim(Stim):
 
 class NoiseKSstim(Stim):
     """
+    obsolete
+
     generate Kalatsky & Stryker stimulation but with noise movie not flashing 
     squares 
     
@@ -1299,6 +1301,8 @@ class NoiseKSstim(Stim):
 
 class ObliqueKSstim(Stim):
     """
+    obsolete
+
     generate Kalatsky & Stryker stimulation integrats flashing indicator for
     photodiode
     """
@@ -1614,6 +1618,8 @@ class ObliqueKSstim(Stim):
 class FlashingNoise(Stim):
 
     """
+    obsolete
+
     generate flashing full field noise with background displayed before and after
 
     it also integrats flashing indicator for photodiode
@@ -1710,7 +1716,9 @@ class FlashingNoise(Stim):
             # mark unsynchronized indicator
             if not(self.indicator.isSync):
                 if np.floor(i // self.indicator.frameNum) % 2 == 0:
-                    frames[i,3] = 1
+                    frames[i, 3] = 1
+                else:
+                    frames[i, 3] = -1
 
         frames = [tuple(x) for x in frames]
 
@@ -1772,6 +1780,8 @@ class FlashingNoise(Stim):
 
 class GaussianNoise(Stim):
     """
+    obsolete
+
     generate full field noise movie with contrast modulated by gaussian function
     """
     def __init__(self,
@@ -1905,6 +1915,8 @@ class GaussianNoise(Stim):
             if not(self.indicator.isSync):
                 if np.floor(i // self.indicator.frameNum) % 2 == 0:
                     frames[i,3] = 1
+                else:
+                    frames[i,3] = -1
 
             # mark display contrast
             currFrameNumInIteration = i % iterationFrameNum
@@ -2082,7 +2094,9 @@ class FlashingCircle(Stim):
             # mark unsynchronized indicator
             if not(self.indicator.isSync):
                 if np.floor(i // self.indicator.frameNum) % 2 == 0:
-                    frames[i,3] = 1
+                    frames[i, 3] = 1
+                else:
+                    frames[i, 3] = -1
 
         frames = [tuple(x) for x in frames]
 
@@ -2291,8 +2305,10 @@ class SparseNoise(Stim):
         if self.indicator.isSync == False:
             indicatorFrame = self.indicator.frameNum
             for m in range(len(frames)):
-                if np.floor(m // indicatorFrame) % 2 == 0:frames[m][3] = 1
-                else:frames[m][3] = -1
+                if np.floor(m // indicatorFrame) % 2 == 0:
+                    frames[m][3] = 1
+                else:
+                    frames[m][3] = -1
 
         frames=tuple(frames)
 
