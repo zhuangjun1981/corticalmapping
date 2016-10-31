@@ -453,23 +453,31 @@ class RecordedFile(NWB):
         for i, log_path in enumerate(log_paths):
             self.add_visual_stimulation(log_path, i + len(exist_stimuli))
 
-
-
-
     def analyze_photodiode(self):
         # todo: finish this method
         pass
 
-    def add_motion_correction(self):
+
+
+
+    def add_image_series(self, name, image_matrix, image_path, time_stamps):
+        # not for now
         pass
 
     def add_segmentation_result(self):
+        # todo: finish this method
         pass
 
     def add_roi_traces(self):
+        # todo: finish this method
         pass
 
     def add_strf(self):
+        # todo: finish this method
+        pass
+
+    def add_motion_correction(self):
+        # not for now
         pass
 
     def add_sync_data(self):
@@ -482,7 +490,7 @@ if __name__ == '__main__':
 
     # =========================================================================================================
     # tmp_path = r"E:\data\python_temp_folder\test.nwb"
-    # open_ephys_folder = r"E:\data\2016-07-12-160712-M240652-SparseNoise\002_sparse_noise_2016-07-12_09-08-21_Jun"
+    # open_ephys_folder = r"E:\data\2016-07-19-160719-M256896\100_spontaneous_2016-07-19_09-45-06_Jun"
     # rf = RecordedFile(tmp_path, identifier='', description='')
     # rf.add_open_ephys_data(open_ephys_folder, '100', ['wf_read', 'wf_trigger', 'visual_frame'])
     # rf.close()
@@ -554,12 +562,12 @@ if __name__ == '__main__':
     # =========================================================================================================
 
     # =========================================================================================================
-    tmp_path = r"E:\data\python_temp_folder\test.nwb"
-    # log_paths = [r"C:\data\sequence_display_log\160205131514-ObliqueKSstimAllDir-MTest-Jun-255-notTriggered-incomplete.pkl"]
-    log_paths = [r"C:\data\sequence_display_log\161018174812-DriftingGratingCircle-MTest-Jun-255-notTriggered-complete.pkl"]
-    rf = RecordedFile(tmp_path)
-    rf.add_visual_stimulations(log_paths)
-    rf.close()
+    # tmp_path = r"E:\data\python_temp_folder\test.nwb"
+    # # log_paths = [r"C:\data\sequence_display_log\160205131514-ObliqueKSstimAllDir-MTest-Jun-255-notTriggered-incomplete.pkl"]
+    # log_paths = [r"C:\data\sequence_display_log\161018174812-DriftingGratingCircle-MTest-Jun-255-notTriggered-complete.pkl"]
+    # rf = RecordedFile(tmp_path)
+    # rf.add_visual_stimulations(log_paths)
+    # rf.close()
     # =========================================================================================================
 
     print('for debug ...')
