@@ -3233,7 +3233,7 @@ class DisplaySequence(object):
             self._update_display_status()
             i=i+1
             
-        timeStamp.append(time.clock()-startTime)
+        # timeStamp.append(time.clock()-startTime)
         stopTime = time.clock()
         window.close()
         
@@ -3244,7 +3244,7 @@ class DisplaySequence(object):
 
         #todo: debug this
         if self.displayFrames is not None:
-            self.displayFrames = self.displayFrames[:i-1]
+            self.displayFrames = self.displayFrames[:i]
 
         if self.keepDisplay == True: print '\nDisplay successfully completed.'
 
