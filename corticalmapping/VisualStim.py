@@ -3241,6 +3241,8 @@ class DisplaySequence(object):
         
         self.timeStamp = np.array(timeStamp)
         self.displayLength = stopTime-startTime
+
+        #todo: debug this
         if self.displayFrames is not None:
             self.displayFrames = self.displayFrames[:i-1]
 
