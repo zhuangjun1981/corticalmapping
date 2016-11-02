@@ -1,10 +1,14 @@
-import matplotlib.pyplot as plt
 import corticalmapping.VisualStim as vs
+import matplotlib.pyplot as plt
 
 
-mouseID = 'TEST' #'147861' #'TEST'
+mouseID = 'TEST' # '256896' #'TEST'
 userID = 'Jun'
-numOfTrials = 2 # 20
+numOfTrials = 1 # 20
+
+background = 0.
+duration = 600.
+color = 0.
 
 logFolder = r'C:\data'
 
@@ -20,8 +24,7 @@ mon=vs.Monitor(resolution=(1080, 1920),
                downSampleRate=5)
                   
 #mon.plot_map()
-#plt.show()                  
-                  
+                          
 indicator=vs.Indicator(mon,
                        width_cm=3.,
                        height_cm=3.,
@@ -29,18 +32,15 @@ indicator=vs.Indicator(mon,
                        isSync=True,
                        freq=1.)
 
-stim = vs.KSstimAllDir(mon,
-                       indicator,
-                       background=0.,
-                       iteration=1,
-                       squareSize=25.,
-                       sweepWidth=20.,
-                       stepWidth=0.15,
-                       sweepFrame=1,
-                       flickerFrame=10,
-                       preGapDur=2.,
-                       postGapDur=3.)
-
+UniformContrast = vs.UniformContrast(mon,
+                                     indicator,
+                                     coordinate='degree',
+                                     background=background,
+                                     duration=duration,
+                                     color=color,
+                                     preGapDur=0.,
+                                     postGapDur=0.)
+                                     
 ds = vs.DisplaySequence(logdir=logFolder,
                         backupdir=None,
                         displayIteration=numOfTrials,
@@ -74,7 +74,7 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         fileNumNIPort = 0,
                         fileNumNILines = '0:7')
 
-ds.set_stim(stim)
+ds.set_stim(UniformContrast)
 
 ds.trigger_display()
 

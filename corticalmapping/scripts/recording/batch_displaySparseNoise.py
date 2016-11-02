@@ -2,8 +2,8 @@ import corticalmapping.VisualStim as vs
 import matplotlib.pyplot as plt
 
 
-mouseID = '225835' #'147861' #'TEST'
-userID = 'Natalia'
+mouseID = 'TEST' #'147861' #'TEST'
+userID = 'Jun'
 numOfTrials = 3 # 20
 
 gridSpace=(10.,10.) #(alt,azi)
@@ -16,20 +16,9 @@ iteration=1
 preGapDur=0.
 postGapDur=0.
 
-
-isTriggered = True
-isRemoteSync = False
-
-
-
-psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
-
 logFolder = r'C:\data'
-backupFolder = r'\\W7DTMJ03jgl2\data'
 
-remoteSyncIP = 'w7dtmj19vtx'
-remoteSyncPort = 11001
-syncOutputFolder = None
+
 
 mon=vs.Monitor(resolution=(1080, 1920),
                dis=15.3,
@@ -67,30 +56,30 @@ SparseNoise=vs.SparseNoise(mon,
 
 
 ds = vs.DisplaySequence(logdir=logFolder,
-                        backupdir=backupFolder,
+                        backupdir=None,
                         displayIteration=numOfTrials,
-                        psychopyMonitor=psychopyMonitor,
+                        psychopyMonitor='testMonitor',
                         displayOrder=1,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
-                        isRemoteSync=isRemoteSync,
-                        remoteSyncIP=remoteSyncIP,
-                        remoteSyncPort=remoteSyncPort,
+                        isRemoteSync=False,
+                        remoteSyncIP='localhost',
+                        remoteSyncPort=10003,
                         remoteSyncTriggerEvent="positiveEdge",
                         remoteSyncSaveWaitTime=5.,
-                        isTriggered=isTriggered,
+                        isTriggered=False,
                         triggerNIDev='Dev1',
                         triggerNIPort=1,
                         triggerNILine=0,
                         displayTriggerEvent="NegativeEdge",
-                        isSyncPulse=True,
+                        isSyncPulse=False,
                         syncPulseNIDev='Dev1',
                         syncPulseNIPort=1,
                         syncPulseNILine=1,
-                        displayScreen=1,
+                        displayScreen=0,
                         initialBackgroundColor=0.,
-                        isVideoRecord=True,
+                        isVideoRecord=False,
                         videoRecordIP='w7dtmj007lhu',
                         videoRecordPort=10000,
                         displayControlIP = 'localhost',
@@ -99,8 +88,8 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         fileNumNIPort = 0,
                         fileNumNILines = '0:7')
 
-ds.setStim(SparseNoise)
+ds.set_stim(SparseNoise)
 
-ds.triggerDisplay()
+ds.trigger_display()
 
 plt.show()

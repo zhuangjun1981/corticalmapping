@@ -4,8 +4,10 @@ import numpy as np
 
 
 
-mouseID = '225835' #'147861' #'TEST'
-userID = 'Natalia'
+mouseID = 'Test' #'147861' #'TEST'
+userID = 'Jun'
+logFolder = 'C:/data'
+
 numOfTrials = 3 # 20
 
 sf_list=(0.04,) # (0.16,0.08,0.04), spatial frequency, cycle/unit
@@ -15,18 +17,7 @@ con_list=(0.7,) # (0.01,0.02,0.05,0.11,0.23,0.43,0.73,0.95), contrast, [0, 1]
 size_list=(500.,)  # (1.,2.,5.,10.), radius of the circle, unit defined by self.coordinate
 blockDur=4.  # duration of each condition, second
 midGapDur=4  # duration of gap between conditions
-iteration=3  # iteration of whole sequence
-
-isTriggered = True
-isRemoteSync = False
-
-psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
-
-logFolder = r'C:\data'
-backupFolder = r'\\W7DTMJ03jgl2\data'
-remoteSyncIP = 'w7dtmj19vtx'
-remoteSyncPort = 11001
-syncOutputFolder = None
+iteration=1  # iteration of whole sequence
 
 mon=vs.Monitor(resolution=(1080, 1920),
                dis=15.3,
@@ -35,7 +26,7 @@ mon=vs.Monitor(resolution=(1080, 1920),
                C2Tcm=31.1,
                C2Acm=41.91,
                monTilt=26.56,
-               downSampleRate=5)
+               downSampleRate=10)
                   
 #mon.plot_map()
 #plt.show()                  
@@ -46,7 +37,6 @@ indicator=vs.Indicator(mon,
                        position = 'southeast',
                        isSync=True,
                        freq=1.)
-
 
 DriftingGrating=vs.DriftingGratingCircle(mon,
                                          indicator,
@@ -65,30 +55,30 @@ DriftingGrating=vs.DriftingGratingCircle(mon,
                                          postGapDur=3.)
 
 ds = vs.DisplaySequence(logdir=logFolder,
-                        backupdir=backupFolder,
+                        backupdir=None,
                         displayIteration=numOfTrials,
-                        psychopyMonitor=psychopyMonitor,
+                        psychopyMonitor='testMonitor',
                         displayOrder=1,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
-                        isRemoteSync=isRemoteSync,
-                        remoteSyncIP=remoteSyncIP,
-                        remoteSyncPort=remoteSyncPort,
+                        isRemoteSync=False,
+                        remoteSyncIP='localhost',
+                        remoteSyncPort=10003,
                         remoteSyncTriggerEvent="positiveEdge",
                         remoteSyncSaveWaitTime=5.,
-                        isTriggered=isTriggered,
+                        isTriggered=False,
                         triggerNIDev='Dev1',
                         triggerNIPort=1,
                         triggerNILine=0,
                         displayTriggerEvent="NegativeEdge",
-                        isSyncPulse=True,
+                        isSyncPulse=False,
                         syncPulseNIDev='Dev1',
                         syncPulseNIPort=1,
                         syncPulseNILine=1,
-                        displayScreen=1,
+                        displayScreen=0,
                         initialBackgroundColor=0.,
-                        isVideoRecord=True,
+                        isVideoRecord=False,
                         videoRecordIP='w7dtmj007lhu',
                         videoRecordPort=10000,
                         displayControlIP = 'localhost',

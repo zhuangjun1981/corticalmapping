@@ -2,26 +2,20 @@ import matplotlib.pyplot as plt
 import corticalmapping.VisualStim as vs
 
 
-mouseID = '217450'#'147861' #'TEST'
-userID = 'Rylan'
-numOfTrials = 100 # 20
+mouseID = 'TEST'  # '147861' #'TEST'
+userID = 'Jun'
+numOfTrials = 10 # 20
 color = 1. # [-1., 1.]
 background = -1. # [-1. 1.]
 center = (40., 10.) # (azi, alt), degree
 radius = 10. # degree
 duration = 0.05 # second
-isTriggered = True
-isRemoteSync = True
-
+refreshRate = 60
 
 # do not change the following code
-refreshRate = 60.
-psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
 logFolder = r'C:\data'
-backupFolder = r'\\W7DTMJ03jgl2\data'
-remoteSyncIP = 'w7dtmj19vtx'
-remoteSyncPort = 11001
-syncOutputFolder = None
+
+
 
 mon=vs.Monitor(resolution=(1080, 1920),
                dis=15.3,
@@ -55,30 +49,30 @@ stim = vs.FlashingCircle(mon,
                          background=background)
 
 ds = vs.DisplaySequence(logdir=logFolder,
-                        backupdir=backupFolder,
+                        backupdir=None,
                         displayIteration=numOfTrials,
-                        psychopyMonitor=psychopyMonitor,
+                        psychopyMonitor='testMonitor',
                         displayOrder=1,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
-                        isRemoteSync=isRemoteSync,
-                        remoteSyncIP=remoteSyncIP,
-                        remoteSyncPort=remoteSyncPort,
+                        isRemoteSync=False,
+                        remoteSyncIP='localhost',
+                        remoteSyncPort=10003,
                         remoteSyncTriggerEvent="positiveEdge",
                         remoteSyncSaveWaitTime=5.,
-                        isTriggered=isTriggered,
+                        isTriggered=False,
                         triggerNIDev='Dev1',
                         triggerNIPort=1,
                         triggerNILine=0,
                         displayTriggerEvent="NegativeEdge",
-                        isSyncPulse=True,
+                        isSyncPulse=False,
                         syncPulseNIDev='Dev1',
                         syncPulseNIPort=1,
                         syncPulseNILine=1,
-                        displayScreen=1,
+                        displayScreen=0,
                         initialBackgroundColor=0.,
-                        isVideoRecord=True,
+                        isVideoRecord=False,
                         videoRecordIP='w7dtmj007lhu',
                         videoRecordPort=10000,
                         displayControlIP = 'localhost',
