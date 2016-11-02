@@ -58,18 +58,22 @@ class RecordedFile(NWB):
     ephys, wide field, 2-photon data in a single file.
     """
 
-    def __init__(self, filename, **kwargs):
+    def __init__(self, filename, is_manual_check=False, **kwargs):
 
         if os.path.isfile(filename):
-            keyboard_input = ''
-            while keyboard_input != 'y' and keyboard_input != 'n':
-                keyboard_input = raw_input('\nthe path "' + filename + '" already exists. Modify it? (y/n) \n')
-                if keyboard_input == 'y':
-                    super(RecordedFile, self).__init__(filename=filename, modify=True, **kwargs)
-                elif keyboard_input == 'n':
-                    raise IOError('file already exists.')
+            if is_manual_check:
+                keyboard_input = ''
+                while keyboard_input != 'y' and keyboard_input != 'n':
+                    keyboard_input = raw_input('\nthe path "' + filename + '" already exists. Modify it? (y/n) \n')
+                    if keyboard_input == 'y':
+                        super(RecordedFile, self).__init__(filename=filename, modify=True, **kwargs)
+                    elif keyboard_input == 'n':
+                        raise IOError('file already exists.')
+            else:
+                print('\nModifying existing nwb file: ' + filename)
+                super(RecordedFile, self).__init__(filename=filename, modify=True, **kwargs)
         else:
-            print('\ncreating a new nwb file: ' + filename)
+            print('\nCreating a new nwb file: ' + filename)
             super(RecordedFile, self).__init__(filename=filename, modify=False, **kwargs)
 
     def add_general(self, general=DEFAULT_GENERAL, is_overwrite=True):
