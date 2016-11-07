@@ -404,7 +404,7 @@ def rigid_transform_cv2_2d(img, zoom=None, rotation=None, offset=None, outputSha
     newImg = np.array(img).astype(np.float)
     minValue = np.amin(newImg)
 
-    if zoom:
+    if zoom is not None:
         newImg = zoom_image(img, zoom=zoom)
 
     if rotation:
@@ -429,9 +429,13 @@ def rigid_transform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputSha
         raise LookupError, 'Input image is not a 3d array!'
 
     if not outputShape:
-        if zoom:
-            newHeight = int(img.shape[1]*zoom)
-            newWidth = int(img.shape[2]*zoom)
+        if zoom is not None:
+            try:
+                newHeight = int(img.shape[1]*zoom[0])
+                newWidth = int(img.shape[2]*zoom[1])
+            except TypeError:
+                newHeight = int(img.shape[1] * zoom)
+                newWidth = int(img.shape[2] * zoom)
         else:
             newHeight = img.shape[1]
             newWidth = img.shape[2]
@@ -1122,7 +1126,7 @@ def temp_downsample(A, rate, verbose=False):
     return newA
 
 
-def get_average_movie(mov, frameTS, onsetTimes, chunkDur):
+def get_average_movie(mov, frameTS, onsetTimes, chunkDur, isReturnN=False):
     '''
     :param mov: image movie
     :param frameTS: the timestamps for each frame of the raw movie
@@ -1156,7 +1160,10 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur):
                       str(int(mov.shape[0]))+'.\nExclude this trigger.'
                 continue
 
-    return sumMov.astype(np.float32) / n
+    if isReturnN:
+        return sumMov.astype(np.float32) / n, int(n)
+    else:
+        return sumMov.astype(np.float32) / n
 
 
 def get_average_movie2(mov, frameTS, onsetTimes, chunkDur):

@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import h5py
 import corticalmapping.ephys.OpenEphysWrapper as oew
 import corticalmapping.ephys.KilosortWrapper as kw
 import corticalmapping.core.FileTools as ft
@@ -95,7 +96,8 @@ class RecordedFile(NWB):
 
     def add_open_ephys_data(self, folder, prefix, digital_channels=()):
         """
-        add open ephys raw data to self, in acquisition group
+        add open ephys raw data to self, in acquisition group, less useful, because the digital events needs to be
+        processed before added in
         :param folder: str, the folder contains open ephys raw data
         :param prefix: str, prefix of open ephys files
         :param digital_channels: list of str, digital channel
@@ -171,6 +173,52 @@ class RecordedFile(NWB):
                     ch_series_fall.set_comments('digital')
                     ch_series_fall.finalize()
 
+    def add_open_ephys_continuous_data(self, folder, prefix):
+        """
+        add open ephys raw continuous data to self, in acquisition group
+        :param folder: str, the folder contains open ephys raw data
+        :param prefix: str, prefix of open ephys files
+        :param digital_channels: list of str, digital channel
+        :return:
+        """
+        output = oew.pack_folder_for_nwb(folder=folder, prefix=prefix)
+
+        for key, value in output.items():
+
+            if 'CH' in key:  # analog channel for electrode recording
+                ch_ind = int(key[key.find('CH') + 2:])
+                ch_name = 'ch_' + ft.int2str(ch_ind, 4)
+                ch_trace = value['trace']
+                ch_series = self.create_timeseries('ElectricalSeries', ch_name, 'acquisition')
+                ch_series.set_data(ch_trace, unit='bit', conversion=float(value['header']['bitVolts']),
+                                   resolution=1.)
+                ch_series.set_time_by_rate(time_zero=0.0,  # value['header']['start_time'],
+                                           rate=float(value['header']['sampleRate']))
+                ch_series.set_value('electrode_idx', ch_ind)
+                ch_series.set_value('num_samples', len(ch_trace))
+                ch_series.set_comments('continuous')
+                ch_series.set_description('extracellular continuous voltage recording from tetrode')
+                ch_series.set_source('open ephys')
+                ch_series.finalize()
+
+            elif key != 'events':  # other continuous channels
+                ch_name = key[len(prefix) + 1:]
+                ch_trace = value['trace']
+                ch_series = self.create_timeseries('AbstractFeatureSeries', ch_name, 'acquisition')
+                ch_series.set_data(ch_trace, unit='bit', conversion=float(value['header']['bitVolts']),
+                                   resolution=1.)
+                ch_series.set_time_by_rate(time_zero=0.0,  # value['header']['start_time'],
+                                           rate=float(value['header']['sampleRate']))
+                ch_series.set_value('features', ch_name)
+                ch_series.set_value('feature_units', 'bit')
+                ch_series.set_value('num_samples', len(ch_trace))
+                ch_series.set_value('help', 'continuously recorded analog channels with same sampling times as '
+                                            'of electrode recordings')
+                ch_series.set_comments('continuous')
+                ch_series.set_description('continuous voltage recording from IO board')
+                ch_series.set_source('open ephys')
+                ch_series.finalize()
+
     def add_acquisition_image(self, name, img, format='array', description=''):
         """
         add arbitrarily recorded image into acquisition group, mostly surface vasculature image
@@ -183,6 +231,40 @@ class RecordedFile(NWB):
         img_dset = self.file_pointer['acquisition/images'].create_dataset(name, data=img)
         img_dset.attrs['format'] = format
         img_dset.attrs['description'] = description
+
+    def add_acquired_image_series_as_remote_link(self, name, image_file_path, dataset_path, timestamps,
+                                                 description='', comments='', data_format='zyx', pixel_size=np.nan,
+                                                 pixel_size_unit=''):
+        """
+        add a required image series in to acquisition field as a link to an external hdf5 file.
+        :param name: str, name of the image series
+        :param image_file_path: str, the full file system path to the hdf5 file containing the raw image data
+        :param dataset_path: str, the path within the hdf5 file pointing to the raw data. the object should have at
+                             least 3 attributes: 'conversion', resolution, unit
+        :param timestamps: 1-d array, the length of this array should be the same as number of frames in the image data
+        :param data_format: str, required field for ImageSeries object
+        :param pixel_size: array, size of pixel
+        :param pixel_size_unit: str, unit of pixel size
+        :return:
+        """
+
+        img_file = h5py.File(image_file_path)
+        img_data = img_file[dataset_path]
+        if timestamps.shape[0] != img_data.shape[0]:
+            raise ValueError('Number of frames does not equal to the length of timestamps!')
+        img_series = self.create_timeseries(ts_type='ImageSeries', name=name, modality='acquisition')
+        img_series.set_data_as_remote_link(image_file_path, dataset_path)
+        img_series.set_time(timestamps)
+        img_series.set_description(description)
+        img_series.set_comments(comments)
+        img_series.set_value('bits_per_pixel', img_data.dtype.itemsize * 8)
+        img_series.set_value('format', data_format)
+        img_series.set_value('dimension', img_data.shape)
+        img_series.set_value('image_file_path', image_file_path)
+        img_series.set_value('image_data_path_within_file', dataset_path)
+        img_series.set_value('pixel_size', pixel_size)
+        img_series.set_value('pixel_size_unit', pixel_size_unit)
+        img_series.finalize()
 
     def add_phy_template_clusters(self, folder, module_name, ind_start=None, ind_end=None):
         """
@@ -234,31 +316,6 @@ class RecordedFile(NWB):
 
         unit_times.finalize()
         mod.finalize()
-
-    def add_kilosort_clusters(self, folder, module_name, ind_start=None, ind_end=None):
-        """
-        expects spike clusters.npy, spike_templates.npy, and spike_times.npy in the folder. use only for the direct outputs of kilosort,
-        that haven't been modified with phy-template.
-        :param folder:
-        :return:
-        """
-
-        # if ind_start == None:
-        #     ind_start = 0
-        #
-        # if ind_end == None:
-        #     ind_end = self.file_pointer['acquisition/timeseries/photodiode/num_samples'].value
-        #
-        # if ind_start >= ind_end:
-        #     raise ValueError('ind_end should be larger than ind_start.')
-        #
-        # spike_clusters = np.load(os.path.join(folder, 'spike_clusters.npy'))
-        # spike_templates = np.load(os.path.join(folder, 'spike_templates.npy'))
-        # spikes_times = np.load(os.path.join(folder, 'spike_times.npy'))
-        # templates = np.load(os.path.join(folder, 'templates.npy'))
-
-        # not for now
-        pass
 
     def add_visual_stimulation(self, log_path, display_order=0):
         """
@@ -430,6 +487,49 @@ class RecordedFile(NWB):
         stim.set_value('background_color', log_dict['stimulation']['background'])
         stim.finalize()
 
+    def analyze_sparse_noise_frames(self):
+        """
+        analyze sparse noise display frames saved in '/stimulus/presentation', extract information about onset of
+        each displayed square, and save into '/processing':
+
+        data formatting is self explanatory inside the created group
+        """
+
+        stim_list = self.file_pointer['stimulus/presentation'].keys()
+        sparse_noise_displays = []
+        for stim in stim_list:
+            if 'SparseNoise' in stim:
+                sparse_noise_displays.append(stim)
+        if len(sparse_noise_displays) == 0:
+            print('No sparse noise display log found, abort.')
+            return None
+
+        for snd in sparse_noise_displays:
+            frames = self.file_pointer['stimulus/presentation'][snd]['data'].value
+            frames = [tuple(x) for x in frames]
+            dtype = [('isDisplay', int), ('azimuth', float), ('altitude', float), ('sign', int), ('isOnset', int)]
+            frames = np.array(frames, dtype=dtype)
+
+            allSquares = []
+            for i in range(len(frames)):
+                if frames[i]['isDisplay'] == 1 and (i == 0 or
+                                                    frames[i - 1]['azimuth'] != frames[i]['azimuth'] or
+                                                    frames[i - 1]['altitude'] != frames[i]['altitude'] or
+                                                    frames[i - 1]['sign'] != frames[i]['sign']):
+                    allSquares.append(np.array((i, frames[i]['azimuth'], frames[i]['altitude'], frames[i]['sign']),
+                                               dtype=np.float32))
+
+            allSquares = np.array(allSquares)
+
+            snd_group = self.file_pointer['processing'].create_group(snd+'_squares')
+            squares_dset = snd_group.create_dataset('onset_frame_index', data = allSquares)
+            snd_group.create_dataset('data_formatting', data =['display frame indices for the onset of each square',
+                                                               'azimuth of each square',
+                                                               'altitude of each square',
+                                                               'sign of each square'])
+            squares_dset.attrs['description'] = 'intermediate processing step of sparse noise display log. Containing ' \
+                                                'the information about the onset of each displayed square.'
+
     def _check_display_order(self, display_order=None):
         """
         check display order make sure each presentation has a unique position, and move from increment order.
@@ -457,16 +557,7 @@ class RecordedFile(NWB):
         for i, log_path in enumerate(log_paths):
             self.add_visual_stimulation(log_path, i + len(exist_stimuli))
 
-    def analyze_photodiode(self):
-        # todo: finish this method
-        pass
 
-
-
-
-    def add_image_series(self, name, image_matrix, image_path, time_stamps):
-        # not for now
-        pass
 
     def add_segmentation_result(self):
         # todo: finish this method
@@ -485,6 +576,31 @@ class RecordedFile(NWB):
         pass
 
     def add_sync_data(self):
+        # not for now
+        pass
+
+    def add_kilosort_clusters(self, folder, module_name, ind_start=None, ind_end=None):
+        """
+        expects spike clusters.npy, spike_templates.npy, and spike_times.npy in the folder. use only for the direct outputs of kilosort,
+        that haven't been modified with phy-template.
+        :param folder:
+        :return:
+        """
+
+        # if ind_start == None:
+        #     ind_start = 0
+        #
+        # if ind_end == None:
+        #     ind_end = self.file_pointer['acquisition/timeseries/photodiode/num_samples'].value
+        #
+        # if ind_start >= ind_end:
+        #     raise ValueError('ind_end should be larger than ind_start.')
+        #
+        # spike_clusters = np.load(os.path.join(folder, 'spike_clusters.npy'))
+        # spike_templates = np.load(os.path.join(folder, 'spike_templates.npy'))
+        # spikes_times = np.load(os.path.join(folder, 'spike_times.npy'))
+        # templates = np.load(os.path.join(folder, 'templates.npy'))
+
         # not for now
         pass
 
@@ -573,5 +689,23 @@ if __name__ == '__main__':
     # rf.add_visual_stimulations(log_paths)
     # rf.close()
     # =========================================================================================================
+
+    # =========================================================================================================
+    img_data_path = r"E:\data\python_temp_folder\img_data.hdf5"
+    # img_data = h5py.File(img_data_path)
+    # dset = img_data.create_dataset('data', data=np.random.rand(1000, 1000, 100))
+    # dset.attrs['conversion'] = np.nan
+    # dset.attrs['resolution'] = np.nan
+    # dset.attrs['unit'] = ''
+    # img_data.close()
+
+    ts = np.random.rand(1000)
+
+    tmp_path = r"E:\data\python_temp_folder\test.nwb"
+    rf = RecordedFile(tmp_path)
+    rf.add_acquired_image_series_as_remote_link('test_img', image_file_path=img_data_path, dataset_path='/data',
+                                                timestamps=ts)
+    rf.close()
+
 
     print('for debug ...')

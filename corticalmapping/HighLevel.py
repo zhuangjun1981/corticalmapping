@@ -117,7 +117,7 @@ def translateHugeMovieByVasculature(inputPath, outputPath, parameterPath, output
 
 
 def segmentMappingPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.02, Fs=10000.,
-                                   smallestInterval=10.):
+                                   smallestInterval=10., verbose=False):
     '''
 
     :param pd: photodiode from mapping jphys file
@@ -153,9 +153,12 @@ def segmentMappingPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segment
                 trueDisplayOnsets.append(displayOnset)
                 currOnset = displayOnset
 
-    print '\nNumber of sweep onsets:', len(trueDisplayOnsets)
-    print '\nDisplay onsets (sec):'
-    print '\n'.join([str(o) for o in trueDisplayOnsets])
+    print '\nNumber of photodiode onsets:', len(trueDisplayOnsets)
+
+    if verbose:
+        print '\nDisplay onsets (sec):'
+        print '\n'.join([str(o) for o in trueDisplayOnsets])
+
     print '\n'
 
     return np.array(trueDisplayOnsets)
@@ -446,6 +449,41 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
     _, aveMovNor, _ = ia.normalize_movie(aveMov, baselinePicture)
 
     return aveMov, aveMovNor
+
+
+def getAverageDfMovieFromH5Dataset(dset, frameTS, onsetTimes, chunkDur, startTime=0., temporalDownSampleRate=1):
+    '''
+    :param dset: hdf5 dataset object, 3-d matrix, zyx
+    :param frameTS: the timestamps for each frame of the raw movie
+    :param onsetTimes: time stamps of onset of each sweep
+    :param startTime: chunck start time relative to the sweep onset time (length of pre gray period)
+    :param chunkDur: duration of each chunk
+    :param temporalDownSampleRate: decimation factor in time after recording
+    :return: aveMov:  3d array, zyx, float32, averageed movie of all chunks
+             n: int, number of chunks averaged
+             baseLinePicture: 2d array, float32, baseline picture, None if startTime < 0.
+             ts: 1d array, float32, timestamps relative to onsets of the averge movie
+    '''
+
+    if temporalDownSampleRate == 1:
+        frameTS_real = frameTS
+    elif temporalDownSampleRate >1:
+        frameTS_real = frameTS[::temporalDownSampleRate]
+    else:
+        raise ValueError, 'temporal downsampling rate can not be less than 1!'
+
+    aveMov, n = ia.get_average_movie(dset, frameTS_real, onsetTimes + startTime, chunkDur, isReturnN=True)
+
+    meanFrameDur = np.mean(np.diff(frameTS_real))
+    ts = startTime + np.arange(aveMov.shape[0]) * meanFrameDur
+
+    if startTime < 0.:
+        baselineFrameDur = int(abs(startTime) / meanFrameDur)
+        baselinePicture = np.mean((aveMov[0:baselineFrameDur,:,:]).astype(np.float32),axis=0)
+    else:
+        baselinePicture = None
+
+    return aveMov.astype(np.float32), n, baselinePicture.astype(np.float32), ts.astype(np.float32)
 
 
 def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1,saveFolder=None,savePrefix='',

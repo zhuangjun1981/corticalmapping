@@ -7,6 +7,7 @@ import shutil
 import struct
 import ImageAnalysis as ia
 import tifffile as tf
+import h5py
 
 
 try: import cv2
@@ -529,83 +530,68 @@ def int2str(num,length=None):
     elif length > len(rawstr): return '0'*(length-len(rawstr)) + rawstr
 
 
+def imageToHdf5(array_like, save_path, hdf5_path, spatial_zoom=None, chunk_size=1000, compression=None):
+    """
+    save a array_like object (hdf5 dataset, BinarySlicer object, np.array, etc) into a hdf5 file
+
+    :param array_like: 3-d, array_like object (hdf5 dataset, BinarySlicer object, np.array, etc), dimension (zyx)
+    :param save_path: str, the path of the hdf5 file to be saved
+    :param hdf5_path: str, the path of the dataset within the hdf5 file
+    :param spatial_zoom: tuple of 2 floats or one float, spatial zoom of y and x
+    :param chunk_size: int, the number of frames of each chunk of processing
+    :param compression: str, "gzip", "lzf", "szip"
+    :return:
+    """
+
+    original_shape = array_like.shape
+    original_dtype = array_like.dtype
+
+    print('\ntransforming image array to hdf5 format. \noriginal shape: ' + str(original_shape))
+
+    if len(original_shape) != 3:
+        raise ValueError('the array_like should be 3-d!')
+
+    if spatial_zoom is not None:
+        try:
+            zoom = np.array([spatial_zoom[0], spatial_zoom[1]])
+        except TypeError:
+            zoom = np.array([spatial_zoom, spatial_zoom])
+
+        new_shape = (np.array(original_shape)[1:3] * zoom).astype(np.int)
+        new_shape = (original_shape[0], new_shape[0], new_shape[1])
+    else:
+        new_shape = original_shape
+
+    print('shape after transformation: ' + str(new_shape))
+
+    save_file = h5py.File(save_path)
+    if compression is not None:
+        dset = save_file.create_dataset(hdf5_path, new_shape, dtype=original_dtype, compression=compression)
+    else:
+        dset = save_file.create_dataset(hdf5_path, new_shape, dtype=original_dtype)
+
+    chunk_num = original_shape[0] // chunk_size
+
+    for i in range(chunk_num):
+        chunk_start = i * chunk_size
+        chunk_end = (i + 1) * chunk_size
+        print('transforming chunk: [' + str(chunk_start) + ':' + str(chunk_end) + '] ...')
+        curr_chunk =  array_like[chunk_start : chunk_end, :, :]
+        if spatial_zoom is not None:
+            curr_chunk = ia.rigid_transform_cv2(curr_chunk, zoom=zoom).astype(original_dtype)
+        dset[i * chunk_size : (i + 1) * chunk_size, :, :] = curr_chunk
 
 
-#==============================  obsolete  =========================================
-#
-# def getMatchingParameterDict(path):
-#
-#     with open(path,'r') as f:
-#         txt = f.read()
-#
-#     chunkStart = txt.find('[VasculatureMapMatching]') + 25
-#     chunkEnd = txt.find('[',chunkStart)
-#     chunk = txt[chunkStart:chunkEnd]
-#     paraTxtList = chunk.split('\n')
-#
-#     paraDict={}
-#
-#     for paraTxt in paraTxtList:
-#         key, value = tuple(paraTxt.split(' = '))
-#         if 'List' in key:
-#             value = value.split(';')
-#
-#         if ('Hight' in key) or ('Width' in key) or ('Offset' in key):
-#             value = int(value)
-#         if (key == 'zoom') or (key == 'rotation'):
-#             value = float(value)
-#
-#         paraDict.update({key:value})
-#
-#     return paraDict
+    if chunk_num % chunk_size != 0:
+        print('transforming chunk: [' + str(chunk_size * chunk_num) + ':' + str(original_shape[0]) + '] ...')
+        last_chunk = array_like[chunk_size * chunk_num:, :, :]
+        if spatial_zoom is not None:
+            last_chunk = ia.rigid_transform_cv2(last_chunk, zoom=zoom).astype(original_dtype)
+        dset[chunk_size * chunk_num:, :, :] = last_chunk
 
-#def importDeciJCamF(path,
-#                    saveFolder = None,
-#                    dtype = np.dtype('<u2'),
-#                    headerLength = 0,
-#                    tailerLength = 0,
-#                    column = 2048,
-#                    row = 2048,
-#                    frame = None,
-#                    crop = None):
-#                   
-#    if frame:
-#        data = np.fromfile(path,dtype=dtype,count=frame*column*row+headerLength)
-#        mov = data[headerLength:].reshape((frame,column,row))
-#    else:
-#        data = np.fromfile(path,dtype=dtype)
-#        frame = (len(data)-headerLength-tailerLength)/(column*row)
-#        mov = data[headerLength:len(data)-tailerLength].reshape((frame,column,row))
-#    
-#    if saveFolder:
-#        
-#        if crop.any():
-#            mov = mov[:,crop[0]:crop[1],crop[2]:crop[3]]
-#            fileName = path.split('\\')[-1] + '_cropped.tif'
-#        else:
-#            fileName = path.split('\\')[-1] + '.tif'
-#            
-#        tf.imsave(os.path.join(saveFolder,fileName),mov)
-#            
-#    return mov
+    save_file.close()
 
 
-
-if __name__=='__main__':
-
-    #----------------------------------------------------------------------------
-
-    # mov = np.random.rand(250,512,512,4)
-    # generateAVI(r'C:\JunZhuang\labwork\data\python_temp_folder','tempMov',mov)
-
-    #----------------------------------------------------------------------------
-    print int2str(5)
-    print int2str(5,2)
-    print int2str(155,6)
-    #----------------------------------------------------------------------------
-
-
-    print 'well done!'
 
 
 def update_key(group, dataset_name, dataset_data, is_overwrite=True):
@@ -635,3 +621,25 @@ def update_key(group, dataset_name, dataset_data, is_overwrite=True):
                     group.create_dataset(dataset_name, data=dataset_data)
                 elif check == 'n':
                     pass
+
+
+if __name__=='__main__':
+
+    #----------------------------------------------------------------------------
+
+    # mov = np.random.rand(250,512,512,4)
+    # generateAVI(r'C:\JunZhuang\labwork\data\python_temp_folder','tempMov',mov)
+
+    #----------------------------------------------------------------------------
+    # print int2str(5)
+    # print int2str(5,2)
+    # print int2str(155,6)
+    #----------------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------------
+    imageToHdf5(np.random.rand(10, 100, 100), save_path=r'E:\data\python_temp_folder\test_file.hdf5',
+                hdf5_path='/data', spatial_zoom=(0.5, 0.2))
+    # ----------------------------------------------------------------------------
+
+
+    print 'well done!'

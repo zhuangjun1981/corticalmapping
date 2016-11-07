@@ -229,7 +229,7 @@ def pack_folder(folder, prefix, digital_channels=('cam_read', 'cam_trigger', 'vi
     return output, min_sample_num, float(fs)
 
 
-def pack_folder_for_nwb(folder, prefix, digital_channels=('cam_read', 'cam_trigger', 'visual_frame')):
+def pack_folder_for_nwb(folder, prefix, digital_channels=None):
     """
     pack .continuous and .events files in the folder into a dictionary.
     continuous channel will extracted as int16
