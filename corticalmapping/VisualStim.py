@@ -251,7 +251,6 @@ def get_grating(map_x, map_y, ori=0., spatial_freq=0.1, center=(0.,60.), phase=0
     return grating.astype(map_x.dtype)
 
 
-
 class Monitor(object):
     """
     monitor object created by Jun, has the method "remap" to generate the 
@@ -622,13 +621,13 @@ class UniformContrast(Stim):
         for each frame:
 
         first element: gap:0 or display:1
-        forth element: color of indicator, gap:0, display:1
+        second element: color of indicator, gap:-1, display:1
         """
 
         displayFrameNum = int(self.duration * self.monitor.refreshRate)
 
-        frames = [(0, 0.)] * self.preGapFrameNum + [(1, 1.)] * displayFrameNum + \
-                 [(0, 0.)] * self.postGapFrameNum
+        frames = [(0, -1)] * self.preGapFrameNum + [(1, 1.)] * displayFrameNum + \
+                 [(0, -1)] * self.postGapFrameNum
 
         return tuple(frames)
 
@@ -717,6 +716,8 @@ class KSstim(Stim):
         self.direction = direction
         self.sweepFrame = sweepFrame
         self.iteration = iteration
+        self.frameConfig = ('isDisplay', 'squarePolarity', 'sweepIndex', 'indicatorColor')
+        self.sweepConfig = ('orientation', 'sweepStartCoordinate', 'sweepEndCoordinate')
         
         self.sweepSpeed = self.monitor.refreshRate * self.stepWidth / self.sweepFrame #the speed of sweeps deg/sec
         self.flickerHZ = self.monitor.refreshRate / self.flickerFrame
@@ -992,6 +993,8 @@ class KSstim(Stim):
 
 class NoiseKSstim(Stim):
     """
+    obsolete
+
     generate Kalatsky & Stryker stimulation but with noise movie not flashing 
     squares 
     
@@ -1298,6 +1301,8 @@ class NoiseKSstim(Stim):
 
 class ObliqueKSstim(Stim):
     """
+    obsolete
+
     generate Kalatsky & Stryker stimulation integrats flashing indicator for
     photodiode
     """
@@ -1613,6 +1618,8 @@ class ObliqueKSstim(Stim):
 class FlashingNoise(Stim):
 
     """
+    obsolete
+
     generate flashing full field noise with background displayed before and after
 
     it also integrats flashing indicator for photodiode
@@ -1709,7 +1716,9 @@ class FlashingNoise(Stim):
             # mark unsynchronized indicator
             if not(self.indicator.isSync):
                 if np.floor(i // self.indicator.frameNum) % 2 == 0:
-                    frames[i,3] = 1
+                    frames[i, 3] = 1
+                else:
+                    frames[i, 3] = -1
 
         frames = [tuple(x) for x in frames]
 
@@ -1771,6 +1780,8 @@ class FlashingNoise(Stim):
 
 class GaussianNoise(Stim):
     """
+    obsolete
+
     generate full field noise movie with contrast modulated by gaussian function
     """
     def __init__(self,
@@ -1904,6 +1915,8 @@ class GaussianNoise(Stim):
             if not(self.indicator.isSync):
                 if np.floor(i // self.indicator.frameNum) % 2 == 0:
                     frames[i,3] = 1
+                else:
+                    frames[i,3] = -1
 
             # mark display contrast
             currFrameNumInIteration = i % iterationFrameNum
@@ -2018,6 +2031,7 @@ class FlashingCircle(Stim):
         self.color = color
         self.iteration = iteration
         self.flashFrame = flashFrame
+        self.frameConfig = ('isDisplay', 'isIterationStart', 'currentIteration', 'indicatorColor')
 
         self.clear()
 
@@ -2062,7 +2076,7 @@ class FlashingCircle(Stim):
         for i in xrange(frames.shape[0]):
 
             # current iteration number
-            frames[i,2] = i // iterationFrameNum
+            frames[i, 2] = i // iterationFrameNum
 
             # mark start frame of every iteration
             if i % iterationFrameNum == 0:
@@ -2080,7 +2094,9 @@ class FlashingCircle(Stim):
             # mark unsynchronized indicator
             if not(self.indicator.isSync):
                 if np.floor(i // self.indicator.frameNum) % 2 == 0:
-                    frames[i,3] = 1
+                    frames[i, 3] = 1
+                else:
+                    frames[i, 3] = -1
 
         frames = [tuple(x) for x in frames]
 
@@ -2170,6 +2186,7 @@ class SparseNoise(Stim):
         self.probeSize = probeSize
         self.probeOrientationt = probeOrientation
         self.probeFrameNum = probeFrameNum
+        self.frameConfig = ('isDisplay', '(azimuth, altitude)', 'polarity', 'indicatorColor')
 
         if subregion is None:
             if self.coordinate == 'degree':
@@ -2288,8 +2305,10 @@ class SparseNoise(Stim):
         if self.indicator.isSync == False:
             indicatorFrame = self.indicator.frameNum
             for m in range(len(frames)):
-                if np.floor(m // indicatorFrame) % 2 == 0:frames[m][3] = 1
-                else:frames[m][3] = -1
+                if np.floor(m // indicatorFrame) % 2 == 0:
+                    frames[m][3] = 1
+                else:
+                    frames[m][3] = -1
 
         frames=tuple(frames)
 
@@ -2388,6 +2407,8 @@ class DriftingGratingCircle(Stim):
         self.blockDur = blockDur
         self.midGapDur = midGapDur
         self.iteration = iteration
+        self.frameConfig = ('isDisplay', 'isCycleStart', 'spatialFrequency', 'temporalFrequency', 'direction',
+                            'contrast', 'radius', 'phase', 'indicatorColor')
 
         for tf in tf_list:
             period = 1. / tf
@@ -2442,7 +2463,7 @@ class DriftingGratingCircle(Stim):
     @staticmethod
     def _get_ori(dire):
         """
-        get orientation from direction
+        get orientation from direction, [0, pi)
         """
         return (dire + np.pi / 2) % np.pi
 
@@ -2458,11 +2479,11 @@ class DriftingGratingCircle(Stim):
         second element: first frame in a cycle:1; rest:0
         third element: spatial frequency
         forth element: temporal frequency
-        fifth element: direction
+        fifth element: direction, [0, 2*pi)
         sixth element: contrast
         seventh element: size (raidus of the circle)
-        eighth element: phase
-        ninth element: indicator color [-1, 1]
+        eighth element: phase, [0, 2*pi)
+        ninth element: indicator color [-1, 1], gap:-1, first frame of cycle:1, rest frames of cycle: 0
         for gap frames from the second to the eighth elements should be 'None'
         """
 
@@ -2491,7 +2512,8 @@ class DriftingGratingCircle(Stim):
                     # mark first frame of each cycle
                     if k % frame_per_cycle == 0:
                         first_in_cycle = 1
-                    else: first_in_cycle = 0
+                    else:
+                        first_in_cycle = 0
 
                     frames.append([1,first_in_cycle,sf,tf,dire,con,size,phase,float(first_in_cycle)])
 
@@ -2682,6 +2704,8 @@ class KSstimAllDir(object):
         stimulation['sweepTable'] = [tuple(x) for x in sweepTable]
 
         log['stimulation'] = stimulation
+        log['stimulation']['frameConfig'] = ('isDisplay', 'squarePolarity', 'sweepIndex', 'indicatorColor')
+        log['stimulation']['sweepConfig'] = ('orientation', 'sweepStartCoordinate', 'sweepEndCoordinate')
 
         return mov, log
 
@@ -3504,48 +3528,48 @@ if __name__ == "__main__":
     #==============================================================================================================================
 
     #==============================================================================================================================
-    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=5)
-    # indicator=Indicator(mon)
-    #
-    # grating = get_grating(mon.degCorX, mon.degCorY, ori=0., spatial_freq=0.1, center=(60.,0.), contrast=1)
-    # print grating.max()
-    # print grating.min()
-    # plt.imshow(grating,cmap='gray',interpolation='nearest',vmin=0., vmax=1.)
-    # plt.show()
-    #
-    # drifting_grating = DriftingGratingCircle(mon,indicator, sf_list=(0.08,0.16),
-    #                                          tf_list=(4.,8.), dire_list=(0.,0.1),
-    #                                          con_list=(0.5,1.), size_list=(5.,10.),)
-    # print '\n'.join([str(cond) for cond in drifting_grating._generate_all_conditions()])
-    #
-    # drifting_grating2 = DriftingGratingCircle(mon,indicator,
-    #                                           center=(60.,0.),
-    #                                           sf_list=[0.08, 0.16],
-    #                                           tf_list=[4.,2.],
-    #                                           dire_list=[np.pi/6],
-    #                                           con_list=[1.,0.5],
-    #                                           size_list=[40.],
-    #                                           blockDur=2.,
-    #                                           preGapDur=2.,
-    #                                           postGapDur=3.,
-    #                                           midGapDur=1.)
-    # frames =  drifting_grating2.generate_frames()
-    # print '\n'.join([str(frame) for frame in frames])
-    #
-    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False,isInterpolate=False)
-    # ds.set_stim(drifting_grating2)
-    # ds.trigger_display()
-    # plt.show()
+    mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=5)
+    indicator=Indicator(mon)
+
+    grating = get_grating(mon.degCorX, mon.degCorY, ori=0., spatial_freq=0.1, center=(60.,0.), contrast=1)
+    print grating.max()
+    print grating.min()
+    plt.imshow(grating,cmap='gray',interpolation='nearest',vmin=0., vmax=1.)
+    plt.show()
+
+    drifting_grating = DriftingGratingCircle(mon,indicator, sf_list=(0.08,0.16),
+                                             tf_list=(4.,8.), dire_list=(0.,0.1),
+                                             con_list=(0.5,1.), size_list=(5.,10.),)
+    print '\n'.join([str(cond) for cond in drifting_grating._generate_all_conditions()])
+
+    drifting_grating2 = DriftingGratingCircle(mon,indicator,
+                                              center=(60.,0.),
+                                              sf_list=[0.08, 0.16],
+                                              tf_list=[4.,2.],
+                                              dire_list=[np.pi/6],
+                                              con_list=[1.,0.5],
+                                              size_list=[40.],
+                                              blockDur=2.,
+                                              preGapDur=2.,
+                                              postGapDur=3.,
+                                              midGapDur=1.)
+    frames =  drifting_grating2.generate_frames()
+    print '\n'.join([str(frame) for frame in frames])
+
+    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False,isInterpolate=False)
+    ds.set_stim(drifting_grating2)
+    ds.trigger_display()
+    plt.show()
     #==============================================================================================================================
 
     # ==============================================================================================================================
-    mon=Monitor(resolution=(1200, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
-    indicator=Indicator(mon)
-    uniform_contrast = UniformContrast(mon,indicator, duration=10., color=0.)
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration=2,isTriggered=False,isSyncPulse=False)
-    ds.set_stim(uniform_contrast)
-    ds.trigger_display()
-    plt.show()
+    # mon=Monitor(resolution=(1200, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=30,downSampleRate=5)
+    # indicator=Indicator(mon)
+    # uniform_contrast = UniformContrast(mon,indicator, duration=10., color=0.)
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration=2,isTriggered=False,isSyncPulse=False)
+    # ds.set_stim(uniform_contrast)
+    # ds.trigger_display()
+    # plt.show()
     # ==============================================================================================================================
 
 

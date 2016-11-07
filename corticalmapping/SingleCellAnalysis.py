@@ -465,6 +465,10 @@ class SpatialTemporalReceptiveField(object):
         h5Group.attrs['trace_data_type'] = self.trace_data_type
         h5Group.attrs['trace_representation_axis'] = 0
         h5Group.attrs['trace_time_point_axis'] = 1
+        if self.name is not None:
+            h5Group.attrs['name'] = self.name
+        else:
+            h5Group.attrs['name'] = ''
 
         for i in range(len(self.data)):
             locationName = 'trace'+ft.int2str(i,4)
@@ -503,7 +507,7 @@ class SpatialTemporalReceptiveField(object):
                     axis.fill_between(self.time,meanTrace-semTrace,meanTrace+semTrace,facecolor=color,linewidth=0,alpha=0.5)
                     axis.plot(self.time,meanTrace,'-',color=color,lw=1)
 
-        return f
+        return axisLists[0][0].figure
 
 
     def _get_axis_layout(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None, **kwargs):
@@ -817,8 +821,12 @@ class SpatialTemporalReceptiveField(object):
         """
 
         time = h5Group.attrs['time']
+        # try:
+        #     name = h5Group.parent.name[1:] + '.' + h5Group.parent.attrs['name']
+        # except KeyError:
+        #     name = None
         try:
-            name = h5Group.parent.name[1:] + '.' + h5Group.parent.attrs['name']
+            name = h5Group.attrs['name']
         except KeyError:
             name = None
         locationUnit = h5Group.attrs['retinotopic_location_unit']

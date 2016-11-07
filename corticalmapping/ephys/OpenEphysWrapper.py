@@ -13,191 +13,6 @@ CONTINUOUS_RECORDING_NUMBER_DTYPE = np.dtype('<u2') # dtype of recording number 
 CONTINUOUS_SAMPLE_DTYPE = np.dtype('>i2') # dtype of each sample in each record (block) of .continuous file
 CONTINUOUS_MARKER_BYTES = 10 # number of bytes of marker field in each record (block) of .continuous file
 
-# def load_continuous(file_path, dtype=float, verbose=True):
-#     """
-#     modified from OpenEphys.loadContinuous function
-#
-#     :param file_path:
-#     :return:
-#     """
-#
-#     assert dtype in (float, np.int16), \
-#         'Invalid data type specified for loadContinous, valid types are float and np.int16'
-#
-#     print "Loading continuous data from " + file_path
-#
-#     ch = {}
-#     recordNumber = np.intp(-1)
-#
-#     samples = np.zeros(oe.MAX_NUMBER_OF_CONTINUOUS_SAMPLES, dtype)
-#     timestamps = np.zeros(oe.MAX_NUMBER_OF_RECORDS)
-#     recordingNumbers = np.zeros(oe.MAX_NUMBER_OF_RECORDS)
-#     indices = np.arange(0, oe.MAX_NUMBER_OF_RECORDS * oe.SAMPLES_PER_RECORD, oe.SAMPLES_PER_RECORD, np.dtype(np.int64))
-#
-#     # read in the data
-#     f = open(file_path, 'rb')
-#
-#     header = oe.readHeader(f)
-#
-#     fileLength = os.fstat(f.fileno()).st_size
-#     if verbose: print 'total length of the file: ', fileLength, 'bytes.'
-#
-#     while f.tell() < fileLength:
-#
-#         recordNumber += 1
-#
-#         if verbose: print 'reading record (block): ' , recordNumber
-#
-#         timestamps[recordNumber] = np.fromfile(f, np.dtype('<i8'), 1)  # little-endian 64-bit signed integer
-#         N = np.fromfile(f, np.dtype('<u2'), 1)  # little-endian 16-bit unsigned integer
-#
-#         if N != oe.SAMPLES_PER_RECORD:
-#             raise Exception('Found corrupted record in block ' + str(recordNumber))
-#
-#         recordingNumbers[recordNumber] = (np.fromfile(f, np.dtype('>u2'), 1))  # big-endian 16-bit unsigned integer
-#
-#         if dtype == float:  # Convert data to float array and convert bits to voltage.
-#
-#             # big-endian 16-bit signed integer, multiplied by bitVolts
-#             data = np.fromfile(f, np.dtype('>i2'), N) * float(header['bitVolts'])
-#
-#         else:  # Keep data in signed 16 bit integer format.
-#             data = np.fromfile(f, np.dtype('>i2'), N)  # big-endian 16-bit signed integer
-#
-#         if data.shape[0] != N:
-#             print 'samples in block ' + str(recordNumber) + ': ' + str(data.shape[0]) + ', not equal to expected sample' \
-#                                                                                         ' size: ' + str(N[0]) + '!!!'
-#             print 'there is ' + str(fileLength-f.tell()) + ' byte(s) left in the file.'
-#
-#         else:
-#             samples[indices[recordNumber]:indices[recordNumber + 1]] = data
-#
-#         marker = f.read(10)  # dump
-#
-#     ch['header'] = header
-#     ch['timestamps'] = timestamps[0:recordNumber]
-#     ch['data'] = samples[0:indices[recordNumber]]  # OR use downsample(samples,1), to save space
-#     ch['recordingNumber'] = recordingNumbers[0:recordNumber]
-#     f.close()
-#     return ch
-
-# def pack_folder(folder, channels, prefix, dtype=np.float32):
-#     """
-#     pack .continuous files in the folder into a numpy array
-#
-#         [
-#          [channel0_datapoint0, channel0_datapoint1, channel0_datapoint2, ..., channel0_datapointN],
-#          [channel1_datapoint0, channel1_datapoint1, channel1_datapoint2, ..., channel1_datapointN],
-#          [channel2_datapoint0, channel2_datapoint1, channel2_datapoint2, ..., channel2_datapointN],
-#          ...
-#          [channelM_datapoint0, channelM_datapoint1, channelM_datapoint2, ..., channelM_datapointN]
-#          ]
-#
-#     :param folder:
-#     :param channels: list of channels, specify channel order
-#     :param prefix:
-#     :param dtype
-#     :return: 2-d array of numbers with defined data type, shape = (number of channels, number of data points)
-#     """
-#
-#     all_files = os.listdir(folder)
-#     file_list = []
-#     for channel in channels:
-#         file_num = 0
-#         for file in all_files:
-#             if prefix + '_CH'+str(channel) in file and '.continuous' in file:
-#                 file_list.append(os.path.join(folder, file))
-#                 file_num += 1
-#         if file_num == 0:
-#             raise LookupError('Did not find .continuous file for channel:' + str(channel) + '!')
-#         elif file_num > 1:
-#             raise LookupError('Fond more than one .continuous files for channel:' + str(channel) + '!')
-#
-#     print '\nLoad .continuous files from source folder: ', folder
-#     print '.continuous files tobe loaded:'
-#     print '\n'.join(file_list)
-#
-#     traces = []
-#     sample_nums = []
-#     fs = None
-#
-#     for file in file_list:
-#         curr_header, curr_trace = load_continuous2(file, dtype=dtype)
-#
-#         if fs is None:
-#             fs = curr_header['sampleRate']
-#         else:
-#             if fs != curr_header['sampleRate']:
-#                 raise ValueError('sampling rate of current file does not match sampling rate of other files in this '
-#                                  'folder!')
-#
-#         traces.append(curr_trace)
-#         sample_nums.append(curr_trace.shape[0])
-#
-#     min_sample_num = min(sample_nums)
-#     traces = np.array([trace[0:min_sample_num] for trace in traces]).astype(dtype)
-#
-#     return traces, min_sample_num, float(fs)
-
-# def pack_folders(folder_list, output_folder, output_filename, channels, prefix, dtype):
-#     """
-#
-#     :param folder_list:
-#     :param output_folder:
-#     :param output_filename:
-#     :param channels:
-#     :param prefix:
-#     :return:
-#     """
-#
-#     output_path_dat = os.path.join(output_folder, output_filename + '.dat')
-#     output_path_h5 = os.path.join(output_folder, output_filename + '.hdf5')
-#
-#     if os.path.isfile(output_path_dat) or os.path.isfile(output_path_h5):
-#         raise IOError('Output path already exists!')
-#
-#     h5_file = h5py.File(output_path_h5)
-#     channels_h5 = h5_file.create_dataset('channel_order', data=channels)
-#     channels_h5.attrs['device'] = 'tetrode'
-#
-#     # data_set = h5_file.create_dataset('data', (10, ), maxshape=(None, ), chunks=(30000 * len(channels), ), dtype=dtype)
-#
-#     curr_data_start_ind = 0
-#     curr_folder_start_ind = 0
-#     data_all = []
-#     sampling_rate = None
-#
-#     for i, folder in enumerate(folder_list):
-#
-#         curr_data_array, curr_sample_num, fs = pack_folder(folder, channels, prefix, dtype)
-#         print curr_data_array.shape
-#
-#         if sampling_rate is None:
-#             sampling_rate = fs
-#         else:
-#             if fs != sampling_rate:
-#                 err = 'The sampling rate (' + str(fs) + 'Hz) of folder: (' + folder + ') does not match the sampling' +\
-#                     ' rate (' + str(sampling_rate) + ') of other folders.'
-#                 raise ValueError(err)
-#
-#         data_all.append(curr_data_array.flatten(order='F'))
-#
-#         curr_group = h5_file.create_group('folder'+ft.int2str(i,4))
-#         for k, channel in enumerate(channels):
-#             curr_group.create_dataset('channel_' + ft.int2str(int(channel), 5), data=curr_data_array[k, :])
-#         curr_group.attrs['path'] = folder
-#         curr_group.attrs['start_index'] = curr_folder_start_ind
-#         curr_group.attrs['end_index'] = curr_folder_start_ind + curr_sample_num
-#         curr_folder_start_ind += curr_sample_num
-#
-#     h5_file.create_dataset('fs_hz', data=float(sampling_rate))
-#
-#     h5_file.close()
-#
-#     data_all = np.concatenate(data_all)
-#
-#     data_all.tofile(output_path_dat)
-
 def get_digital_line_for_plot(h5_group):
     """
     use plt.step to plot, 'where' parameter should be set to be 'post'
@@ -231,7 +46,8 @@ def load_continuous(file_path, dtype=np.float32):
 
     :param file_path:
     :param dtype: np.float32 or np.int16
-    :return:
+    :return: header: dictionary, standard open ephys header for continuous file
+             samples: 1D np.array
     """
 
     assert dtype in (np.float32, np.int16), \
@@ -349,6 +165,9 @@ def pack_folder(folder, prefix, digital_channels=('cam_read', 'cam_trigger', 'vi
     electrode channel will extracted as int16
     other analog channels will be extracted as float32, volts
 
+    the universal start time will be subtracted from all channels. so the time stamps of continuous channels should
+    all start from 0.0 second
+
     :param folder:
     :param prefix:
     :digital_channels:
@@ -408,6 +227,71 @@ def pack_folder(folder, prefix, digital_channels=('cam_read', 'cam_trigger', 'vi
     output.update({'events': events})
 
     return output, min_sample_num, float(fs)
+
+
+def pack_folder_for_nwb(folder, prefix, digital_channels=None):
+    """
+    pack .continuous and .events files in the folder into a dictionary.
+    continuous channel will extracted as int16
+    bitVolts of each channel will be returned
+
+    the universal start time will be subtracted from all channels. so the time stamps of continuous channels should
+    all start from 0.0 second
+
+    :param folder:
+    :param prefix:
+    :digital_channels:
+    :return:
+    """
+
+    all_files = os.listdir(folder)
+    continuous_files = [f for f in all_files if f[0:len(prefix)+1] == prefix+'_' and f[-11:] == '.continuous']
+    events_files = [f for f in all_files if f[-7:] == '.events' and 'all_channels' in f ]
+    fs = None
+    start_time = None
+    output = {}
+    sample_num = []
+
+    if len(events_files) != 1:
+        raise LookupError('there should be one and only one .events file in folder: ' + folder)
+
+    for file in continuous_files:
+        curr_path = os.path.join(folder, file)
+        print '\nLoad ' + file + ' from source folder: ', folder
+
+        curr_header, curr_trace = load_continuous(curr_path, dtype=np.int16)
+
+        # check fs for each continuous channel
+        if fs is None:
+            fs = curr_header['sampleRate']
+        else:
+            if fs != curr_header['sampleRate']:
+                raise ValueError('sampling rate of current file does not match sampling rate of other files in this '
+                                 'folder!')
+
+        # check start time for each continuous channel
+        if start_time is None:
+            start_time = curr_header['start_time']
+        else:
+            if start_time != curr_header['start_time']:
+                raise ValueError('start time of current file does not match start time of other files in this '
+                                 'folder!')
+
+        curr_name = file[:-11]
+        output.update({curr_name: {'header': curr_header, 'trace': curr_trace}})
+        sample_num.append(curr_trace.shape[0])
+
+    min_sample_num = min(sample_num)
+    for ch in output.iterkeys():
+        output[ch]['trace'] = output[ch]['trace'][0:min_sample_num]
+
+    events = load_events(os.path.join(folder, events_files[0]), channels=digital_channels)
+    for ch, event in events.iteritems():
+        event['rise'] = event['rise'] - start_time
+        event['fall'] = event['fall'] - start_time
+    output.update({'events': events})
+
+    return output
 
 
 def pack_folders(folder_list, output_folder, output_filename, continous_channels, prefix, digital_channels):
