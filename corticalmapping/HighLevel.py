@@ -313,8 +313,10 @@ def analysisMappingDisplayLog(logPath):
     if interFrameInterval < (0.99/refreshRate): raise ValueError, 'Mean visual display too short: '+str(interFrameInterval)+'sec' # check display
 
     #get sweep start time relative to display onset
-    # startTime = -1 * log['stimulation']['preGapFrameNum'] / log['monitor']['refreshRate']
-    startTime = -1 * log['stimulation']['preGapDur']
+    try:
+        startTime = -1 * log['stimulation']['preGapDur']
+    except KeyError:
+        startTime = -1 * log['stimulation']['preGapFrameNum'] / log['monitor']['refreshRate']
     print 'Movie chunk start time relative to sweep onset:',startTime,'sec'
     displayInfo['B2U']['startTime']=startTime;displayInfo['U2B']['startTime']=startTime
     displayInfo['L2R']['startTime']=startTime;displayInfo['R2L']['startTime']=startTime

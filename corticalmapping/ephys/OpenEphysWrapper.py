@@ -7,7 +7,7 @@ import numpy as np
 import corticalmapping.core.FileTools as ft
 import warnings
 
-CONTINUOUS_TIMESTAMP_DEYPE = np.dtype('<i8') # dtype timestamp field in each record (block) of .continuous file
+CONTINUOUS_TIMESTAMP_DTYPE = np.dtype('<i8') # dtype timestamp field in each record (block) of .continuous file
 CONTINUOUS_SAMPLE_PER_RECORD_DTYPE = np.dtype('<u2') # dtype of samples per record field in each record (block) of .continuous file
 CONTINUOUS_RECORDING_NUMBER_DTYPE = np.dtype('<u2') # dtype of recording number field in each record (block) of .continuous file
 CONTINUOUS_SAMPLE_DTYPE = np.dtype('>i2') # dtype of each sample in each record (block) of .continuous file
@@ -55,7 +55,7 @@ def load_continuous(file_path, dtype=np.float32):
 
     print "\nLoading continuous data from " + file_path
 
-    bytes_per_block = CONTINUOUS_TIMESTAMP_DEYPE.itemsize + CONTINUOUS_SAMPLE_PER_RECORD_DTYPE.itemsize + \
+    bytes_per_block = CONTINUOUS_TIMESTAMP_DTYPE.itemsize + CONTINUOUS_SAMPLE_PER_RECORD_DTYPE.itemsize + \
                       CONTINUOUS_RECORDING_NUMBER_DTYPE.itemsize + CONTINUOUS_MARKER_BYTES + \
                       CONTINUOUS_SAMPLE_DTYPE.itemsize * oe.SAMPLES_PER_RECORD
 
@@ -78,15 +78,18 @@ def load_continuous(file_path, dtype=np.float32):
         if i == 0:
             # to get the timestamp of the very first record (block)
             # for alignment of the digital event
-            start_ind = np.fromfile(f, CONTINUOUS_TIMESTAMP_DEYPE, 1)
+            start_ind = np.fromfile(f, CONTINUOUS_TIMESTAMP_DTYPE, 1)
             start_time = float(start_ind) / float(header['sampleRate'])
         else:
-            _ = np.fromfile(f, CONTINUOUS_TIMESTAMP_DEYPE, 1)
+            _ = np.fromfile(f, CONTINUOUS_TIMESTAMP_DTYPE, 1)
         N = np.fromfile(f, CONTINUOUS_SAMPLE_PER_RECORD_DTYPE, 1)[0]
 
         if N != oe.SAMPLES_PER_RECORD:
-            raise Exception('samples per record specified in block ' + str(i) + ' (' + str(N) + \
-                            ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD)) + ')!'
+            print('samples per record specified in block ' + str(i) + ' (' + str(N) +
+                  ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
+            break
+            # raise Exception('samples per record specified in block ' + str(i) + ' (' + str(N) + \
+            #                 ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
 
         _ = (np.fromfile(f, CONTINUOUS_RECORDING_NUMBER_DTYPE, 1))
 
