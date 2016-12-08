@@ -57,13 +57,34 @@ def discrete_cross_correlation(ts1, ts2, range=(-1., 1.), bins=100, isPlot=False
     return t,values
 
 
-def find_nearest(trace, value):
+def find_nearest(trace, value, direction=0):
     '''
     return the index in "trace" having the closest value to "value"
+
+    direction: int, can be 0, 1 or -1
+               if 0, look for all elements in the trace
+               if 1, only look for elements not smaller than the value, return None if all elements in the trace are
+                     smaller than the value
+               if -1, only look for elements not larger than the value, return None if all elements in the trace are
+                     larger than the value
     '''
 
-    return np.argmin(np.abs(trace-value))
+    diff = (trace - value).astype(np.float32)
 
+    if direction == -1:
+        diff[diff > 0] = np.nan
+        diff = diff * -1
+    elif direction == 1:
+        diff[diff < 0] = np.nan
+    elif direction == 0:
+        diff = np.abs(diff)
+    else:
+        raise ValueError('"direction" should be 0, 1 or -1.')
+
+    if np.isnan(diff).all():
+        return None
+    else:
+        return np.nanargmin(diff)
 
 def get_onset_timeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
     '''
@@ -323,13 +344,18 @@ if __name__=='__main__':
     #============================================================================================================
 
     # ============================================================================================================
-    spikes = [0.3, 0.5, 0.501, 0.503, 0.505, 0.65, 0.7, 0.73, 0.733, 0.734, 0.735, 0.9, 1.5, 1.6,
-              1.602, 1.603, 1.605, 1.94, 1.942]
+    # spikes = [0.3, 0.5, 0.501, 0.503, 0.505, 0.65, 0.7, 0.73, 0.733, 0.734, 0.735, 0.9, 1.5, 1.6,
+    #           1.602, 1.603, 1.605, 1.94, 1.942]
+    #
+    # burst_ts, burst_ind = get_burst(spikes,  pre_isi=(-np.inf, -0.1), inter_isi=0.004, spk_num_thr=2)
+    #
+    # print burst_ts
+    # print burst_ind
+    # ============================================================================================================
 
-    burst_ts, burst_ind = get_burst(spikes,  pre_isi=(-np.inf, -0.1), inter_isi=0.004, spk_num_thr=2)
-
-    print burst_ts
-    print burst_ind
+    # ============================================================================================================
+    trace = np.arange(10)
+    print find_nearest(trace, 1.6)
     # ============================================================================================================
 
     print 'for debugging...'

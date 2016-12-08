@@ -27,7 +27,20 @@ def test_get_burst():
     _, burst_ind = ta.get_burst(spikes, pre_isi=(-np.inf, -0.01), inter_isi=0.004, spk_num_thr=3)
     assert (np.array_equal(burst_ind, [[1, 4], [7, 4], [13, 4]]))
 
+def test_find_nearest():
+    trace = np.arange(10)
+    assert(ta.find_nearest(trace, 1.4) == 1)
+    assert(ta.find_nearest(trace, 1.6) == 2)
+    assert(ta.find_nearest(trace, 1.4, -1) == 1)
+    assert(ta.find_nearest(trace, 1.6, -1) == 1)
+    assert(ta.find_nearest(trace, 1.4, 1) == 2)
+    assert(ta.find_nearest(trace, 1.6, 1) == 2)
+    assert(ta.find_nearest(trace, -1, -1) is None)
+    assert(ta.find_nearest(trace, 11, 1) is None)
+
+
 
 if __name__ == '__main__':
     test_getOnsetTimeStamps()
     test_get_burst()
+    test_find_nearest()
