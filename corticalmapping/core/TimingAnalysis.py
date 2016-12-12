@@ -38,12 +38,25 @@ def threshold_onset(data, threshold=0, direction='up', fs=10000.):
     return onsetInd/float(fs)
 
 
-def discrete_cross_correlation(ts1, ts2, range=(-1., 1.), bins=100, isPlot=False):
+def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=False):
+    """
+    cross correlation of two time series of discrete events, return crosscorrelogram of total event 2 counts triggered
+    by event 1.
 
-    binWidth = (float(range[1])-float(range[0]))/bins
-    t = np.arange((range[0]+binWidth/2),(range[1]+binWidth/2),binWidth)
-    intervals = list(np.array([(t-binWidth/2),(t+binWidth/2)]).transpose())
-    values = np.zeros(bins)
+    :param ts1: numpy.array, timestamps of the first event
+    :param ts2: numpy.array, timestamps of the second event
+    :param t_range: tuple of two elements, temporal window of crosscorrelogram, the first element should be smaller than
+                    the second element.
+    :param bins: int, number of bins
+    :param isPlot:
+    :return: t: numpy.array, time axis of crosscorrelorgam, mark the left edges of each time bin
+             value: numpy array, total event 2 counts in each time bin
+    """
+
+    binWidth = (float(t_range[1]) - float(t_range[0])) / bins
+    t = np.arange(bins) * binWidth + t_range[0]
+    intervals = zip(t, t + binWidth)
+    values = np.zeros(bins, dtype=np.int)
 
     for ts in list(ts1):
         currIntervals = [x + ts for x in intervals]
@@ -54,7 +67,7 @@ def discrete_cross_correlation(ts1, ts2, range=(-1., 1.), bins=100, isPlot=False
         f = plt.figure(figsize=(15,4)); ax = f.add_subplot(111)
         ax.bar([a[0] for a in intervals],values,binWidth*0.9);ax.set_xticks(t)
 
-    return t,values
+    return t, values
 
 
 def find_nearest(trace, value, direction=0):

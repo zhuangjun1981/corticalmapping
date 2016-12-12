@@ -39,11 +39,11 @@ def test_getSparseNoiseOnsetIndex():
     assert(list(allOnsetInd[0:10])==[0, 6, 12, 18, 24, 30, 36, 42, 48, 54])
     assert(np.array_equal(onsetIndWithLocationSign[2][0],np.array([0.,  70.])))
 
-
 def test_SpatialTemporalReceptiveField_from_h5_group():
     f = h5py.File(STRFDataPath)
     STRF = sca.SpatialTemporalReceptiveField.from_h5_group(f['cell0003']['spatial_temporal_receptive_field'])
-    assert(STRF.data['traces'][20][4][8]-0.934942 < 1e-10)
+    trace = np.array(STRF.data['traces'][20])
+    assert((float(trace[4, 8])+0.934942364693) < 1e-10)
     # STRF.plot_traces(figSize=(15,10),yRange=[-5,50],columnSpacing=0.002,rowSpacing=0.002)
 
 def test_ROI():
@@ -80,7 +80,9 @@ def test_WeightedROI_getWeightedCenterInCoordinate():
 def test_SpatialTemporalReceptiveField():
     locations = [[3.0, 4.0], [3.0, 5.0], [2.0, 4.0], [2.0, 5.0],[3.0, 4.0], [3.0, 5.0], [2.0, 4.0], [2.0, 5.0]]
     signs = [1,1,1,1,-1,-1,-1,-1]
-    traces=[[np.arange(4)],[np.arange(1,5)],[np.arange(2,6)],[np.arange(3,7)],[np.arange(5,9)],[np.arange(6,10)],[np.arange(7,11)],[np.arange(8,12)]]
+    traces=[[np.arange(4)],[np.arange(1,5)],[np.arange(2,6)],[np.arange(3,7)],[np.arange(5,9)],[np.arange(6,10)],
+            [np.arange(7,11)],[np.arange(8,12)]]
+    traces=[np.array(t) for t in traces]
     time = np.arange(4,8)
     STRF = sca.SpatialTemporalReceptiveField(locations,signs,traces,time)
     assert(STRF.data['traces'][0][0][1]==8)
@@ -172,4 +174,5 @@ def test_SpatialReceptiveField_interpolate():
 plt.show()
 
 if __name__ == '__main__':
-    test_getSparseNoiseOnsetIndex()
+    test_SpatialTemporalReceptiveField_getAmpLitudeMap()
+
