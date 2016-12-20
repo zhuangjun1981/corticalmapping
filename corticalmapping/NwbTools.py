@@ -4,6 +4,7 @@ import h5py
 import corticalmapping.ephys.OpenEphysWrapper as oew
 import corticalmapping.ephys.KilosortWrapper as kw
 import corticalmapping.core.FileTools as ft
+import corticalmapping.core.TimingAnalysis as ta
 try:
     from nwb.nwb import NWB
 except ImportError:
@@ -266,7 +267,8 @@ class RecordedFile(NWB):
         img_series.set_value('pixel_size_unit', pixel_size_unit)
         img_series.finalize()
 
-    def add_phy_template_clusters(self, folder, module_name, ind_start=None, ind_end=None, is_merge_units=False):
+    def add_phy_template_clusters(self, folder, module_name, ind_start=None, ind_end=None, is_merge_units=False,
+                                  is_add_artificial_unit=False, artificial_unit_firing_rate=2.):
         """
         extract phy-template clustering results to nwb format. Only extract spike times, no template for now.
         Usually the continuous channels of multiple files are concatenated for kilosort. ind_start and ind_end are
@@ -279,6 +281,9 @@ class RecordedFile(NWB):
         :param ind_end: int, the end index of continuous channel of the current file in the concatenated file.
         :param is_merge_units: bool, if True: the unit_mua will include all isolated units and mua
                                      if False: the unit_mua will only include mua
+        :param is_add_artificial_unit: bool, if True: a artificial unit with possion event will be added, this unit
+                                       will have name 'aua' and refractory period 1 ms.
+        :param artificial_unit_firing_rate: float, firing rate of the artificial unit
         :return:
         """
 
@@ -316,8 +321,11 @@ class RecordedFile(NWB):
                 if unit_name != 'unit_mua':
                     spike_ind['unit_mua'].append(spks)
 
-            spike_ind['unit_mua'] = np.concatenate(spike_ind['unit_mua'], axis=0)
+            spike_ind['unit_mua'] = np.sort(np.concatenate(spike_ind['unit_mua'], axis=0))
             # print 'type of unit_mua spike ind: ', type(spike_ind['unit_mua'])
+
+
+
 
         # print 'after: ', spike_ind['unit_mua'].shape
 
@@ -332,6 +340,14 @@ class RecordedFile(NWB):
                                 source='electrophysiology extracellular recording',
                                 description="Data spike-sorted by: " + self.file_pointer['general/experimenter'].value +
                                             ' using phy-template. Spike time unit: seconds.')
+
+        if is_add_artificial_unit:
+            file_length = (ind_end - ind_start) / fs
+            au_ts = ta.possion_event_ts(duration=file_length, firing_rate=artificial_unit_firing_rate,
+                                        refractory_dur=0.001, is_plot=False)
+            unit_times.add_unit(unit_name='unit_aua', unit_times=au_ts,
+                                source='electrophysiology extracellular recording',
+                                description='Artificial possion unit for control. Spike time unit: seconds.')
 
         unit_times.finalize()
         mod.finalize()

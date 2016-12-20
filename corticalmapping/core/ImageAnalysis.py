@@ -1285,9 +1285,23 @@ class ROI(object):
         elif len(pixelSize)==2: self.pixelSizeY = pixelSize[0]; self.pixelSizeX = pixelSize[1]
         else: raise LookupError, 'pixel size should be either None or scalar or list(array) of two sclars!!'
 
-        if pixelSize is None: self.pixelSizeUnit=None
+        if self.pixelSizeY is None: self.pixelSizeUnit=None
         else: self.pixelSizeUnit = pixelSizeUnit
 
+    def __str__(self):
+        return 'corticalmapping.core.ImageAnalysis.ROI object'
+
+    def set_pixel_size(self, pixelSize):
+        if pixelSize is None: self.pixelSizeX = self.pixelSizeY = pixelSize
+        elif (not hasattr(pixelSize, '__len__')): self.pixelSizeX = self.pixelSizeY = pixelSize
+        elif len(pixelSize)==2: self.pixelSizeY = pixelSize[0]; self.pixelSizeX = pixelSize[1]
+        else: raise LookupError, 'pixel size should be either None or scalar or list(array) of two sclars!!'
+
+    def set_pixel_size_unit(self, pixelSizeUnit):
+        if self.pixelSizeY is None or self.pixelSizeX is None:
+            print 'ROI pixel size is None. Setting pixel size unit to None'
+            self.pixelSizeUnit=None
+        else: self.pixelSizeUnit = pixelSizeUnit
 
     def get_indices(self):
         '''
@@ -1360,9 +1374,23 @@ class ROI(object):
         '''
         return trace of this ROI (binary format, 0s and 1s) in a given movie
         '''
-        binaryMask = self.get_binary_mask()
-        trace = np.multiply(mov,np.array([binaryMask])).sum(axis=1).sum(axis=1)
-        return trace /self.get_binary_area()
+        binaryMask = self.get_binary_mask().astype(np.float32)
+        trace = np.multiply(mov, np.array([binaryMask])).sum(axis=1).sum(axis=1)
+        # print trace
+        return trace / self.get_binary_area()
+
+    def get_binary_trace_pixelwise(self, mov):
+        '''
+        return trace of this ROI (binary format, 0s and 1s) in a given movie,
+        calculation is done in pixelwise fashion
+        '''
+        pixels = self.get_pixel_array()
+        trace = np.zeros(mov.shape[0], dtype=np.float32)
+        for pixel in pixels:
+            # trace += mov[:, pixel[0], pixel[1]]  # somehow this is less precise !! do not use
+            trace = trace + mov[:, pixel[0], pixel[1]].astype(np.float32)
+        # print trace
+        return trace / self.get_binary_area()
 
     def plot_binary_mask(self, plotAxis=None, color='#ff0000', alpha=1):
         '''
@@ -1381,6 +1409,7 @@ class ROI(object):
         add attributes and dataset to a h5 data group
         '''
         h5Group.attrs['dimension'] = self.dimension
+        h5Group.attrs['description'] = str(self)
         if self.pixelSizeX is None: h5Group.attrs['pixelSize'] = 'None'
         else: h5Group.attrs['pixelSize'] = [self.pixelSizeY, self.pixelSizeX]
         if self.pixelSizeUnit is None: h5Group.attrs['pixelSizeUnit'] = 'None'
@@ -1413,9 +1442,9 @@ class ROI(object):
 
         dimension = h5Group.attrs['dimension']
         pixelSize = h5Group.attrs['pixelSize']
-        if pixelSize == 'None': pixelSize = None
+        if pixelSize is 'None': pixelSize = None
         pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
-        if pixelSizeUnit == 'None': pixelSizeUnit = None
+        if pixelSizeUnit is 'None': pixelSizeUnit = None
         pixels = h5Group['pixels'].value
 
         if 'weights' in h5Group.keys():
@@ -1435,16 +1464,20 @@ class WeightedROI(ROI):
         super(WeightedROI,self).__init__(mask, pixelSize = pixelSize, pixelSizeUnit = pixelSizeUnit)
         self.weights = mask[self.pixels]
 
+    def __str__(self):
+        return 'corticalmapping.core.ImageAnalysis.WeightedROI object, subclass of ' \
+               'corticalmapping.core.ImageAnalysis.ROI'
 
     def get_peak(self):
         return np.max(self.weights)
 
+    def get_weight_sum(self):
+        return sum(self.weights)
 
     def get_weighted_mask(self):
         mask = np.zeros(self.dimension,dtype=np.float32)
         mask[self.pixels] = self.weights
         return mask
-
 
     def get_weighted_nan_mask(self):
         mask = np.zeros(self.dimension,dtype=np.float32)
@@ -1452,12 +1485,10 @@ class WeightedROI(ROI):
         mask[self.pixels] = self.weights
         return mask
 
-
     def get_weighted_center(self):
         pixelCor = np.array(self.pixels,dtype=np.float)
         center = np.sum(np.multiply(pixelCor,np.array(self.weights)),axis=1)/np.sum(self.weights)
         return center
-
 
     def get_weighted_center_in_coordinate(self, yCor, xCor):
         '''
@@ -1472,7 +1503,6 @@ class WeightedROI(ROI):
             xCenter = np.sum((xMap*weightMask).flatten())/np.sum(weightMask.flatten())
             yCenter = np.sum((yMap*weightMask).flatten())/np.sum(weightMask.flatten())
             return [yCenter, xCenter]
-
 
     def plot_weighted_mask(self, plotAxis=None, is_colorbar=False, cmap='Reds', interpolation='nearest', **kwargs):
         '''
@@ -1490,14 +1520,41 @@ class WeightedROI(ROI):
 
         return plotAxis.get_figure()
 
-
-    def get_weighted_trace(self, mov):
+    def get_weighted_trace(self, mov, is_area_weighted=False):
         '''
-        return trace of this ROI in a given movie
+        return trace of this ROI in a given movie, the contribution of each pixel in the roi was defined by its weight
+        :param is_area_weighted: bool, if False, total area of the mask is calculated in a binary fashion
+                                       if True, total area of mask is calculated in a weighted fashion
         '''
         weightedMask = self.get_weighted_mask()
-        trace = np.multiply(mov, np.array([weightedMask])).sum(axis=1).sum(axis=1)
-        return trace / self.get_binary_area()
+        trace = np.multiply(mov, np.array([weightedMask])).sum(axis=-1).sum(axis=-1)
+        # print trace
+        if is_area_weighted:
+            return trace / self.get_binary_area()
+        elif not is_area_weighted:
+            return trace / self.get_weight_sum()
+        else:
+            raise ValueError('is_area_weighted should be a boolean variable.')
+
+    def get_weighted_trace_pixelwise(self, mov, is_area_weighted=False):
+        '''
+        return trace of this ROI in a given movie, the contribution of each pixel in the roi was defined by its weight
+        :param is_area_weighted: bool, if False, total area of the mask is calculated in a binary fashion
+                                       if True, total area of mask is calculated in a weighted fashion
+        calculation is done in pixelwise fashion
+        '''
+        pixels = self.get_pixel_array()
+        trace = np.zeros(mov.shape[0], dtype=np.float32)
+        for i, pixel in enumerate(pixels):
+            # trace += mov[:, pixel[0], pixel[1]]  # somehow this is less precise !! do not use
+            trace = trace + self.weights[i] * (mov[:, pixel[0], pixel[1]]).astype(np.float32)
+        # print trace
+        if is_area_weighted:
+            return trace / self.get_binary_area()
+        elif not is_area_weighted:
+            return trace / self.get_weight_sum()
+        else:
+            raise ValueError('is_area_weighted should be a boolean variable.')
 
     @staticmethod
     def from_h5_group(h5Group):
@@ -1507,9 +1564,9 @@ class WeightedROI(ROI):
 
         dimension = h5Group.attrs['dimension']
         pixelSize = h5Group.attrs['pixelSize']
-        if pixelSize == 'None': pixelSize = None
+        if pixelSize is 'None': pixelSize = None
         pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
-        if pixelSizeUnit == 'None': pixelSizeUnit = None
+        if pixelSizeUnit is 'None': pixelSizeUnit = None
         pixels = h5Group['pixels'].value
         weights = h5Group['weights'].value
         mask = np.zeros(dimension, dtype=np.float32);

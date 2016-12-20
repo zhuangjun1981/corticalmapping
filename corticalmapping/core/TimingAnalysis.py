@@ -99,6 +99,7 @@ def find_nearest(trace, value, direction=0):
     else:
         return np.nanargmin(diff)
 
+
 def get_onset_timeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
     '''
     param trace: time trace of digital signal recorded as analog
@@ -115,40 +116,59 @@ def get_onset_timeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
         raise LookupError('onsetType should be either "raising" or "falling"!')
 
 
-def power_spectrum(trace, fs, is_plot=False):
+def power_spectrum(trace, fs, freq_range=(0., 300.), freq_bins=300, is_plot=False):
     '''
     return power spectrum of a signal trace (should be real numbers) at sampling rate of fs
+
+    :param: trace, numpy.array, input trace
+    :param: fs, float, sampling rate (Hz)
+    :param: freq_range, tuple of two floats, range of analyzed frequencies
+    :param: freq_bins, int, number of freq_bins of frequency axis
     '''
-    spectrum = np.abs(np.fft.rfft(trace))**2
+    spectrum_full = np.abs(np.fft.rfft(trace))**2 / float(len(trace))
     freqs = np.fft.rfftfreq(trace.size, 1. / fs)
+
+    freq_bin_width = (freq_range[1] - freq_range[0]) / freq_bins
+    freq_axis = np.arange(freq_bins, dtype=np.float32) * freq_bin_width + freq_range[0]
+
+    spectrum = np.zeros(freq_axis.shape, dtype=np.float32)
+
+    for i, freq in enumerate(freq_axis):
+        curr_spect = spectrum_full[(freqs >= freq) & (freqs < (freq + freq_bin_width))]
+        spectrum[i] = sum(curr_spect)
 
     if is_plot:
         f=plt.figure()
-        idx = np.argsort(freqs)
-        plt.plot(freqs[idx], spectrum[idx])
-        plt.xlabel('frequency (Hz)')
-        plt.ylabel('power')
+        ax=f.add_subplot(111)
+        ax.plot(freq_axis, spectrum)
+        ax.set_xlabel('frequency (Hz)')
+        ax.set_ylabel('power')
         plt.show()
 
-    return spectrum, freqs
+    return spectrum, freq_axis
 
 
-def sliding_power_spectrum(trace, fs, sliding_window_length, sliding_step_length=None, is_plot=False):
+def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_length=None, freq_range=(0., 300.),
+                           freq_bins=300, is_plot=False, **kwargs):
     '''
     calculate power_spectrum of a given trace over time
 
-    trace: input signal trace
-    fs: sampling rate (Hz)
-    sliding_window_length: length of sliding window (sec)
-    sliding_step_length: length of sliding step (sec), if None, equal to sliding_window_length
-    is_plot: bool, to plot or not
+    :param: trace: input signal trace
+    :param: fs: sampling rate (Hz)
+    :param: sliding_window_length: length of sliding window (sec)
+    :param: sliding_step_length: length of sliding step (sec), if None, equal to sliding_window_length
+    :param: freq_range, tuple of two floats, range of analyzed frequencies
+    :param: freq_bins, int, number of freq_bins of frequency axis
+    :param: is_plot: bool, to plot or not
+
+    :param: **kwargs, inputs to plt.imshow function
 
     :return
     spectrum: 2d array, power at each frequency at each time,
               time is from the first column to the last column
               frequence is from the last row to the first row
     times: time stamp for each column (starting point of each sliding window)
-    freqs: frequency for each row (from low to high)
+    freq_axis: frequency for each row (from low to high)
     '''
 
     if len(trace.shape) != 1: raise ValueError, 'Input trace should be 1d array!'
@@ -157,37 +177,42 @@ def sliding_power_spectrum(trace, fs, sliding_window_length, sliding_step_length
 
     time_line = np.arange(len(trace)) * (1. / fs)
 
+    freq_bin_width = (freq_range[1] - freq_range[0]) / freq_bins
+    freq_axis = np.arange(freq_bins, dtype=np.float32) * freq_bin_width + freq_range[0]
+
     if sliding_step_length is None: sliding_step_length = sliding_window_length
     if sliding_step_length > sliding_window_length: print "Step length larger than window length, not using all data points!"
     times = np.arange(0., total_length, sliding_step_length)
-    times = times[times + sliding_window_length < total_length]
+    times = times[(times + sliding_window_length) < total_length]
 
     if len(times) == 0: raise ValueError, 'No time point found.'
     else:
         points_in_window = int(sliding_window_length * fs)
         if points_in_window <= 0: raise ValueError, 'Sliding window length too short!'
         else:
-            freqs = np.fft.rfftfreq(points_in_window, 1. / fs)
-            sorting_idx = np.argsort(freqs)
-            spectrum = np.empty((len(freqs), len(times)))
-            for idx, time in enumerate(times):
-                starting_point = find_nearest(time_line, time)
+            spectrum = np.zeros((len(freq_axis), len(times)))
+            for idx, start_time in enumerate(times):
+                starting_point = find_nearest(time_line, start_time)
                 ending_point = starting_point + points_in_window
                 current_trace = trace[starting_point:ending_point]
-                current_spectrum, _ = power_spectrum(current_trace, fs, is_plot=False)
-                spectrum[:,idx] = current_spectrum[sorting_idx]
+                current_spectrum, freq_axis = power_spectrum(current_trace, fs, freq_range=freq_range, freq_bins=freq_bins,
+                                                             is_plot=False)
+                spectrum[:,idx] = current_spectrum
 
     if is_plot:
-        f = plt.figure(); ax = f.add_subplot(111)
-        ax.imshow(spectrum,cmap='jet',interpolation='nearest')
+        f = plt.figure(figsize=(15, 8)); ax = f.add_subplot(111)
+        fig = ax.imshow(spectrum,cmap='jet',interpolation='nearest', **kwargs)
         ax.set_xlabel('times (sec)')
         ax.set_ylabel('frequency (Hz)')
+        ax.set_xticks(range(len(times))[::(len(times)//10)])
+        ax.set_yticks(range(len(freq_axis))[::(len(freq_axis)//10)])
+        ax.set_xticklabels(times[::(len(times)//10)])
+        ax.set_yticklabels(freq_axis[::(len(freq_axis)//10)])
         ax.invert_yaxis()
-        ax.set_xticks(times[0::10])
-        ax.set_yticks(freqs[0::10])
+        f.colorbar(fig)
         plt.show()
 
-    return spectrum, times, freqs
+    return spectrum, times, freq_axis
 
 
 def get_burst(spikes, pre_isi=(-np.inf, -0.1), inter_isi=0.004, spk_num_thr=2):
@@ -250,6 +275,33 @@ def get_burst(spikes, pre_isi=(-np.inf, -0.1), inter_isi=0.004, spk_num_thr=2):
     return burst_ts, burst_ind
 
 
+def possion_event_ts(duration=600., firing_rate = 1., refractory_dur=0.001, is_plot=False):
+    """
+    return possion event timestamps given firing rate and durantion
+    """
+
+    curr_t = 0.
+    ts = []
+    isi = []
+
+    while curr_t < duration:
+        curr_isi = np.random.exponential(1. / firing_rate)
+
+        while curr_isi <= refractory_dur:
+            curr_isi = np.random.exponential(1. / firing_rate)
+
+        ts.append(curr_t + curr_isi)
+        isi.append(curr_isi)
+        curr_t += curr_isi
+
+    if is_plot:
+        f = plt.figure(figsize=(10, 10))
+        ax = f.add_subplot(111)
+        ax.hist(isi, bins=1000, range=[0., 1.])
+
+    return np.array(ts)
+
+
 def check_monotonicity(arr, direction='increasing'):
     """
     check monotonicity of a 1-d array, usually a time series
@@ -298,9 +350,71 @@ def check_monotonicity(arr, direction='increasing'):
                           '"non-increasing", "non-decreasing"!')
 
 
-def butter_bandpass(trace, cutoffs=(300., 6000.), fs=30000., order=5):
+def butter_bandpass_filter(cutoffs=(300., 6000.), fs=30000., order=5, is_plot=False):
     """
-    band pass filter a 1-d signal using butterworth filter design
+    bandpass digital butterworth filter design
+    :param cutoffs: [low cutoff frequency, high cutoff frequency], Hz
+    :param fs: sampling rate, Hz
+    :param order:
+    :param is_plot:
+    :return: b, a
+    """
+    nyq = 0.5 * fs
+    low = cutoffs[0] / nyq
+    high = cutoffs[1] / nyq
+
+    b, a = sig.butter(order, [low, high], btype='band', analog=False, output='ba')
+
+    if is_plot:
+        w, h = sig.freqz(b, a, worN=2000)
+        f = plt.figure(figsize=(10, 10))
+        plt.loglog((fs * 0.5 / np.pi) * w, abs(h))
+        plt.title('Butterworth filter frequency response')
+        plt.xlabel('Frequency [radians / second]')
+        plt.ylabel('Amplitude')
+        # plt.margins(0, 0.1)
+        plt.grid(which='both', axis='both')
+        plt.axvline(cutoffs[0], color='green')
+        plt.axvline(cutoffs[1], color='red')
+        # plt.xlim([0, 10000])
+        plt.show()
+
+    return b, a
+
+
+def butter_lowpass_filter(cutoff=300., fs=30000., order=5, is_plot=False):
+    """
+    bandpass digital butterworth filter design
+    :param cutoffs: cutoff frequency, Hz
+    :param fs: sampling rate, Hz
+    :param order:
+    :param is_plot:
+    :return: b, a
+    """
+    nyq = 0.5 * fs
+    low = cutoff / nyq
+
+    b, a = sig.butter(order, low, btype='low', analog=False, output='ba')
+
+    if is_plot:
+        w, h = sig.freqz(b, a, worN=2000)
+        f = plt.figure(figsize=(10, 10))
+        plt.loglog((fs * 0.5 / np.pi) * w, abs(h))
+        plt.title('Butterworth filter frequency response')
+        plt.xlabel('Frequency [radians / second]')
+        plt.ylabel('Amplitude')
+        # plt.margins(0, 0.1)
+        plt.grid(which='both', axis='both')
+        plt.axvline(cutoff, color='red')
+        # plt.xlim([0, 10000])
+        plt.show()
+
+    return b, a
+
+
+def butter_bandpass(trace, fs=30000., cutoffs=(300., 6000.),order=5):
+    """
+    band pass filter a 1-d signal using digital butterworth filter design
 
     :param trace: input signal
     :param cutoffs: [low cutoff frequency, high cutoff frequency], Hz
@@ -309,16 +423,55 @@ def butter_bandpass(trace, cutoffs=(300., 6000.), fs=30000., order=5):
     :return: filtered signal
     """
 
-    nyq = 0.5 * fs
-    low = cutoffs[0] /  nyq
-    high = cutoffs[1] / nyq
-
-    b, a = sig.butter(order, [low, high], btype='band')
-
+    b, a = butter_bandpass_filter(cutoffs=cutoffs, fs=fs, order=order)
     filtered = sig.lfilter(b, a, trace)
-
     return filtered
 
+
+def butter_lowpass(trace, fs=30000., cutoff=300., order=5):
+    """
+    lowpass filter a 1-d signal using digital butterworth filter design
+
+    :param trace: input signal
+    :param cutoff: cutoff frequency, Hz
+    :param fs: sampling rate, Hz
+    :param order:
+    :return: filtered signal
+    """
+    b, a = butter_lowpass_filter(cutoff=cutoff, fs=fs, order=order)
+    filtered = sig.lfilter(b, a, trace)
+    return filtered
+
+
+def notch_filter(trace, fs=30000., freq_base=60., bandwidth=1., harmonics=4, order=2):
+    """
+    filter out signal at power frequency band and its harmonics. for each harmonic, signal at this band is extracted
+    by using butter_bandpass function. Then the extraced signal was subtracted from the original signal
+
+    :param trace: 1-d array, input trace
+    :param fs: float, sampling rate, Hz
+    :param freq_base: float, Hz, base frequency of contaminating signal
+    :param bandwidth: float, Hz, filter bandwidth at each side of center frequency
+    :param harmonics: int, number of harmonics to filter out
+    :param order: int, order of butterworth filter, for a narrow band, shouldn't be larger than 2
+    :return: filtered signal
+    """
+
+    sig_extracted = np.zeros(trace.shape, dtype=np.float32)
+
+    for har in (np.arange(harmonics) + 1):
+        cutoffs = [freq_base * har - bandwidth, freq_base * har + bandwidth]
+        curr_sig = butter_bandpass(trace, fs=fs, cutoffs=cutoffs, order=order)
+        sig_extracted = sig_extracted + curr_sig
+
+    trace_filtered = trace.astype(np.float32) - sig_extracted
+
+    return trace_filtered.astype(trace.dtype)
+
+
+def event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-1., 1.), bins=100, isPlot=False):
+    # todo: finish this function
+    pass
 
 
 if __name__=='__main__':
@@ -367,8 +520,13 @@ if __name__=='__main__':
     # ============================================================================================================
 
     # ============================================================================================================
-    trace = np.arange(10)
-    print find_nearest(trace, 1.6)
+    # trace = np.arange(10)
+    # print find_nearest(trace, 1.6)
+    # ============================================================================================================
+
+    # ============================================================================================================
+    possion_event_ts(firing_rate=1., duration=1000., refractory_dur=0.1, is_plot=True)
+    plt.show()
     # ============================================================================================================
 
     print 'for debugging...'

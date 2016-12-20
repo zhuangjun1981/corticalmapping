@@ -648,6 +648,18 @@ def neural_pil_subtraction(trace_center, trace_surround, lam=0.05):
 
     return ns.r, ns.error, trace_center - ns.r * trace_surround
 
+
+def get_lfp(trace, fs=30000., notch_base=60., notch_bandwidth=1., notch_harmonics=4, notch_order=2,
+            lowpass_cutoff=300., lowpass_order=5):
+
+    trace_float=trace.astype(np.float32)
+    trace_notch = ta.notch_filter(trace_float, fs=fs, freq_base=notch_base, bandwidth=notch_bandwidth,
+                                  harmonics=notch_harmonics, order=notch_order)
+    lfp = ta.butter_lowpass(trace_notch, fs=fs, cutoff=lowpass_cutoff, order=lowpass_order)
+
+    return lfp.astype(trace.dtype)
+
+
 if __name__ == '__main__':
 
     #===========================================================================
