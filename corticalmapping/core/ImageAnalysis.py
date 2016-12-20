@@ -1442,7 +1442,7 @@ class ROI(object):
 
         dimension = h5Group.attrs['dimension']
         pixelSize = h5Group.attrs['pixelSize']
-        if pixelSize is 'None': pixelSize = None
+        if pixelSize == 'None': pixelSize = None
         pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
         if pixelSizeUnit is 'None': pixelSizeUnit = None
         pixels = h5Group['pixels'].value
@@ -1564,12 +1564,12 @@ class WeightedROI(ROI):
 
         dimension = h5Group.attrs['dimension']
         pixelSize = h5Group.attrs['pixelSize']
-        if pixelSize is 'None': pixelSize = None
+        if pixelSize == 'None': pixelSize = None
         pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
         if pixelSizeUnit is 'None': pixelSizeUnit = None
         pixels = h5Group['pixels'].value
         weights = h5Group['weights'].value
-        mask = np.zeros(dimension, dtype=np.float32);
+        mask = np.zeros(dimension, dtype=np.float32)
         mask[tuple(pixels)] = weights
         return WeightedROI(mask, pixelSize=pixelSize, pixelSizeUnit=pixelSizeUnit)
 
