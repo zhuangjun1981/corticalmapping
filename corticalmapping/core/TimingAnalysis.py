@@ -589,9 +589,9 @@ def event_triggered_event_trains(event_ts, triggers, t_range=(-1., 2.)):
         curr_st = trigger + t_range[0]
         curr_et = trigger + t_range[1]
         curr_train = event_ts[(event_ts >= curr_st) & (event_ts < curr_et)]
-        etts.append(curr_train)
+        etts.append(curr_train - trigger)
 
-    return etts
+    return etts, t_range
 
 
 if __name__=='__main__':
