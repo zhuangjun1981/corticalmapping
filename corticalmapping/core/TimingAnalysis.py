@@ -3,6 +3,7 @@ __author__ = 'junz'
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sig
+import corticalmapping.core.PlottingTools as pt
 
 plt.ioff()
 
@@ -200,8 +201,8 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
                 spectrum[:,idx] = current_spectrum
 
     if is_plot:
-        f = plt.figure(figsize=(15, 8)); ax = f.add_subplot(111)
-        fig = ax.imshow(spectrum,cmap='jet',interpolation='nearest', **kwargs)
+        f = plt.figure(figsize=(15, 6)); ax = f.add_subplot(111)
+        fig = ax.imshow(spectrum, interpolation='nearest', **kwargs)
         ax.set_xlabel('times (sec)')
         ax.set_ylabel('frequency (Hz)')
         ax.set_xticks(range(len(times))[::(len(times)//10)])
@@ -209,10 +210,12 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
         ax.set_xticklabels(times[::(len(times)//10)])
         ax.set_yticklabels(freq_axis[::(len(freq_axis)//10)])
         ax.invert_yaxis()
+        ax.set_aspect(float(len(times)) * 0.5 / float(len(freq_axis)))
         f.colorbar(fig)
-        plt.show()
 
-    return spectrum, times, freq_axis
+        return spectrum, times, freq_axis, f
+    else:
+        return spectrum, times, freq_axis
 
 
 def get_burst(spikes, pre_isi=(-np.inf, -0.1), inter_isi=0.004, spk_num_thr=2):
@@ -297,7 +300,7 @@ def possion_event_ts(duration=600., firing_rate = 1., refractory_dur=0.001, is_p
     if is_plot:
         f = plt.figure(figsize=(10, 10))
         ax = f.add_subplot(111)
-        ax.hist(isi, bins=1000, range=[0., 1.])
+        ax.hist(isi, bins=1000)
 
     return np.array(ts)
 
@@ -412,7 +415,7 @@ def butter_lowpass_filter(cutoff=300., fs=30000., order=5, is_plot=False):
     return b, a
 
 
-def butter_bandpass(trace, fs=30000., cutoffs=(300., 6000.),order=5):
+def butter_bandpass(trace, fs=30000., cutoffs=(300., 6000.), order=5):
     """
     band pass filter a 1-d signal using digital butterworth filter design
 
@@ -469,9 +472,126 @@ def notch_filter(trace, fs=30000., freq_base=60., bandwidth=1., harmonics=4, ord
     return trace_filtered.astype(trace.dtype)
 
 
-def event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-1., 1.), bins=100, isPlot=False):
-    # todo: finish this function
-    pass
+def event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-1., 1.), bins=100, is_plot=False):
+    """
+    event triggered average of an analog signal trigger by discrete events. The timestamps of the analog signal may not
+    be regular
+
+    :param ts_event: 1-d array, float, timestamps of trigging event
+    :param continuous: 1-d array, float, value of the analog signal
+    :param ts_continuous: 1-d array, float, timestamps of the analog signal, should have same length as continuous
+    :param t_range: tuple of 2 floats, temporal range of calculated average
+    :param bins: int, number of bins of calculated average
+    :param is_plot:
+    :return: eta: 1-d array, float, event triggered average
+             n: 1-d array, unit, number of time point of each bin
+             t: 1-d array, float, time axis of event triggered average
+             std: 1-d array, float, standard deviation of each bin in the event triggered average
+
+             all four returned arrays should have same length
+    """
+
+    if t_range[0] >= t_range[1]:
+        raise ValueError('t_range[0] should be smaller than t_range[1].')
+
+    # sort continuous channel to be monotonic increasing in temporal domain
+    sort_ind = np.argsort(ts_continuous)
+    ts_continuous = ts_continuous[sort_ind]
+    continuous = continuous[sort_ind]
+
+    # initiation
+    bin_width = (t_range[1] - t_range[0]) / bins
+    t = t_range[0] + np.arange(bins, dtype=np.float32) * bin_width
+
+    eta_list = [[] for bin in t]
+    n = np.zeros(t.shape, dtype=np.uint64)
+    std = np.zeros(t.shape, dtype=np.float32)
+    eta = np.zeros(t.shape, dtype=np.float32)
+    eta[:] = np.nan
+
+    print '\nStart calculating event triggered average ...'
+    percentage = None
+
+    for ind_eve, eve in enumerate(ts_event):
+
+        # for display
+        curr_percentage =  int((float(ind_eve) * 100. / float(len(ts_event))) // 10) * 10
+        if curr_percentage != percentage:
+            print 'progress: ' + str(curr_percentage) + '%'
+            # print eve, ':', ts_continuous[-1]
+            percentage = curr_percentage
+
+        if ((eve + t_range[0]) > ts_continuous[0]) and ((eve + t_range[1]) < ts_continuous[-1]):
+
+            # slow algorithm
+            # bin_starts = t + eve
+            # for i, bin_start in enumerate(bin_starts):
+            #     curr_datapoint =  continuous[(ts_continuous >= bin_start) & (ts_continuous < (bin_start + bin_width))]
+            #     if len(curr_datapoint) != 0:
+            #         eta_list[i] += list(curr_datapoint)
+
+            # fast algorithm
+            all_bin_start = eve + t_range[0]
+            all_bin_end = eve + t_range[1]# - 1e-10
+            for i, curr_t in enumerate(ts_continuous):
+                if curr_t < all_bin_start:
+                    continue
+                elif curr_t >= all_bin_end:
+                    break
+                else:
+                    bin_ind = int((curr_t - all_bin_start) // bin_width)
+                    eta_list[bin_ind].append(continuous[i])
+
+    for j, datapoints in enumerate(eta_list):
+        if len(datapoints) > 0:
+            eta[j] = np.mean(datapoints)
+            n[j] = len(datapoints)
+        if len(datapoints) > 1:
+            std[j] = np.std(datapoints)
+
+    if is_plot:
+        # f = plt.figure(figsize=(10, 10))
+        # ax = f.add_subplot(111)
+        # for k in range(len(eta)):
+        #     if not np.isnan(eta[k]):
+        #         pt.bar_graph(t[k], eta[k], error=std[k], errorDir='positive', width=bin_width, plotAxis=ax, lw=2,
+        #                      errorColor='#888888', faceColor='#888888', edgeColor='none', capSize=0)
+        #     ax.text(t[k] + (bin_width / 2), 0, str(n[k]), ha='center', va='bottom')
+        # ax.set_title('event triggered average')
+        # ax.set_xlabel('time (sec)')
+        # plt.show()
+
+        f = plt.figure(figsize=(10, 10))
+        ax = f.add_subplot(111)
+        ax.plot(t, eta)
+        ax.set_title('event triggered average')
+        ax.set_xlabel('time (sec)')
+        ax.set_xlim(t_range)
+        plt.show()
+
+    return eta, t, n, std
+
+
+def event_triggered_event_trains(event_ts, triggers, t_range=(-1., 2.)):
+    """
+    calculate peri-trigger event timestamp trains.
+
+    :param event_ts: array of float, discrete event timestamps
+    :param triggers: array of float, trigger timestamps
+    :param t_range: tuple of two floats, start and end time of the time window around the trigger
+    :return: list of arrays, each array is a triggered train of event timestamps (relative to trigger time)
+    """
+
+    # event triggered timestamps
+    etts = []
+
+    for trigger in triggers:
+        curr_st = trigger + t_range[0]
+        curr_et = trigger + t_range[1]
+        curr_train = event_ts[(event_ts >= curr_st) & (event_ts < curr_et)]
+        etts.append(curr_train)
+
+    return etts
 
 
 if __name__=='__main__':
@@ -525,8 +645,20 @@ if __name__=='__main__':
     # ============================================================================================================
 
     # ============================================================================================================
-    possion_event_ts(firing_rate=1., duration=1000., refractory_dur=0.1, is_plot=True)
-    plt.show()
+    # possion_event_ts(firing_rate=1., duration=1000., refractory_dur=0.1, is_plot=True)
+    # plt.show()
+    # ============================================================================================================
+
+    # ============================================================================================================
+    continuous = np.arange(1000) * 0.1
+    ts_continuous = np.arange(1000)
+    ts_event = [100, 101, 102, 200, 205]
+    eta, t, n, std = event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-10., 10.), bins=20,
+                                             is_plot=True)
+    print eta
+    print t
+    print n
+    print std
     # ============================================================================================================
 
     print 'for debugging...'

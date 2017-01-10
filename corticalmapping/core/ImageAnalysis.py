@@ -1166,7 +1166,7 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur, isReturnN=False):
         return sumMov.astype(np.float32) / n
 
 
-def get_average_movie2(mov, frameTS, onsetTimes, chunkDur):
+def get_average_movie2(mov, frameTS, onsetTimes, chunkDur, verbose=True):
     '''
     :param mov: image movie
     :param frameTS: the timestamps for each frame of the raw movie
@@ -1192,25 +1192,31 @@ def get_average_movie2(mov, frameTS, onsetTimes, chunkDur):
         count += 1
 
         if onset < frameTS[0]:
-            print 'onset number:', count, 'is before imaging start time. Exclude this onset.'
+
+            if verbose:
+                print 'onset number:', count, 'is before imaging start time. Exclude this onset.'
 
         else:
-
             onsetFrameInd = np.argmin(np.abs(frameTS-onset))
-            print 'Chunk:',int(count),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
+            if verbose:
+                print 'Chunk:',int(count),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
 
             if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
                 if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
                 sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
                 real_count += 1.
             else:
-                print 'the chunk of onset number', count, 'exceeds the end of imaging. Exclude this onset.'
+                if verbose:
+                    print 'the chunk of onset number', count, 'exceeds the end of imaging. Exclude this onset.'
+                else:
+                    pass
 
     if sumMov is None:
         print '\nNo valid chunk found!'
         return np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]), dtype=np.float32), 0
     else:
-        print '\n' + str(int(real_count)) + ' valid chunks found.'
+        if verbose:
+            print '\n' + str(int(real_count)) + ' valid chunks found.'
         return sumMov.astype(np.float32) / real_count, int(real_count)
 
 
@@ -1564,7 +1570,7 @@ class WeightedROI(ROI):
 
         dimension = h5Group.attrs['dimension']
         pixelSize = h5Group.attrs['pixelSize']
-        if pixelSize == 'None': pixelSize = None
+        if pixelSize is 'None': pixelSize = None
         pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
         if pixelSizeUnit is 'None': pixelSizeUnit = None
         pixels = h5Group['pixels'].value

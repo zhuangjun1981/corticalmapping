@@ -3,6 +3,7 @@ import numpy as np
 import h5py
 import corticalmapping.ephys.OpenEphysWrapper as oew
 import corticalmapping.ephys.KilosortWrapper as kw
+import corticalmapping.HighLevel as hl
 import corticalmapping.core.FileTools as ft
 import corticalmapping.core.TimingAnalysis as ta
 try:
@@ -324,9 +325,6 @@ class RecordedFile(NWB):
             spike_ind['unit_mua'] = np.sort(np.concatenate(spike_ind['unit_mua'], axis=0))
             # print 'type of unit_mua spike ind: ', type(spike_ind['unit_mua'])
 
-
-
-
         # print 'after: ', spike_ind['unit_mua'].shape
 
         mod = self.create_module(name=module_name)
@@ -351,6 +349,137 @@ class RecordedFile(NWB):
 
         unit_times.finalize()
         mod.finalize()
+
+    def add_external_LFP(self,  traces, fs=30000., module_name=None, notch_base=60., notch_bandwidth=1., notch_harmonics=4,
+                         notch_order=2, lowpass_cutoff=300., lowpass_order=5, resolution=0, conversion=0, unit='',
+                        comments='', source=''):
+        """
+        add LFP of raw arbitrary electrical traces into LFP module into /procession field. the trace will be filtered
+        by corticalmapping.HighLevel.get_lfp() function. All filters are butterworth digital filters
+
+        :param module_name: str, name of module to be added
+        :param traces: dict, {str: 1d-array}, {name: trace}, input raw traces
+        :param fs: float, sampling rate, Hz
+        :param notch_base: float, Hz, base frequency of powerline contaminating signal
+        :param notch_bandwidth: float, Hz, filter bandwidth at each side of center frequency
+        :param notch_harmonics: int, number of harmonics to filter out
+        :param notch_order: int, order of butterworth bandpass notch filter, for a narrow band, shouldn't be larger than 2
+        :param lowpass_cutoff: float, Hz, cutoff frequency of lowpass filter
+        :param lowpass_order: int, order of butterworth lowpass filter
+        :param resolution: float, resolution of LFP time series
+        :param conversion: float, conversion of LFP time series
+        :param unit: str, unit of LFP time series
+        :param comments: str, interface comments
+        :param source: str, interface source
+        """
+
+        if module_name is None or module_name=='':
+            module_name = 'external_LFP'
+
+        lfp = {}
+        for tn, trace in traces.items():
+            curr_lfp = hl.get_lfp(trace,fs=fs, notch_base=notch_base, notch_bandwidth=notch_bandwidth,
+                                  notch_harmonics=notch_harmonics, notch_order=notch_order,
+                                  lowpass_cutoff=lowpass_cutoff, lowpass_order=lowpass_order)
+            lfp.update({tn: curr_lfp})
+
+        lfp_mod = self.create_module(module_name)
+        lfp_mod.set_description('LFP from external traces')
+        lfp_interface = lfp_mod.create_interface('LFP')
+        lfp_interface.set_value('description', 'LFP of raw arbitrary electrical traces. The traces were filtered by '
+                                'corticalmapping.HighLevel.get_lfp() function. First, the powerline contamination at '
+                                'multiplt harmonics were filtered out by a notch filter. Then the resulting traces were'
+                                ' filtered by a lowpass filter. All filters are butterworth digital filters')
+        lfp_interface.set_value('comments', comments)
+        lfp_interface.set_value('notch_base', notch_base)
+        lfp_interface.set_value('notch_bandwidth', notch_bandwidth)
+        lfp_interface.set_value('notch_harmonics', notch_harmonics)
+        lfp_interface.set_value('notch_order', notch_order)
+        lfp_interface.set_value('lowpass_cutoff', lowpass_cutoff)
+        lfp_interface.set_value('lowpass_order', lowpass_order)
+        lfp_interface.set_source(source)
+        for tn, t_lfp in lfp.items():
+            curr_ts = self.create_timeseries('ElectricalSeries', tn, modality='other')
+            curr_ts.set_data(t_lfp, conversion=conversion, resolution=resolution, unit=unit)
+            curr_ts.set_time_by_rate(time_zero=0., rate=fs)
+            curr_ts.set_value('num_samples', len(t_lfp))
+            curr_ts.set_value('electrode_idx', 0)
+            lfp_interface.add_timeseries(curr_ts)
+            lfp_interface.finalize()
+
+        lfp_mod.finalize()
+
+    def add_internal_LFP(self, continuous_channels, module_name=None, notch_base=60., notch_bandwidth=1.,
+                         notch_harmonics=4, notch_order=2, lowpass_cutoff=300., lowpass_order=5, comments='',
+                         source=''):
+        """
+        add LFP of acquired electrical traces into LFP module into /procession field. the trace will be filtered
+        by corticalmapping.HighLevel.get_lfp() function. All filters are butterworth digital filters.
+
+        :param continuous_channels: list of strs, name of continuous channels saved in '/acquisition/timeseries'
+                                    folder, the time axis of these channels should be saved by rate
+                                    (ephys sampling rate).
+        :param module_name: str, name of module to be added
+        :param notch_base: float, Hz, base frequency of powerline contaminating signal
+        :param notch_bandwidth: float, Hz, filter bandwidth at each side of center frequency
+        :param notch_harmonics: int, number of harmonics to filter out
+        :param notch_order: int, order of butterworth bandpass notch filter, for a narrow band, shouldn't be larger than 2
+        :param lowpass_cutoff: float, Hz, cutoff frequency of lowpass filter
+        :param lowpass_order: int, order of butterworth lowpass filter
+        :param comments: str, interface comments
+        :param source: str, interface source
+        """
+
+        if module_name is None or module_name=='':
+            module_name = 'LFP'
+
+        lfp_mod = self.create_module(module_name)
+        lfp_mod.set_description('LFP from acquired electrical traces')
+        lfp_interface = lfp_mod.create_interface('LFP')
+        lfp_interface.set_value('description', 'LFP of acquired electrical traces. The traces were filtered by '
+                                               'corticalmapping.HighLevel.get_lfp() function. First, the powerline '
+                                               'contamination at multiplt harmonics were filtered out by a notch '
+                                               'filter. Then the resulting traces were filtered by a lowpass filter. '
+                                               'All filters are butterworth digital filters')
+        lfp_interface.set_value('comments', comments)
+        lfp_interface.set_value('notch_base', notch_base)
+        lfp_interface.set_value('notch_bandwidth', notch_bandwidth)
+        lfp_interface.set_value('notch_harmonics', notch_harmonics)
+        lfp_interface.set_value('notch_order', notch_order)
+        lfp_interface.set_value('lowpass_cutoff', lowpass_cutoff)
+        lfp_interface.set_value('lowpass_order', lowpass_order)
+        lfp_interface.set_source(source)
+
+        for channel in continuous_channels:
+
+            print '\n', channel, ': start adding LFP ...'
+
+            trace = self.file_pointer['acquisition/timeseries'][channel]['data'].value
+            fs = self.file_pointer['acquisition/timeseries'][channel]['starting_time'].attrs['rate']
+            start_time = self.file_pointer['acquisition/timeseries'][channel]['starting_time'].value
+            conversion = self.file_pointer['acquisition/timeseries'][channel]['data'].attrs['conversion']
+            resolution = self.file_pointer['acquisition/timeseries'][channel]['data'].attrs['resolution']
+            unit = self.file_pointer['acquisition/timeseries'][channel]['data'].attrs['unit']
+            ts_source = self.file_pointer['acquisition/timeseries'][channel].attrs['source']
+
+            print channel, ': calculating LFP ...'
+
+            t_lfp = hl.get_lfp(trace, fs=fs, notch_base=notch_base, notch_bandwidth=notch_bandwidth,
+                               notch_harmonics=notch_harmonics, notch_order=notch_order, lowpass_cutoff=lowpass_cutoff,
+                               lowpass_order=lowpass_order)
+
+            curr_ts = self.create_timeseries('ElectricalSeries', channel, modality='other')
+            curr_ts.set_data(t_lfp, conversion=conversion, resolution=resolution, unit=unit)
+            curr_ts.set_time_by_rate(time_zero=start_time, rate=fs)
+            curr_ts.set_value('num_samples', len(t_lfp))
+            curr_ts.set_value('electrode_idx', int(channel.split('_')[1]))
+            curr_ts.set_source(ts_source)
+            lfp_interface.add_timeseries(curr_ts)
+            print channel, ': finished adding LFP.'
+
+        lfp_interface.finalize()
+
+        lfp_mod.finalize()
 
     def add_visual_stimulation(self, log_path, display_order=0):
         """
@@ -382,7 +511,8 @@ class RecordedFile(NWB):
             self._add_uniform_contrast_stimulation(log_dict, display_order=display_order)
         elif stim_name == 'DriftingGratingCircle':
             self._add_drifting_grating_circle_stimulation(log_dict, display_order=display_order)
-            pass
+        elif stim_name == 'KSstimAllDir':
+            self._add_drifting_checker_board_stimulation(log_dict, display_order=display_order)
         else:
             raise ValueError('stimulation name {} unrecognizable!'.format(stim_name))
 
@@ -522,6 +652,72 @@ class RecordedFile(NWB):
         stim.set_value('background_color', log_dict['stimulation']['background'])
         stim.finalize()
 
+    def _add_drifting_checker_board_stimulation(self, log_dict, display_order):
+
+        stim_name = log_dict['stimulation']['stimName']
+
+        if stim_name != 'KSstimAllDir':
+            raise ValueError('stimulus should be drifting checker board all directions.')
+
+        display_frames = log_dict['presentation']['displayFrames']
+        time_stamps = log_dict['presentation']['timeStamp']
+
+        display_frames = [list(f) for f in display_frames]
+
+        for i in range(len(display_frames)):
+            if display_frames[i][4] == 'B2U':
+                display_frames[i][4] = 0
+            elif display_frames[i][4] == 'U2B':
+                display_frames[i][4] = 1
+            elif display_frames[i][4] == 'L2R':
+                display_frames[i][4] = 2
+            elif display_frames[i][4] == 'R2L':
+                display_frames[i][4] = 3
+
+        frame_array = np.array(display_frames)
+        frame_array[np.equal(frame_array, None)] = np.nan
+        frame_array = frame_array.astype(np.float32)
+
+        stim = self.create_timeseries('TimeSeries', ft.int2str(display_order, 2) + '_' + stim_name,
+                                      'stimulus')
+        stim.set_time(time_stamps)
+        stim.set_data(frame_array, unit='', conversion=np.nan, resolution=np.nan)
+        stim.set_comments('the timestamps of displayed frames (saved in data) are referenced to the start of'
+                          'this particular display, not the master time clock. For more useful timestamps, check'
+                          '/processing for aligned photodiode onset timestamps.')
+        stim.set_description('data formatting: [isDisplay (0:gap; 1:display), '
+                             'square polarity (1: not reversed; -1: reversed), '
+                             'sweeps, ind, index in sweep table, '
+                             'indicatorColor (for photodiode, from -1 to 1)]. '
+                             'direction (B2U: 0, U2B: 1, L2R: 2, R2L: 3), '
+                             'for gap frames, the 2ed to 3th elements should be np.nan.')
+        stim.set_value('data_formatting', ['isDisplay', 'squarePolarity', 'sweepIndex', 'indicatorColor', 'sweepDirection'])
+        stim.set_source('corticalmapping.VisualStim.KSstimAllDir for stimulus; '
+                        'corticalmapping.VisualStim.DisplaySequence for display')
+        stim.set_value('background_color', log_dict['stimulation']['background'])
+        stim.finalize()
+
+        display_info = hl.analysisMappingDisplayLog(display_log=log_dict)
+        display_grp = self.file_pointer['processing'].create_group('mapping_display_info')
+        display_grp.attrs['description'] = 'This group saves the useful infomation about the retiotopic mapping visual' \
+                                           'stimulation (drifting checker board sweeps in all directions). Generated ' \
+                                           'by the corticalmapping.HighLevel.analysisMappingDisplayLog() function.'
+        for direction, value in display_info.items():
+            dir_grp = display_grp.create_group(direction)
+            dir_grp.attrs['description'] = 'group containing the relative information about all sweeps in a particular' \
+                                           'sweep direction. B: bottom, U: up, L: nasal, R: temporal (for stimulus to' \
+                                           'the right eye)'
+            ind_dset = dir_grp.create_dataset('onset_index', data=value['ind'])
+            ind_dset.attrs['description'] = 'indices of sweeps of current direction in the whole experiment'
+            st_dset = dir_grp.create_dataset('start_time', data=value['startTime'])
+            st_dset.attrs['description'] = 'sweep start time relative to stimulus onset (second)'
+            sd_dset = dir_grp.create_dataset('sweep_duration', data=value['sweepDur'])
+            sd_dset.attrs['description'] = 'sweep duration (second)'
+            equ_dset = dir_grp.create_dataset('phase_retinotopy_equation', data=[value['slope'], value['intercept']])
+            equ_dset.attrs['description'] = 'the linear equation to transform fft phase into retinotopy visual degrees.' \
+                                            'degree = phase * slope + intercept'
+            equ_dset.attrs['data_format'] = ['slope', 'intercept']
+
     def analyze_sparse_noise_frames(self):
         """
         analyze sparse noise display frames saved in '/stimulus/presentation', extract information about onset of
@@ -591,6 +787,64 @@ class RecordedFile(NWB):
 
         for i, log_path in enumerate(log_paths):
             self.add_visual_stimulation(log_path, i + len(exist_stimuli))
+
+    def add_photodiode_onsets(self, digitizeThr=0.9, filterSize=0.01, segmentThr=0.01, smallestInterval=0.03,
+                              expected_onsets_number=None):
+        """
+        intermediate processing step for analysis of visual display. Containing the information about the onset of
+        photodiode signal. Timestamps are extracted from photodiode signal, should be aligned to the master clock.
+        extraction is done by corticalmapping.HighLevel.segmentMappingPhotodiodeSignal() function. The raw signal
+        was first digitized by the digitize_threshold, then filtered by a gaussian fileter with filter_size. Then
+        the derivative of the filtered signal was calculated by numpy.diff. The derivative signal was then timed
+        with the digitized signal. Then the segmentation_threshold was used to detect rising edge of the resulting
+        signal. Any onset with interval from its previous onset smaller than smallest_interval will be discarded.
+        the resulting timestamps of photodiode onsets will be saved in 'processing/photodiode_onsets' timeseries
+
+        :param digitizeThr: float
+        :param filterSize: float
+        :param segmentThr: float
+        :param smallestInterval: float
+        :param expected_onsets_number: int, expected number of photodiode onsets, may extract from visual display
+                                       log. if extracted onset number does not match this number, the process will
+                                       be abort. If None, no such check will be performed.
+        :return:
+        """
+        fs = self.file_pointer['general/extracellular_ephys/sampling_rate'].value
+        pd = self.file_pointer['acquisition/timeseries/photodiode/data'].value * \
+             self.file_pointer['acquisition/timeseries/photodiode/data'].attrs['conversion']
+
+        # plt.plot(pd)
+        # plt.show()
+
+        pd_onsets = hl.segmentMappingPhotodiodeSignal(pd, digitizeThr=digitizeThr, filterSize=filterSize,
+                                                      segmentThr=segmentThr, Fs=fs, smallestInterval=smallestInterval)
+
+        if expected_onsets_number is not None:
+            if len(pd_onsets) != expected_onsets_number:
+                raise ValueError('The number of photodiode onsets (' + str(len(pd_onsets)) + ') and the expected '
+                                 'number of sweeps ' + str(expected_onsets_number) + ' do not match. Abort.')
+
+        pd_ts = self.create_timeseries('TimeSeries', 'photodiode_onsets', modality='other')
+        pd_ts.set_time(pd_onsets)
+        pd_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+        pd_ts.set_description('intermediate processing step for analysis of visual display. '
+                              'Containing the information about the onset of photodiode signal. Timestamps '
+                              'are extracted from photodiode signal, should be aligned to the master clock.'
+                              'extraction is done by corticalmapping.HighLevel.segmentMappingPhotodiodeSignal()'
+                              'function. The raw signal was first digitized by the digitize_threshold, then '
+                              'filtered by a gaussian fileter with filter_size. Then the derivative of the filtered '
+                              'signal was calculated by numpy.diff. The derivative signal was then timed with the '
+                              'digitized signal. Then the segmentation_threshold was used to detect rising edge of '
+                              'the resulting signal. Any onset with interval from its previous onset smaller than '
+                              'smallest_interval will be discarded.')
+        pd_ts.set_path('/processing/photodiode_onsets')
+        pd_ts.set_value('digitize_threshold', digitizeThr)
+        pd_ts.set_value('fileter_size', filterSize)
+        pd_ts.set_value('segmentation_threshold', segmentThr)
+        pd_ts.set_value('smallest_interval', smallestInterval)
+        pd_ts.finalize()
+
+
 
 
 

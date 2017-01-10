@@ -280,14 +280,14 @@ def analysisMappingDisplayLogs(logPathList):
     return displayInfo
 '''
 
-def analysisMappingDisplayLog(logPath):
+def analysisMappingDisplayLog(display_log):
     '''
-    :param logFile: path of visual display log of a mapping experiment
+    :param logFile: log dictionary or the path of visual display log of a mapping experiment
     :return:
     displayInfo: dictionary, for each direction ('B2U','U2B','L2R','R2L'):
-        'ind': indices of these sweeps in the whole experiments
+        'ind': indices of these sweeps in the whole experiment
         'startTime': starting time relative to stimulus onset
-        'endTime': end time relative to stimulus onset
+        'sweepDur': duration of the sweep
         'slope': slope of the linear relationship between phase and retinotopic location
         'intercept': intercept of the linear relationship between phase and retinotopic location
 
@@ -301,7 +301,12 @@ def analysisMappingDisplayLog(logPath):
                    'R2L':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]}
                    }
 
-    log = ft.loadFile(logPath)
+    if isinstance(display_log, dict):
+        log = display_log
+    elif isinstance(display_log, str):
+        log = ft.loadFile(display_log)
+    else:
+        raise ValueError('log should be either dictionary or a path string!')
 
     #check display order
     if log['presentation']['displayOrder']==-1: raise ValueError, 'Display order is -1 (should be 1)!'
@@ -651,6 +656,18 @@ def neural_pil_subtraction(trace_center, trace_surround, lam=0.05):
 
 def get_lfp(trace, fs=30000., notch_base=60., notch_bandwidth=1., notch_harmonics=4, notch_order=2,
             lowpass_cutoff=300., lowpass_order=5):
+    """
+
+    :param trace: 1-d array, input trace
+    :param fs: float, sampling rate, Hz
+    :param notch_base: float, Hz, base frequency of powerline contaminating signal
+    :param notch_bandwidth: float, Hz, filter bandwidth at each side of center frequency
+    :param notch_harmonics: int, number of harmonics to filter out
+    :param notch_order: int, order of butterworth bandpass notch filter, for a narrow band, shouldn't be larger than 2
+    :param lowpass_cutoff: float, Hz, cutoff frequency of lowpass filter
+    :param lowpass_order: int, order of butterworth lowpass filter
+    :return: filtered LFP, 1-d array with same dtype as input trace
+    """
 
     trace_float=trace.astype(np.float32)
     trace_notch = ta.notch_filter(trace_float, fs=fs, freq_base=notch_base, bandwidth=notch_bandwidth,

@@ -498,6 +498,22 @@ def hot_2_rgb(hot):
     return get_color_str(*color)
 
 
+def cmap_2_rgb(value, cmap_string):
+    """
+    get the RGB value as format as hex string from the value of a given color map
+
+    :param value: float, input value for a given color, this value should be within (0., 1.). value out of range will
+                  be clipped to the limit
+    :param cmap_string: str, string for a colormap
+    :return: color hex string
+    """
+
+    cmap = plt.get_cmap(cmap_string)
+    color=cmap(value)[0:3]
+    color = [int(x*255) for x in color]
+    return get_color_str(*color)
+
+
 def value_2_rgb(value, cmap):
     '''
     get the RGB value as format as hex string from the decimal ratio of a given colormap (from 0 to 1)
