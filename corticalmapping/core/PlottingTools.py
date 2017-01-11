@@ -16,6 +16,7 @@ import scipy.ndimage as ni
 
 import tifffile as tf
 import ImageAnalysis as ia
+import TimingAnalysis as ta
 try: import cv2
 except ImportError as e: print 'can not import OpenCV. ' + str(e)
 
@@ -524,6 +525,7 @@ def value_2_rgb(value, cmap):
     color = cmap(value)[0:3]; color = [int(x*255) for x in color]
     return get_color_str(*color)
 
+
 def plot_event_ticks(event_tss, t_range, plot_axis=None, color='#000000', **kwargs):
     """
     plot event timestamps for multiple trials with each event as a small vertical tick. Input of this function can be
@@ -556,6 +558,81 @@ def plot_event_ticks(event_tss, t_range, plot_axis=None, color='#000000', **kwar
         curr_upper = uppers[i]
         for event in event_ts:
             plot_axis.plot([event, event], [curr_lower, curr_upper], '-', color=color, **kwargs)
+
+
+def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.002, 0.002), channel_names=None,
+                         **kwargs):
+    """
+    plot spike waveforms across multiple continuous channels given unit spike timestamps
+
+    :param unit_ts: 1d array, timestamps of the plotting unit (second)
+    :param channels: list of 1d arrays, value of each continuous channel, all arrays should have same length
+    :param channel_ts: 1d array, timestamps of the continuous channels
+    :param fig: matplotlib.figure object, if None, a fig object will be created
+    :param t_range: tuple of two floats, time range to plot along spike time stamps
+    :param channel_names: list of strings, name for each channel, should have same length as channels
+    :param kwargs: inputs to matplotlib.axes.plot() function
+    :return: fig
+    """
+
+    # print 'in plotting tools.'
+
+    if fig is None:
+        fig = plt.figure(figsize=(8, 6))
+
+    ch_num = len(channels)
+    t_step = np.mean(np.diff(channel_ts))
+
+    ind_range = [int(t_range[0] / t_step), int(t_range[1] / t_step)]
+    # print 'ind_range:', ind_range
+
+    if t_range[0] < 0:
+        base_point_num = -int(t_range[0] / t_step)
+    else:
+        base_point_num = ind_range[1] - ind_range[0]
+
+    # print 'getting spike indices ...'
+    unit_inds = np.round((unit_ts - channel_ts[0]) / t_step).astype(np.int64)
+    unit_inds = np.array([ind for ind in unit_inds if (ind + ind_range[0]) >= 0 and
+                                                      (ind + ind_range[1]) < len(channel_ts)])
+
+    # axis direction: (channel, spike, time)
+    traces = np.zeros((ch_num, len(unit_inds), ind_range[1] - ind_range[0]), dtype=np.float32)
+
+    # print 'traces shape:', traces.shape
+
+    # print 'filling traces ...'
+    for i, ch in enumerate(channels):
+        # print 'current channel:', i
+        for j, unit_ind in enumerate(unit_inds):
+            curr_trace = ch[unit_ind + ind_range[0]: unit_ind + ind_range[1]]
+            traces[i, j, :] = curr_trace - np.mean(curr_trace[0:base_point_num])
+
+    traces_min = np.amin(traces)
+    traces_max = np.amax(traces)
+    mean_traces = np.mean(traces, axis=1)
+
+    # print traces_min
+    # print traces_max
+
+    t_axis = t_range[0] + np.arange(traces.shape[2], dtype=np.float32) * t_step
+    for k in range(traces.shape[0]):
+        curr_ax = fig.add_subplot(1, ch_num, k + 1)
+        curr_ax.set_xlim(t_range)
+        curr_ax.set_ylim([traces_min, traces_max])
+        if k == 0:
+            curr_ax.set_yticks([traces_min, 0., traces_max])
+        else:
+            curr_ax.set_yticks([])
+        curr_ax.locator_params(nbins=3, axis='x')
+        curr_ax.set_xlabel('time (sec)')
+        if channel_names is not None:
+            curr_ax.set_title(channel_names[k])
+        for l in range(traces.shape[1]):
+            curr_ax.plot(t_axis, traces[k, l, :], **kwargs)
+        curr_ax.plot(t_axis, mean_traces[k, :], '-k', lw=2)
+
+    return fig
 
     
 if __name__=='__main__':

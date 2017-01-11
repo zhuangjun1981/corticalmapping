@@ -6,6 +6,7 @@ import corticalmapping.ephys.KilosortWrapper as kw
 import corticalmapping.HighLevel as hl
 import corticalmapping.core.FileTools as ft
 import corticalmapping.core.TimingAnalysis as ta
+import corticalmapping.core.PlottingTools as pt
 try:
     from nwb.nwb import NWB
 except ImportError:
@@ -843,6 +844,74 @@ class RecordedFile(NWB):
         pd_ts.set_value('segmentation_threshold', segmentThr)
         pd_ts.set_value('smallest_interval', smallestInterval)
         pd_ts.finalize()
+
+    def plot_spike_waveforms(self, unitn, channel_names, fig=None, t_range=(-0.002, 0.002), **kwargs):
+        """
+        plot spike waveforms
+
+        :param unitn: str, name of ephys unit, should be in '/processing/ephys_units/UnitTimes'
+        :param channel_names: list of strs, channel names in continuous recordings, should be in '/acquisition/timeseries'
+        :param fig: matplotlib figure object
+        :param t_range: tuple of two floats, time range to plot along spike time stamps
+        :param kwargs: inputs to matplotlib.axes.plot() function
+        :return: fig
+        """
+        # print 'in nwb tools.'
+
+        if unitn not in self.file_pointer['processing/ephys_units/UnitTimes'].keys():
+            raise LookupError('Can not find ephys unit: ' + unitn + '.')
+
+        for channeln in channel_names:
+            if channeln not in self.file_pointer['acquisition/timeseries'].keys():
+                raise LookupError('Can not find continuous recording: ' + channeln + '.')
+
+        unit_ts = self.file_pointer['processing/ephys_units/UnitTimes'][unitn]['times'].value
+
+        channels = []
+        sample_rate = None
+        starting_time = None
+        channel_len = None
+
+        for channeln in channel_names:
+
+            if sample_rate is None:
+                sample_rate = self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].attrs['rate']
+            else:
+                if sample_rate != self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].attrs['rate']:
+                    raise ValueError('sample rate of channel ' + channeln + ' does not equal the sample rate of other '
+                                                                            'channels.')
+
+            if starting_time is None:
+                starting_time = self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].value
+            else:
+                if starting_time != self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].value:
+                    raise ValueError('starting time of channel ' + channeln + ' does not equal the start time of '
+                                                                              'other channels.')
+
+
+            curr_ch = self.file_pointer['acquisition/timeseries'][channeln]['data'].value
+            curr_rate = self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].attrs['rate']
+
+            if channel_len is None:
+                channel_len = len(curr_ch)
+            else:
+                if len(curr_ch) != channel_len:
+                    raise ValueError('Length of channel ' + channeln + ' does not equal the lengths of other '
+                                                                       'channels.')
+
+            curr_conversion = self.file_pointer['acquisition/timeseries'][channeln]['data'].attrs['conversion']
+            curr_ch = curr_ch.astype(np.float32) * curr_conversion
+            curr_ch = ta.butter_bandpass(curr_ch, cutoffs=(300., 6000.), fs=curr_rate)
+            channels.append(curr_ch)
+
+        channel_ts = starting_time + np.arange(channel_len, dtype=np.float32) / sample_rate
+
+
+        fig = pt.plot_spike_waveforms(unit_ts=unit_ts, channels=channels, channel_ts=channel_ts, fig=fig,
+                                      t_range=t_range, channel_names=channel_names, **kwargs)
+        fig.suptitle(unitn)
+
+        return fig
 
 
 

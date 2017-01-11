@@ -3374,8 +3374,7 @@ class DisplaySequence(object):
                 return backupFileFolder
             else:
                 return None
-                
-            
+
 
     def clear(self):
         """ clear display information. """
