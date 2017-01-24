@@ -189,7 +189,7 @@ def generatePhaseMap2(movie,cycles,isReverse = False,isPlot = False):
     if isReverse:
         movie = np.amax(movie) - movie
 
-    spectrumMovie = np.fft.fft(movie,axis=0)
+    spectrumMovie = np.fft.fft(movie, axis=0)
 
     #generate power movie
     powerMovie = (np.abs(spectrumMovie) * 2.) / np.size(movie, 0)
@@ -213,6 +213,44 @@ def generatePhaseMap2(movie,cycles,isReverse = False,isPlot = False):
         plt.colorbar()
 
     return phaseMap, powerMap
+#
+# def generatePhaseMap3(movie, filter_size=None, isReverse=False, isPlot=False):
+#     '''
+#     find the phase by maximum, the movie should be df movie and only contains one cycle
+#     '''
+#
+#     if isReverse:
+#         movie = np.amax(movie) - movie
+#
+#     if filter_size is not None:
+#         movie = ni.filters.gaussian_filter(movie, sigma=(filter_size, 0., 0.))
+#
+#     powerMap = np.sum(movie, axis=0)
+#
+#     movie = movie.astype(np.float32)
+#     movie[movie < 0.] = 0.
+#
+#     # phaseMap = np.argmax(movie, axis=0) * 2 * np.pi / float(movie.shape[0])
+#
+#     weighted_sum = np.zeros((movie.shape[1], movie.shape[2]))
+#     for i in range(movie.shape[0]):
+#         weighted_sum = weighted_sum + movie[i, :, :] * i
+#     total_sum = np.sum(movie, axis=0)
+#     weighted_average = weighted_sum / total_sum
+#     phaseMap = weighted_average * 2 * np.pi / float(movie.shape[0])
+#
+#     if isPlot == True:
+#         plt.figure()
+#         plotMap = 180 * (phaseMap / np.pi)
+#         plt.imshow(plotMap,
+#                    aspect='equal',
+#                    cmap = 'hsv',
+#                    vmax = 360,
+#                    vmin = 0,
+#                    interpolation = 'nearest')
+#         plt.colorbar()
+#
+#     return phaseMap, powerMap
 
 
 def getPhase(trace,cycles,isReverse = False):
@@ -601,6 +639,7 @@ def plotVisualSpace(visualSpace, altAxis, aziAxis, tickSpace=10, plotAxis=None, 
     ax.set_xticklabels(aziTickLabels)
     ax.set_yticks(altTickInds)
     ax.set_yticklabels(altTickLabels)
+    ax.invert_yaxis()
 
 
 def localMin(eccMap, binSize):
@@ -3335,11 +3374,16 @@ class Patch(object):
             altMap = altMap - visualFieldOrigin[0]
             aziMap = aziMap - visualFieldOrigin[1]
 
-        altAxis = np.arange(altRange[0], altRange[1], pixelSize)[::-1]
+        # altAxis = np.arange(altRange[0], altRange[1], pixelSize)[::-1]
+        # aziAxis = np.arange(aziRange[0], aziRange[1], pixelSize)
+
+        # visualSpace = np.zeros((np.ceil((altRange[1] - altRange[0]) / pixelSize),
+        #                         np.ceil((aziRange[1] - aziRange[0]) / pixelSize)))
+
+        altAxis = np.arange(altRange[0], altRange[1], pixelSize)
         aziAxis = np.arange(aziRange[0], aziRange[1], pixelSize)
 
-        visualSpace = np.zeros((np.ceil((altRange[1] - altRange[0]) / pixelSize),
-                                np.ceil((aziRange[1] - aziRange[0]) / pixelSize)))
+        visualSpace = np.zeros((len(altAxis), len(aziAxis)), dtype=np.uint8)
 
         patchArray = self.array
         for i in range(patchArray.shape[0]):
@@ -3348,14 +3392,12 @@ class Patch(object):
                     corAlt = altMap[i, j]
                     corAzi = aziMap[i, j]
                     if (corAlt >= altRange[0]) & (corAlt <= altRange[1]) & (corAzi >= aziRange[0]) & (corAzi <= aziRange[1]):
-                        indAlt = (altRange[1] - corAlt) // pixelSize
+                        indAlt = (corAlt - altRange[0]) // pixelSize
                         indAzi = (corAzi - aziRange[0]) // pixelSize
-                        visualSpace[np.int(indAlt), np.int(indAzi)] = 1
+                        visualSpace[int(indAlt), int(indAzi)] = 1
 
         if closeIter >= 1:
             visualSpace = ni.binary_closing(visualSpace, iterations=closeIter)
-
-        visualSpace = visualSpace.astype(np.uint8)
 
         if isplot:
             f = plt.figure()

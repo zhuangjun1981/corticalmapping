@@ -45,9 +45,9 @@ DEFAULT_GENERAL = {
                                            # 'filtering': []
                                            },
                    'optophysiology': {
-                                      'indicator': '',
+                                      # 'indicator': '',
                                       # 'excitation_lambda': '',
-                                      'imaging_rate': '',
+                                      # 'imaging_rate': '',
                                       # 'location': '',
                                       # 'device': '',
                                       },
@@ -85,17 +85,7 @@ class RecordedFile(NWB):
         add general dictionary to the general filed
         """
         slf = self.file_pointer
-
-        for key, value in general.items():
-            if isinstance(value, dict):
-                try:
-                    curr_group = slf['general'].create_group(key)
-                except ValueError:
-                    curr_group = slf['general'][key]
-                for key2, value2 in value.items():
-                    ft.update_key(curr_group, key2, value2, is_overwrite=is_overwrite)
-            else:
-                ft.update_key(slf['general'], key, value, is_overwrite=is_overwrite)
+        ft.write_dictionary_to_h5group_recursively(target=slf['general'], source=general, is_overwrite=is_overwrite)
 
     def add_open_ephys_data(self, folder, prefix, digital_channels=()):
         """
@@ -912,6 +902,70 @@ class RecordedFile(NWB):
         fig.suptitle(unitn)
 
         return fig
+
+    def add_motion_correction_module(self, module_name, original_timeseries_path, corrected_file_path,
+                                     corrected_dataset_path, xy_translation_offsets, interface_name='MotionCorrection',
+                                     mean_projection=None, max_projection=None, description='', comments='',
+                                     source=''):
+        """
+        add a motion corrected image series in to processing field as a module named 'motion_correction' and create a
+        link to an external hdf5 file which contains the images.
+        :param module_name: str, module name to be created
+        :param interface_name: str, interface name of the image series
+        :param original_timeseries_path: str, the path to the timeseries of the original images
+        :param corrected_file_path: str, the full file system path to the hdf5 file containing the raw image data
+        :param corrected_dataset_path: str, the path within the hdf5 file pointing to the raw data. the object should have at
+                             least 3 attributes: 'conversion', resolution, unit
+        :param xy_translation_offsets: 2d array with two columns,
+        :param mean_projection: 2d array, mean_projection of corrected image, if None, no dataset will be
+                                created
+        :param max_projection: 2d array,  max_projection of corrected image, if None, no dataset will be
+                                created
+        :return:
+        """
+
+        orig = self.file_pointer[original_timeseries_path]
+        timestamps = orig['timestamps'].value
+
+        img_file = h5py.File(corrected_file_path)
+        img_data = img_file[corrected_dataset_path]
+        if timestamps.shape[0] != img_data.shape[0]:
+            raise ValueError('Number of frames does not equal to the length of timestamps!')
+
+        if xy_translation_offsets.shape[0] != timestamps.shape[0]:
+            raise ValueError('Number of offsets does not equal to the length of timestamps!')
+
+        corrected = self.create_timeseries(ts_type='ImageSeries', name='corrected', modality='other')
+        corrected.set_data_as_remote_link(corrected_file_path, corrected_dataset_path)
+        corrected.set_time_as_link(original_timeseries_path)
+        corrected.set_description(description)
+        corrected.set_comments(comments)
+        corrected.set_source(source)
+        for value_n in orig.keys():
+            if value_n not in ['image_data_path_within_file', 'image_file_path', 'data', 'timestamps']:
+                corrected.set_value(value_n, orig[value_n].value)
+
+        xy_translation = self.create_timeseries(ts_type='TimeSeries', name='xy_translation', modality='other')
+        xy_translation.set_data(xy_translation_offsets, unit='pixel', conversion=np.nan, resolution=np.nan)
+        xy_translation.set_time_as_link(original_timeseries_path)
+        xy_translation.set_value('num_samples', xy_translation_offsets.shape[0])
+        xy_translation.set_description('Time series of x, y shifts applied to create motion stabilized image series')
+        xy_translation.set_value('feature_description', ['x_motion', 'y_motion'])
+
+        mc_mod = self.create_module(module_name)
+        mc_interf = mc_mod.create_interface("MotionCorrection")
+        mc_interf.add_corrected_image(interface_name, orig=original_timeseries_path, xy_translation=xy_translation,
+                                      corrected=corrected)
+
+        if mean_projection is not None:
+            mc_interf.set_value('mean_projection', mean_projection)
+
+        if max_projection is not None:
+            mc_interf.set_value('max_projection', max_projection)
+
+        mc_interf.finalize()
+        mc_mod.finalize()
+
 
 
 

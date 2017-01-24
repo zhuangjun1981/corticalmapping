@@ -3,7 +3,6 @@ __author__ = 'junz'
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sig
-import corticalmapping.core.PlottingTools as pt
 
 plt.ioff()
 
@@ -550,16 +549,6 @@ def event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-1., 1
             std[j] = np.std(datapoints)
 
     if is_plot:
-        # f = plt.figure(figsize=(10, 10))
-        # ax = f.add_subplot(111)
-        # for k in range(len(eta)):
-        #     if not np.isnan(eta[k]):
-        #         pt.bar_graph(t[k], eta[k], error=std[k], errorDir='positive', width=bin_width, plotAxis=ax, lw=2,
-        #                      errorColor='#888888', faceColor='#888888', edgeColor='none', capSize=0)
-        #     ax.text(t[k] + (bin_width / 2), 0, str(n[k]), ha='center', va='bottom')
-        # ax.set_title('event triggered average')
-        # ax.set_xlabel('time (sec)')
-        # plt.show()
 
         f = plt.figure(figsize=(10, 10))
         ax = f.add_subplot(111)

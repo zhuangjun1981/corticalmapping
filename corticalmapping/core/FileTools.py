@@ -26,6 +26,7 @@ def loadFile(path):
     f.close()
     return data
 
+
 def copy(src, dest):
     '''
     copy everything from one path to another path. Work for both direcory and file.
@@ -45,6 +46,7 @@ def copy(src, dest):
 
     else: raise IOError, 'Source is neither a file or a directory. Can not be copied!'
 
+
 def list_all_files(folder):
     '''
     get a list of full path of all files in a folder (including subfolder)
@@ -54,6 +56,7 @@ def list_all_files(folder):
         for file_name in file_names:
             files.append(os.path.join(folder_path,file_name))
     return files
+
 
 def batchCopy(pathList, destinationFolder, isDelete=False):
     '''
@@ -166,6 +169,7 @@ def readBinaryFile(path,
     f.close()
     return data
 
+
 def readBinaryFile2(f,
                     position,
                     count = 1,
@@ -177,6 +181,7 @@ def readBinaryFile2(f,
     f.seek((position * dtype.alignment), whence)
     data = np.fromfile(f, dtype = dtype, count = count)
     return data
+
 
 def readBinaryFile3(f,
                     position,
@@ -190,7 +195,6 @@ def readBinaryFile3(f,
     f.seek(position * dtype.alignment, whence)
     data = struct.unpack('>f', f.read(count * dtype.alignment))
     return data
-
 
 
 def importRawJPhys(path,
@@ -275,7 +279,6 @@ def importRawNewJPhys(path,
     return header, body
 
 
-
 def importRawJPhys2(path,
                     imageFrameNum,
                     photodiodeThr = .95, #threshold of photo diode signal,
@@ -334,8 +337,6 @@ def importRawJPhys2(path,
                 break
 
     return np.array(imageFrameTS), visualStart
-
-
 
 
 def importRawNewJPhys2(path,
@@ -403,7 +404,6 @@ def importRawNewJPhys2(path,
                 break
 
     return np.array(imageFrameTS), visualStart
-
 
 
 def getLog(logPath):
@@ -505,16 +505,15 @@ def importRawJCamF(path,
         if crop:
             try:
                 mov = mov[:,crop[0]:crop[1],crop[2]:crop[3]]
-                fileName = path.split('\\')[-1] + '_cropped.tif'
             except Exception as e:
                 print 'importRawJCamF: Can not understant the paramenter "crop":'+str(crop)+'\ncorp should be: [rowStart,rowEnd,colStart,colEnd]'
                 print '\nTrace back: \n' + e
-        else:
-            fileName = path.split('\\')[-1] + '.tif'
 
+        fileName = os.path.splitext(os.path.split(path)[-1])[0] + '.tif'
         tf.imsave(os.path.join(saveFolder,fileName),mov)
     
     return mov, header, tailer
+
 
 def int2str(num,length=None):
     '''
@@ -592,8 +591,6 @@ def imageToHdf5(array_like, save_path, hdf5_path, spatial_zoom=None, chunk_size=
     save_file.close()
 
 
-
-
 def update_key(group, dataset_name, dataset_data, is_overwrite=True):
     '''
     check if a dataset exists in a h5file group. if not create this dataset in group with dataset_name and dataset_data,
@@ -605,9 +602,9 @@ def update_key(group, dataset_name, dataset_data, is_overwrite=True):
     :param is_overwrite: bool, if True, automatically overwrite
                                if False, ask for manual confirmation for overwriting.
     '''
-    try:
+    if dataset_name not in group.keys():
         group.create_dataset(dataset_name, data=dataset_data)
-    except RuntimeError:
+    else:
         if is_overwrite:
             print('overwriting dataset "' + dataset_name + '" in group "' + str(group) + '".')
             del group[dataset_name]
@@ -621,6 +618,58 @@ def update_key(group, dataset_name, dataset_data, is_overwrite=True):
                     group.create_dataset(dataset_name, data=dataset_data)
                 elif check == 'n':
                     pass
+
+
+def write_dictionary_to_h5group_recursively(target, source, is_overwrite=True):
+    """
+    add a dictionary to an h5py object as target. if target is h5py.Dataset instance, this dataset will be
+    deleted and a group with same name will be created. if tarte is h5py.Group instance, the (key: value)
+    pairs in the source will be added into this group recursively
+    :param target: h5py.Dataset or h5py.Group object as target to save data
+    :param source: dictionary, all the values should be instances that can be saved into hdf5 file
+    :param is_overwrite: bool, if True, automatically overwrite
+                               if False, ask for manual confirmation for overwriting.
+    :return: nothing
+    """
+
+    if not isinstance(source, dict):
+        raise TypeError('source should be a dictionary.')
+
+    if isinstance(target, h5py.Dataset):
+        parent = target.parent
+        name = target.name
+
+        if is_overwrite:
+            del parent[name]
+            curr_group = parent.create_group(name)
+            write_dictionary_to_h5group_recursively(curr_group, source, is_overwrite=True)
+        else:
+            check = ''
+            while check != 'y' and check != 'n':
+                check = raw_input(name + ' already exists in group ' + str(parent) + '. Overwrite? (y/n)\n')
+                if check == 'y':
+                    del parent[name]
+                    curr_group = parent.create_group(name)
+                    write_dictionary_to_h5group_recursively(curr_group, source, is_overwrite=True)
+                elif check == 'n':
+                    pass
+
+    elif isinstance(target, h5py.Group):
+        for key, value in source.items():
+            if key not in target.keys():
+                if isinstance(value, dict):
+                    curr_group = target.create_group(key)
+                    write_dictionary_to_h5group_recursively(curr_group, value, is_overwrite=is_overwrite)
+                else:
+                    target.create_dataset(key, data=value)
+            else:
+                if isinstance(value, dict):
+                    write_dictionary_to_h5group_recursively(target[key], value, is_overwrite=is_overwrite)
+                else:
+                    update_key(target, key, value, is_overwrite=is_overwrite)
+    else:
+        raise TypeError('target: "' + target.name + '" should be either h5py.Dataset or h5py.Group classes.')
+
 
 
 if __name__=='__main__':
@@ -637,8 +686,20 @@ if __name__=='__main__':
     #----------------------------------------------------------------------------
 
     # ----------------------------------------------------------------------------
-    imageToHdf5(np.random.rand(10, 100, 100), save_path=r'E:\data\python_temp_folder\test_file.hdf5',
-                hdf5_path='/data', spatial_zoom=(0.5, 0.2))
+    # imageToHdf5(np.random.rand(10, 100, 100), save_path=r'E:\data\python_temp_folder\test_file.hdf5',
+    #             hdf5_path='/data', spatial_zoom=(0.5, 0.2))
+    # ----------------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------------
+    ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
+    test_dict = {'a':1, 'b':2, 'c': {'A': 4, 'B': 5}}
+    write_dictionary_to_h5group_recursively(target=ff, source=test_dict, is_overwrite=True)
+    ff.close()
+
+    ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
+    test_dict2 = {'a': {'C': 6, 'D': 7}, 'c': {'A': 4, 'B': 6}, 'd':10, 'e':{'E':11, 'F':'xx'}}
+    write_dictionary_to_h5group_recursively(target=ff, source=test_dict2, is_overwrite=False)
+    ff.close()
     # ----------------------------------------------------------------------------
 
 
