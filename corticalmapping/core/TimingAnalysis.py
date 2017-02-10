@@ -100,6 +100,36 @@ def find_nearest(trace, value, direction=0):
         return np.nanargmin(diff)
 
 
+def get_event_with_pre_iei(ts_event, iei=None):
+    """
+    get events which has a pre inter event interval (IEI) longer than a certain period of time
+
+    :param ts_event: 1-d array, timestamps of events
+    :param iei: float, criterion for pre IEI duration
+
+    :return: 1-d array, refined timestamps
+    """
+
+    if not check_monotonicity(ts_event, direction='increasing'):
+        raise ValueError('the input event timestamps should be monotonically increasing.')
+
+    if iei is None:
+        return ts_event
+    else:
+        ts_refined = np.empty(ts_event.shape)
+        ts_refined[:] = np.nan
+        ind = 0
+
+        for i, ts in enumerate(ts_event):
+            if (ts > iei) and (i > 0) and (ts - ts_event[i-1] > iei):
+                ts_refined[ind] = ts
+                ind += 1
+
+        ts_refined = ts_refined[0: ind]
+
+        return ts_refined
+
+
 def get_onset_timeStamps(trace, Fs=10000., threshold = 3., onsetType='raising'):
     '''
     param trace: time trace of digital signal recorded as analog
@@ -639,15 +669,26 @@ if __name__=='__main__':
     # ============================================================================================================
 
     # ============================================================================================================
-    continuous = np.arange(1000) * 0.1
-    ts_continuous = np.arange(1000)
-    ts_event = [100, 101, 102, 200, 205]
-    eta, t, n, std = event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-10., 10.), bins=20,
-                                             is_plot=True)
-    print eta
-    print t
-    print n
-    print std
+    # continuous = np.arange(1000) * 0.1
+    # ts_continuous = np.arange(1000)
+    # ts_event = [100, 101, 102, 200, 205]
+    # eta, t, n, std = event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-10., 10.), bins=20,
+    #                                          is_plot=True)
+    # print eta
+    # print t
+    # print n
+    # print std
+    # ============================================================================================================
+
+    # ============================================================================================================
+    np.random.seed(100)
+    ts = np.arange(100) + np.random.rand(100) * 0.4
+    print ts
+    print np.min(np.diff(ts))
+    ts2 = get_event_with_pre_iei(ts, iei=0.8)
+    print ts2
+    print len(ts2)
+    print np.min(np.diff(ts2))
     # ============================================================================================================
 
     print 'for debugging...'

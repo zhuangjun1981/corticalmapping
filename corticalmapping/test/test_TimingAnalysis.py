@@ -27,6 +27,11 @@ def test_get_burst():
     _, burst_ind = ta.get_burst(spikes, pre_isi=(-np.inf, -0.01), inter_isi=0.004, spk_num_thr=3)
     assert (np.array_equal(burst_ind, [[1, 4], [7, 4], [13, 4]]))
 
+def test_get_event_with_pre_iei():
+    ts = np.arange(100) + np.random.rand(100) * 0.4
+    ts2 = ta.get_event_with_pre_iei(ts, iei=0.8)
+    assert(np.min(np.diff(ts2)) > 0.8)
+
 def test_find_nearest():
     trace = np.arange(10)
     assert(ta.find_nearest(trace, 1.4) == 1)
@@ -39,8 +44,8 @@ def test_find_nearest():
     assert(ta.find_nearest(trace, 11, 1) is None)
 
 
-
 if __name__ == '__main__':
-    test_getOnsetTimeStamps()
-    test_get_burst()
-    test_find_nearest()
+    # test_getOnsetTimeStamps()
+    # test_get_burst()
+    # test_find_nearest()
+    test_get_event_with_pre_iei()

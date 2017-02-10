@@ -90,8 +90,14 @@ for fileNum in fileNumList:
 
     log = ft.loadFile(logPath)
     refreshRate = float(log['monitor']['refreshRate'])
-    preGapDur = log['stimulation']['preGapFrameNum'] / refreshRate
-    postGapDur = log['stimulation']['postGapFrameNum'] / refreshRate
+
+    if 'preGapFrameNum' in log['stimulation'].keys():
+        preGapDur = log['stimulation']['preGapFrameNum'] / refreshRate
+        postGapDur = log['stimulation']['postGapFrameNum'] / refreshRate
+    elif 'preGapDur' in log['stimulation'].keys():
+        preGapDur = log['stimulation']['preGapDur']
+        postGapDur = log['stimulation']['postGapDur']
+
     displayDur = log['stimulation']['flashFrame'] / refreshRate
 
     # print 'preGapDur:',preGapDur
