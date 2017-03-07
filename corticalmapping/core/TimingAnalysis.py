@@ -501,7 +501,7 @@ def notch_filter(trace, fs=30000., freq_base=60., bandwidth=1., harmonics=4, ord
     return trace_filtered.astype(trace.dtype)
 
 
-def event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-1., 1.), bins=100, is_plot=False):
+def event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_range=(-1., 1.), bins=100, is_plot=False):
     """
     event triggered average of an analog signal trigger by discrete events. The timestamps of the analog signal may not
     be regular
@@ -519,6 +519,8 @@ def event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-1., 1
 
              all four returned arrays should have same length
     """
+
+    #todo: check if this can be optimized
 
     if t_range[0] >= t_range[1]:
         raise ValueError('t_range[0] should be smaller than t_range[1].')
@@ -579,16 +581,70 @@ def event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-1., 1
             std[j] = np.std(datapoints)
 
     if is_plot:
-
         f = plt.figure(figsize=(10, 10))
         ax = f.add_subplot(111)
-        ax.plot(t, eta)
+        ax.fill_between(t, eta - std, eta + std, edgecolor='none', facecolor='#888888', alpha=0.5)
+        ax.plot(t, eta, '-k')
         ax.set_title('event triggered average')
         ax.set_xlabel('time (sec)')
-        ax.set_xlim(t_range)
+        ax.set_xlim([t_range[0], t_range[1] - 1. / fs])
         plt.show()
 
     return eta, t, n, std
+
+
+def event_triggered_average_regular(ts_event, continuous, fs_continuous, start_time_continuous, t_range=(-1., 1.),
+                                    is_plot=False):
+    """
+    event triggered average of an analog signal trigger by discrete events. The time sampling of the analog signal
+    should be regular
+
+    :param ts_event: 1-d array, float, timestamps of trigging event
+    :param continuous: 1-d array, float, value of the analog signal
+    :param fs_continuous: float, sampling rate (Hz) of the analog signal
+    :param start_time_continuous: float, the timestamp of the first element of continuous
+    :param t_range: tuple of 2 floats, temporal range of calculated average
+    :param is_plot:
+    :return: eta: 1-d array, float, event triggered average
+             n: int, number of triggers actually used for getting eta
+             t: 1-d array, float, time axis of event triggered average
+             std: 1-d array, float, standard deviation of each bin in the event triggered average
+
+             all three returned arrays should have same length
+    """
+
+    sample_dur = 1. / fs_continuous
+    ts_event_a = ts_event - start_time_continuous
+
+    chunk_dur = int((t_range[1] - t_range[0]) // sample_dur)
+    pre_event_sample = int(t_range[0] // sample_dur)
+    t = np.arange(chunk_dur) * sample_dur + t_range[0]
+
+    eta_all = np.empty((len(ts_event), chunk_dur), dtype=np.float32)
+    n = 0
+    for ts in ts_event_a:
+        curr_sample = int(ts // sample_dur)
+        chunk_start = curr_sample + pre_event_sample
+        chunk_end = chunk_start + chunk_dur
+        if chunk_start >= 0 and chunk_end < len(continuous):
+            eta_all[n, :] = continuous[chunk_start: chunk_end]
+            n += 1
+
+    eta_all = eta_all[0:n]
+    eta = np.mean(eta_all, axis=0)
+    std = np.std(eta_all, axis=0)
+
+    if is_plot:
+        f = plt.figure(figsize=(10, 10))
+        ax = f.add_subplot(111)
+        ax.fill_between(t, eta-std, eta+std, edgecolor='none', facecolor='#888888', alpha=0.5)
+        ax.plot(t, eta, '-k')
+        ax.set_title('event triggered average')
+        ax.set_xlabel('time (sec)')
+        ax.set_xlim([t_range[0], t_range[1]-1./fs])
+        plt.show()
+
+    return eta, n, t, std
 
 
 def event_triggered_event_trains(event_ts, triggers, t_range=(-1., 2.)):
@@ -672,7 +728,7 @@ if __name__=='__main__':
     # continuous = np.arange(1000) * 0.1
     # ts_continuous = np.arange(1000)
     # ts_event = [100, 101, 102, 200, 205]
-    # eta, t, n, std = event_triggered_average(ts_event, continuous, ts_continuous, t_range=(-10., 10.), bins=20,
+    # eta, t, n, std = event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_range=(-10., 10.), bins=20,
     #                                          is_plot=True)
     # print eta
     # print t
@@ -681,14 +737,35 @@ if __name__=='__main__':
     # ============================================================================================================
 
     # ============================================================================================================
-    np.random.seed(100)
-    ts = np.arange(100) + np.random.rand(100) * 0.4
-    print ts
-    print np.min(np.diff(ts))
-    ts2 = get_event_with_pre_iei(ts, iei=0.8)
-    print ts2
-    print len(ts2)
-    print np.min(np.diff(ts2))
+    # np.random.seed(100)
+    # ts = np.arange(100) + np.random.rand(100) * 0.4
+    # print ts
+    # print np.min(np.diff(ts))
+    # ts2 = get_event_with_pre_iei(ts, iei=0.8)
+    # print ts2
+    # print len(ts2)
+    # print np.min(np.diff(ts2))
+    # ============================================================================================================
+
+    # ============================================================================================================
+    con = np.random.rand(1000)
+    template = np.arange(5)
+    # ts_s = np.array([0, 1, 4, 5, 6, 8, 23, 45, 65, 78, 90, 200, 230, 245, 255, 267, 355, 488, 593, 600, 615, 635, 644,
+    #                 700, 845, 846, 879, 900, 902, 908, 913, 922, 945, 950, 978, 999])
+
+    ts_s = np.arange(0, 800, 5)
+
+    for ts in ts_s:
+        if ts > 2 and ts <997:
+            con[ts-2: ts+3] = con[ts-2: ts+3] + template
+
+    fs = 1.
+    t_range = (-2., 3.)
+    eta, n, t, std = event_triggered_average_regular(ts_s, con, fs, 0., t_range, is_plot=True)
+    print t
+    print len(ts_s)
+    print n
+    print eta
     # ============================================================================================================
 
     print 'for debugging...'

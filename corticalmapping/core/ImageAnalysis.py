@@ -1257,15 +1257,15 @@ def regression_detrend_1d(sig, trend):
     return sig_detrend, slope, r_value
 
 
-def get_surround_pixels(shape, (i, j), connectivity=8):
-    """
-    given a 2-d shape and a pixel location [i, j], return the locations of its surround pixels.
-
-    :param shape: tuple or list of integers, should have length of 2
-    :param i:
-    :param j:
-    :return:
-    """
+# def get_surround_pixels(shape, (i, j), connectivity=8):
+#     """
+#     given a 2-d shape and a pixel location [i, j], return the locations of its surround pixels.
+#
+#     :param shape: tuple or list of integers, should have length of 2
+#     :param i:
+#     :param j:
+#     :return:
+#     """
 
 
 class ROI(object):
@@ -1394,7 +1394,7 @@ class ROI(object):
         trace = np.zeros(mov.shape[0], dtype=np.float32)
         for pixel in pixels:
             # trace += mov[:, pixel[0], pixel[1]]  # somehow this is less precise !! do not use
-            trace = trace + mov[:, pixel[0], pixel[1]].astype(np.float32)
+            trace = trace + mov[:, int(pixel[0]), int(pixel[1])].flatten().astype(np.float32)
         # print trace
         return trace / self.get_binary_area()
 

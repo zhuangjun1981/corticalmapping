@@ -85,6 +85,31 @@ def get_spike_times_indices(clusters, spike_clusters_path, spike_times_path):
     return spike_ind
 
 
+def get_channel_geometry(kilosort_folder, channel_names=None):
+    """
+    get channel geometry from kilosort folder
+    :param kilosort_folder: path to kilosort output folder
+    :param channel_names: list of strings, name of each channel, ideally should match channel names and order saved in
+                          the .nwb file
+    :return: dictionary, {channel name : xy position of the channel}
+    """
+
+    positions = np.load(os.path.join(kilosort_folder, 'channel_positions.npy'))
+    channel_num = positions.shape[0]
+
+    if channel_names is None:
+        channel_names = [ 'ch_' + ft.int2str(i, 4) for i in range(channel_num)]
+    else:
+        if len(channel_names) != channel_num:
+            raise ValueError('number of kilosort output channels does not equal length of channel_names.')
+
+    channel_pos = {}
+    for i, ch_n in enumerate(channel_names):
+        channel_pos.update({ch_n: positions[i]})
+
+    return channel_pos
+
+
 def get_spike_timestamps(spike_ind, h5_path):
     """
     get timestamps in seconds of each defined unit in spike_ind for each file
