@@ -628,11 +628,43 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
         curr_ax.set_xlabel('time (sec)')
         if channel_names is not None:
             curr_ax.set_title(channel_names[k])
-        for l in range(traces.shape[1]):
-            curr_ax.plot(t_axis, traces[k, l, :], **kwargs)
+        # for l in range(traces.shape[1]):
+        #     curr_ax.plot(t_axis, traces[k, l, :], **kwargs)
         curr_ax.plot(t_axis, mean_traces[k, :], '-k', lw=2)
 
     return fig
+
+
+def distributed_axes(f, axes_pos, axes_size=(0.1, 0.1)):
+    """
+    generate a spatially distributed axes in the given figure f, the axes locations are defined by axes_pos, this
+    function should capture the relative positions among axes but scale free. Designed for plot spike waveforms from
+    different channels
+
+    :param f: matplotlib figure object
+    :param axes_pos: list of tuples, each element is (x_pos, y_pos) of axes center location
+    :param axes_size: tuple, sise of subplot, (width, height)
+    :return: list of axes at specified locations, same order as in axes_pos
+    """
+
+    x_pos = np.array([p[0] for p in axes_pos], dtype=np.float32)
+    y_pos = np.array([p[1] for p in axes_pos], dtype=np.float32)
+
+    x_range = np.amax(x_pos) - np.amin(x_pos)
+    x_pos_new = ((0.8 - axes_size[0]) * ((x_pos - np.amin(x_pos)) / x_range)) + 0.1 + axes_size[0] / 2
+
+    y_range = np.amax(y_pos) - np.amin(y_pos)
+    y_pos_new = ((0.8 - axes_size[1]) * ((y_pos - np.amin(y_pos)) / y_range)) + 0.1 + axes_size[1] / 2
+
+    ax_list = []
+    for i in range(len(axes_pos)):
+        curr_ax = f.add_axes([x_pos_new[i] - axes_size[0] / 2,
+                              y_pos_new[i] - axes_size[1] / 2,
+                              axes_size[0],
+                              axes_size[1]])
+        ax_list.append(curr_ax)
+
+    return ax_list
 
     
 if __name__=='__main__':
@@ -668,15 +700,15 @@ if __name__=='__main__':
     # ax.legend()
     # plt.show()
     #----------------------------------------------------
-    
+
     #----------------------------------------------------
     # figures, axises = grid_axis(2,3,20)
     # for i, ax in enumerate(axises):
     #     ax.imshow(np.random.rand(5,5))
     # plt.show()
     #----------------------------------------------------
-    
-    
+
+
     #----------------------------------------------------
     # mask = np.zeros((100,100))
     # mask[30:50,20:60]=1
@@ -730,9 +762,16 @@ if __name__=='__main__':
     #----------------------------------------------------
 
     # ----------------------------------------------------
-    etts = [[-0.5, -0.4, 0., 1., 3.], [-0.2, -0.2, 0., 0.5, 1.3, 2., 2.1, 2.5]]
-    t_range = (-1, 4)
-    plot_event_ticks(event_tss=etts, t_range=t_range, lw=2)
+    # etts = [[-0.5, -0.4, 0., 1., 3.], [-0.2, -0.2, 0., 0.5, 1.3, 2., 2.1, 2.5]]
+    # t_range = (-1, 4)
+    # plot_event_ticks(event_tss=etts, t_range=t_range, lw=2)
+    # plt.show()
+    # ----------------------------------------------------
+
+    # ----------------------------------------------------
+    f = plt.figure(figsize=(10, 10))
+    ax_pos = [(0., -1.5), (0., 0.), (-0.866, -3.), (0.866, -3.)]
+    axs = distributed_axes(f, ax_pos, axes_size=(0.25, 0.25))
     plt.show()
     # ----------------------------------------------------
 

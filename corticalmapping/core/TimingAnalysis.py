@@ -594,7 +594,7 @@ def event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_ran
 
 
 def event_triggered_average_regular(ts_event, continuous, fs_continuous, start_time_continuous, t_range=(-1., 1.),
-                                    is_plot=False):
+                                    is_normalize=False, is_plot=False):
     """
     event triggered average of an analog signal trigger by discrete events. The time sampling of the analog signal
     should be regular
@@ -604,6 +604,13 @@ def event_triggered_average_regular(ts_event, continuous, fs_continuous, start_t
     :param fs_continuous: float, sampling rate (Hz) of the analog signal
     :param start_time_continuous: float, the timestamp of the first element of continuous
     :param t_range: tuple of 2 floats, temporal range of calculated average
+    :param is_normalize: if True: all event triggered trace will subtract baseline, the baseline is defined as
+                         following:
+                             if t_range[0] is smaller than zero: baseline is defined as the mean intensity
+                             before trigger
+                             if t_range[0] is no smaller than zero: baseline is defined as the mean of entire event
+                             triggered trace
+                         if False: keep the raw trace
     :param is_plot:
     :return: eta: 1-d array, float, event triggered average
              n: int, number of triggers actually used for getting eta
@@ -616,21 +623,29 @@ def event_triggered_average_regular(ts_event, continuous, fs_continuous, start_t
     sample_dur = 1. / fs_continuous
     ts_event_a = ts_event - start_time_continuous
 
-    chunk_dur = int((t_range[1] - t_range[0]) // sample_dur)
-    pre_event_sample = int(t_range[0] // sample_dur)
+    ind_range = [int(t_range[0] / sample_dur), int(t_range[1] / sample_dur)]
+    chunk_dur = ind_range[1] - ind_range[0]
     t = np.arange(chunk_dur) * sample_dur + t_range[0]
 
-    eta_all = np.empty((len(ts_event), chunk_dur), dtype=np.float32)
-    n = 0
-    for ts in ts_event_a:
-        curr_sample = int(ts // sample_dur)
-        chunk_start = curr_sample + pre_event_sample
-        chunk_end = chunk_start + chunk_dur
-        if chunk_start >= 0 and chunk_end < len(continuous):
-            eta_all[n, :] = continuous[chunk_start: chunk_end]
-            n += 1
+    if t_range[0] < 0:
+        base_point_num = -int(t_range[0] / sample_dur)
+    else:
+        base_point_num = ind_range[1] - ind_range[0]
 
-    eta_all = eta_all[0:n]
+    unit_inds = np.round(ts_event_a / sample_dur).astype(np.int64)
+    unit_inds = np.array([ind for ind in unit_inds if (ind + ind_range[0]) >= 0 and
+                          (ind + ind_range[1]) < len(continuous)])
+
+    eta_all = np.empty((len(unit_inds), chunk_dur), dtype=np.float32)
+
+    for j, unit_ind in enumerate(unit_inds):
+        curr_trace = continuous[unit_ind + ind_range[0]: unit_ind + ind_range[1]]
+
+        if is_normalize:
+            eta_all[j, :] = curr_trace - np.mean(curr_trace[0:base_point_num])
+        else:
+            eta_all[j, :] = curr_trace
+
     eta = np.mean(eta_all, axis=0)
     std = np.std(eta_all, axis=0)
 
@@ -641,10 +656,10 @@ def event_triggered_average_regular(ts_event, continuous, fs_continuous, start_t
         ax.plot(t, eta, '-k')
         ax.set_title('event triggered average')
         ax.set_xlabel('time (sec)')
-        ax.set_xlim([t_range[0], t_range[1]-1./fs])
+        ax.set_xlim([t_range[0], t_range[1]-1./ fs_continuous])
         plt.show()
 
-    return eta, n, t, std
+    return eta, len(unit_inds), t, std
 
 
 def event_triggered_event_trains(event_ts, triggers, t_range=(-1., 2.)):

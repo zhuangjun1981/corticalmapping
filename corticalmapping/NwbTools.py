@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import h5py
+import matplotlib.pyplot as plt
 import corticalmapping.ephys.OpenEphysWrapper as oew
 import corticalmapping.ephys.KilosortWrapper as kw
 import corticalmapping.HighLevel as hl
@@ -55,6 +56,58 @@ DEFAULT_GENERAL = {
                    'devices': {}
                    }
 SPIKE_WAVEFORM_TIMEWINDOW = (-0.00067, 0.00208)
+
+def plot_waveforms(waveforms, ch_locations=None, stds=None, f=None, ch_ns=None, axes_size=(0.2, 0.2), **kwargs):
+    """
+    plot spike waveforms at specified channel locations
+
+    :param waveforms: 2-d array, time point x channel, mean spike waveforms at each channel
+    :param ch_locations: list of tuples, (x_location, y_location) for each channel, if None, waveform will be plotted
+                         in a linear fashion
+    :param stds: 2-d array, same size as waveform, measurement of variance of each time point at each channel
+    :param f: matplotlib figure object
+    :param ch_ns: list of strings, names of each channel
+    :param axes_size: tuple, sise of subplot, (width, height), only implemented when ch_locations is not None
+    :return: f
+    """
+
+    if f is None:
+        f = plt.figure(figsize=(10, 10))
+
+    ch_num = waveforms.shape[1]
+
+    if ch_locations is None:
+        ax_s = []
+        for i in range(ch_num):
+            ax_s.append(f.add_subplot(1, ch_num, i + 1))
+    else:
+        ax_s = pt.distributed_axes(f, axes_pos=ch_locations, axes_size=axes_size)
+
+    if stds is not None:
+        amplitudes = np.max(waveforms + stds, axis=0) - np.min(waveforms - stds, axis=0)
+        peak_ch_ind = np.argmax(amplitudes)
+        peak_min = np.min(waveforms[:, peak_ch_ind] - stds[:, peak_ch_ind])
+        peak_max = np.max(waveforms[:, peak_ch_ind] + stds[:, peak_ch_ind])
+    else:
+        amplitudes = np.max(waveforms, axis=0) - np.min(waveforms, axis=0)
+        peak_ch_ind = np.argmax(amplitudes)
+        peak_min = np.min(waveforms[:, peak_ch_ind])
+        peak_max = np.max(waveforms[:, peak_ch_ind])
+
+    for j, ax in enumerate(ax_s):
+        curr_wf = waveforms[:, j]
+        if stds is not None:
+            curr_std = stds[:, j]
+            ax.fill_between(range(waveforms.shape[0]), curr_wf - curr_std, curr_wf + curr_std,
+                            color='#888888',alpha=0.5, edgecolor='none')
+        ax.plot(curr_wf, '-k', **kwargs)
+        ax.set_xlim([0, waveforms.shape[0] - 1])
+        if ch_ns is not None:
+            ax.set_title(ch_ns[j], y=0.9)
+        ax.set_ylim([peak_min, peak_max])
+        ax.set_axis_off()
+
+    return f
 
 
 class RecordedFile(NWB):
@@ -280,6 +333,7 @@ class RecordedFile(NWB):
         :return:
         """
 
+        #  check integrity
         if ind_start == None:
             ind_start = 0
 
@@ -295,27 +349,43 @@ class RecordedFile(NWB):
             print('\nCannot find "general/extracellular_ephys/sampling_rate" field. Abort process.')
             return
 
+        #  get spike sorter
         if spike_sorter is None:
             spike_sorter = self.file_pointer['general/experimenter'].value
 
+        #  set kilosort output file paths
         clusters_path = os.path.join(folder, 'spike_clusters.npy')
         spike_times_path = os.path.join(folder, 'spike_times.npy')
-        phy_template_output = kw.get_clusters(kw.read_csv(os.path.join(folder, 'cluster_groups.csv')))
 
+        #  generate dictionary of cluster timing indices
+        phy_template_output = kw.get_clusters(kw.read_csv(os.path.join(folder, 'cluster_groups.csv')))
         spike_ind = kw.get_spike_times_indices(phy_template_output, spike_clusters_path=clusters_path,
                                                spike_times_path=spike_times_path)
 
+        #  add artificial random unit
+        if is_add_artificial_unit:
+            file_length = (ind_end - ind_start) / fs
+            au_ts = ta.possion_event_ts(duration=file_length, firing_rate=artificial_unit_firing_rate,
+                                        refractory_dur=0.001, is_plot=False)
+            spike_ind.update({'unit_aua': (au_ts * fs).astype(np.uint64)})
+
+        #  get channel related infomation
         ch_ns = self._get_channel_names()
         file_starting_time = self._get_analog_data(ch_ns[0])[1][0]
         channel_positions = kw.get_channel_geometry(folder, channel_names=ch_ns)
 
+        #  create specificed module
         mod = self.create_module(name=module_name)
         mod.set_description('phy-template manual clustering after kilosort')
         mod.set_value('channel_list', [ch.encode('Utf8') for ch in ch_ns])
         mod.set_value('channel_xpos', [channel_positions[ch][0] for ch in ch_ns])
         mod.set_value('channel_ypos', [channel_positions[ch][1] for ch in ch_ns])
+
+        #  create UnitTimes interface
         unit_times = mod.create_interface('UnitTimes')
         for unit in spike_ind.keys():
+
+            #  get timestamps of current unit
             curr_ts = np.array(spike_ind[unit])
             curr_ts = curr_ts[np.logical_and(curr_ts >= ind_start, curr_ts < ind_end)] - ind_start
             curr_ts = curr_ts / fs + file_starting_time
@@ -324,23 +394,36 @@ class RecordedFile(NWB):
             template = []
 
             # array to store standard deviations of waveform from all channels
-            sem = []
+            std = []
 
-            # temporal variable to detect peak channels
+            # temporary variables to detect peak channels
             peak_channel = None
             peak_channel_ind = None
             peak_amp = 0
+
             for i, ch_n in enumerate(ch_ns):
+
+                #  get current analog signals of a given channel
                 curr_ch_data, curr_ch_ts = self._get_analog_data(ch_n)
+
+                #  band pass this analog signal
+                curr_ch_data_f = ta.butter_bandpass(curr_ch_data, cutoffs=(300., 6000.), fs=fs)
+
+                #  calculate spike triggered average filtered signal
                 curr_waveform_results = ta.event_triggered_average_regular(ts_event=curr_ts,
-                                                                           continuous=curr_ch_data,
+                                                                           continuous=curr_ch_data_f,
                                                                            fs_continuous=fs,
                                                                            start_time_continuous=file_starting_time,
-                                                                           t_range=SPIKE_WAVEFORM_TIMEWINDOW)
+                                                                           t_range=SPIKE_WAVEFORM_TIMEWINDOW,
+                                                                           is_normalize=True,
+                                                                           is_plot=False)
                 curr_waveform, curr_n, curr_t, curr_std = curr_waveform_results
-                template.append(curr_waveform - curr_waveform[0])
-                sem.append(curr_std / np.sqrt(float(curr_n)))
 
+                #  append waveform and std for current channel
+                template.append(curr_waveform)
+                std.append(curr_std)
+
+                #  detect the channel with peak amplitude
                 if peak_channel is not None:
                     peak_channel = ch_n
                     peak_channel_ind = i
@@ -351,29 +434,30 @@ class RecordedFile(NWB):
                         peak_channel_ind = i
                         peak_amp = np.max(curr_waveform) - np.min(curr_waveform)
 
-            unit_times.add_unit(unit_name=unit, unit_times=curr_ts,
-                                source='electrophysiology extracellular recording',
-                                description="Data spike-sorted by: " + spike_sorter +
-                                            ' using phy-template. Spike time unit: seconds.')
+            #  add 'UnitTimes' field
+            if unit == 'unit_aua':
+                unit_times.add_unit(unit_name='unit_aua', unit_times=curr_ts,
+                                    source='electrophysiology extracellular recording',
+                                    description='Artificial possion unit for control. Spike time unit: seconds.')
+            else:
+                unit_times.add_unit(unit_name=unit, unit_times=curr_ts,
+                                    source='electrophysiology extracellular recording',
+                                    description="Data spike-sorted by: " + spike_sorter +
+                                                ' using phy-template. Spike time unit: seconds.')
+
+            #  add relevant information to current UnitTimes field
             unit_times.append_unit_data(unit_name=unit, key='channel_name', value=peak_channel)
             unit_times.append_unit_data(unit_name=unit, key='channel', value=peak_channel_ind)
             unit_times.append_unit_data(unit_name=unit, key='template', value=np.array(template).transpose())
-            unit_times.append_unit_data(unit_name=unit, key='template_std', value=np.array(sem).transpose())
+            unit_times.append_unit_data(unit_name=unit, key='template_std', value=np.array(std).transpose())
             unit_times.append_unit_data(unit_name=unit, key='waveform', value=template[peak_channel_ind])
-            unit_times.append_unit_data(unit_name=unit, key='waveform_std', value=sem[peak_channel_ind])
+            unit_times.append_unit_data(unit_name=unit, key='waveform_std', value=std[peak_channel_ind])
             unit_times.append_unit_data(unit_name=unit, key='xpos_probe',
                                         value=[channel_positions[ch][0] for ch in ch_ns][peak_channel_ind])
             unit_times.append_unit_data(unit_name=unit, key='ypos_probe',
                                         value=[channel_positions[ch][1] for ch in ch_ns][peak_channel_ind])
 
-        if is_add_artificial_unit:
-            file_length = (ind_end - ind_start) / fs
-            au_ts = ta.possion_event_ts(duration=file_length, firing_rate=artificial_unit_firing_rate,
-                                        refractory_dur=0.001, is_plot=False)
-            unit_times.add_unit(unit_name='unit_aua', unit_times=au_ts,
-                                source='electrophysiology extracellular recording',
-                                description='Artificial possion unit for control. Spike time unit: seconds.')
-
+        #  finalize
         unit_times.finalize()
         mod.finalize()
 
@@ -649,6 +733,10 @@ class RecordedFile(NWB):
         pd_ts.set_value('smallest_interval', smallestInterval)
         pd_ts.finalize()
 
+    def plot_unit_waveforms(self):
+        # todo finish this method
+        pass
+
     def plot_spike_waveforms(self, unitn, channel_names, fig=None, t_range=(-0.002, 0.002), **kwargs):
         """
         plot spike waveforms
@@ -660,16 +748,15 @@ class RecordedFile(NWB):
         :param kwargs: inputs to matplotlib.axes.plot() function
         :return: fig
         """
-        # print 'in nwb tools.'
 
-        if unitn not in self.file_pointer['processing/ephys_units/UnitTimes'].keys():
+        if unitn not in self.file_pointer['processing/tetrode/UnitTimes'].keys():
             raise LookupError('Can not find ephys unit: ' + unitn + '.')
 
         for channeln in channel_names:
             if channeln not in self.file_pointer['acquisition/timeseries'].keys():
                 raise LookupError('Can not find continuous recording: ' + channeln + '.')
 
-        unit_ts = self.file_pointer['processing/ephys_units/UnitTimes'][unitn]['times'].value
+        unit_ts = self.file_pointer['processing/tetrode/UnitTimes'][unitn]['times'].value
 
         channels = []
         sample_rate = None
@@ -692,7 +779,6 @@ class RecordedFile(NWB):
                     raise ValueError('starting time of channel ' + channeln + ' does not equal the start time of '
                                                                               'other channels.')
 
-
             curr_ch = self.file_pointer['acquisition/timeseries'][channeln]['data'].value
             curr_rate = self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].attrs['rate']
 
@@ -709,7 +795,6 @@ class RecordedFile(NWB):
             channels.append(curr_ch)
 
         channel_ts = starting_time + np.arange(channel_len, dtype=np.float32) / sample_rate
-
 
         fig = pt.plot_spike_waveforms(unit_ts=unit_ts, channels=channels, channel_ts=channel_ts, fig=fig,
                                       t_range=t_range, channel_names=channel_names, **kwargs)
@@ -1041,10 +1126,6 @@ class RecordedFile(NWB):
         # todo: finish this method
         pass
 
-    def add_strf(self):
-        # todo: finish this method
-        pass
-
     def add_motion_correction(self):
         # not for now
         pass
@@ -1077,7 +1158,6 @@ class RecordedFile(NWB):
 
         # not for now
         pass
-
 
 
 if __name__ == '__main__':
@@ -1165,7 +1245,7 @@ if __name__ == '__main__':
     # =========================================================================================================
 
     # =========================================================================================================
-    img_data_path = r"E:\data\python_temp_folder\img_data.hdf5"
+    # img_data_path = r"E:\data\python_temp_folder\img_data.hdf5"
     # img_data = h5py.File(img_data_path)
     # dset = img_data.create_dataset('data', data=np.random.rand(1000, 1000, 100))
     # dset.attrs['conversion'] = np.nan
@@ -1173,13 +1253,28 @@ if __name__ == '__main__':
     # dset.attrs['unit'] = ''
     # img_data.close()
 
-    ts = np.random.rand(1000)
+    # ts = np.random.rand(1000)
+    #
+    # tmp_path = r"E:\data\python_temp_folder\test.nwb"
+    # rf = RecordedFile(tmp_path)
+    # rf.add_acquired_image_series_as_remote_link('test_img', image_file_path=img_data_path, dataset_path='/data',
+    #                                             timestamps=ts)
+    # rf.close()
+    # =========================================================================================================
 
-    tmp_path = r"E:\data\python_temp_folder\test.nwb"
-    rf = RecordedFile(tmp_path)
-    rf.add_acquired_image_series_as_remote_link('test_img', image_file_path=img_data_path, dataset_path='/data',
-                                                timestamps=ts)
+    # =========================================================================================================
+    rf = RecordedFile(r"D:\data2\thalamocortical_project\method_development\2017-02-25-ephys-software-development"
+                      r"\test_folder\170302_M292070_100_SparseNoise.nwb")
+    unit = 'unit_00065'
+    wfs = rf.file_pointer['processing/tetrode/UnitTimes'][unit]['template'].value
+    stds = rf.file_pointer['processing/tetrode/UnitTimes'][unit]['template_std'].value
+    x_pos = rf.file_pointer['processing/tetrode/channel_xpos'].value
+    y_pos = rf.file_pointer['processing/tetrode/channel_ypos'].value
     rf.close()
+    plot_waveforms(wfs, zip(x_pos, y_pos), stds, axes_size=(0.3, 0.3))
+    plt.show()
+    # =========================================================================================================
+
 
 
     print('for debug ...')
