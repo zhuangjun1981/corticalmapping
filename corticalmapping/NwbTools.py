@@ -733,14 +733,11 @@ class RecordedFile(NWB):
         pd_ts.set_value('smallest_interval', smallestInterval)
         pd_ts.finalize()
 
-    def plot_unit_waveforms(self):
-        # todo finish this method
-        pass
-
-    def plot_spike_waveforms(self, unitn, channel_names, fig=None, t_range=(-0.002, 0.002), **kwargs):
+    def plot_spike_waveforms(self, modulen, unitn, fig=None, axes_size=(0.2, 0.2), **kwargs):
         """
         plot spike waveforms
 
+        :param modulen: str, name of the module containing ephys recordings
         :param unitn: str, name of ephys unit, should be in '/processing/ephys_units/UnitTimes'
         :param channel_names: list of strs, channel names in continuous recordings, should be in '/acquisition/timeseries'
         :param fig: matplotlib figure object
@@ -748,57 +745,29 @@ class RecordedFile(NWB):
         :param kwargs: inputs to matplotlib.axes.plot() function
         :return: fig
         """
+        if modulen not in self.file_pointer['processing'].keys():
+            raise LookupError('Can not find module for ephys recording: ' + modulen + '.')
 
-        if unitn not in self.file_pointer['processing/tetrode/UnitTimes'].keys():
+        if unitn not in self.file_pointer['processing'][modulen]['UnitTimes'].keys():
             raise LookupError('Can not find ephys unit: ' + unitn + '.')
 
-        for channeln in channel_names:
-            if channeln not in self.file_pointer['acquisition/timeseries'].keys():
-                raise LookupError('Can not find continuous recording: ' + channeln + '.')
+        ch_ns = self._get_channel_names()
 
-        unit_ts = self.file_pointer['processing/tetrode/UnitTimes'][unitn]['times'].value
+        waveforms = self.file_pointer['processing'][modulen]['UnitTimes'][unitn]['template'].value
+        stds = self.file_pointer['processing'][modulen]['UnitTimes'][unitn]['template_std'].value
 
-        channels = []
-        sample_rate = None
-        starting_time = None
-        channel_len = None
+        if 'channel_xpos' in self.file_pointer['processing'][modulen].keys():
+            ch_xpos = self.file_pointer['processing'][modulen]['channel_xpos']
+            ch_ypos = self.file_pointer['processing'][modulen]['channel_ypos']
+            ch_locations = zip(ch_xpos, ch_ypos)
+        else:
+            ch_locations = None
 
-        for channeln in channel_names:
 
-            if sample_rate is None:
-                sample_rate = self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].attrs['rate']
-            else:
-                if sample_rate != self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].attrs['rate']:
-                    raise ValueError('sample rate of channel ' + channeln + ' does not equal the sample rate of other '
-                                                                            'channels.')
+        fig = plot_waveforms(waveforms, ch_locations=ch_locations, stds=stds, f=fig,
+                             ch_ns=ch_ns, axes_size=axes_size, **kwargs)
 
-            if starting_time is None:
-                starting_time = self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].value
-            else:
-                if starting_time != self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].value:
-                    raise ValueError('starting time of channel ' + channeln + ' does not equal the start time of '
-                                                                              'other channels.')
-
-            curr_ch = self.file_pointer['acquisition/timeseries'][channeln]['data'].value
-            curr_rate = self.file_pointer['acquisition/timeseries'][channeln]['starting_time'].attrs['rate']
-
-            if channel_len is None:
-                channel_len = len(curr_ch)
-            else:
-                if len(curr_ch) != channel_len:
-                    raise ValueError('Length of channel ' + channeln + ' does not equal the lengths of other '
-                                                                       'channels.')
-
-            curr_conversion = self.file_pointer['acquisition/timeseries'][channeln]['data'].attrs['conversion']
-            curr_ch = curr_ch.astype(np.float32) * curr_conversion
-            curr_ch = ta.butter_bandpass(curr_ch, cutoffs=(300., 6000.), fs=curr_rate)
-            channels.append(curr_ch)
-
-        channel_ts = starting_time + np.arange(channel_len, dtype=np.float32) / sample_rate
-
-        fig = pt.plot_spike_waveforms(unit_ts=unit_ts, channels=channels, channel_ts=channel_ts, fig=fig,
-                                      t_range=t_range, channel_names=channel_names, **kwargs)
-        fig.suptitle(unitn)
+        fig.suptitle(self.file_pointer['identifier'].value + ' : ' + unitn)
 
         return fig
 

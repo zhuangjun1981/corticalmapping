@@ -520,8 +520,6 @@ def event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_ran
              all four returned arrays should have same length
     """
 
-    #todo: check if this can be optimized
-
     if t_range[0] >= t_range[1]:
         raise ValueError('t_range[0] should be smaller than t_range[1].')
 
