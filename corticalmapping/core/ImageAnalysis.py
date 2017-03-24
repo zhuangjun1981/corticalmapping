@@ -1046,30 +1046,45 @@ def z_downsample(img, downSampleRate):
     return newImg
 
 
-def get_masks(labeled, minArea=None, maxArea=None, isSort=True, keyPrefix = None, labelLength=3):
+def get_masks(labeled, minArea=None, maxArea=None, isSort=True, keyPrefix = None, labelLength=None):
     '''
-    get mask dictionary from labeled maps (labeled by scipy.ndimage.label function)
-    area range of each mask was defined by minArea and maxArea
-    isSort: if True, sort masks by areas, big to small
-    keyPrefix: the prefix of key
-    labelLength: the number of characters of key
+    get mask dictionary from labeled map (labeled by scipy.ndimage.label function), masks with area smaller than
+    minArea and maxArea will be discarded.
+
+    :param labeled: 2d array with non-negative int, labelled map (ideally the output of scipy.ndimage.label function)
+    :param minArea: positive int, minimum area criterion of retained masks
+    :param maxArea: positive int, maximum area criterion of retained masks
+    :param isSort: bool, sort the masks by area or not
+    :param keyPrefix: str, the key prefix for returned dictionary
+    :param labelLength: positive int, the length of key index
+
+    :return masks: dictionary of 2d binary masks
     '''
 
     maskNum = np.max(labeled.flatten())
     masks = {}
-    for i in range(1,maskNum+1):
-        currMask = np.zeros(labeled.shape,dtype=np.uint8)
-        currMask[labeled==i]=1
+    for i in range(1, maskNum + 1):
+        currMask = np.zeros(labeled.shape, dtype=np.uint8)
+        currMask[labeled == i] = 1
 
-        if minArea is not None and np.sum(currMask.flatten()) < minArea: pass
-        elif maxArea is not None and np.sum(currMask.flatten()) > maxArea: pass
+        if minArea is not None and np.sum(currMask.flatten()) < minArea:
+            continue
+        elif maxArea is not None and np.sum(currMask.flatten()) > maxArea:
+            continue
         else:
-            if keyPrefix is not None: currKey = keyPrefix+'.'+ft.int2str(i,labelLength)
-            else: currKey = ft.int2str(i,labelLength)
-            masks.update({currKey:currMask})
+            if labelLength is not None:
+                mask_index = ft.int2str(i, labelLength)
+            else:
+                mask_index = str(i)
+
+            if keyPrefix is not None:
+                currKey = keyPrefix + '_' + mask_index
+            else:
+                currKey = mask_index
+            masks.update({currKey: currMask})
 
     if isSort:
-        masks = sort_masks(masks, keyPrefix = keyPrefix, labelLength=labelLength)
+        masks = sort_masks(masks, keyPrefix=keyPrefix, labelLength=labelLength)
 
     return masks
 
@@ -1086,7 +1101,7 @@ def get_marked_masks(labeled, markCoor):
     return None
 
 
-def sort_masks(masks, keyPrefix='', labelLength=3):
+def sort_masks(masks, keyPrefix=None, labelLength=3):
     '''
     sort a dictionary of binary masks, big to small
     '''
@@ -1100,7 +1115,7 @@ def sort_masks(masks, keyPrefix='', labelLength=3):
 
     newMasks = {}
     for i in range(len(order)):
-        if keyPrefix is not None: currKey = keyPrefix+'.'+ft.int2str(i,labelLength)
+        if keyPrefix is not None: currKey = keyPrefix+'_'+ft.int2str(i,labelLength)
         else: currKey = ft.int2str(i,labelLength)
         newMasks.update({currKey:masks[order[i][0]]})
     return newMasks

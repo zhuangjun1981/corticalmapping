@@ -53,6 +53,8 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
              value: numpy array, total event 2 counts in each time bin
     """
 
+    # todo: optimize this
+
     binWidth = (float(t_range[1]) - float(t_range[0])) / bins
     t = np.arange(bins) * binWidth + t_range[0]
     intervals = zip(t, t + binWidth)
@@ -395,7 +397,7 @@ def butter_bandpass_filter(cutoffs=(300., 6000.), fs=30000., order=5, is_plot=Fa
     low = cutoffs[0] / nyq
     high = cutoffs[1] / nyq
 
-    b, a = sig.butter(order, [low, high], btype='band', analog=False, output='ba')
+    b, a = sig.butter(N=order, Wn=[low, high], btype='band', analog=False, output='ba')
 
     if is_plot:
         w, h = sig.freqz(b, a, worN=2000)
@@ -426,7 +428,37 @@ def butter_lowpass_filter(cutoff=300., fs=30000., order=5, is_plot=False):
     nyq = 0.5 * fs
     low = cutoff / nyq
 
-    b, a = sig.butter(order, low, btype='low', analog=False, output='ba')
+    b, a = sig.butter(N=order, Wn=low, btype='low', analog=False, output='ba')
+
+    if is_plot:
+        w, h = sig.freqz(b, a, worN=2000)
+        f = plt.figure(figsize=(10, 10))
+        plt.loglog((fs * 0.5 / np.pi) * w, abs(h))
+        plt.title('Butterworth filter frequency response')
+        plt.xlabel('Frequency [radians / second]')
+        plt.ylabel('Amplitude')
+        # plt.margins(0, 0.1)
+        plt.grid(which='both', axis='both')
+        plt.axvline(cutoff, color='red')
+        # plt.xlim([0, 10000])
+        plt.show()
+
+    return b, a
+
+
+def butter_highpass_filter(cutoff=300., fs=30000., order=5, is_plot=False):
+    """
+    bandpass digital butterworth filter design
+    :param cutoffs: cutoff frequency, Hz
+    :param fs: sampling rate, Hz
+    :param order:
+    :param is_plot:
+    :return: b, a
+    """
+    nyq = 0.5 * fs
+    high = cutoff / nyq
+
+    b, a = sig.butter(N=order, Wn=high, btype='high', analog=False, output='ba')
 
     if is_plot:
         w, h = sig.freqz(b, a, worN=2000)
@@ -471,6 +503,21 @@ def butter_lowpass(trace, fs=30000., cutoff=300., order=5):
     :return: filtered signal
     """
     b, a = butter_lowpass_filter(cutoff=cutoff, fs=fs, order=order)
+    filtered = sig.lfilter(b, a, trace)
+    return filtered
+
+
+def butter_highpass(trace, fs=30000., cutoff=300., order=5):
+    """
+    highpass filter a 1-d signal using digital butterworth filter design
+
+    :param trace: input signal
+    :param cutoff: cutoff frequency, Hz
+    :param fs: sampling rate, Hz
+    :param order:
+    :return: filtered signal
+    """
+    b, a = butter_highpass_filter(cutoff=cutoff, fs=fs, order=order)
     filtered = sig.lfilter(b, a, trace)
     return filtered
 
@@ -761,24 +808,28 @@ if __name__=='__main__':
     # ============================================================================================================
 
     # ============================================================================================================
-    con = np.random.rand(1000)
-    template = np.arange(5)
-    # ts_s = np.array([0, 1, 4, 5, 6, 8, 23, 45, 65, 78, 90, 200, 230, 245, 255, 267, 355, 488, 593, 600, 615, 635, 644,
-    #                 700, 845, 846, 879, 900, 902, 908, 913, 922, 945, 950, 978, 999])
+    # con = np.random.rand(1000)
+    # template = np.arange(5)
+    # # ts_s = np.array([0, 1, 4, 5, 6, 8, 23, 45, 65, 78, 90, 200, 230, 245, 255, 267, 355, 488, 593, 600, 615, 635, 644,
+    # #                 700, 845, 846, 879, 900, 902, 908, 913, 922, 945, 950, 978, 999])
+    #
+    # ts_s = np.arange(0, 800, 5)
+    #
+    # for ts in ts_s:
+    #     if ts > 2 and ts <997:
+    #         con[ts-2: ts+3] = con[ts-2: ts+3] + template
+    #
+    # fs = 1.
+    # t_range = (-2., 3.)
+    # eta, n, t, std = event_triggered_average_regular(ts_s, con, fs, 0., t_range, is_plot=True)
+    # print t
+    # print len(ts_s)
+    # print n
+    # print eta
+    # ============================================================================================================
 
-    ts_s = np.arange(0, 800, 5)
-
-    for ts in ts_s:
-        if ts > 2 and ts <997:
-            con[ts-2: ts+3] = con[ts-2: ts+3] + template
-
-    fs = 1.
-    t_range = (-2., 3.)
-    eta, n, t, std = event_triggered_average_regular(ts_s, con, fs, 0., t_range, is_plot=True)
-    print t
-    print len(ts_s)
-    print n
-    print eta
+    # ============================================================================================================
+    butter_highpass_filter(is_plot=True)
     # ============================================================================================================
 
     print 'for debugging...'

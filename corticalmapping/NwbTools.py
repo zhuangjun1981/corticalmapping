@@ -55,9 +55,10 @@ DEFAULT_GENERAL = {
                    # 'optogenetics': {},
                    'devices': {}
                    }
-SPIKE_WAVEFORM_TIMEWINDOW = (-0.00067, 0.00208)
+SPIKE_WAVEFORM_TIMEWINDOW = (-0.002, 0.002)
 
-def plot_waveforms(waveforms, ch_locations=None, stds=None, f=None, ch_ns=None, axes_size=(0.2, 0.2), **kwargs):
+def plot_waveforms(waveforms, ch_locations=None, stds=None, waveforms_filtered=None, stds_filtered=None,
+                   f=None, ch_ns=None, axes_size=(0.2, 0.2), **kwargs):
     """
     plot spike waveforms at specified channel locations
 
@@ -65,6 +66,9 @@ def plot_waveforms(waveforms, ch_locations=None, stds=None, f=None, ch_ns=None, 
     :param ch_locations: list of tuples, (x_location, y_location) for each channel, if None, waveform will be plotted
                          in a linear fashion
     :param stds: 2-d array, same size as waveform, measurement of variance of each time point at each channel
+    :param waveforms_filtered: 2-d array, same size as waveform, waveforms from unfiltered analog signal
+    :param stds_filtered: 2-d array, same size as waveform, measurement of variance of each time point at
+                            each channel of unfiltered analog signal
     :param f: matplotlib figure object
     :param ch_ns: list of strings, names of each channel
     :param axes_size: tuple, sise of subplot, (width, height), only implemented when ch_locations is not None
@@ -83,29 +87,51 @@ def plot_waveforms(waveforms, ch_locations=None, stds=None, f=None, ch_ns=None, 
     else:
         ax_s = pt.distributed_axes(f, axes_pos=ch_locations, axes_size=axes_size)
 
+    #  detect uniform y axis scale
+    max_trace = waveforms.flatten()
+    min_trace = waveforms.flatten()
     if stds is not None:
-        amplitudes = np.max(waveforms + stds, axis=0) - np.min(waveforms - stds, axis=0)
-        peak_ch_ind = np.argmax(amplitudes)
-        peak_min = np.min(waveforms[:, peak_ch_ind] - stds[:, peak_ch_ind])
-        peak_max = np.max(waveforms[:, peak_ch_ind] + stds[:, peak_ch_ind])
-    else:
-        amplitudes = np.max(waveforms, axis=0) - np.min(waveforms, axis=0)
-        peak_ch_ind = np.argmax(amplitudes)
-        peak_min = np.min(waveforms[:, peak_ch_ind])
-        peak_max = np.max(waveforms[:, peak_ch_ind])
+        max_trace = np.concatenate((max_trace, waveforms.flatten() + stds.flatten()))
+        min_trace = np.concatenate((min_trace, waveforms.flatten() - stds.flatten()))
+    if waveforms_filtered is not None:
+        max_trace = np.concatenate((max_trace, waveforms_filtered.flatten()))
+        min_trace = np.concatenate((min_trace, waveforms_filtered.flatten()))
+        if stds_filtered is not None:
+            max_trace = np.concatenate((max_trace, waveforms_filtered.flatten() + stds_filtered.flatten()))
+            min_trace = np.concatenate((min_trace, waveforms_filtered.flatten() - stds_filtered.flatten()))
+
+    peak_min = np.min(min_trace)
+    peak_max = np.max(max_trace)
 
     for j, ax in enumerate(ax_s):
+
+        # plot unfiltered data
+        if waveforms_filtered is not None:
+            curr_wf_f = waveforms_filtered[:, j]
+            if stds_filtered is not None:
+                curr_std_f = stds_filtered[:, j]
+                ax.fill_between(range(waveforms_filtered.shape[0]), curr_wf_f - curr_std_f,
+                                curr_wf_f + curr_std_f, color='#888888', alpha=0.5, edgecolor='none')
+            ax.plot(curr_wf_f, '-', color='#555555', label='filtered', **kwargs)
+
+        # plot filtered data
         curr_wf = waveforms[:, j]
         if stds is not None:
             curr_std = stds[:, j]
             ax.fill_between(range(waveforms.shape[0]), curr_wf - curr_std, curr_wf + curr_std,
-                            color='#888888',alpha=0.5, edgecolor='none')
-        ax.plot(curr_wf, '-k', **kwargs)
-        ax.set_xlim([0, waveforms.shape[0] - 1])
+                            color='#8888ff',alpha=0.5, edgecolor='none')
+        ax.plot(curr_wf, '-', color='#3333ff', label='unfiltered', **kwargs)
+
+        # plot title
         if ch_ns is not None:
             ax.set_title(ch_ns[j], y=0.9)
+
+        ax.set_xlim([0, waveforms.shape[0] - 1])
         ax.set_ylim([peak_min, peak_max])
         ax.set_axis_off()
+
+        if waveforms_filtered is not None and j == 0:
+            ax.legend(frameon=False, loc='upper left', fontsize='small', bbox_to_anchor=(0, 0.9))
 
     return f
 
@@ -358,7 +384,14 @@ class RecordedFile(NWB):
         spike_times_path = os.path.join(folder, 'spike_times.npy')
 
         #  generate dictionary of cluster timing indices
-        phy_template_output = kw.get_clusters(kw.read_csv(os.path.join(folder, 'cluster_groups.csv')))
+
+        #  for old version of kilosort
+        #  phy_template_output = kw.get_clusters(kw.read_csv(os.path.join(folder, 'cluster_groups.csv')))
+
+        #  for new version of kilosort
+        phy_template_output = kw.get_clusters(kw.read_csv(os.path.join(folder, 'cluster_group.tsv')))
+
+
         spike_ind = kw.get_spike_times_indices(phy_template_output, spike_clusters_path=clusters_path,
                                                spike_times_path=spike_times_path)
 
@@ -367,11 +400,11 @@ class RecordedFile(NWB):
             file_length = (ind_end - ind_start) / fs
             au_ts = ta.possion_event_ts(duration=file_length, firing_rate=artificial_unit_firing_rate,
                                         refractory_dur=0.001, is_plot=False)
-            spike_ind.update({'unit_aua': (au_ts * fs).astype(np.uint64)})
+            spike_ind.update({'unit_aua': (au_ts * fs).astype(np.uint64) + ind_start})
 
         #  get channel related infomation
         ch_ns = self._get_channel_names()
-        file_starting_time = self._get_analog_data(ch_ns[0])[1][0]
+        file_starting_time = self.get_analog_data(ch_ns[0])[1][0]
         channel_positions = kw.get_channel_geometry(folder, channel_names=ch_ns)
 
         #  create specificed module
@@ -386,15 +419,17 @@ class RecordedFile(NWB):
         for unit in spike_ind.keys():
 
             #  get timestamps of current unit
-            curr_ts = np.array(spike_ind[unit])
+            curr_ts = spike_ind[unit]
             curr_ts = curr_ts[np.logical_and(curr_ts >= ind_start, curr_ts < ind_end)] - ind_start
             curr_ts = curr_ts / fs + file_starting_time
 
             # array to store waveforms from all channels
             template = []
+            template_uf = []  # wavefrom from unfiltered analog signal
 
             # array to store standard deviations of waveform from all channels
             std = []
+            std_uf = []  # standard deviations of unfiltered analog signal
 
             # temporary variables to detect peak channels
             peak_channel = None
@@ -404,10 +439,10 @@ class RecordedFile(NWB):
             for i, ch_n in enumerate(ch_ns):
 
                 #  get current analog signals of a given channel
-                curr_ch_data, curr_ch_ts = self._get_analog_data(ch_n)
+                curr_ch_data, curr_ch_ts = self.get_analog_data(ch_n)
 
                 #  band pass this analog signal
-                curr_ch_data_f = ta.butter_bandpass(curr_ch_data, cutoffs=(300., 6000.), fs=fs)
+                curr_ch_data_f = ta.butter_highpass(curr_ch_data, cutoff=300., fs=fs)
 
                 #  calculate spike triggered average filtered signal
                 curr_waveform_results = ta.event_triggered_average_regular(ts_event=curr_ts,
@@ -419,9 +454,20 @@ class RecordedFile(NWB):
                                                                            is_plot=False)
                 curr_waveform, curr_n, curr_t, curr_std = curr_waveform_results
 
+                curr_waveform_results_uf = ta.event_triggered_average_regular(ts_event=curr_ts,
+                                                                              continuous=curr_ch_data,
+                                                                              fs_continuous=fs,
+                                                                              start_time_continuous=file_starting_time,
+                                                                              t_range=SPIKE_WAVEFORM_TIMEWINDOW,
+                                                                              is_normalize=True,
+                                                                              is_plot=False)
+                curr_waveform_uf, _, _, curr_std_uf = curr_waveform_results_uf
+
                 #  append waveform and std for current channel
                 template.append(curr_waveform)
                 std.append(curr_std)
+                template_uf.append(curr_waveform_uf)
+                std_uf.append(curr_std_uf)
 
                 #  detect the channel with peak amplitude
                 if peak_channel is not None:
@@ -438,20 +484,27 @@ class RecordedFile(NWB):
             if unit == 'unit_aua':
                 unit_times.add_unit(unit_name='unit_aua', unit_times=curr_ts,
                                     source='electrophysiology extracellular recording',
-                                    description='Artificial possion unit for control. Spike time unit: seconds.')
+                                    description='Artificial possion unit for control. Spike time unit: seconds. '
+                                                'Spike waveforms are band-pass filtered with cutoff frequency'
+                                                ' (300, 6000) Hz.')
             else:
                 unit_times.add_unit(unit_name=unit, unit_times=curr_ts,
                                     source='electrophysiology extracellular recording',
                                     description="Data spike-sorted by: " + spike_sorter +
-                                                ' using phy-template. Spike time unit: seconds.')
+                                                ' using phy-template. Spike time unit: seconds. Spike waveforms are'
+                                                'band-pass filtered with cutoff frequency (300, 6000) Hz.')
 
             #  add relevant information to current UnitTimes field
             unit_times.append_unit_data(unit_name=unit, key='channel_name', value=peak_channel)
             unit_times.append_unit_data(unit_name=unit, key='channel', value=peak_channel_ind)
-            unit_times.append_unit_data(unit_name=unit, key='template', value=np.array(template).transpose())
-            unit_times.append_unit_data(unit_name=unit, key='template_std', value=np.array(std).transpose())
-            unit_times.append_unit_data(unit_name=unit, key='waveform', value=template[peak_channel_ind])
-            unit_times.append_unit_data(unit_name=unit, key='waveform_std', value=std[peak_channel_ind])
+            unit_times.append_unit_data(unit_name=unit, key='template_filtered', value=np.array(template).transpose())
+            unit_times.append_unit_data(unit_name=unit, key='template',
+                                        value=np.array(template_uf).transpose())
+            unit_times.append_unit_data(unit_name=unit, key='template_std_filtered', value=np.array(std).transpose())
+            unit_times.append_unit_data(unit_name=unit, key='template_std',
+                                        value=np.array(std_uf).transpose())
+            unit_times.append_unit_data(unit_name=unit, key='waveform', value=template_uf[peak_channel_ind])
+            unit_times.append_unit_data(unit_name=unit, key='waveform_std', value=std_uf[peak_channel_ind])
             unit_times.append_unit_data(unit_name=unit, key='xpos_probe',
                                         value=[channel_positions[ch][0] for ch in ch_ns][peak_channel_ind])
             unit_times.append_unit_data(unit_name=unit, key='ypos_probe',
@@ -733,12 +786,13 @@ class RecordedFile(NWB):
         pd_ts.set_value('smallest_interval', smallestInterval)
         pd_ts.finalize()
 
-    def plot_spike_waveforms(self, modulen, unitn, fig=None, axes_size=(0.2, 0.2), **kwargs):
+    def plot_spike_waveforms(self, modulen, unitn, is_plot_filtered=False, fig=None, axes_size=(0.2, 0.2), **kwargs):
         """
         plot spike waveforms
 
         :param modulen: str, name of the module containing ephys recordings
         :param unitn: str, name of ephys unit, should be in '/processing/ephys_units/UnitTimes'
+        :param is_plot_filtered: bool, plot unfiltered waveforms or not
         :param channel_names: list of strs, channel names in continuous recordings, should be in '/acquisition/timeseries'
         :param fig: matplotlib figure object
         :param t_range: tuple of two floats, time range to plot along spike time stamps
@@ -753,8 +807,28 @@ class RecordedFile(NWB):
 
         ch_ns = self._get_channel_names()
 
-        waveforms = self.file_pointer['processing'][modulen]['UnitTimes'][unitn]['template'].value
-        stds = self.file_pointer['processing'][modulen]['UnitTimes'][unitn]['template_std'].value
+        unit_grp = self.file_pointer['processing'][modulen]['UnitTimes'][unitn]
+        waveforms = unit_grp['template'].value
+
+        if 'template_std' in unit_grp.keys():
+            stds = unit_grp['template_std'].value
+        else:
+            stds = None
+
+        if is_plot_filtered:
+            if 'template_filtered' in unit_grp.keys():
+                waveforms_f = unit_grp['template_filtered'].value
+                if 'template_std_filtered' in unit_grp.keys():
+                    stds_f = unit_grp['template_std_filtered'].value
+                else:
+                    stds_f = None
+            else:
+                print('can not find unfiltered spike waveforms for unit: ' + unitn)
+                waveforms_f = None
+                stds_f = None
+        else:
+            waveforms_f = None
+            stds_f = None
 
         if 'channel_xpos' in self.file_pointer['processing'][modulen].keys():
             ch_xpos = self.file_pointer['processing'][modulen]['channel_xpos']
@@ -763,9 +837,8 @@ class RecordedFile(NWB):
         else:
             ch_locations = None
 
-
-        fig = plot_waveforms(waveforms, ch_locations=ch_locations, stds=stds, f=fig,
-                             ch_ns=ch_ns, axes_size=axes_size, **kwargs)
+        fig = plot_waveforms(waveforms, ch_locations=ch_locations, stds=stds, waveforms_filtered=waveforms_f,
+                             stds_filtered=stds_f, f=fig, ch_ns=ch_ns, axes_size=axes_size, **kwargs)
 
         fig.suptitle(self.file_pointer['identifier'].value + ' : ' + unitn)
 
@@ -843,7 +916,7 @@ class RecordedFile(NWB):
         channel_ns.sort()
         return channel_ns
 
-    def _get_analog_data(self, ch_n):
+    def get_analog_data(self, ch_n):
         """
         :param ch_n: string, analog channel name
         :return: 1-d array, analog data, data * conversion

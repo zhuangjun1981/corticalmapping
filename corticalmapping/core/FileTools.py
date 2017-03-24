@@ -518,8 +518,8 @@ def importRawJCamF(path,
 def int2str(num,length=None):
     '''
     generate a string representation for a integer with a given length
-    :param num: input number
-    :param length: length of the string
+    :param num: non-negative int, input number
+    :param length: positive int, length of the string
     :return: string represetation of the integer
     '''
 

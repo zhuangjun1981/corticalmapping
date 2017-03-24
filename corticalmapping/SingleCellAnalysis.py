@@ -292,7 +292,7 @@ class SpatialReceptiveField(WeightedROI):
                                      dataType=self.dataType, thr=thr, filter_sigma=self.filter_sigma,
                                      interpolate_rate=self.interpolate_rate)
 
-    def interpolate(self, ratio, method='cubic',fill_value=0.):
+    def interpolate(self, ratio, method='cubic', fill_value=0.):
 
         if not isinstance(ratio, int):
             print 'interpolate ratio is not an integer. convert it into an integer.'
@@ -303,16 +303,13 @@ class SpatialReceptiveField(WeightedROI):
         if ratio_int <= 1:
             raise ValueError('interpolate_rate should be an integer larger than 1!')
 
-        altInterpolation = ip.interp1d(np.arange(len(self.altPos)),self.altPos)
-        aziInterpolation = ip.interp1d(np.arange(len(self.aziPos)),self.aziPos)
-        newAltPos = altInterpolation(np.arange(0,len(self.altPos)-1,1./int(ratio_int)))
-        newAziPos = aziInterpolation(np.arange(0,len(self.aziPos)-1,1./int(ratio_int)))
-        mask = self.get_weighted_mask(); aziGrid, altGrid=np.meshgrid(self.aziPos, self.altPos)
-        newAziGrid, newAltGrid = np.meshgrid(newAziPos,newAltPos)
-        newMask = ip.griddata(np.array([aziGrid.flatten(),altGrid.flatten()]).transpose(),
-                              mask.flatten(),
-                              (newAziGrid,newAltGrid),
-                              method=method,fill_value=fill_value)
+        # altInterpolation = ip.interp1d(np.arange(len(self.altPos)),self.altPos)
+        # aziInterpolation = ip.interp1d(np.arange(len(self.aziPos)),self.aziPos)
+        newAltPos = np.arange(0, len(self.altPos), 1. / ratio_int)
+        newAziPos = np.arange(0, len(self.aziPos), 1. / ratio_int)
+        mask = self.get_weighted_mask()
+        mask_ip = ip.interp2d(self.aziPos, self.altPos, mask, kind=method, fill_value=fill_value)
+        newMask = mask_ip(newAziPos, newAltPos)
 
         return SpatialReceptiveField(newMask, newAltPos, newAziPos, sign=self.sign, temporalWindow=self.temporalWindow,
                                      pixelSizeUnit=self.pixelSizeUnit, dataType=self.dataType, thr=self.thr,
