@@ -3292,8 +3292,9 @@ class DisplaySequence(object):
                 self.keepDisplay = False
                 print "Remote stop signal detected. Stop displaying. \n"
         except: pass
-
-        self._remote_obj._check_rep()
+    
+        if self.isRemoteSync:
+            self._remote_obj._check_rep()
     
 
     def set_display_order(self, displayOrder):
@@ -3329,7 +3330,8 @@ class DisplaySequence(object):
         
         logFile = dict(self.sequenceLog)
         displayLog = dict(self.__dict__)
-        displayLog.pop("_remote_obj")
+        if hasattr(self, '_remote_obj'):
+            displayLog.pop("_remote_obj")
         displayLog.pop('sequenceLog')
         displayLog.pop('displayControlSock')
         displayLog.pop('sequence')
