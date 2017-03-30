@@ -3335,10 +3335,8 @@ class DisplaySequence(object):
         displayLog.pop('sequenceLog')
         displayLog.pop('displayControlSock')
         displayLog.pop('sequence')
-        try:
-            displayLog.pop('remoteSync')
-        except Exception as e:
-            print ""
+        if hasattr(self, 'remoteSync'):
+            displayLog.pop("remoteSync")
         logFile.update({'presentation':displayLog})
 
         filename =  self.fileName + ".pkl"
