@@ -8,11 +8,13 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 import core.ImageAnalysis as ia
 import core.TimingAnalysis as ta
+import core.PlottingTools as pt
 import tifffile as tf
 import RetinotopicMapping as rm
 import core.FileTools as ft
 import scipy.ndimage as ni
 from toolbox.misc import BinarySlicer
+import allensdk_internal.brain_observatory.mask_set as mask_set
 
 try:
     # from r_neuropil import NeuropilSubtract as NS
@@ -677,15 +679,112 @@ def get_lfp(trace, fs=30000., notch_base=60., notch_bandwidth=1., notch_harmonic
     return lfp.astype(trace.dtype)
 
 
+def array_to_rois(input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), is_plot=False):
+    """
+    generate arrays of rois and their neuropil surround masks from Leonard's segmentation results.  
+    :param input_folder: the folder that contains Leonard's segmentation results, there should be a file with name 
+                         'maxInt_masks2.tif' containing information about rois. This is a 3-d array, 
+                         frame by y by x, each frame should have the same pixel resolution as 2-p image frame. 
+                         Continuous Non-zero regions in each frame represent roi masks. Each frame contains a set of 
+                         non-overlapping rois.
+    :param overlap_threshold: float, within (0., 1.], allensdk_internal.brain_observatory.mask_set.MaskSet class to 
+                              detect and remove overlap roi 
+    :param neuropil_limit: tuple of 2 positive integers, the inner and outer dilation iteration numbers to mark 
+                           neuropil mask for each center roi
+    :return: center_mask_array: 3-d array, np.uint8, each frame is a binary mask for a single center roi
+             neuropil_mask_array: 3-d array, np.uint8, each frame is a binary mask of surrounding neuropil region for 
+                                  a single center roi
+    """
+
+    mask_frames = tf.imread(os.path.join(input_folder, 'maxInt_masks2.tif'))
+
+    center_masks = {}
+
+    for i in range(mask_frames.shape[0]):
+        curr_mask_frame = mask_frames[i]
+        curr_mask_frame[curr_mask_frame > 0] = 1
+        curr_labeled, curr_n = ni.label(curr_mask_frame)
+        curr_masks = ia.get_masks(curr_labeled, isSort=False, keyPrefix='masks_layer_' + str(i), labelLength=None)
+        center_masks.update(curr_masks)
+
+    center_mask_array = []
+    for mask in center_masks.values():
+        center_mask_array.append(mask)
+    center_mask_array = np.array(center_mask_array, dtype=np.uint8)
+
+    #  remvoe duplicates
+    ms = mask_set.MaskSet(center_mask_array.astype(bool))
+    duplicates = ms.detect_duplicates(overlap_threshold=overlap_threshold)
+    # print 'number of duplicates:', len(duplicates)
+    if len(duplicates) > 0:
+        inds = duplicates.keys()
+        center_mask_array = np.array([center_mask_array[i] for i in range(len(center_mask_array)) if i not in inds])
+
+    # removing unions
+    ms = mask_set.MaskSet(masks=center_mask_array.astype(bool))
+    unions = ms.detect_unions()
+    # print 'number of unions:', len(unions)
+    if len(unions) > 0:
+        inds = unions.keys()
+        center_mask_array = np.array([center_mask_array[i] for i in range(len(center_mask_array)) if i not in inds])
+
+    # get total mask
+    total_mask = np.sum(center_mask_array, axis=0).astype(np.bool)
+    total_mask = np.logical_not(total_mask).astype(np.uint8)
+
+    neuropil_mask_array = []
+    for center_mask in center_mask_array:
+        curr_surround = ni.binary_dilation(center_mask, iterations=neuropil_limit[1]) - \
+                        ni.binary_dilation(center_mask, iterations=neuropil_limit[0])
+        curr_surround = np.logical_and(curr_surround, total_mask)
+        neuropil_mask_array.append(curr_surround)
+    neuropil_mask_array = np.array(neuropil_mask_array, dtype=np.uint8)
+
+    center_areas = np.sum(np.sum(center_mask_array, axis=-1), axis=-1)
+    if np.min(center_areas) == 0:
+        raise ValueError('smallest center masks has no pixels.')
+
+    neuropil_areas = np.sum(np.sum(neuropil_mask_array, axis=-1), axis=-1)
+    if np.min(neuropil_areas) == 0:
+        raise ValueError('smallest neuropil masks has no pixels.')
+
+    if is_plot:
+        colors = pt.random_color(center_mask_array.shape[0])
+        f = plt.figure(figsize=(15, 7))
+        ax1 = f.add_subplot(121)
+        ax2 = f.add_subplot(122)
+
+        for i in range(center_mask_array.shape[0]):
+            pt.plot_mask_borders(center_mask_array[i], plotAxis=ax1, color=colors[i], borderWidth=1)
+            pt.plot_mask_borders(neuropil_mask_array[i], plotAxis=ax2, color=colors[i], borderWidth=1)
+
+        ax1.set_title('center masks')
+        ax2.set_title('neuropil masks')
+        ax1.set_axis_off()
+        ax2.set_axis_off()
+
+        f2 = plt.figure(figsize=(15, 7))
+        ax3 = f2.add_subplot(121)
+        ax3.hist(center_areas, bins=30)
+        ax3.set_title('center mask area distribution')
+        ax4 = f2.add_subplot(122)
+        ax4.hist(neuropil_areas, bins=30)
+        ax4.set_title('neuropil mask area distribution')
+
+        plt.show()
+
+    return center_mask_array, neuropil_mask_array
+
+
 if __name__ == '__main__':
 
     #===========================================================================
-    dateRecorded = '150930'
-    mouseID = '187474'
-    fileNum = 101
-    displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
-    logPath = findLogPath(date=dateRecorded,mouseID=mouseID,stimulus='KSstimAllDir',userID='',fileNumber=str(fileNum),displayFolder=displayFolder)
-    displayInfo = analysisMappingDisplayLog(logPath)
+    # dateRecorded = '150930'
+    # mouseID = '187474'
+    # fileNum = 101
+    # displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
+    # logPath = findLogPath(date=dateRecorded,mouseID=mouseID,stimulus='KSstimAllDir',userID='',fileNumber=str(fileNum),displayFolder=displayFolder)
+    # displayInfo = analysisMappingDisplayLog(logPath)
     #===========================================================================
 
     #===========================================================================
@@ -858,6 +957,15 @@ if __name__ == '__main__':
     # trialDict = trialObj.generateTrialDict()
     # ft.saveFile(os.path.join(saveFolder,trialObj.getName()+'.pkl'),trialDict)
     #===========================================================================
+
+    # ===========================================================================
+    input_folder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData" \
+                   r"\170404-M302706\2p_movies\for_segmentation\tempdir"
+    c, s = array_to_rois(input_folder=input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), is_plot=True)
+    print c.shape
+    print s.shape
+
+    # ===========================================================================
 
     print 'for debug...'
 

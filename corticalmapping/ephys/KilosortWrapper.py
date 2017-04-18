@@ -76,11 +76,13 @@ def get_spike_times_indices(clusters, spike_clusters_path, spike_times_path):
             for id in cluster_id:
                 mua_spike_ind += list(spike_times[spike_cluster == id])
             mua_spike_ind.sort()
-            spike_ind.update({'unit_mua': np.array(mua_spike_ind, dtype=spike_times.dtype)})
+            if len(mua_spike_ind) > 0:
+                spike_ind.update({'unit_mua': np.array(mua_spike_ind, dtype=spike_times.dtype)})
         else:
             curr_cluster_ind = list(spike_times[spike_cluster == cluster_id])
             curr_cluster_ind.sort()
-            spike_ind.update({cluster: np.array(curr_cluster_ind, dtype=spike_times.dtype)})
+            if len(curr_cluster_ind) > 0:
+                spike_ind.update({cluster: np.array(curr_cluster_ind, dtype=spike_times.dtype)})
 
     return spike_ind
 

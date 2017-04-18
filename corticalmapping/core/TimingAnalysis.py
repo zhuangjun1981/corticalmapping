@@ -102,32 +102,27 @@ def find_nearest(trace, value, direction=0):
         return np.nanargmin(diff)
 
 
-def get_event_with_pre_iei(ts_event, iei=None):
+def get_event_with_pre_iei(ts_events, iei=None):
     """
     get events which has a pre inter event interval (IEI) longer than a certain period of time
 
-    :param ts_event: 1-d array, timestamps of events
+    :param ts_events: 1-d array, timestamps of events
     :param iei: float, criterion for pre IEI duration
 
     :return: 1-d array, refined timestamps
     """
 
-    if not check_monotonicity(ts_event, direction='increasing'):
-        raise ValueError('the input event timestamps should be monotonically increasing.')
-
     if iei is None:
-        return ts_event
+        ts_events.sort()
+        return ts_events
+
     else:
-        ts_refined = np.empty(ts_event.shape)
-        ts_refined[:] = np.nan
-        ind = 0
 
-        for i, ts in enumerate(ts_event):
-            if (ts > iei) and (i > 0) and (ts - ts_event[i-1] > iei):
-                ts_refined[ind] = ts
-                ind += 1
+        if not check_monotonicity(ts_events, direction='non-decreasing'):
+            print('the input event timestamps are not monotonically non-decreasing.\n Sort timestamps ...')
+            ts_events.sort()
 
-        ts_refined = ts_refined[0: ind]
+        ts_refined = ts_events[1:][np.diff(ts_events) > iei]
 
         return ts_refined
 
@@ -829,7 +824,7 @@ if __name__=='__main__':
     # ============================================================================================================
 
     # ============================================================================================================
-    butter_highpass_filter(is_plot=True)
+    # butter_highpass_filter(is_plot=True)
     # ============================================================================================================
 
     print 'for debugging...'
