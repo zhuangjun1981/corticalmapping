@@ -440,8 +440,9 @@ def save_figure_without_borders(f,
     '''
     remove borders of a figure
     '''
-    f.gca().get_xaxis().set_visible(False)
-    f.gca().get_yaxis().set_visible(False)
+    # f.gca().get_xaxis().set_visible(False)
+    # f.gca().get_yaxis().set_visible(False)
+    f.gca().set_axis_off()
     f.gca().set_title('')
     if removeSuperTitle:
         f.suptitle('')
