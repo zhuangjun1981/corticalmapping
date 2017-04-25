@@ -384,13 +384,12 @@ class RecordedFile(NWB):
         spike_times_path = os.path.join(folder, 'spike_times.npy')
 
         #  generate dictionary of cluster timing indices
-
-        #  for old version of kilosort
-        #  phy_template_output = kw.get_clusters(kw.read_csv(os.path.join(folder, 'cluster_groups.csv')))
-
-        #  for new version of kilosort
-        phy_template_output = kw.get_clusters(kw.read_csv(os.path.join(folder, 'cluster_group.tsv')))
-
+        try:
+            #  for new version of kilosort
+            phy_template_output = kw.get_clusters(kw.read_csv(os.path.join(folder, 'cluster_group.tsv')))
+        except IOError:
+            # for old version of kilosort
+            phy_template_output = kw.get_clusters(kw.read_csv(os.path.join(folder, 'cluster_groups.csv')))
 
         spike_ind = kw.get_spike_times_indices(phy_template_output, spike_clusters_path=clusters_path,
                                                spike_times_path=spike_times_path)

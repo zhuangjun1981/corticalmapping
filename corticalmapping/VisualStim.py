@@ -2505,7 +2505,7 @@ class DriftingGratingCircle(Stim):
 
                 # get phase list for each condition
                 phases, frame_per_cycle = self._generate_phase_list(tf)
-                if (dire % (np.pi * 2)) <= np.pi: phases = [-phase for phase in phases]
+                if (dire % (np.pi * 2)) >= np.pi: phases = [-phase for phase in phases]
 
                 for k, phase in enumerate(phases): # each frame in the block
 
@@ -3526,38 +3526,38 @@ if __name__ == "__main__":
     #==============================================================================================================================
 
     #==============================================================================================================================
-    mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=5)
-    indicator=Indicator(mon)
-
-    grating = get_grating(mon.degCorX, mon.degCorY, ori=0., spatial_freq=0.1, center=(60.,0.), contrast=1)
-    print grating.max()
-    print grating.min()
-    plt.imshow(grating,cmap='gray',interpolation='nearest',vmin=0., vmax=1.)
-    plt.show()
-
-    drifting_grating = DriftingGratingCircle(mon,indicator, sf_list=(0.08,0.16),
-                                             tf_list=(4.,8.), dire_list=(0.,0.1),
-                                             con_list=(0.5,1.), size_list=(5.,10.),)
-    print '\n'.join([str(cond) for cond in drifting_grating._generate_all_conditions()])
-
-    drifting_grating2 = DriftingGratingCircle(mon,indicator,
-                                              center=(60.,0.),
-                                              sf_list=[0.08, 0.16],
-                                              tf_list=[4.,2.],
-                                              dire_list=[np.pi/6],
-                                              con_list=[1.,0.5],
-                                              size_list=[40.],
-                                              blockDur=2.,
-                                              preGapDur=2.,
-                                              postGapDur=3.,
-                                              midGapDur=1.)
-    frames =  drifting_grating2.generate_frames()
-    print '\n'.join([str(frame) for frame in frames])
-
-    ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False,isInterpolate=False)
-    ds.set_stim(drifting_grating2)
-    ds.trigger_display()
-    plt.show()
+    # mon=Monitor(resolution=(1080, 1920),dis=13.5,monWcm=88.8,monHcm=50.1,C2Tcm=33.1,C2Acm=46.4,monTilt=16.22,downSampleRate=5)
+    # indicator=Indicator(mon)
+    #
+    # grating = get_grating(mon.degCorX, mon.degCorY, ori=0., spatial_freq=0.1, center=(60.,0.), contrast=1)
+    # print grating.max()
+    # print grating.min()
+    # plt.imshow(grating,cmap='gray',interpolation='nearest',vmin=0., vmax=1.)
+    # plt.show()
+    #
+    # drifting_grating = DriftingGratingCircle(mon,indicator, sf_list=(0.08,0.16),
+    #                                          tf_list=(4.,8.), dire_list=(0.,0.1),
+    #                                          con_list=(0.5,1.), size_list=(5.,10.),)
+    # print '\n'.join([str(cond) for cond in drifting_grating._generate_all_conditions()])
+    #
+    # drifting_grating2 = DriftingGratingCircle(mon,indicator,
+    #                                           center=(60.,0.),
+    #                                           sf_list=[0.08, 0.16],
+    #                                           tf_list=[4.,2.],
+    #                                           dire_list=[np.pi/6],
+    #                                           con_list=[1.,0.5],
+    #                                           size_list=[40.],
+    #                                           blockDur=2.,
+    #                                           preGapDur=2.,
+    #                                           postGapDur=3.,
+    #                                           midGapDur=1.)
+    # frames =  drifting_grating2.generate_frames()
+    # print '\n'.join([str(frame) for frame in frames])
+    #
+    # ds=DisplaySequence(logdir=r'C:\data',backupdir=None,displayIteration = 2,isTriggered=False,isSyncPulse=False,isInterpolate=False)
+    # ds.set_stim(drifting_grating2)
+    # ds.trigger_display()
+    # plt.show()
     #==============================================================================================================================
 
     # ==============================================================================================================================
@@ -3570,5 +3570,29 @@ if __name__ == "__main__":
     # plt.show()
     # ==============================================================================================================================
 
+    # ==============================================================================================================================
+    mon = Monitor(resolution=(1080, 1920), dis=13.5, monWcm=88.8, monHcm=50.1, C2Tcm=33.1, C2Acm=46.4, monTilt=16.22,
+                  downSampleRate=5)
+    indicator = Indicator(mon)
+    drifting_grating2 = DriftingGratingCircle(mon, indicator,
+                                              center=(60., 0.),
+                                              sf_list=[0.08],
+                                              tf_list=[4.],
+                                              dire_list=np.arange(0, 2 * np.pi, np.pi / 4),
+                                              con_list=[1.],
+                                              size_list=[20.],
+                                              blockDur=2.,
+                                              preGapDur=2.,
+                                              postGapDur=3.,
+                                              midGapDur=1.)
+
+    ds = DisplaySequence(logdir=r'C:\data', backupdir=None, displayIteration=1, isTriggered=False, isSyncPulse=False,
+                         isInterpolate=False)
+    ds.set_stim(drifting_grating2)
+    ds.trigger_display()
+
+    # phases = drifting_grating2._generate_phase_list(4.)
+    # print phases
+    # ==============================================================================================================================
 
     print 'for debug...'
