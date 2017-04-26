@@ -87,6 +87,7 @@ def load_continuous(file_path, dtype=np.float32):
         if N != oe.SAMPLES_PER_RECORD:
             print('samples per record specified in block ' + str(i) + ' (' + str(N) +
                   ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
+            samples = samples[0 : i * oe.SAMPLES_PER_RECORD]
             break
             # raise Exception('samples per record specified in block ' + str(i) + ' (' + str(N) + \
             #                 ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')

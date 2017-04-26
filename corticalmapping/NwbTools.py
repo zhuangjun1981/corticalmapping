@@ -704,10 +704,12 @@ class RecordedFile(NWB):
 
             allSquares = []
             for i in range(len(frames)):
-                if frames[i]['isDisplay'] == 1 and (i == 0 or
-                                                    frames[i - 1]['azimuth'] != frames[i]['azimuth'] or
-                                                    frames[i - 1]['altitude'] != frames[i]['altitude'] or
-                                                    frames[i - 1]['sign'] != frames[i]['sign']):
+                # if frames[i]['isDisplay'] == 1 and (i == 0 or
+                #                                     frames[i - 1]['azimuth'] != frames[i]['azimuth'] or
+                #                                     frames[i - 1]['altitude'] != frames[i]['altitude'] or
+                #                                     frames[i - 1]['sign'] != frames[i]['sign']):
+                if frames[i]['isDisplay'] == 1 and \
+                        (i == 0 or (frames[i - 1]['isOnset'] == -1 and frames[i]['isOnset'] == 1)):
                     allSquares.append(np.array((i, frames[i]['azimuth'], frames[i]['altitude'], frames[i]['sign']),
                                                dtype=np.float32))
 
@@ -721,6 +723,9 @@ class RecordedFile(NWB):
                                                                'sign of each square'])
             squares_dset.attrs['description'] = 'intermediate processing step of sparse noise display log. Containing ' \
                                                 'the information about the onset of each displayed square.'
+
+    def analyze_flashing_circle_frames(self):
+        pass
 
     def add_visual_stimulations(self, log_paths):
 
