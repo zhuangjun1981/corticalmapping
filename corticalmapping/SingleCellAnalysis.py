@@ -208,11 +208,15 @@ class SpatialReceptiveField(WeightedROI):
         curr_plot = plot_axis.imshow(mask, cmap=cmap, interpolation=interpolation, **kwargs)
         plot_axis.set_title(self.get_name())
 
-        if self.interpolate_rate is not None:
-            plot_axis.set_yticks(range(len(self.altPos))[::self.interpolate_rate])
-            plot_axis.set_xticks(range(len(self.aziPos))[::self.interpolate_rate])
-            plot_axis.set_yticklabels(self.altPos[::self.interpolate_rate])
-            plot_axis.set_xticklabels(self.aziPos[::self.interpolate_rate])
+        if self.interpolate_rate is None:
+            interpolate_rate = 1
+        else:
+            interpolate_rate = self.interpolate_rate
+
+        plot_axis.set_yticks(range(len(self.altPos))[::interpolate_rate])
+        plot_axis.set_xticks(range(len(self.aziPos))[::interpolate_rate])
+        plot_axis.set_yticklabels(self.altPos[::interpolate_rate])
+        plot_axis.set_xticklabels(self.aziPos[::interpolate_rate])
 
         if is_colorbar:
             plot_axis.get_figure().colorbar(curr_plot)
@@ -390,23 +394,18 @@ class SpatialTemporalReceptiveField(object):
         self.data = np.array(values, dtype=dtype)
         self.sort_data()
 
-
     def merge_duplication(self):
         #todo: merge traces with same retinotopic loacation
         pass
 
-
     def sort_data(self):
         self.data = np.sort(self.data, order=['sign','altitude','azimuth'])
-
 
     def get_data_type(self):
         return self.data.dtype
 
-
     def get_locations(self):
         return list(np.array([self.data['altitude'],self.data['azimuth'],self.data['sign']]).transpose())
-
 
     def add_traces(self, locations, signs, traces):
 
@@ -453,7 +452,6 @@ class SpatialTemporalReceptiveField(object):
 
         self.sort_data()
 
-
     def to_h5_group(self, h5Group):
 
         h5Group.attrs['time'] = self.time
@@ -473,7 +471,6 @@ class SpatialTemporalReceptiveField(object):
             trace.attrs['altitude'] = self.data[i]['altitude']
             trace.attrs['azimuth'] = self.data[i]['azimuth']
             trace.attrs['sign'] = self.data[i]['sign']
-
 
     def plot_traces(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None, **kwargs):
 
@@ -506,7 +503,6 @@ class SpatialTemporalReceptiveField(object):
 
         return axisLists[0][0].figure
 
-
     def _get_axis_layout(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None, **kwargs):
 
         locations = np.array(self.get_locations())
@@ -537,7 +533,6 @@ class SpatialTemporalReceptiveField(object):
 
         return indexLists, axisLists
 
-
     def get_amplitude_map(self, timeWindow=(0, 0.5)):
         """
         return 2d receptive field map and altitude and azimuth coordinates
@@ -557,7 +552,6 @@ class SpatialTemporalReceptiveField(object):
             if traceIndOFF is not None: ampOFF[i] = np.mean(np.mean(self.data[traceIndOFF]['traces'],axis=0)[windowIndex])
 
         return ampON, ampOFF, allAltPos, allAziPos
-
 
     def get_amplitude_receptive_field(self, timeWindow=(0, 0.5)):
         """
@@ -608,7 +602,6 @@ class SpatialTemporalReceptiveField(object):
 
         return ampON, ampOFF, allAltPos, allAziPos
 
-
     def get_delta_amplitude_receptive_field(self, timeWindow=(0, 0.5)):
         """
         very similar to get_delta_amplitude_map(), only difference is that, it is returning SpatialReceptiveFields
@@ -626,7 +619,6 @@ class SpatialTemporalReceptiveField(object):
 
         return ampRFON, ampRFOFF
 
-
     def get_zscore_map(self, timeWindow=(0, 0.5)):
         """
         return 2d receptive field and altitude and azimuth coordinates
@@ -636,7 +628,6 @@ class SpatialTemporalReceptiveField(object):
         ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
 
         return ia.zscore(ampON), ia.zscore(ampOFF), allAltPos, allAziPos
-
 
     def get_zscore_receptive_field(self, timeWindow=(0, 0.5)):
         """
@@ -657,7 +648,6 @@ class SpatialTemporalReceptiveField(object):
                                             pixelSizeUnit=self.locationUnit,dataType='zscore')
 
         return zscoreRFON, zscoreRFOFF
-
 
     def get_zscore_rois(self, timeWindow=(0, 0.5), zscoreThr=2):
         """
@@ -688,7 +678,6 @@ class SpatialTemporalReceptiveField(object):
             zscoreROIALL = None
 
         return zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos
-
 
     def get_zscore_thresholded_receptive_fields(self, timeWindow=(0, 0.3), thr_ratio=0.3, filter_sigma=None,
                                                 interpolate_rate=None, absolute_thr=None):
@@ -740,7 +729,6 @@ class SpatialTemporalReceptiveField(object):
 
         return zscoreRFON, zscoreRFOFF, zscoreRFALL
 
-
     def get_zscore_roi_centers(self, timeWindow=(0, 0.5), zscoreThr=2):
         """
         outdated
@@ -766,7 +754,6 @@ class SpatialTemporalReceptiveField(object):
         else:
             centerALL = None
         return centerON, centerOFF, centerALL
-
 
     def _sort_index(self):
         """
@@ -795,7 +782,6 @@ class SpatialTemporalReceptiveField(object):
         indON = np.array([np.array(x) for x in indON]); indOFF = np.array([np.array(x) for x in indOFF])
 
         return indON,indOFF,allAltPos,allAziPos
-
 
     def shrink(self,altRange=None,aziRange=None):
         """

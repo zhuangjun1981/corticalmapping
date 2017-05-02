@@ -12,6 +12,7 @@ CONTINUOUS_SAMPLE_PER_RECORD_DTYPE = np.dtype('<u2') # dtype of samples per reco
 CONTINUOUS_RECORDING_NUMBER_DTYPE = np.dtype('<u2') # dtype of recording number field in each record (block) of .continuous file
 CONTINUOUS_SAMPLE_DTYPE = np.dtype('>i2') # dtype of each sample in each record (block) of .continuous file
 CONTINUOUS_MARKER_BYTES = 10 # number of bytes of marker field in each record (block) of .continuous file
+MARKER_ARRAY = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 255], dtype=np.uint8)
 
 def get_digital_line_for_plot(h5_group):
     """
@@ -74,6 +75,8 @@ def load_continuous(file_path, dtype=np.float32):
 
     samples = np.empty(oe.SAMPLES_PER_RECORD * block_num, dtype)
 
+    is_break = False
+
     for i in range(block_num):
         if i == 0:
             # to get the timestamp of the very first record (block)
@@ -88,6 +91,7 @@ def load_continuous(file_path, dtype=np.float32):
             print('samples per record specified in block ' + str(i) + ' (' + str(N) +
                   ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
             samples = samples[0 : i * oe.SAMPLES_PER_RECORD]
+            is_break = True
             break
             # raise Exception('samples per record specified in block ' + str(i) + ' (' + str(N) + \
             #                 ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
@@ -103,11 +107,99 @@ def load_continuous(file_path, dtype=np.float32):
 
         samples[i*oe.SAMPLES_PER_RECORD : (i+1)*oe.SAMPLES_PER_RECORD] = curr_samples
 
-        _ = f.read(10)
+        record_mark = np.fromfile(f, dtype=np.dtype('<u1'), count=10)
+        if not np.array_equal(record_mark, MARKER_ARRAY):
+            print('record marker specified in block ' + str(i) + ' (' + str(record_mark) +
+                  ') does not equal to expected array (' + str(MARKER_ARRAY) + ') !')
+            is_break = True
+            break
+
+    if is_break:
+        samples = samples[0: oe.SAMPLES_PER_RECORD * (i -1)]
 
     header.update({'start_time': start_time})
 
     return header, samples
+
+
+# def load_continuous_hack(file_path, dtype=np.float32):
+#     """
+#     Jun's wrapper to load .continuous data from OpenEphys data files
+#
+#     :param file_path:
+#     :param dtype: np.float32 or np.int16
+#     :return: header: dictionary, standard open ephys header for continuous file
+#              samples: 1D np.array
+#     """
+#
+#     assert dtype in (np.float32, np.int16), \
+#         'Invalid data type specified for loadContinous, valid types are np.float32 and np.int16'
+#
+#     print "\nLoading continuous data from " + file_path
+#
+#     bytes_per_block = CONTINUOUS_TIMESTAMP_DTYPE.itemsize + CONTINUOUS_SAMPLE_PER_RECORD_DTYPE.itemsize + \
+#                       CONTINUOUS_RECORDING_NUMBER_DTYPE.itemsize + CONTINUOUS_MARKER_BYTES + \
+#                       CONTINUOUS_SAMPLE_DTYPE.itemsize * oe.SAMPLES_PER_RECORD
+#
+#     # read in the data
+#     f = open(file_path, 'rb')
+#
+#     file_length = os.fstat(f.fileno()).st_size
+#     print 'total length of the file: ', file_length, 'bytes.'
+#
+#     print 'bytes per record block: ', bytes_per_block
+#
+#     block_num = (file_length - oe.NUM_HEADER_BYTES) // bytes_per_block
+#     print 'total number of valid blocks: ', block_num
+#
+#     header = oe.readHeader(f)
+#
+#     samples = np.empty(oe.SAMPLES_PER_RECORD * 17993, dtype)
+#
+#     _ = np.fromfile(f, np.dtype('<u1'), 36823732 - 1024)
+#
+#     # block_num = (file_length - 37035918) // bytes_per_block
+#     block_num = 17993
+#
+#     for i in range(block_num):
+#         if i == 0:
+#             # to get the timestamp of the very first record (block)
+#             # for alignment of the digital event
+#             start_ind = np.fromfile(f, CONTINUOUS_TIMESTAMP_DTYPE, 1)
+#             start_time = float(start_ind) / float(header['sampleRate'])
+#         else:
+#             _ = np.fromfile(f, CONTINUOUS_TIMESTAMP_DTYPE, 1)
+#         N = np.fromfile(f, CONTINUOUS_SAMPLE_PER_RECORD_DTYPE, 1)[0]
+#
+#         if N != oe.SAMPLES_PER_RECORD:
+#             print('samples per record specified in block ' + str(i) + ' (' + str(N) +
+#                   ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
+#             samples = samples[0 : i * oe.SAMPLES_PER_RECORD]
+#             break
+#             # raise Exception('samples per record specified in block ' + str(i) + ' (' + str(N) + \
+#             #                 ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
+#
+#         _ = (np.fromfile(f, CONTINUOUS_RECORDING_NUMBER_DTYPE, 1))
+#
+#         if dtype == np.float32:
+#             curr_samples = (np.fromfile(f, CONTINUOUS_SAMPLE_DTYPE, N) * float(header['bitVolts'])).astype(np.float32)
+#         elif dtype == np.int16:
+#             curr_samples = np.fromfile(f, CONTINUOUS_SAMPLE_DTYPE, N).astype(np.int16)
+#         else:
+#             raise ValueError('Error in reading data of block:' + str(i))
+#
+#         samples[i*oe.SAMPLES_PER_RECORD : (i+1)*oe.SAMPLES_PER_RECORD] = curr_samples
+#
+#         record_mark = np.fromfile(f, dtype=np.dtype('<u1'), count=10)
+#         if not np.array_equal(record_mark, MARKER_ARRAY):
+#             print('record marker specified in block ' + str(i) + ' (' + str(record_mark) +
+#                   ') does not equal to expected array (MARKER_ARRAY)!')
+#             break
+#
+#     header.update({'start_time': start_time})
+#     print start_time
+#
+#     return header, samples
 
 
 def load_events(file_path, channels=None):
@@ -264,6 +356,7 @@ def pack_folder_for_nwb(folder, prefix, digital_channels=None):
         print '\nLoad ' + file + ' from source folder: ', folder
 
         curr_header, curr_trace = load_continuous(curr_path, dtype=np.int16)
+        # curr_header, curr_trace = load_continuous_hack(curr_path, dtype=np.int16)
 
         # check fs for each continuous channel
         if fs is None:
@@ -290,9 +383,21 @@ def pack_folder_for_nwb(folder, prefix, digital_channels=None):
         output[ch]['trace'] = output[ch]['trace'][0:min_sample_num]
 
     events = load_events(os.path.join(folder, events_files[0]), channels=digital_channels)
+    try:
+        sample_rate = float(curr_header['sampleRate'])
+    except Exception:
+        sample_rate = 30000.
+    end_time = min_sample_num / sample_rate
     for ch, event in events.iteritems():
-        event['rise'] = event['rise'] - start_time
-        event['fall'] = event['fall'] - start_time
+        er = event['rise']
+        er = er - start_time
+        er = er[(er > 0) & (er <= end_time)]
+        event['rise'] = er
+
+        ef = event['fall']
+        ef = ef - start_time
+        ef = ef[(ef > 0) & (ef <= end_time)]
+        event['fall'] = ef
     output.update({'events': events})
 
     return output
