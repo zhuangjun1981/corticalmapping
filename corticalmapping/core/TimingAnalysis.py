@@ -38,6 +38,40 @@ def threshold_onset(data, threshold=0, direction='up', fs=10000.):
     return onsetInd/float(fs)
 
 
+# def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=False):
+#     """
+#     cross correlation of two time series of discrete events, return crosscorrelogram of total event 2 counts triggered
+#     by event 1.
+#
+#     :param ts1: numpy.array, timestamps of the first event
+#     :param ts2: numpy.array, timestamps of the second event
+#     :param t_range: tuple of two elements, temporal window of crosscorrelogram, the first element should be smaller than
+#                     the second element.
+#     :param bins: int, number of bins
+#     :param isPlot:
+#     :return: t: numpy.array, time axis of crosscorrelorgam, mark the left edges of each time bin
+#              value: numpy array, total event 2 counts in each time bin
+#     """
+#
+#     # todo: optimize this
+#
+#     binWidth = (float(t_range[1]) - float(t_range[0])) / bins
+#     t = np.arange(bins) * binWidth + t_range[0]
+#     intervals = zip(t, t + binWidth)
+#     values = np.zeros(bins, dtype=np.int64)
+#
+#     for ts in list(ts1):
+#         currIntervals = [x + ts for x in intervals]
+#         for i, interval in enumerate(currIntervals):
+#             values[i] += len(np.where(np.logical_and(ts2>interval[0],ts2<=interval[1]))[0])
+#
+#     if isPlot:
+#         f = plt.figure(figsize=(15,4)); ax = f.add_subplot(111)
+#         ax.bar([a[0] for a in intervals],values,binWidth*0.9);ax.set_xticks(t)
+#
+#     return t, values
+
+
 def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=False):
     """
     cross correlation of two time series of discrete events, return crosscorrelogram of total event 2 counts triggered
@@ -53,23 +87,49 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
              value: numpy array, total event 2 counts in each time bin
     """
 
-    # todo: optimize this
+    bin_width = (float(t_range[1]) - float(t_range[0])) / bins
+    t = np.arange(bins) * bin_width + t_range[0]
+    intervals = zip(t, t + bin_width)
+    values = np.zeros(bins, dtype=np.int64)
+    ts1s = np.sort(ts1)  # sort first timestamps array
+    ts2s = np.sort(ts2)  # sort second timestamps array
 
-    binWidth = (float(t_range[1]) - float(t_range[0])) / bins
-    t = np.arange(bins) * binWidth + t_range[0]
-    intervals = zip(t, t + binWidth)
-    values = np.zeros(bins, dtype=np.int)
+    # pick up valid timestamps in first sorted timestamps
+    ts1s = ts1s[(ts1s >= (ts2s[0] - t_range[0])) & (ts1s < (ts2s[-1] - t_range[1]))]
 
-    for ts in list(ts1):
-        currIntervals = [x + ts for x in intervals]
-        for i, interval in enumerate(currIntervals):
-            values[i] += len(np.where(np.logical_and(ts2>interval[0],ts2<=interval[1]))[0])
+    n = len(ts1s)
 
-    if isPlot:
-        f = plt.figure(figsize=(15,4)); ax = f.add_subplot(111)
-        ax.bar([a[0] for a in intervals],values,binWidth*0.9);ax.set_xticks(t)
+    if n == 0:
+        print 'no overlapping time range (defined as ' + str(t_range) + ' between two input timestamp arrays'
+        return None
+    else:
+        ts2_start_ind = 0
 
-    return t, values
+        for curr_ts1 in ts1s:
+            ts2s_short = ts2s[ts2_start_ind:]
+            for i, curr_ts2 in enumerate(ts2s_short):
+                if curr_ts2 >= curr_ts1 + t_range[0]:
+                    break
+            ts2s_short = ts2s_short[i:]
+            ts2_start_ind += i
+            ts2s_short = ts2s_short[ts2s_short < curr_ts1 + t_range[1]]
+
+            for j, curr_int in enumerate(intervals):
+                curr_start = curr_ts1 + curr_int[0]
+                curr_end = curr_ts1 + curr_int[1]
+
+                values[j] += np.sum(np.logical_and((ts2s_short >= curr_start),
+                                                   (ts2s_short < curr_end)))
+
+        values = values.astype(np.float64) / n
+
+        if isPlot:
+            f = plt.figure(figsize=(15, 4))
+            ax = f.add_subplot(111)
+            ax.bar([a[0] for a in intervals], values, bin_width * 0.9)
+            ax.set_xticks(t)
+
+        return t, values.astype(np.float32)
 
 
 def find_nearest(trace, value, direction=0):

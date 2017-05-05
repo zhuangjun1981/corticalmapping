@@ -636,7 +636,7 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
     return fig
 
 
-def distributed_axes(f, axes_pos, axes_size=(0.1, 0.1)):
+def distributed_axes(f, axes_pos, axes_region=(0., 0., 1., 1.), margin=(0.2, 0.2), axes_size=(0.1, 0.1)):
     """
     generate a spatially distributed axes in the given figure f, the axes locations are defined by axes_pos, this
     function should capture the relative positions among axes but scale free. Designed for plot spike waveforms from
@@ -644,25 +644,41 @@ def distributed_axes(f, axes_pos, axes_size=(0.1, 0.1)):
 
     :param f: matplotlib figure object
     :param axes_pos: list of tuples, each element is (x_pos, y_pos) of axes center location
-    :param axes_size: tuple, sise of subplot, (width, height)
+    :param axes_region: tuple of 4 floats, (left, bottom, width, height) to define the subregion to place these axes
+    :param margin: tuple of 2 floats, (x_margin, y_margin) on both ends within and relative to axex_region
+    :param axes_size: tuple, sise of subplot, (width, height), relative to axes_region
     :return: list of axes at specified locations, same order as in axes_pos
     """
 
     x_pos = np.array([p[0] for p in axes_pos], dtype=np.float32)
     y_pos = np.array([p[1] for p in axes_pos], dtype=np.float32)
 
-    x_range = np.amax(x_pos) - np.amin(x_pos)
-    x_pos_new = ((0.8 - axes_size[0]) * ((x_pos - np.amin(x_pos)) / x_range)) + 0.1 + axes_size[0] / 2
+    x_size_new = axes_size[0] * axes_region[2]
+    x_margin_new = margin[0] * axes_region[2]
+    x_center_start = axes_region[0] + x_margin_new + x_size_new / 2.
+    x_center_range = axes_region[2] - 2 * (x_margin_new) - x_size_new
 
-    y_range = np.amax(y_pos) - np.amin(y_pos)
-    y_pos_new = ((0.8 - axes_size[1]) * ((y_pos - np.amin(y_pos)) / y_range)) + 0.1 + axes_size[1] / 2
+    if np.amax(x_pos) - np.amin(x_pos) == 0:
+        x_pos_new = np.array([x_center_start + x_center_range / 2 for ind in x_pos])
+    else:
+        x_pos_new = ia.array_nor(x_pos) * x_center_range + x_center_start
+
+    y_size_new = axes_size[1] * axes_region[3]
+    y_margin_new = margin[1] * axes_region[3]
+    y_center_start = axes_region[1] + y_margin_new + y_size_new / 2.
+    y_center_range = axes_region[3] - 2 * (y_margin_new) - y_size_new
+
+    if np.amax(y_pos) - np.amin(y_pos) == 0:
+        y_pos_new = np.array([y_center_start + y_center_range / 2 for ind in y_pos])
+    else:
+        y_pos_new = ia.array_nor(y_pos) * y_center_range + y_center_start
 
     ax_list = []
-    for i in range(len(axes_pos)):
-        curr_ax = f.add_axes([x_pos_new[i] - axes_size[0] / 2,
-                              y_pos_new[i] - axes_size[1] / 2,
-                              axes_size[0],
-                              axes_size[1]])
+    for i in range(len(x_pos_new)):
+        curr_ax = f.add_axes([x_pos_new[i] - x_size_new / 2,
+                              y_pos_new[i] - y_size_new / 2,
+                              x_size_new,
+                              y_size_new])
         ax_list.append(curr_ax)
 
     return ax_list
@@ -770,9 +786,9 @@ if __name__=='__main__':
     # ----------------------------------------------------
 
     # ----------------------------------------------------
-    f = plt.figure(figsize=(10, 10))
+    f = plt.figure(figsize=(8.5, 11))
     ax_pos = [(0., -1.5), (0., 0.), (-0.866, -3.), (0.866, -3.)]
-    axs = distributed_axes(f, ax_pos, axes_size=(0.25, 0.25))
+    axs = distributed_axes(f, ax_pos, axes_region=[0.05, 0.75, 0.25, 0.2], margin=(0., 0.,), axes_size=(0.25, 0.25))
     plt.show()
     # ----------------------------------------------------
 

@@ -1167,8 +1167,8 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur, isReturnN=False):
             print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
 
             if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
-                if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
-                sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
+                if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]), dtype=np.float128)
+                sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float128)
                 n += 1.
             else:
                 print 'Ending frame index ('+str(int(onsetFrameInd+chunkFrameDur))+') is larger than frames in movie ('+\

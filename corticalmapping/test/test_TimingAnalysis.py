@@ -3,6 +3,7 @@ __author__ = 'junz'
 import unittest
 import numpy as np
 import corticalmapping.core.TimingAnalysis as ta
+import matplotlib.pyplot as plt
 
 
 class TestTimingAnalysis(unittest.TestCase):
@@ -64,6 +65,19 @@ class TestTimingAnalysis(unittest.TestCase):
         assert(ta.find_nearest(trace, 1.6, 1) == 2)
         assert(ta.find_nearest(trace, -1, -1) is None)
         assert(ta.find_nearest(trace, 11, 1) is None)
+
+    def test_discrete_cross_correlation(self):
+        ts1 = np.arange(10)
+        ts2 = ts1 + 0.5
+        t, cc = ta.discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=10, isPlot=False)
+        assert(np.array_equal(cc, np.array([0., 0., 1., 0., 0., 0., 0., 1., 0., 0.])))
+        t, cc = ta.discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=20, isPlot=False)
+        assert(np.array_equal(cc, np.array([0., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 0., 0.,
+                                            0., 0.])))
+        ts2 = np.hstack((ts2, ts2 + 0.01)).flatten()
+        t, cc = ta.discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=20, isPlot=False)
+        assert (np.array_equal(cc, np.array([0., 0., 0., 0., 0., 2., 0., 0., 0., 0., 0., 0., 0., 0., 0., 2., 0., 0.,
+                                             0., 0.])))
 
 
 if __name__ == '__main__':
