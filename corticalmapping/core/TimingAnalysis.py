@@ -38,7 +38,7 @@ def threshold_onset(data, threshold=0, direction='up', fs=10000.):
     return onsetInd/float(fs)
 
 
-# def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=False):
+# def discrete_cross_correlation2(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=False):
 #     """
 #     cross correlation of two time series of discrete events, return crosscorrelogram of total event 2 counts triggered
 #     by event 1.
@@ -84,7 +84,7 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
     :param bins: int, number of bins
     :param isPlot:
     :return: t: numpy.array, time axis of crosscorrelorgam, mark the left edges of each time bin
-             value: numpy array, total event 2 counts in each time bin
+             value: numpy array, total event counts in each time bin per trigger
     """
 
     bin_width = (float(t_range[1]) - float(t_range[0])) / bins
@@ -101,7 +101,7 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
 
     if n == 0:
         print 'no overlapping time range (defined as ' + str(t_range) + ' between two input timestamp arrays'
-        return None
+        # return None
     else:
         ts2_start_ind = 0
 
@@ -123,13 +123,12 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
 
         values = values.astype(np.float64) / n
 
-        if isPlot:
-            f = plt.figure(figsize=(15, 4))
-            ax = f.add_subplot(111)
-            ax.bar([a[0] for a in intervals], values, bin_width * 0.9)
-            ax.set_xticks(t)
+    if isPlot:
+        f = plt.figure(figsize=(15, 4))
+        ax = f.add_subplot(111)
+        ax.bar([a[0] for a in intervals], values, bin_width * 0.9)
 
-        return t, values.astype(np.float32)
+    return t, values.astype(np.float32)
 
 
 def find_nearest(trace, value, direction=0):

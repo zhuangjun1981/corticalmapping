@@ -12,7 +12,36 @@ CONTINUOUS_SAMPLE_PER_RECORD_DTYPE = np.dtype('<u2') # dtype of samples per reco
 CONTINUOUS_RECORDING_NUMBER_DTYPE = np.dtype('<u2') # dtype of recording number field in each record (block) of .continuous file
 CONTINUOUS_SAMPLE_DTYPE = np.dtype('>i2') # dtype of each sample in each record (block) of .continuous file
 CONTINUOUS_MARKER_BYTES = 10 # number of bytes of marker field in each record (block) of .continuous file
-MARKER_ARRAY = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 255], dtype=np.uint8)
+
+
+def find_next_valid_block(input_array, bytes_per_block, start_index):
+    """
+    this is for finding starting byte index of first valid block after a certain position of a continuous file. Valid 
+    block is defined as the last 10 bytes equals oe.RECORD_MARKER if read as unsigned integer 8-bit (little endian). This 
+    is useful when two open ephys recordings are accidentally recorded in a same file. To extract the data of the 
+    second recording. It is necessary to find the first valid block after the first recording.
+    
+    :param input_array: 
+    :param bytes_per_block: positive integer, number of bytes per block
+    :param start_index: non-negative int
+    :return: first_block_start: non-negative int, the start index of the first block after start_index
+    """
+
+    if len(input_array.shape) != 1:
+        raise ValueError('input_array should be 1-d array.')
+
+    first_valid_block_start = None
+
+    for i in range(start_index + bytes_per_block, len(input_array)):
+
+        if np.array_equal(input_array[i-10: i], oe.RECORD_MARKER):
+            first_valid_block_start = i - bytes_per_block
+            break
+    else:
+        print 'no valid block found after index:', start_index
+        
+    return first_valid_block_start
+
 
 def get_digital_line_for_plot(h5_group):
     """
@@ -41,7 +70,7 @@ def get_digital_line_for_plot(h5_group):
     return plot_data
 
 
-def load_continuous(file_path, dtype=np.float32):
+def load_continuous_old(file_path, dtype=np.float32):
     """
     Jun's wrapper to load .continuous data from OpenEphys data files
 
@@ -108,9 +137,9 @@ def load_continuous(file_path, dtype=np.float32):
         samples[i*oe.SAMPLES_PER_RECORD : (i+1)*oe.SAMPLES_PER_RECORD] = curr_samples
 
         record_mark = np.fromfile(f, dtype=np.dtype('<u1'), count=10)
-        if not np.array_equal(record_mark, MARKER_ARRAY):
+        if not np.array_equal(record_mark, oe.RECORD_MARKER):
             print('record marker specified in block ' + str(i) + ' (' + str(record_mark) +
-                  ') does not equal to expected array (' + str(MARKER_ARRAY) + ') !')
+                  ') does not equal to expected array (' + str(oe.RECORD_MARKER) + ') !')
             is_break = True
             break
 
@@ -122,84 +151,88 @@ def load_continuous(file_path, dtype=np.float32):
     return header, samples
 
 
-# def load_continuous_hack(file_path, dtype=np.float32):
-#     """
-#     Jun's wrapper to load .continuous data from OpenEphys data files
-#
-#     :param file_path:
-#     :param dtype: np.float32 or np.int16
-#     :return: header: dictionary, standard open ephys header for continuous file
-#              samples: 1D np.array
-#     """
-#
-#     assert dtype in (np.float32, np.int16), \
-#         'Invalid data type specified for loadContinous, valid types are np.float32 and np.int16'
-#
-#     print "\nLoading continuous data from " + file_path
-#
-#     bytes_per_block = CONTINUOUS_TIMESTAMP_DTYPE.itemsize + CONTINUOUS_SAMPLE_PER_RECORD_DTYPE.itemsize + \
-#                       CONTINUOUS_RECORDING_NUMBER_DTYPE.itemsize + CONTINUOUS_MARKER_BYTES + \
-#                       CONTINUOUS_SAMPLE_DTYPE.itemsize * oe.SAMPLES_PER_RECORD
-#
-#     # read in the data
-#     f = open(file_path, 'rb')
-#
-#     file_length = os.fstat(f.fileno()).st_size
-#     print 'total length of the file: ', file_length, 'bytes.'
-#
-#     print 'bytes per record block: ', bytes_per_block
-#
-#     block_num = (file_length - oe.NUM_HEADER_BYTES) // bytes_per_block
-#     print 'total number of valid blocks: ', block_num
-#
-#     header = oe.readHeader(f)
-#
-#     samples = np.empty(oe.SAMPLES_PER_RECORD * 17993, dtype)
-#
-#     _ = np.fromfile(f, np.dtype('<u1'), 36823732 - 1024)
-#
-#     # block_num = (file_length - 37035918) // bytes_per_block
-#     block_num = 17993
-#
-#     for i in range(block_num):
-#         if i == 0:
-#             # to get the timestamp of the very first record (block)
-#             # for alignment of the digital event
-#             start_ind = np.fromfile(f, CONTINUOUS_TIMESTAMP_DTYPE, 1)
-#             start_time = float(start_ind) / float(header['sampleRate'])
-#         else:
-#             _ = np.fromfile(f, CONTINUOUS_TIMESTAMP_DTYPE, 1)
-#         N = np.fromfile(f, CONTINUOUS_SAMPLE_PER_RECORD_DTYPE, 1)[0]
-#
-#         if N != oe.SAMPLES_PER_RECORD:
-#             print('samples per record specified in block ' + str(i) + ' (' + str(N) +
-#                   ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
-#             samples = samples[0 : i * oe.SAMPLES_PER_RECORD]
-#             break
-#             # raise Exception('samples per record specified in block ' + str(i) + ' (' + str(N) + \
-#             #                 ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
-#
-#         _ = (np.fromfile(f, CONTINUOUS_RECORDING_NUMBER_DTYPE, 1))
-#
-#         if dtype == np.float32:
-#             curr_samples = (np.fromfile(f, CONTINUOUS_SAMPLE_DTYPE, N) * float(header['bitVolts'])).astype(np.float32)
-#         elif dtype == np.int16:
-#             curr_samples = np.fromfile(f, CONTINUOUS_SAMPLE_DTYPE, N).astype(np.int16)
-#         else:
-#             raise ValueError('Error in reading data of block:' + str(i))
-#
-#         samples[i*oe.SAMPLES_PER_RECORD : (i+1)*oe.SAMPLES_PER_RECORD] = curr_samples
-#
-#         record_mark = np.fromfile(f, dtype=np.dtype('<u1'), count=10)
-#         if not np.array_equal(record_mark, MARKER_ARRAY):
-#             print('record marker specified in block ' + str(i) + ' (' + str(record_mark) +
-#                   ') does not equal to expected array (MARKER_ARRAY)!')
-#             break
-#
-#     header.update({'start_time': start_time})
-#     print start_time
-#
-#     return header, samples
+def load_continuous(file_path, dtype=np.float32, start_ind=0):
+    """
+    Jun's wrapper to load .continuous data from OpenEphys data files, this will try to load the whole file into memory,
+     using np.fromfile. It can also start from any position in the file (defined by the start_ind)
+
+    :param file_path:
+    :param dtype: np.float32 or np.int16
+    :param start_ind: non-negative int, default 0. start index to extract data.
+    :return: header: dictionary, standard open ephys header for continuous file
+             samples: 1D np.array
+    """
+
+    assert dtype in (np.float32, np.int16), \
+        'Invalid data type specified for loadContinous, valid types are np.float32 and np.int16'
+
+    print "\nLoading continuous data from " + file_path
+
+    bytes_per_block = CONTINUOUS_TIMESTAMP_DTYPE.itemsize + CONTINUOUS_SAMPLE_PER_RECORD_DTYPE.itemsize + \
+                      CONTINUOUS_RECORDING_NUMBER_DTYPE.itemsize + CONTINUOUS_MARKER_BYTES + \
+                      CONTINUOUS_SAMPLE_DTYPE.itemsize * oe.SAMPLES_PER_RECORD
+
+    input_array = np.fromfile(file_path, dtype='<u1')
+    file_length = input_array.shape[0]
+    print 'total length of the file: ', file_length, 'bytes.'
+
+    valid_block_start = find_next_valid_block(input_array, bytes_per_block=bytes_per_block, start_index=start_ind)
+    print 'the beginning index of the first valid block after index: ' + str(start_ind) + ' is ' + \
+          str(valid_block_start)
+
+    print 'bytes per record block: ', bytes_per_block
+
+    # read in the data
+    f = open(file_path, 'rb')
+
+    header = oe.readHeader(f)
+
+    block_num = (file_length - valid_block_start) // bytes_per_block
+    print 'number of potential valid blocks after index', start_ind, ':', block_num
+
+    samples = np.empty(oe.SAMPLES_PER_RECORD * block_num, dtype=dtype)
+
+    _ = np.fromfile(f, np.dtype('<u1'), valid_block_start - oe.NUM_HEADER_BYTES)
+
+    for i in range(block_num):
+        if i == 0:
+            # to get the timestamp of the very first record (block)
+            # for alignment of the digital event
+            start_ind = np.fromfile(f, CONTINUOUS_TIMESTAMP_DTYPE, 1)
+            start_time = float(start_ind) / float(header['sampleRate'])
+        else:
+            _ = np.fromfile(f, CONTINUOUS_TIMESTAMP_DTYPE, 1)
+        N = np.fromfile(f, CONTINUOUS_SAMPLE_PER_RECORD_DTYPE, 1)[0]
+
+        if N != oe.SAMPLES_PER_RECORD:
+            print('samples per record specified in block ' + str(i) + ' (' + str(N) +
+                  ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!')
+            samples = samples[0 : i * oe.SAMPLES_PER_RECORD]
+            print 'samples per record specified in block ' + str(i) + ' (' + str(N) + \
+                  ') does not equal to expected value (' + str(oe.SAMPLES_PER_RECORD) + ')!'
+            break
+
+        _ = (np.fromfile(f, CONTINUOUS_RECORDING_NUMBER_DTYPE, 1))
+
+        if dtype == np.float32:
+            curr_samples = (np.fromfile(f, CONTINUOUS_SAMPLE_DTYPE, N) * float(header['bitVolts'])).astype(np.float32)
+        elif dtype == np.int16:
+            curr_samples = np.fromfile(f, CONTINUOUS_SAMPLE_DTYPE, N).astype(np.int16)
+        else:
+            raise ValueError('Error in reading data of block:' + str(i))
+
+        samples[i*oe.SAMPLES_PER_RECORD : (i+1)*oe.SAMPLES_PER_RECORD] = curr_samples
+
+        record_mark = np.fromfile(f, dtype=np.dtype('<u1'), count=10)
+        if not np.array_equal(record_mark, oe.RECORD_MARKER):
+            print('record marker specified in block ' + str(i) + ' (' + str(record_mark) +
+                  ') does not equal to expected array (oe.RECORD_MARKER)!')
+            break
+
+    header.update({'start_time': start_time})
+    print 'continuous channel start time (for aligning digital events): ', start_time
+
+    return header, samples
 
 
 def load_events(file_path, channels=None):

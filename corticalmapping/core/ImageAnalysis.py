@@ -10,6 +10,7 @@ import scipy.stats as stats
 import skimage.morphology as sm
 import FileTools as ft
 import PlottingTools as pt
+import time
 try: import cv2
 except ImportError as e: print e
 try: from toolbox.misc import BinarySlicer
@@ -1161,14 +1162,24 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur, isReturnN=False):
     sumMov = None
     n = 0.
 
-    for onset in onsetTimes:
+    curr_onset = -1
+    onset_num = len(onsetTimes)
+    t0 = time.time()
+
+    for i, onset in enumerate(onsetTimes):
         if onset >= frameTS[0] and onset + chunkDur <= frameTS[-1]:
+
+            if i // (onset_num // 10) > curr_onset:
+                # print t0 - time.time(), ' second :', (i // (onset_num // 10)) * 10, '%'
+                print('{:09.2f} second: {:2d} %'.format(time.time() - t0, (i // (onset_num // 10)) * 10))
+                curr_onset = i // (onset_num // 10)
+
             onsetFrameInd = np.argmin(np.abs(frameTS-onset))
-            print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
+            # print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
 
             if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
-                if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]), dtype=np.float128)
-                sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float128)
+                if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]), dtype=np.float64)
+                sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float64)
                 n += 1.
             else:
                 print 'Ending frame index ('+str(int(onsetFrameInd+chunkFrameDur))+') is larger than frames in movie ('+\
