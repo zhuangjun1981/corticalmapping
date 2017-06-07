@@ -7,6 +7,7 @@ import corticalmapping.ephys.KilosortWrapper as kw
 import corticalmapping.HighLevel as hl
 import corticalmapping.core.FileTools as ft
 import corticalmapping.core.TimingAnalysis as ta
+import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.PlottingTools as pt
 try:
     from nwb.nwb import NWB
@@ -755,7 +756,7 @@ class RecordedFile(NWB):
                                        be abort. If None, no such check will be performed.
         :return:
         """
-        fs = self.file_pointer['general/extracellular_ephys/sampling_rate'].value
+        fs = self.file_pointer['acquisition/timeseries/photodiode/starting_time'].attrs['rate']
         pd = self.file_pointer['acquisition/timeseries/photodiode/data'].value * \
              self.file_pointer['acquisition/timeseries/photodiode/data'].attrs['conversion']
 

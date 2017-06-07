@@ -144,15 +144,15 @@ def binarize(array, threshold):
     '''
     binarize array to 0s and 1s, by cutting at threshold
     '''
-    
+
     newArray = np.array(array)
-    
+
     newArray[array>=threshold] = 1.
-    
+
     newArray[array<threshold] = 0.
-    
+
     newArray = newArray.astype(array.dtype)
-    
+
     return newArray
 
 
@@ -186,16 +186,16 @@ def resize_image(img, outputShape, fillValue = 0.):
     if the original image is too big it will be truncated
     if the original image is too small, value defined as fillValue will filled in. default: 0
     '''
-    
+
     width = outputShape[1]
     height = outputShape[0]
-    
+
     if width < 1:
         raise ValueError, 'width should be bigger than 0!!'
-        
+
     if height < 1:
         raise ValueError, 'height should be bigger than 0!!'
-        
+
     if len(img.shape) !=2 and len(img.shape) !=3 :
         raise ValueError, 'input image should be a 2-d or 3-d array!!'
 
@@ -239,7 +239,7 @@ def resize_image(img, outputShape, fillValue = 0.):
             attachBottom[:] = fillValue
             attachBottom.astype(img.dtype)
             newImg = np.concatenate((newImg,attachBottom),axis=1)
-        
+
     return newImg
 
 
@@ -425,7 +425,7 @@ def rigid_transform_cv2_2d(img, zoom=None, rotation=None, offset=None, outputSha
 
 
 def rigid_transform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputShape=None):
-    
+
     if len(img.shape) != 3:
         raise LookupError, 'Input image is not a 3d array!'
 
@@ -444,10 +444,10 @@ def rigid_transform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputSha
         newHeight = outputShape[0]
         newWidth = outputShape[1]
     newImg = np.empty((img.shape[0],newHeight,newWidth),dtype=img.dtype)
-    
+
     for i in range(img.shape[0]):
         newImg[i,:,:] = rigid_transform_cv2_2d(img[i, :, :], zoom=zoom, rotation=rotation, offset=offset, outputShape=outputShape)
-    
+
     return newImg
 
 
@@ -477,30 +477,30 @@ def boxcartime_dff(data,
                    ):
     """
     Created on Mon Nov 24 14:37:02 2014
-    
+
     [dff] = boxcartime_dff(data[t,y,x], rollingwindow[in s], samplerate[in ms])
     boxcar average uses scipy.signal package, imported locally
-    
+
     @author: mattv
     """
     import scipy.signal as sig
-    
+
     if data.ndim != 3:
-        raise LookupError, 'input images must be a 3-dim array format [t,y,x]'   
+        raise LookupError, 'input images must be a 3-dim array format [t,y,x]'
 
     exposure = np.float(fs/1000) #convert exposure from ms to s
     win = np.float(window)
     win = win/exposure
     win = np.ceil(win)
-    
+
     # rolling average
-    kernal = np.ones(win, dtype=('float')) 
+    kernal = np.ones(win, dtype=('float'))
     padsize = data.shape[0] + win*2
     mov_ave = np.zeros([padsize+win-1], dtype=('float'))
     mov_pad = np.zeros([padsize], dtype=('float'))
     mov_dff = np.zeros([data.shape[0]-win, data.shape[1], data.shape[2]])
     for y in range(data.shape[1]):
-        for x in range(data.shape[2]):      
+        for x in range(data.shape[2]):
             # put data within padded array
             mov_pad[win:(padsize-win)] = data[:,y,x]
             # moving average by convolution
@@ -509,7 +509,7 @@ def boxcartime_dff(data,
             mov_ave = mov_ave[win*2:1+mov_ave.shape[0]-win*2]
             # use moving average as f0 for df/f
             mov_dff[:,y,x] = (data[(win/2):data.shape[0]-(win/2),y,x] - mov_ave)/mov_ave
-            
+
     return mov_dff
 
 
@@ -607,7 +607,7 @@ def generate_oval_mask(shape, center, width, height, isplot = False):
     if len(shape) !=2: raise LookupError, 'Shape should be two dimensional.'
 
     mask = np.zeros(shape); mask[:] = np.nan
-    
+
     width = float(width); height = float(height)
 
     for i in range(shape[0]):
@@ -1211,31 +1211,34 @@ def get_average_movie2(mov, frameTS, onsetTimes, chunkDur, verbose=True):
 
     sumMov = None
     real_count = 0
-    count = -1
 
-    for onset in onsetTimes:
+    curr_onset = -1
+    onset_num = len(onsetTimes)
+    t0 = time.time()
 
-        count += 1
+    for i, onset in enumerate(onsetTimes):
 
-        if onset < frameTS[0]:
+        if verbose and (i // (onset_num // 10) > curr_onset):
+            print('{:09.2f} second: {:2d} %'.format(time.time() - t0, (i // (onset_num // 10)) * 10))
+            curr_onset = i // (onset_num // 10)
 
-            if verbose:
-                print 'onset number:', count, 'is before imaging start time. Exclude this onset.'
+        if onset < frameTS[0]:  # the onset is before imaging start time. Exclude this onset.
+            continue
+            # print 'onset number:', count, 'is before imaging start time. Exclude this onset.'
 
         else:
             onsetFrameInd = np.argmin(np.abs(frameTS-onset))
-            if verbose:
-                print 'Chunk:',int(count),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
+            # if verbose:
+            #     print 'Chunk:',int(count),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
 
             if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
                 if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
                 sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float32)
                 real_count += 1.
-            else:
-                if verbose:
-                    print 'the chunk of onset number', count, 'exceeds the end of imaging. Exclude this onset.'
-                else:
-                    pass
+            else:  # the chunk exceeds the end of imaging.
+                continue
+                # print 'the chunk of onset number', count, 'exceeds the end of imaging. Exclude this onset.'
+
 
     if sumMov is None:
         print '\nNo valid chunk found!'
@@ -1740,5 +1743,3 @@ if __name__ == '__main__':
 
 
     print 'for debug'
-
-

@@ -24,9 +24,8 @@ fileNum = 103 # file number of the imaged movie
 FFTmode='peak' # detecting peak of valley of the signal, GCaMP:'peak'; intrinsic signal: 'valley'
 
 
-
-
-dataFolder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData"
+# dataFolder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData"
+dataFolder = r"\\allen\programs\braintv\workgroups\nc-ophys\CorticalMapping\IntrinsicImageData"
 dataFolder = os.path.join(dataFolder,dateRecorded+'-M'+mouseID+'-Retinotopy')
 fileList = os.listdir(dataFolder)
 movPath = os.path.join(dataFolder, [f for f in fileList if (dateRecorded+'JCamF'+str(fileNum) in f) and ('.npy' in f)][0])

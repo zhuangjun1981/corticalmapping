@@ -2,6 +2,7 @@ __author__ = 'junz'
 
 import os
 import json
+import h5py
 import numpy as np
 import itertools
 import scipy.stats as stats
@@ -774,6 +775,216 @@ def array_to_rois(input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), i
         plt.show()
 
     return center_mask_array, neuropil_mask_array
+
+
+def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_save_running=False, analog_chs=(),
+                          unit_groups=(), time_series_paths=()):
+    """
+    concatenate multiple nwb files in to one compact hdf5 file
+
+    :param path_list: list of strings, list of paths of nwb filed to be concatenated
+    :param save_path: string, path for the saved hdf5 file
+    :param gap_dur: float, in seconds, gap duration between each file
+    :param roi_path: string, hdf5 path to roi segmentation
+    :param is_save_running: bool, if True, running information will be saved
+    :param analog_chs: list of strings, name of analog channels to be concatenated, should be in
+                       '/acquisition/timeseries'
+    :param unit_groups: list of strings, group names for each set of ephys units, should be in '/processing/'
+    :param time_series_paths: list of strings, hdf5 paths to each timeseries to be concatenated, these timeseries
+                              should have 'timestamps' field as their timestamps, not 'starting_time' and 'rate' as
+                              timestamps
+    :return: None
+    """
+
+    save_f = h5py.File(save_path)
+
+    fs = None  # analog sampling rate
+
+    if roi_path is not None:
+        roi_dict_center = {}
+        roi_dict_surround = {}
+
+    next_start = 0.
+
+    analog_dict={}
+    for analog_ch in analog_chs:
+        analog_dict.update({analog_ch: []})
+
+    if is_save_running:
+        analog_dict.update({'running': []})
+
+    if unit_groups:
+        unit_dict = {}
+        for unit_group in unit_groups:
+            unit_dict.update({unit_group: {}})
+
+    if time_series_paths:
+        time_series_dict = {}
+        for ts_path in time_series_paths:
+            ts_n = os.path.split(ts_path)[1]
+            time_series_dict.update({ts_n: {'data': [],
+                                            'timestamps': []}})
+
+    for i, curr_path in enumerate(path_list):
+
+        print('\n\nprocessing ' + curr_path + '...')
+
+        curr_f = h5py.File(curr_path, 'r')
+
+        # handle sampling rate
+        if i == 0:  # first file
+            fs = curr_f['general/extracellular_ephys/sampling_rate'].value
+        else:
+            if fs != curr_f['general/extracellular_ephys/sampling_rate'].value:
+                raise ValueError('ephys sampling rate are different.')
+
+        # handle rois
+        if (roi_path is not None) and (i == 0):
+
+            try:
+                pixel_size = curr_f['acquisition/timeseries/2p_movie/pixel_size'].value
+            except Exception:
+                pixel_size = None
+
+            try:
+                pixel_size_unit = curr_f['acquisition/timeseries/2p_movie/pixel_size_unit'].value
+            except Exception:
+                pixel_size_unit = None
+
+            roi_grp = curr_f[roi_path]
+            for roi_n in roi_grp.keys():
+                if roi_n[0: 4] == 'roi_' and roi_n != 'roi_list':
+                    roi_dict_center.update({roi_n: ia.ROI(roi_grp[roi_n]['img_mask'].value, pixelSize=pixel_size,
+                                                          pixelSizeUnit=pixel_size_unit)})
+                elif roi_n[0: 9] == 'surround_':
+                    roi_dict_surround.update({roi_n: ia.ROI(roi_grp[roi_n]['img_mask'].value, pixelSize=pixel_size,
+                                                            pixelSizeUnit=pixel_size_unit)})
+                else:
+                    # print('avoid loading {}/{} as an roi.'.format(roi_path, roi_n))
+                    print('avoid loading {} as an roi.'.format(roi_n))
+
+        # check analog start time
+        all_chs_grp = curr_f['acquisition/timeseries']
+        for curr_chn, curr_ch_grp in all_chs_grp.items():
+            if 'starting_time' in curr_ch_grp.keys():
+                total_analog_sample_count = curr_ch_grp['num_samples'].value
+                if curr_ch_grp['starting_time'].value != 0:
+                    raise ValueError('starting time of analog channel: {} is not 0.'.format(curr_chn))
+
+        # handle analog channels
+        for analog_ch in analog_chs:
+            curr_analog_trace = curr_f['acquisition/timeseries'][analog_ch]['data'].value.astype(np.float32) * \
+                                curr_f['acquisition/timeseries'][analog_ch]['data'].attrs['conversion']
+            analog_gap = np.zeros(int(gap_dur * fs), dtype=np.float32)
+            analog_gap[:] = np.nan
+            analog_dict[analog_ch] += [curr_analog_trace, analog_gap]
+
+        # handle running signals
+        if is_save_running:
+            curr_running_sig_trace = curr_f['acquisition/timeseries']['running_sig']['data'].\
+                                         value.astype(np.float32) * \
+                                     curr_f['acquisition/timeseries']['running_sig']['data'].attrs['conversion']
+
+            try:
+                curr_running_ref_trace = curr_f['acquisition/timeseries']['running_ref']['data']. \
+                                             value.astype(np.float32) * \
+                                         curr_f['acquisition/timeseries']['running_ref']['data']. \
+                                             attrs['conversion']
+            except KeyError:
+                curr_running_ref_trace = curr_f['acquisition/timeseries']['Running_ref']['data']. \
+                                             value.astype(np.float32) * \
+                                         curr_f['acquisition/timeseries']['Running_ref']['data']. \
+                                             attrs['conversion']
+            curr_running_trace = curr_running_sig_trace - curr_running_ref_trace
+            curr_running_gap = np.zeros(int(gap_dur * fs), dtype=np.float32)
+            curr_running_gap[:] = np.nan
+            analog_dict['running'] += [curr_running_trace, curr_running_gap]
+
+
+
+        # handle ephys units
+        if unit_groups:
+            for curr_ug in unit_groups:
+                curr_ug_dict = unit_dict[curr_ug]
+                curr_ug_grp = curr_f['processing'][curr_ug]['UnitTimes']
+                curr_unit_ns = list(curr_ug_grp['unit_list'].value)
+                try:
+                    curr_unit_ns.remove('unit_aua')
+                except Exception:
+                    pass
+                for curr_unit_n in curr_unit_ns:
+                    if curr_unit_n in curr_ug_dict.keys():
+                        curr_ug_dict[curr_unit_n].append(curr_ug_grp[curr_unit_n]['times'].value + next_start)
+                    else:
+                        curr_ug_dict[curr_unit_n] = [curr_ug_grp[curr_unit_n]['times'].value + next_start]
+
+        if time_series_paths:
+            for curr_ts_path in time_series_paths:
+                curr_ts_n = os.path.split(curr_ts_path)[1]
+                curr_ts_data = curr_f[curr_ts_path]['data'].value
+                curr_ts_ts = curr_f[curr_ts_path]['timestamps'].value
+                time_series_dict[curr_ts_n]['data'].append(curr_ts_data)
+                time_series_dict[curr_ts_n]['timestamps'].append(curr_ts_ts + next_start)
+
+        next_start =  next_start + gap_dur + float(total_analog_sample_count) / fs
+        curr_f.close()
+
+
+    fs_dset = save_f.create_dataset('sampling_rate', data=fs)
+    fs_dset.attrs['unit'] = 'Hz'
+
+    if roi_path is not None:
+        print('\nsaving rois ...')
+        roi_grp = save_f.create_group('rois')
+        if roi_dict_center:
+            for curr_roi_n_c, curr_roi_c in roi_dict_center.items():
+                curr_roi_grp = roi_grp.create_group(curr_roi_n_c)
+                curr_roi_grp_c = curr_roi_grp.create_group('center')
+                curr_roi_c.to_h5_group(curr_roi_grp_c)
+
+                try:
+                    curr_roi_n_s = 'surround_' + curr_roi_n_c[4:]
+                    curr_roi_s = roi_dict_surround[curr_roi_n_s]
+                    curr_roi_grp_s = curr_roi_grp.create_group('surround')
+                    curr_roi_s.to_h5_group(curr_roi_grp_s)
+                except Exception as e:
+                    print('error in saving surrounding roi: {}. \nError message: {}'.format(curr_roi_n_c, e))
+
+    if analog_chs or is_save_running:
+        print('\nsaving analog channels ...')
+        for curr_analog_n, curr_analog_trace_list in analog_dict.items():
+            print curr_analog_n
+            curr_analog_trace_all = np.concatenate(curr_analog_trace_list, axis=0)
+            save_f['analog_' + curr_analog_n] = curr_analog_trace_all
+
+    if unit_groups:
+        for unit_group in unit_groups:
+            print('\nsaving ephys units for unit group: {}'.format(unit_group))
+            save_units_grp = save_f.create_group(unit_group)
+            for unit_n, unit_ts in unit_dict[unit_group].items():
+                save_unit_grp = save_units_grp.create_group(unit_n)
+                save_unit_grp.create_dataset('timestamps', data=np.concatenate(unit_ts, axis=0))
+
+    if time_series_paths:
+        print('\nsaving other time series ...')
+        for save_ts_n, save_ts_dict in time_series_dict.items():
+            print(save_ts_n)
+            save_ts_grp = save_f.create_group(save_ts_n)
+            curr_ts_data = save_ts_dict['data']
+
+            # try:
+            #     curr_ts_data_con = np.concatenate(curr_ts_data, axis=0)
+            # except ValueError:
+            #     print('data shape is not aligned for concatenation. Try concatenate in next axis.')
+            #     curr_ts_data_t = [ctd.transpose() for ctd in curr_ts_data]
+            #     curr_ts_data_con = np.concatenate(curr_ts_data_t, axis=0)
+
+            curr_ts_data_t = [ctd.transpose() for ctd in curr_ts_data]
+            curr_ts_data_con = np.concatenate(curr_ts_data_t, axis=0)
+            save_ts_grp['data'] = curr_ts_data_con
+            save_ts_grp['timestamps'] = np.concatenate(save_ts_dict['timestamps'], axis=0)
+
+    save_f.close()
 
 
 if __name__ == '__main__':

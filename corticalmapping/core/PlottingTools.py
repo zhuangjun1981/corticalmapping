@@ -326,7 +326,8 @@ def plot_mask(mask, plotAxis=None, color='#ff0000', zoom=1, borderWidth = None, 
     return currfig
 
 
-def plot_mask_borders(mask, plotAxis=None, color='#ff0000', zoom=1, borderWidth=2, closingIteration=None, **kwargs):
+def plot_mask_borders(mask, plotAxis=None, color='#ff0000', zoom=1, borderWidth=2, closingIteration=None,
+                      is_filled=False, **kwargs):
     '''
     plot mask (ROI) borders by using pyplot.contour function. all the 0s and Nans in the input mask will be considered
     as background, and non-zero, non-nan pixel will be considered in ROI.
@@ -348,7 +349,10 @@ def plot_mask_borders(mask, plotAxis=None, color='#ff0000', zoom=1, borderWidth=
     if closingIteration is not None:
         plotingMask = ni.binary_closing(plotingMask,iterations=closingIteration).astype(np.uint8)
 
-    currfig = plotAxis.contour(plotingMask, levels=[0.5], colors=color, linewidths=borderWidth,**kwargs)
+    if is_filled:
+        currfig = plotAxis.contourf(plotingMask, levels=[0.5, 1], colors=color, **kwargs)
+    else:
+        currfig = plotAxis.contour(plotingMask, levels=[0.5], colors=color, linewidths=borderWidth,**kwargs)
 
     # put y axis in decreasing order
     y_lim = list(plotAxis.get_ylim())
@@ -786,10 +790,22 @@ if __name__=='__main__':
     # ----------------------------------------------------
 
     # ----------------------------------------------------
-    f = plt.figure(figsize=(8.5, 11))
-    ax_pos = [(0., -1.5), (0., 0.), (-0.866, -3.), (0.866, -3.)]
-    axs = distributed_axes(f, ax_pos, axes_region=[0.05, 0.75, 0.25, 0.2], margin=(0., 0.,), axes_size=(0.25, 0.25))
-    plt.show()
+    # f = plt.figure(figsize=(8.5, 11))
+    # ax_pos = [(0., -1.5), (0., 0.), (-0.866, -3.), (0.866, -3.)]
+    # axs = distributed_axes(f, ax_pos, axes_region=[0.05, 0.75, 0.25, 0.2], margin=(0., 0.,), axes_size=(0.25, 0.25))
+    # plt.show()
+    # ----------------------------------------------------
+
+    # ----------------------------------------------------
+    # bg = np.random.rand(100,100)
+    # maskBin=np.zeros((100,100),dtype=np.uint8)
+    # maskBin[20:30,50:60]=1
+    # maskNan=np.zeros((100,100),dtype=np.float32)
+    # maskNan[20:30,50:60]=1
+    # f=plt.figure(); ax=f.add_subplot(111)
+    # ax.imshow(bg,cmap='gray', interpolation='nearest')
+    # _ = plot_mask_borders(maskBin, plotAxis=ax, color='#0000ff', zoom=1, is_filled=True, closingIteration=None)
+    # plt.show()
     # ----------------------------------------------------
 
     print 'for debug'
