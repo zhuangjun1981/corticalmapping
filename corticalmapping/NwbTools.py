@@ -680,53 +680,165 @@ class RecordedFile(NWB):
         else:
             raise ValueError('stimulation name {} unrecognizable!'.format(stim_name))
 
-    def analyze_sparse_noise_frames(self):
+    @staticmethod
+    def _analyze_sparse_noise_frames(sn_grp):
         """
         analyze sparse noise display frames saved in '/stimulus/presentation', extract information about onset of
         each displayed square, and save into '/processing':
 
         data formatting is self explanatory inside the created group
+
+        return: all_squares: 2-d array, each line is a displayed square in sparse noise, each column is a feature of
+                             a particular square, squares follow display order
+                data_format: str, description of the column structure of each square
+                description: str,
+                pooled_squares: dict, squares with same location and sign are pooled together.
+                                keys: 'square_00000', 'square_00001', 'square_00002' ... each represents a unique
+                                      square.
+                                values: dict, {
+                                               'azi': <azimuth of the square>,
+                                               'alt': <altitude of the square>,
+                                               'sign': <sign of the square>,
+                                               'onset_ind': list of indices of the appearances of current square in
+                                                            in "all_squares", to be aligned with to photodiode onset
+                                                            timestamps
+                                               }
         """
 
-        stim_list = self.file_pointer['stimulus/presentation'].keys()
-        sparse_noise_displays = []
-        for stim in stim_list:
-            if 'SparseNoise' in stim:
-                sparse_noise_displays.append(stim)
-        if len(sparse_noise_displays) == 0:
-            print('No sparse noise display log found, abort.')
-            return None
+        frames = sn_grp['data'].value
+        frames = [tuple(x) for x in frames]
+        dtype = [('isDisplay', int), ('azimuth', float), ('altitude', float), ('sign', int), ('isOnset', int)]
+        frames = np.array(frames, dtype=dtype)
 
-        for snd in sparse_noise_displays:
-            frames = self.file_pointer['stimulus/presentation'][snd]['data'].value
-            frames = [tuple(x) for x in frames]
-            dtype = [('isDisplay', int), ('azimuth', float), ('altitude', float), ('sign', int), ('isOnset', int)]
-            frames = np.array(frames, dtype=dtype)
+        all_squares = []
+        for i in range(len(frames)):
+            if frames[i]['isDisplay'] == 1 and \
+                    (i == 0 or (frames[i - 1]['isOnset'] == -1 and frames[i]['isOnset'] == 1)):
+                all_squares.append(np.array((i, frames[i]['azimuth'], frames[i]['altitude'], frames[i]['sign']),
+                                             dtype=np.float32))
 
-            allSquares = []
-            for i in range(len(frames)):
-                # if frames[i]['isDisplay'] == 1 and (i == 0 or
-                #                                     frames[i - 1]['azimuth'] != frames[i]['azimuth'] or
-                #                                     frames[i - 1]['altitude'] != frames[i]['altitude'] or
-                #                                     frames[i - 1]['sign'] != frames[i]['sign']):
-                if frames[i]['isDisplay'] == 1 and \
-                        (i == 0 or (frames[i - 1]['isOnset'] == -1 and frames[i]['isOnset'] == 1)):
-                    allSquares.append(np.array((i, frames[i]['azimuth'], frames[i]['altitude'], frames[i]['sign']),
-                                               dtype=np.float32))
+        all_squares = np.array(all_squares)
 
-            allSquares = np.array(allSquares)
+        pooled_squares = {}
+        unique_squares = list(set([tuple(x[1:]) for x in all_squares]))
+        for i, unique_square in enumerate(unique_squares):
+            curr_square_n = 'square_' + ft.int2str(i, 5)
+            curr_azi = unique_square[0]
+            curr_alt = unique_square[1]
+            curr_sign = unique_square[2]
+            curr_onset_ind = []
+            for j, give_square in enumerate(all_squares):
+                if np.array_equal(give_square[1:], unique_square):
+                    curr_onset_ind.append(j)
+            pooled_squares.update({curr_square_n: {'azi': curr_azi,
+                                                   'alt': curr_alt,
+                                                   'sign': curr_sign,
+                                                   'onset_ind': curr_onset_ind}})
+        all_squares = np.array(all_squares)
+        data_format = ['display frame indices for the onset of each square', 'azimuth of each square',
+                       'altitude of each square', 'sign of each square']
+        description = 'TimeSeries of sparse noise square onsets. Stimulus generated by ' \
+                      'corticalmapping.VisualStim.SparseNoise class.'
+        return all_squares, data_format, description, pooled_squares
 
-            snd_group = self.file_pointer['processing'].create_group(snd+'_squares')
-            squares_dset = snd_group.create_dataset('onset_frame_index', data = allSquares)
-            snd_group.create_dataset('data_formatting', data =['display frame indices for the onset of each square',
-                                                               'azimuth of each square',
-                                                               'altitude of each square',
-                                                               'sign of each square'])
-            squares_dset.attrs['description'] = 'intermediate processing step of sparse noise display log. Containing ' \
-                                                'the information about the onset of each displayed square.'
-
-    def analyze_flashing_circle_frames(self):
+    @staticmethod
+    def _analyze_driftig_grating_frames(dg_grp):
         pass
+
+    @staticmethod
+    def _analyze_flashing_circle_frames(fc_grp):
+        pass
+
+    @staticmethod
+    def _analyze_uniform_contrast_frames(uc_grp):
+
+        onset_array = np.array([])
+        data_format = ''
+        description = 'TimeSeries of uniform contrast stimulus. No onset information. Stimulus generated by ' \
+                      'corticalmapping.VisualStim.UniformContrast class.'
+        return onset_array, data_format, description, {}
+
+    def analyze_visual_stimuli(self, onsets_ts=None):
+        """
+        add stimuli onset timestamps of all saved stimulus presentations to 'processing/stimulus_onsets' module
+
+        :param onsets_ts: 1-d array, timestamps of stimuli onsets. if None, it will look for
+                          ['processing/photodiode/timestemps'] as onset_ts
+        """
+
+        if onsets_ts is None:
+            print 'input onsets_ts is None, try to use photodiode onsets as onsets_ts.'
+            onsets_ts = self.file_pointer['processing/PhotodiodeOnsets/photodiode_onsets/timestamps'].value
+
+        stim_ns = self.file_pointer['stimulus/presentation'].keys()
+        stim_ns.sort()
+
+        total_onsets = 0
+
+        for stim_ind, stim_n in enumerate(stim_ns):
+
+            if int(stim_n[0: 2]) != stim_ind:
+                raise ValueError('Stimulus name: {} does not follow the order: {}'.format(stim_n, stim_ind))
+
+            curr_stim_grp = self.file_pointer['stimulus/presentation'][stim_n]
+            if stim_n[3:] == 'SparseNoise':
+                _ = self._analyze_sparse_noise_frames(curr_stim_grp)
+            elif stim_n[3:] == 'FlashingCircle':
+                _ = self._analyze_flashing_circle_frames(curr_stim_grp)
+            elif stim_n[3:] == 'DriftingGrating':
+                _ = self._analyze_driftig_grating_frames(curr_stim_grp)
+            elif stim_n[3:] == 'UniformContrast':
+                _ = self._analyze_uniform_contrast_frames(curr_stim_grp)
+            else:
+                raise LookupError('Do not understand stimulus type: {}.'.format(stim_n))
+
+            curr_onset_arr, curr_data_format, curr_description, pooled_onsets = _
+
+            total_onsets += curr_onset_arr.shape[0]
+
+        if total_onsets != len(onsets_ts):
+            raise ValueError('Number of stimuli onsets do not match the number of given onsets_ts.')
+
+        curr_onset_start_ind = 0
+
+        for stim_ind, stim_n in enumerate(stim_ns):
+            curr_stim_grp = self.file_pointer['stimulus/presentation'][stim_n]
+
+            if stim_n[3:] == 'SparseNoise':
+                _ = self._analyze_sparse_noise_frames(curr_stim_grp)
+            elif stim_n[3:] == 'FlashingCircle':
+                _ = self._analyze_flashing_circle_frames(curr_stim_grp)
+            elif stim_n[3:] == 'DriftingGrating':
+                _ = self._analyze_driftig_grating_frames(curr_stim_grp)
+            elif stim_n[3:] == 'UniformContrast':
+                _ = self._analyze_uniform_contrast_frames(curr_stim_grp)
+            else:
+                raise LookupError('Do not understand stimulus type: {}.'.format(stim_n))
+
+            curr_onset_arr, curr_data_format, curr_description, pooled_onsets = _
+
+            curr_onset_ts = onsets_ts[curr_onset_start_ind: curr_onset_start_ind + curr_onset_arr.shape[0]]
+
+            curr_onset = self.create_timeseries('TimeSeries', stim_n, modality='other')
+            curr_onset.set_data(curr_onset_arr, unit='', conversion=np.nan, resolution=np.nan)
+            curr_onset.set_time(curr_onset_ts)
+            curr_onset.set_description(curr_description)
+            curr_onset.set_value('data_format', curr_data_format)
+            curr_onset.set_path('processing/StimulusOnsets')
+            curr_onset.finalize()
+
+            if stim_n[3:] == 'SparseNoise':
+                for curr_sn, curr_sd in pooled_onsets.items():
+                    curr_s_ts = self.create_timeseries('TimeSeries', curr_sn, modality='other')
+                    curr_s_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+                    curr_s_ts.set_time(curr_onset_ts[curr_sd['onset_ind']])
+                    curr_s_ts.set_value('azimuth', curr_sd['azi'])
+                    curr_s_ts.set_value('altitude', curr_sd['alt'])
+                    curr_s_ts.set_value('sign', curr_sd['sign'])
+                    curr_s_ts.set_path('processing/StimulusOnsets/' + stim_n + '/square_timestamps')
+                    curr_s_ts.finalize()
+
+            curr_onset_start_ind = curr_onset_start_ind + curr_onset_arr.shape[0]
 
     def add_visual_stimulations(self, log_paths):
 
@@ -760,11 +872,11 @@ class RecordedFile(NWB):
         pd = self.file_pointer['acquisition/timeseries/photodiode/data'].value * \
              self.file_pointer['acquisition/timeseries/photodiode/data'].attrs['conversion']
 
-        # plt.plot(pd)
-        # plt.show()
-
         pd_onsets = hl.segmentMappingPhotodiodeSignal(pd, digitizeThr=digitizeThr, filterSize=filterSize,
                                                       segmentThr=segmentThr, Fs=fs, smallestInterval=smallestInterval)
+
+        if pd_onsets.shape[0] == 0:
+            return
 
         if expected_onsets_number is not None:
             if len(pd_onsets) != expected_onsets_number:
@@ -784,7 +896,7 @@ class RecordedFile(NWB):
                               'digitized signal. Then the segmentation_threshold was used to detect rising edge of '
                               'the resulting signal. Any onset with interval from its previous onset smaller than '
                               'smallest_interval will be discarded.')
-        pd_ts.set_path('/processing/photodiode_onsets')
+        pd_ts.set_path('/processing/PhotodiodeOnsets')
         pd_ts.set_value('digitize_threshold', digitizeThr)
         pd_ts.set_value('fileter_size', filterSize)
         pd_ts.set_value('segmentation_threshold', segmentThr)
@@ -1162,20 +1274,6 @@ class RecordedFile(NWB):
             equ_dset.attrs['description'] = 'the linear equation to transform fft phase into retinotopy visual degrees.' \
                                             'degree = phase * slope + intercept'
             equ_dset.attrs['data_format'] = ['slope', 'intercept']
-
-
-
-    def add_segmentation_result(self):
-        # todo: finish this method
-        pass
-
-    def add_roi_traces(self):
-        # todo: finish this method
-        pass
-
-    def add_motion_correction(self):
-        # not for now
-        pass
 
     def add_sync_data(self):
         # not for now

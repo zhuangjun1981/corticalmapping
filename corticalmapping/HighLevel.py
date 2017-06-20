@@ -987,6 +987,79 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
     save_f.close()
 
 
+def plot_sorted_sta_dff(sta_f, sta_t, plot_ax, sort_order, aspect=1.6, is_calculate_dff=True, **kwargs):
+    """
+    plot sorted spike triggered local df/f matrix of given trigger unit for all rois, it calculates local df/f traces
+    from input fluorescence traces.
+
+    :param sta_f: 2d array, t x roi, spike triggered average demixed fluorescence
+    :param sta_t: 1d array, timestamps of sta
+    :param sort_order: 1d array, length should equal sta_f.shape[1]
+    :param plot_ax:
+    :param aspect: aspect ratio of the plot
+    :param is_calculate_dff: bool, calculate df/f from input trace or not
+    :param kwargs: plotting inputs
+    :return:
+    """
+
+    bl_frame_num = np.sum((sta_t <= 0.).astype(np.int))
+    sta_dff = sta_f.transpose()
+
+    if is_calculate_dff:
+        bl = np.array([np.mean(sta_dff[:, 0: bl_frame_num], axis=1)]).transpose()
+        sta_dff = (sta_dff - bl) / bl
+
+    res_mat = sta_dff[:, bl_frame_num:]
+    res_t = sta_t[bl_frame_num:]
+    peak_t_ind = np.argmax(res_mat, axis=1)
+    peak_time = res_t[peak_t_ind]
+
+    peak_time_sorted = peak_time[sort_order]
+    sta_dff_sorted = sta_dff[sort_order]
+
+    curr_fig = plot_ax.imshow(sta_dff_sorted, **kwargs)
+    plot_ax.set_aspect(aspect * sta_dff_sorted.shape[1] / sta_dff_sorted.shape[0])
+    plot_ax.set_xticks([0., np.argmin(np.abs(sta_t)), sta_dff_sorted.shape[1] - 1.])
+    end_t = np.round((sta_t[-1] + np.mean(np.diff(sta_t))) * 100.) / 100.
+    plot_ax.set_xticklabels([sta_t[0], 0, end_t])
+    plot_ax.set_xlabel('time (sec)')
+    plot_ax.axvline(x=np.argmin(np.abs(sta_t)), ls='--', color='k', lw=1)
+
+    for roi_ind, roi_peak_time in enumerate(peak_time_sorted):
+        relative_x = float(sta_dff_sorted.shape[1]) * (roi_peak_time - sta_t[0]) / (sta_t[-1] - sta_t[0])
+        plot_ax.plot(relative_x, roi_ind, '.k', ms=3)
+
+    plot_ax.set_xlim([0, sta_dff_sorted.shape[1] - 1])
+    plot_ax.set_ylim([-0.5, sta_dff_sorted.shape[0] - 0.5])
+    plot_ax.invert_yaxis()
+
+    return curr_fig
+
+
+def get_sort_order(sta_f, sta_t):
+    """
+    return the sort order of rois based on their peak response time.  it calculates local df/f traces from input
+    fluorescence traces.
+
+    :param sta_f: 2d array, t x roi, spike triggered average demixed fluorescence
+    :param sta_t: 1d array, timestamps of sta
+    :return: 1d array, length equals sta_f.shape[1]
+    """
+
+    bl_frame_num = np.sum((sta_t <= 0.).astype(np.int))
+    sta_dff = sta_f.transpose()
+    bl = np.array([np.mean(sta_dff[:, 0: bl_frame_num], axis=1)]).transpose()
+    sta_dff = (sta_dff - bl) / bl
+
+    res_mat = sta_dff[:, bl_frame_num:]
+    res_t = sta_t[bl_frame_num:]
+    peak_t_ind = np.argmax(res_mat, axis=1)
+    peak_time = res_t[peak_t_ind]
+    sort_order = np.argsort(peak_time)
+
+    return sort_order
+
+
 if __name__ == '__main__':
 
     #===========================================================================
