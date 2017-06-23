@@ -119,8 +119,8 @@ def translateHugeMovieByVasculature(inputPath, outputPath, parameterPath, output
             currMovT.reshape((np.prod(currMovT.shape),)).tofile(f)
 
 
-def segmentMappingPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.02, Fs=10000.,
-                                   smallestInterval=10., verbose=False):
+def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.02, Fs=10000.,
+                            smallestInterval=10., verbose=False):
     '''
 
     :param pd: photodiode from mapping jphys file
@@ -132,8 +132,12 @@ def segmentMappingPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segment
     '''
 
     pdDigitized = np.array(pd)
+    # plt.plot(pdDigitized[0: 100 * 30000])
+    # plt.show()
 
     pdDigitized[pd<digitizeThr] = 0.; pdDigitized[pd>=digitizeThr] = 5.
+    # plt.plot(pdDigitized[0: 100 * 30000])
+    # plt.show()
 
     filterDataPoint = int(filterSize*Fs)
 
@@ -141,9 +145,11 @@ def segmentMappingPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segment
     pdFilteredDiff = np.diff(pdFiltered)
     pdFilteredDiff = np.hstack(([0],pdFilteredDiff))
     pdSignal = np.multiply(pdDigitized, pdFilteredDiff)
-    # plt.plot(pdSignal[:1000000])
+    # plt.plot(pdSignal[0: 100 * 30000])
     # plt.show()
 
+    # plt.plot(pdSignal[:1000000])
+    # plt.show()
     displayOnsets = ta.get_onset_timeStamps(pdSignal, Fs, threshold = segmentThr, onsetType='raising')
 
     trueDisplayOnsets=[]
@@ -1172,7 +1178,7 @@ if __name__ == '__main__':
     #
     # pd = jphys['photodiode']
     #
-    # displayOnsets = segmentMappingPhotodiodeSignal(pd,
+    # displayOnsets = segmentPhotodiodeSignal(pd,
     #                                                digitizeThr=pdDigitizeThr,
     #                                                filterSize=pdFilterSize,
     #                                                segmentThr=pdSegmentThr,

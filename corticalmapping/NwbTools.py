@@ -680,13 +680,18 @@ class RecordedFile(NWB):
         else:
             raise ValueError('stimulation name {} unrecognizable!'.format(stim_name))
 
+    def add_visual_stimulations(self, log_paths):
+
+        exist_stimuli = self.file_pointer['stimulus/presentation'].keys()
+
+        for i, log_path in enumerate(log_paths):
+            self.add_visual_stimulation(log_path, i + len(exist_stimuli))
+
     @staticmethod
     def _analyze_sparse_noise_frames(sn_grp):
         """
         analyze sparse noise display frames saved in '/stimulus/presentation', extract information about onset of
-        each displayed square, and save into '/processing':
-
-        data formatting is self explanatory inside the created group
+        each displayed square:
 
         return: all_squares: 2-d array, each line is a displayed square in sparse noise, each column is a feature of
                              a particular square, squares follow display order
@@ -704,6 +709,9 @@ class RecordedFile(NWB):
                                                             timestamps
                                                }
         """
+
+        if sn_grp['stim_name'].value != 'SparseNoise':
+            raise NameError('The input stimulus should be "SparseNoise".')
 
         frames = sn_grp['data'].value
         frames = [tuple(x) for x in frames]
@@ -743,14 +751,108 @@ class RecordedFile(NWB):
 
     @staticmethod
     def _analyze_driftig_grating_frames(dg_grp):
-        pass
+        """
+        analyze drifting grating display frames saved in '/stimulus/presentation', extract information about onset of
+        each displayed grating:
+
+        return: all_gratings: 2-d array, each line is a displayed square in sparse noise, each column is a feature of
+                             a particular square, squares follow display order
+                data_format: str, description of the column structure of each grating
+                description: str,
+                pooled_squares: dict, gratings with same parameters are pooled together.
+                                keys: 'grating_00000', 'grating_00001', 'grating_00002' ... each represents a unique
+                                      grating.
+                                values: dict, {
+                                               'sf': <spatial frequency of the grating>,
+                                               'tf': <temporal frequency of the grating>,
+                                               'direction': <moving direction of the grating>,
+                                               'contrast': <contrast of the grating>,
+                                               'radius': <radius of the grating>,
+                                               'azi': <azimuth of the grating center>
+                                               'alt': <altitude of the grating center>
+                                               'onset_ind': list of indices of the appearances of current square in
+                                                            in "all_squares", to be aligned with to photodiode onset
+                                                            timestamps
+                                               }
+        """
+        if dg_grp['stim_name'].value != 'DriftingGratingCircle':
+            raise NameError('The input stimulus should be "DriftingGratingCircle".')
+
+        frames = dg_grp['data'].value
+
+        all_gratings = []
+        for i in range(len(frames)):
+            if frames[i][8] == 1 and (i == 0 or (frames[i - 1][8] == -1)):
+                all_gratings.append(np.array((i, frames[i][2], frames[i][3], frames[i][4], frames[i][5], frames[i][6]),
+                                            dtype=np.float32))
+
+        all_gratings = np.array(all_gratings)
+
+        pooled_gratings = {}
+        unique_gratings = list(set([tuple(x[1:]) for x in all_gratings]))
+        for i, unique_grating in enumerate(unique_gratings):
+            curr_grating_n = 'grating_' + ft.int2str(i, 5)
+            curr_sf = unique_grating[0]
+            curr_tf = unique_grating[1]
+            curr_dir = unique_grating[2]
+            curr_con = unique_grating[3]
+            curr_r = unique_grating[4]
+            curr_onset_ind = []
+            for j, given_grating in enumerate(all_gratings):
+                if np.array_equal(given_grating[1:], unique_grating):
+                    curr_onset_ind.append(j)
+            pooled_gratings.update({curr_grating_n: {'sf': curr_sf,
+                                                     'tf': curr_tf,
+                                                     'dir': curr_dir,
+                                                     'con': curr_con,
+                                                     'r': curr_r,
+                                                     'onset_ind': curr_onset_ind}})
+        data_format = ['display frame indices for the onset of each square', 'spatial frequency (cyc/deg)',
+                       'temporal frequency (Hz)', 'moving direction (arc)', 'contrast (%)', 'radius (deg)']
+        description = 'TimeSeries of drifting grating circle onsets. Stimulus generated by ' \
+                      'corticalmapping.VisualStim.SparseNoise class.'
+        return all_gratings, data_format, description, pooled_gratings
 
     @staticmethod
     def _analyze_flashing_circle_frames(fc_grp):
-        pass
+        """
+        analyze flashing circle display frames saved in '/stimulus/presentation', extract information about onset of
+        each displayed circle:
+
+        return: all_circles: 2-d array, each line is the onset of displayed circle, each column is a feature of
+                             that circle, circles follow the display order
+                data_format: str, description of the column structure of each circle
+                description: str,
+                pooled_circles: None
+        """
+
+        if fc_grp['stim_name'].value != 'FlashingCircle':
+            raise NameError('The input stimulus should be "FlashingCircle".')
+
+        frames = fc_grp['data'][:, 0]
+        azi = fc_grp['center_azimuth_deg'].value
+        alt = fc_grp['center_altitude_deg'].value
+        color_c = fc_grp['center_color'].value
+        color_b = fc_grp['background_color'].value
+        radius = fc_grp['radius_deg'].value
+
+        all_cirlces = []
+        for i in range(len(frames)):
+            if frames[i] == 1 and (i == 0 or (frames[i - 1] == 0)):
+                all_cirlces.append(np.array((i, azi, alt, color_c, color_b, radius), dtype=np.float32))
+
+        all_cirlces = np.array(all_cirlces)
+        data_format = ['display frame indices for the onset of each circle', 'center_azimuth_deg',
+                       'center_altitude_deg', 'center_color', 'background_color', 'radius_deg']
+        description = 'TimeSeries of flashing circle onsets. Stimulus generated by ' \
+                      'corticalmapping.VisualStim.SparseNoise class.'
+        return all_cirlces, data_format, description, None
 
     @staticmethod
     def _analyze_uniform_contrast_frames(uc_grp):
+
+        if uc_grp['stim_name'].value != 'UniformContrast':
+            raise NameError('The input stimulus should be "UniformContrast".')
 
         onset_array = np.array([])
         data_format = ''
@@ -781,13 +883,13 @@ class RecordedFile(NWB):
                 raise ValueError('Stimulus name: {} does not follow the order: {}'.format(stim_n, stim_ind))
 
             curr_stim_grp = self.file_pointer['stimulus/presentation'][stim_n]
-            if stim_n[3:] == 'SparseNoise':
+            if curr_stim_grp['stim_name'].value == 'SparseNoise':
                 _ = self._analyze_sparse_noise_frames(curr_stim_grp)
-            elif stim_n[3:] == 'FlashingCircle':
+            elif curr_stim_grp['stim_name'].value == 'FlashingCircle':
                 _ = self._analyze_flashing_circle_frames(curr_stim_grp)
-            elif stim_n[3:] == 'DriftingGrating':
+            elif curr_stim_grp['stim_name'].value == 'DriftingGratingCircle':
                 _ = self._analyze_driftig_grating_frames(curr_stim_grp)
-            elif stim_n[3:] == 'UniformContrast':
+            elif curr_stim_grp['stim_name'].value == 'UniformContrast':
                 _ = self._analyze_uniform_contrast_frames(curr_stim_grp)
             else:
                 raise LookupError('Do not understand stimulus type: {}.'.format(stim_n))
@@ -804,13 +906,13 @@ class RecordedFile(NWB):
         for stim_ind, stim_n in enumerate(stim_ns):
             curr_stim_grp = self.file_pointer['stimulus/presentation'][stim_n]
 
-            if stim_n[3:] == 'SparseNoise':
+            if curr_stim_grp['stim_name'].value == 'SparseNoise':
                 _ = self._analyze_sparse_noise_frames(curr_stim_grp)
-            elif stim_n[3:] == 'FlashingCircle':
+            elif curr_stim_grp['stim_name'].value == 'FlashingCircle':
                 _ = self._analyze_flashing_circle_frames(curr_stim_grp)
-            elif stim_n[3:] == 'DriftingGrating':
+            elif curr_stim_grp['stim_name'].value == 'DriftingGratingCircle':
                 _ = self._analyze_driftig_grating_frames(curr_stim_grp)
-            elif stim_n[3:] == 'UniformContrast':
+            elif curr_stim_grp['stim_name'].value == 'UniformContrast':
                 _ = self._analyze_uniform_contrast_frames(curr_stim_grp)
             else:
                 raise LookupError('Do not understand stimulus type: {}.'.format(stim_n))
@@ -825,34 +927,70 @@ class RecordedFile(NWB):
             curr_onset.set_description(curr_description)
             curr_onset.set_value('data_format', curr_data_format)
             curr_onset.set_path('processing/StimulusOnsets')
-            curr_onset.finalize()
+            curr_onset.set_value('stim_name', curr_stim_grp['stim_name'].value)
+            curr_onset.set_value('background_color', curr_stim_grp['background_color'].value)
+            curr_onset.set_value('pre_gap_dur_sec', curr_stim_grp['pre_gap_dur_sec'].value)
+            curr_onset.set_value('post_gap_dur_sec', curr_stim_grp['post_gap_dur_sec'].value)
 
-            if stim_n[3:] == 'SparseNoise':
+            if curr_stim_grp['stim_name'].value == 'UniformContrast':
+                curr_onset.set_value('color', curr_stim_grp['color'].value)
+                curr_onset.finalize()
+
+            elif curr_stim_grp['stim_name'].value == 'FlashingCircle':
+                curr_onset.set_value('iteration', curr_stim_grp['iteration'].value)
+                curr_onset.finalize()
+
+            elif curr_stim_grp['stim_name'].value == 'SparseNoise':
+                curr_onset.set_value('grid_space', curr_stim_grp['grid_space'].value)
+                curr_onset.set_value('iteration', curr_stim_grp['iteration'].value)
+                curr_onset.set_value('probe_frame_num', curr_stim_grp['probe_frame_num'].value)
+                curr_onset.set_value('probe_height_deg', curr_stim_grp['probe_height_deg'].value)
+                curr_onset.set_value('probe_orientation', curr_stim_grp['probe_orientation'].value)
+                curr_onset.set_value('probe_width_deg', curr_stim_grp['probe_width_deg'].value)
+                curr_onset.set_value('sign', curr_stim_grp['sign'].value)
+                curr_onset.set_value('subregion_deg', curr_stim_grp['subregion_deg'].value)
+                curr_onset.finalize()
                 for curr_sn, curr_sd in pooled_onsets.items():
                     curr_s_ts = self.create_timeseries('TimeSeries', curr_sn, modality='other')
                     curr_s_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
                     curr_s_ts.set_time(curr_onset_ts[curr_sd['onset_ind']])
-                    curr_s_ts.set_value('azimuth', curr_sd['azi'])
-                    curr_s_ts.set_value('altitude', curr_sd['alt'])
+                    curr_s_ts.set_value('azimuth_deg', curr_sd['azi'])
+                    curr_s_ts.set_value('altitude_deg', curr_sd['alt'])
                     curr_s_ts.set_value('sign', curr_sd['sign'])
                     curr_s_ts.set_path('processing/StimulusOnsets/' + stim_n + '/square_timestamps')
                     curr_s_ts.finalize()
 
+            elif curr_stim_grp['stim_name'].value == 'DriftingGratingCircle':
+                curr_onset.set_value('iteration', curr_stim_grp['iteration'].value)
+                curr_onset.set_value('mid_gap_dur_sec', curr_stim_grp['mid_gap_dur_sec'].value)
+                curr_onset.set_value('center_altitude_deg', curr_stim_grp['center_altitude_deg'].value)
+                curr_onset.set_value('center_azimuth_deg', curr_stim_grp['center_azimuth_deg'].value)
+                curr_onset.set_value('contrast_list', curr_stim_grp['contrast_list'].value)
+                curr_onset.set_value('direction_list', curr_stim_grp['direction_list'].value)
+                curr_onset.set_value('radius_list', curr_stim_grp['radius_list'].value)
+                curr_onset.set_value('spatial_frequency_list', curr_stim_grp['spatial_frequency_list'].value)
+                curr_onset.set_value('temporal_frequency_list', curr_stim_grp['temporal_frequency_list'].value)
+                curr_onset.finalize()
+                for curr_gn, curr_gd in pooled_onsets.items():
+                    curr_g_ts = self.create_timeseries('TimeSeries', curr_gn, modality='other')
+                    curr_g_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+                    curr_g_ts.set_time(curr_onset_ts[curr_gd['onset_ind']])
+                    curr_g_ts.set_value('sf_cyc_per_deg', curr_gd['sf'])
+                    curr_g_ts.set_value('tf_hz', curr_gd['tf'])
+                    curr_g_ts.set_value('direction_arc', curr_gd['dir'])
+                    curr_g_ts.set_value('contrast', curr_gd['con'])
+                    curr_g_ts.set_value('radius_deg', curr_gd['r'])
+                    curr_g_ts.set_path('processing/StimulusOnsets/' + stim_n + '/grating_timestamps')
+                    curr_g_ts.finalize()
+
             curr_onset_start_ind = curr_onset_start_ind + curr_onset_arr.shape[0]
-
-    def add_visual_stimulations(self, log_paths):
-
-        exist_stimuli = self.file_pointer['stimulus/presentation'].keys()
-
-        for i, log_path in enumerate(log_paths):
-            self.add_visual_stimulation(log_path, i + len(exist_stimuli))
 
     def add_photodiode_onsets(self, digitizeThr=0.9, filterSize=0.01, segmentThr=0.01, smallestInterval=0.03,
                               expected_onsets_number=None):
         """
         intermediate processing step for analysis of visual display. Containing the information about the onset of
         photodiode signal. Timestamps are extracted from photodiode signal, should be aligned to the master clock.
-        extraction is done by corticalmapping.HighLevel.segmentMappingPhotodiodeSignal() function. The raw signal
+        extraction is done by corticalmapping.HighLevel.segmentPhotodiodeSignal() function. The raw signal
         was first digitized by the digitize_threshold, then filtered by a gaussian fileter with filter_size. Then
         the derivative of the filtered signal was calculated by numpy.diff. The derivative signal was then timed
         with the digitized signal. Then the segmentation_threshold was used to detect rising edge of the resulting
@@ -872,8 +1010,8 @@ class RecordedFile(NWB):
         pd = self.file_pointer['acquisition/timeseries/photodiode/data'].value * \
              self.file_pointer['acquisition/timeseries/photodiode/data'].attrs['conversion']
 
-        pd_onsets = hl.segmentMappingPhotodiodeSignal(pd, digitizeThr=digitizeThr, filterSize=filterSize,
-                                                      segmentThr=segmentThr, Fs=fs, smallestInterval=smallestInterval)
+        pd_onsets = hl.segmentPhotodiodeSignal(pd, digitizeThr=digitizeThr, filterSize=filterSize,
+                                               segmentThr=segmentThr, Fs=fs, smallestInterval=smallestInterval)
 
         if pd_onsets.shape[0] == 0:
             return
@@ -889,7 +1027,7 @@ class RecordedFile(NWB):
         pd_ts.set_description('intermediate processing step for analysis of visual display. '
                               'Containing the information about the onset of photodiode signal. Timestamps '
                               'are extracted from photodiode signal, should be aligned to the master clock.'
-                              'extraction is done by corticalmapping.HighLevel.segmentMappingPhotodiodeSignal()'
+                              'extraction is done by corticalmapping.HighLevel.segmentPhotodiodeSignal()'
                               'function. The raw signal was first digitized by the digitize_threshold, then '
                               'filtered by a gaussian fileter with filter_size. Then the derivative of the filtered '
                               'signal was calculated by numpy.diff. The derivative signal was then timed with the '
@@ -1103,6 +1241,20 @@ class RecordedFile(NWB):
                              'polarity (from -1 to 1), indicatorColor (for photodiode, from -1 to 1)]')
         stim.set_value('data_formatting', ['isDisplay', 'azimuth', 'altitude', 'polarity', 'indicatorColor'])
         stim.set_value('background_color', log_dict['stimulation']['background'])
+        stim.set_value('pre_gap_dur_sec', log_dict['stimulation']['preGapDur'])
+        stim.set_value('post_gap_dur_sec', log_dict['stimulation']['postGapDur'])
+        stim.set_value('iteration', log_dict['stimulation']['iteration'])
+        stim.set_value('sign', log_dict['stimulation']['sign'])
+        stim.set_value('probe_width_deg', log_dict['stimulation']['probeSize'][0])
+        stim.set_value('probe_height_deg', log_dict['stimulation']['probeSize'][1])
+        stim.set_value('subregion_deg', log_dict['stimulation']['subregion'])
+        try:
+            stim.set_value('probe_orientation', log_dict['stimulation']['probeOrientation'])
+        except KeyError:
+            stim.set_value('probe_orientation', log_dict['stimulation']['probeOrientationt'])
+        stim.set_value('stim_name', log_dict['stimulation']['stimName'])
+        stim.set_value('grid_space', log_dict['stimulation']['gridSpace'])
+        stim.set_value('probe_frame_num', log_dict['stimulation']['probeFrameNum'])
         stim.set_source('corticalmapping.VisualStim.SparseNoise for stimulus; '
                         'corticalmapping.VisualStim.DisplaySequence for display')
         stim.finalize()
@@ -1137,10 +1289,14 @@ class RecordedFile(NWB):
         stim.set_source('corticalmapping.VisualStim.FlashingCircle for stimulus; '
                         'corticalmapping.VisualStim.DisplaySequence for display')
         stim.set_value('radius_deg', log_dict['stimulation']['radius'])
-        stim.set_value('center_location_deg', log_dict['stimulation']['center'])
-        stim.set_value('center_location_format', '[azimuth, altitude]')
-        stim.set_value('color', log_dict['stimulation']['color'])
+        stim.set_value('center_azimuth_deg', log_dict['stimulation']['center'][0])
+        stim.set_value('center_altitude_deg', log_dict['stimulation']['center'][1])
+        stim.set_value('center_color', log_dict['stimulation']['color'])
         stim.set_value('background_color', log_dict['stimulation']['background'])
+        stim.set_value('stim_name', log_dict['stimulation']['stimName'])
+        stim.set_value('pre_gap_dur_sec', log_dict['stimulation']['preGapDur'])
+        stim.set_value('post_gap_dur_sec', log_dict['stimulation']['postGapDur'])
+        stim.set_value('iteration', log_dict['stimulation']['iteration'])
         stim.finalize()
 
     def _add_uniform_contrast_stimulation(self, log_dict, display_order):
@@ -1169,6 +1325,9 @@ class RecordedFile(NWB):
                         'corticalmapping.VisualStim.DisplaySequence for display')
         stim.set_value('color', log_dict['stimulation']['color'])
         stim.set_value('background_color', log_dict['stimulation']['background'])
+        stim.set_value('pre_gap_dur_sec', log_dict['stimulation']['preGapDur'])
+        stim.set_value('post_gap_dur_sec', log_dict['stimulation']['postGapDur'])
+        stim.set_value('stim_name', log_dict['stimulation']['stimName'])
         stim.finalize()
 
     def _add_drifting_grating_circle_stimulation(self, log_dict, display_order):
@@ -1204,6 +1363,19 @@ class RecordedFile(NWB):
                              'for gap frames, the 2ed to 8th elements should be np.nan.')
         stim.set_value('data_formatting', ['isDisplay', 'firstFrameInCycle', 'spatialFrequency', 'temporalFrequency',
                                            'direction', 'contrast', 'radius', 'phase', 'indicatorColor'])
+        stim.set_value('spatial_frequency_list', log_dict['stimulation']['sf_list'])
+        stim.set_value('temporal_frequency_list', log_dict['stimulation']['tf_list'])
+        stim.set_value('direction_list', log_dict['stimulation']['dire_list'])
+        stim.set_value('contrast_list', log_dict['stimulation']['con_list'])
+        stim.set_value('radius_list', log_dict['stimulation']['size_list'])
+        stim.set_value('center_azimuth_deg', log_dict['stimulation']['center'][0])
+        stim.set_value('center_altitude_deg', log_dict['stimulation']['center'][1])
+        stim.set_value('pre_gap_dur_sec', log_dict['stimulation']['preGapDur'])
+        stim.set_value('post_gap_dur_sec', log_dict['stimulation']['postGapDur'])
+        stim.set_value('mid_gap_dur_sec', log_dict['stimulation']['midGapDur'])
+        stim.set_value('background_color', log_dict['stimulation']['background'])
+        stim.set_value('iteration', log_dict['stimulation']['iteration'])
+        stim.set_value('stim_name', log_dict['stimulation']['stimName'])
         stim.set_source('corticalmapping.VisualStim.DriftingGratingCircle for stimulus; '
                         'corticalmapping.VisualStim.DisplaySequence for display')
         stim.set_value('background_color', log_dict['stimulation']['background'])
@@ -1252,6 +1424,10 @@ class RecordedFile(NWB):
         stim.set_source('corticalmapping.VisualStim.KSstimAllDir for stimulus; '
                         'corticalmapping.VisualStim.DisplaySequence for display')
         stim.set_value('background_color', log_dict['stimulation']['background'])
+        stim.set_value('pre_gap_dur_sec', log_dict['stimulation']['preGapDur'])
+        stim.set_value('post_gap_dur_sec', log_dict['stimulation']['postGapDur'])
+        stim.set_value('iteration', log_dict['stimulation']['iteration'])
+        stim.set_value('stim_name', log_dict['stimulation']['stimName'])
         stim.finalize()
 
         display_info = hl.analysisMappingDisplayLog(display_log=log_dict)

@@ -82,7 +82,7 @@ for fileNum in fileNumList:
 
     pd = jphys['photodiode']
 
-    displayOnsets = hl.segmentMappingPhotodiodeSignal(pd,digitizeThr=pdDigitizeThr,filterSize=pdFilterSize,segmentThr=pdSegmentThr,Fs=jphysFs,smallestInterval=smallestInterval)
+    displayOnsets = hl.segmentPhotodiodeSignal(pd, digitizeThr=pdDigitizeThr, filterSize=pdFilterSize, segmentThr=pdSegmentThr, Fs=jphysFs, smallestInterval=smallestInterval)
 
     imgFrameTS = ta.get_onset_timeStamps(jphys['read'], Fs=jphysFs, threshold=readThreshold, onsetType=readOnsetType)
 

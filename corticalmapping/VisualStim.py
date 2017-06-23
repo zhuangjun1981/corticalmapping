@@ -2184,7 +2184,7 @@ class SparseNoise(Stim):
         self.stimName = 'SparseNoise'
         self.gridSpace = gridSpace
         self.probeSize = probeSize
-        self.probeOrientationt = probeOrientation
+        self.probeOrientation = probeOrientation
         self.probeFrameNum = probeFrameNum
         self.frameConfig = ('isDisplay', '(azimuth, altitude)', 'polarity', 'indicatorColor')
 
@@ -2336,19 +2336,19 @@ class SparseNoise(Stim):
         for i, currFrame in enumerate(self.frames):
             if currFrame[0] == 1: # not a gap
                 if i == 0: # first frame and (not a gap)
-                    currDisplayMatrix = get_warped_square(corX,corY,center = currFrame[1],width=self.probeSize[0],
-                                                                 height=self.probeSize[1],ori=self.probeOrientationt,
-                                                                 foregroundColor=currFrame[2],backgroundColor=self.background)
+                    currDisplayMatrix = get_warped_square(corX, corY, center = currFrame[1], width=self.probeSize[0],
+                                                          height=self.probeSize[1], ori=self.probeOrientation,
+                                                          foregroundColor=currFrame[2], backgroundColor=self.background)
                 else: # (not first frame) and (not a gap)
                     if self.frames[i-1][1] is None: # (not first frame) and (not a gap) and (new square from gap)
-                        currDisplayMatrix = get_warped_square(corX,corY,center = currFrame[1],width=self.probeSize[0],
-                                                                     height=self.probeSize[1],ori=self.probeOrientationt,
-                                                                     foregroundColor=currFrame[2],backgroundColor=self.background)
+                        currDisplayMatrix = get_warped_square(corX, corY, center = currFrame[1], width=self.probeSize[0],
+                                                              height=self.probeSize[1], ori=self.probeOrientation,
+                                                              foregroundColor=currFrame[2], backgroundColor=self.background)
                     elif (currFrame[1]!=self.frames[i-1][1]).any() or (currFrame[2]!=self.frames[i-1][2]):
                         # (not first frame) and (not a gap) and (new square from old square)
-                        currDisplayMatrix = get_warped_square(corX,corY,center = currFrame[1],width=self.probeSize[0],
-                                                                     height=self.probeSize[1],ori=self.probeOrientationt,
-                                                                     foregroundColor=currFrame[2],backgroundColor=self.background)
+                        currDisplayMatrix = get_warped_square(corX, corY, center = currFrame[1], width=self.probeSize[0],
+                                                              height=self.probeSize[1], ori=self.probeOrientation,
+                                                              foregroundColor=currFrame[2], backgroundColor=self.background)
 
                 #assign current display matrix to full sequence
                 fullSequence[i] = currDisplayMatrix
