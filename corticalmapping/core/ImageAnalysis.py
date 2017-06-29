@@ -1656,14 +1656,14 @@ if __name__ == '__main__':
     #============================================================
 
     #============================================================
-    # a=np.array(range(15)+range(10)[::-1]).reshape((5,5))
-    # print a
-    # labeled,_ = ni.label(a>7)
-    # peakCoor = np.array(np.where(a==np.amax(a))).transpose()[0]
-    # print peakCoor
-    # peakMask = get_marked_masks(labeled,peakCoor)
-    # plt.imshow(peakMask,interpolation='nearest')
-    # plt.show()
+    a=np.array(range(15)+range(10)[::-1]).reshape((5,5))
+    print a
+    labeled,_ = ni.label(a>7)
+    peakCoor = np.array(np.where(a==np.amax(a))).transpose()[0]
+    print peakCoor
+    peakMask = get_marked_masks(labeled,peakCoor)
+    plt.imshow(peakMask,interpolation='nearest')
+    plt.show()
     #============================================================
 
     #============================================================

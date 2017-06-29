@@ -3586,7 +3586,7 @@ if __name__ == "__main__":
                                               postGapDur=3.,
                                               midGapDur=1.)
 
-    ds = DisplaySequence(logdir=r'C:\data', backupdir=None, displayIteration=1, isTriggered=False, isSyncPulse=False,
+    ds = DisplaySequence(logdir=r'C:\data', backupdir=None, displayIteration=1, isTriggered=False, isSyncPulse=True,
                          isInterpolate=False)
     ds.set_stim(drifting_grating2)
     ds.trigger_display()
