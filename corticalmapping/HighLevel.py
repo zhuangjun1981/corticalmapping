@@ -38,21 +38,27 @@ def translateMovieByVasculature(mov, parameterPath, matchingDecimation=2, refere
     with open(parameterPath) as f:
         matchingParams = json.load(f)
 
-    matchingDecimation = float(matchingDecimation); referenceDecimation=float(referenceDecimation)
+    matchingDecimation = float(matchingDecimation);
+    referenceDecimation = float(referenceDecimation)
 
-    if matchingParams['Xoffset']%matchingDecimation != 0: print 'Original Xoffset is not divisble by movDecimation. Taking the floor integer.'
-    if matchingParams['Yoffset']%matchingDecimation != 0: print 'Original Yoffset is not divisble by movDecimation. Taking the floor integer.'
+    if matchingParams[
+        'Xoffset'] % matchingDecimation != 0: print 'Original Xoffset is not divisble by movDecimation. Taking the floor integer.'
+    if matchingParams[
+        'Yoffset'] % matchingDecimation != 0: print 'Original Yoffset is not divisble by movDecimation. Taking the floor integer.'
 
-    offset =  [int(matchingParams['Xoffset']/matchingDecimation),
-               int(matchingParams['Yoffset']/matchingDecimation)]
+    offset = [int(matchingParams['Xoffset'] / matchingDecimation),
+              int(matchingParams['Yoffset'] / matchingDecimation)]
 
-    if matchingParams['ReferenceMapHeight']%matchingDecimation != 0: print 'Original ReferenceMapHeight is not divisble by movDecimation. Taking the floor integer.'
-    if matchingParams['ReferenceMapWidth']%matchingDecimation != 0: print 'Original ReferenceMapWidth is not divisble by movDecimation. Taking the floor integer.'
+    if matchingParams[
+        'ReferenceMapHeight'] % matchingDecimation != 0: print 'Original ReferenceMapHeight is not divisble by movDecimation. Taking the floor integer.'
+    if matchingParams[
+        'ReferenceMapWidth'] % matchingDecimation != 0: print 'Original ReferenceMapWidth is not divisble by movDecimation. Taking the floor integer.'
 
-    outputShape = [int(matchingParams['ReferenceMapHeight']/matchingDecimation),
-                   int(matchingParams['ReferenceMapHeight']/matchingDecimation)]
+    outputShape = [int(matchingParams['ReferenceMapHeight'] / matchingDecimation),
+                   int(matchingParams['ReferenceMapHeight'] / matchingDecimation)]
 
-    movT = ia.rigid_transform_cv2(mov, zoom=matchingParams['Zoom'], rotation=matchingParams['Rotation'], offset=offset, outputShape=outputShape)
+    movT = ia.rigid_transform_cv2(mov, zoom=matchingParams['Zoom'], rotation=matchingParams['Rotation'], offset=offset,
+                                  outputShape=outputShape)
 
     if matchingDecimation / referenceDecimation != 1:
         movT = ia.rigid_transform_cv2(movT, zoom=matchingDecimation / referenceDecimation)
@@ -63,7 +69,7 @@ def translateMovieByVasculature(mov, parameterPath, matchingDecimation=2, refere
 
 
 def translateHugeMovieByVasculature(inputPath, outputPath, parameterPath, outputDtype=None, matchingDecimation=2,
-                                    referenceDecimation=2,chunkLength=100,verbose=True):
+                                    referenceDecimation=2, chunkLength=100, verbose=True):
     '''
     translate huge .npy matrix with alignment parameters into another huge .npy matrix without loading everything into memory
     :param inputPath: path of input movie (.npy file)
@@ -82,39 +88,45 @@ def translateHugeMovieByVasculature(inputPath, outputPath, parameterPath, output
 
     if outputDtype is None: outputDtype = inputMov.dtype.str
 
-    if len(inputMov.shape)!=3: raise ValueError, 'Input movie should be 3-d!'
+    if len(inputMov.shape) != 3: raise ValueError, 'Input movie should be 3-d!'
 
     frameNum = inputMov.shape[0]
 
-    if outputPath[-4:]!='.npy': outputPath += '.npy'
+    if outputPath[-4:] != '.npy': outputPath += '.npy'
 
     if verbose: print '\nInput movie shape:', inputMov.shape
-
 
     chunkNum = frameNum // chunkLength
     if frameNum % chunkLength == 0:
         if verbose:
-            print 'Translating in chunks: '+ str(chunkNum)+' x '+str(chunkLength)+' frame(s)'
+            print 'Translating in chunks: ' + str(chunkNum) + ' x ' + str(chunkLength) + ' frame(s)'
     else:
         chunkNum += 1
-        if verbose: print 'Translating in chunks: '+str(chunkNum-1)+' x '+str(chunkLength)+' frame(s)'+' + '+str(frameNum % chunkLength)+' frame(s)'
+        if verbose: print 'Translating in chunks: ' + str(chunkNum - 1) + ' x ' + str(
+            chunkLength) + ' frame(s)' + ' + ' + str(frameNum % chunkLength) + ' frame(s)'
 
-    frameT1 = translateMovieByVasculature(inputMov[0,:,:],parameterPath=parameterPath,matchingDecimation=matchingDecimation,referenceDecimation=referenceDecimation,verbose=False)
-    plt.imshow(frameT1,cmap='gray')
+    frameT1 = translateMovieByVasculature(inputMov[0, :, :], parameterPath=parameterPath,
+                                          matchingDecimation=matchingDecimation,
+                                          referenceDecimation=referenceDecimation, verbose=False)
+    plt.imshow(frameT1, cmap='gray')
     plt.show()
 
-    if verbose: print 'Output movie shape:', (frameNum,frameT1.shape[0],frameT1.shape[1]), '\n'
+    if verbose: print 'Output movie shape:', (frameNum, frameT1.shape[0], frameT1.shape[1]), '\n'
 
     with open(outputPath, 'wb') as f:
-        np.lib.format.write_array_header_1_0(f, {'descr':outputDtype, 'fortran_order':False, 'shape':(frameNum,frameT1.shape[0],frameT1.shape[1])})
+        np.lib.format.write_array_header_1_0(f, {'descr': outputDtype, 'fortran_order': False,
+                                                 'shape': (frameNum, frameT1.shape[0], frameT1.shape[1])})
 
         for i in range(chunkNum):
-            indStart = i*chunkLength
-            indEnd = (i+1)*chunkLength
+            indStart = i * chunkLength
+            indEnd = (i + 1) * chunkLength
             if indEnd > frameNum: indEnd = frameNum
-            currMov = inputMov[indStart:indEnd,:,:]
-            if verbose: print 'Translating frame '+str(indStart)+' to frame '+str(indEnd)+'.\t'+str(i*100./chunkNum)+'%'
-            currMovT = translateMovieByVasculature(currMov,parameterPath=parameterPath,matchingDecimation=matchingDecimation,referenceDecimation=referenceDecimation,verbose=False)
+            currMov = inputMov[indStart:indEnd, :, :]
+            if verbose: print 'Translating frame ' + str(indStart) + ' to frame ' + str(indEnd) + '.\t' + str(
+                i * 100. / chunkNum) + '%'
+            currMovT = translateMovieByVasculature(currMov, parameterPath=parameterPath,
+                                                   matchingDecimation=matchingDecimation,
+                                                   referenceDecimation=referenceDecimation, verbose=False)
             currMovT = currMovT.astype(outputDtype)
             currMovT.reshape((np.prod(currMovT.shape),)).tofile(f)
 
@@ -135,24 +147,25 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     # plt.plot(pdDigitized[0: 100 * 30000])
     # plt.show()
 
-    pdDigitized[pd<digitizeThr] = 0.; pdDigitized[pd>=digitizeThr] = 5.
+    pdDigitized[pd < digitizeThr] = 0.;
+    pdDigitized[pd >= digitizeThr] = 5.
     # plt.plot(pdDigitized[0: 100 * 30000])
     # plt.show()
 
-    filterDataPoint = int(filterSize*Fs)
+    filterDataPoint = int(filterSize * Fs)
 
     pdFiltered = ni.filters.gaussian_filter(pdDigitized, filterDataPoint)
     pdFilteredDiff = np.diff(pdFiltered)
-    pdFilteredDiff = np.hstack(([0],pdFilteredDiff))
+    pdFilteredDiff = np.hstack(([0], pdFilteredDiff))
     pdSignal = np.multiply(pdDigitized, pdFilteredDiff)
     # plt.plot(pdSignal[0: 100 * 30000])
     # plt.show()
 
     # plt.plot(pdSignal[:1000000])
     # plt.show()
-    displayOnsets = ta.get_onset_timeStamps(pdSignal, Fs, threshold = segmentThr, onsetType='raising')
+    displayOnsets = ta.get_onset_timeStamps(pdSignal, Fs, threshold=segmentThr, onsetType='raising')
 
-    trueDisplayOnsets=[]
+    trueDisplayOnsets = []
     for i, displayOnset in enumerate(displayOnsets):
         if i == 0:
             trueDisplayOnsets.append(displayOnset)
@@ -171,6 +184,7 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     print '\n'
 
     return np.array(trueDisplayOnsets)
+
 
 '''
 def getlogPathList(date,#string
@@ -193,47 +207,53 @@ def getlogPathList(date,#string
     return logPathList
 '''
 
-def findLogPath(date,#string
-                mouseID,#string
-                stimulus='',#string
-                userID='',#string
-                fileNumber='',#string
+
+def findLogPath(date,  # string
+                mouseID,  # string
+                stimulus='',  # string
+                userID='',  # string
+                fileNumber='',  # string
                 displayFolder=r'\\W7DTMJ007LHW\data\sequence_display_log'):
     logPathList = []
     for f in os.listdir(displayFolder):
         fn, ext = os.path.splitext(f)
         strings = fn.split('-')
-        try: dateTime,stim,mouse,user,fileNum,trigger,complete=strings
+        try:
+            dateTime, stim, mouse, user, fileNum, trigger, complete = strings
         except Exception as e:
             # print 'Can not read path:',f,'\n',e
             continue
-        if (dateTime[0:6] == date) and (mouseID in mouse) and (stimulus in stim) and (userID in user) and (fileNumber == fileNum) and (ext == '.pkl'):
-            logPathList.append(os.path.join(displayFolder,f))
-    print '\n'+'\n'.join(logPathList)+'\n'
-    if len(logPathList)==0: raise LookupError, 'Can not find visual display Log.'
-    elif len(logPathList)>1: raise LookupError, 'Find more than one visual display Log!'
+        if (dateTime[0:6] == date) and (mouseID in mouse) and (stimulus in stim) and (userID in user) and (
+            fileNumber == fileNum) and (ext == '.pkl'):
+            logPathList.append(os.path.join(displayFolder, f))
+    print '\n' + '\n'.join(logPathList) + '\n'
+    if len(logPathList) == 0:
+        raise LookupError, 'Can not find visual display Log.'
+    elif len(logPathList) > 1:
+        raise LookupError, 'Find more than one visual display Log!'
     return logPathList[0]
 
 
 def getVasMap(vasMapPaths,
-              dtype = np.dtype('<u2'),
-              headerLength = 116,
-              tailerLength = 218,
-              column = 1024,
-              row = 1024,
-              frame = 1,
-              crop = None,
-              mergeMethod = np.mean, # np.median, np.min, np.max
+              dtype=np.dtype('<u2'),
+              headerLength=116,
+              tailerLength=218,
+              column=1024,
+              row=1024,
+              frame=1,
+              crop=None,
+              mergeMethod=np.mean,  # np.median, np.min, np.max
               ):
-
     vasMaps = []
     for vasMapPath in vasMapPaths:
-        currVasMap,_,_= ft.importRawJCamF(vasMapPath,saveFolder=None,dtype=dtype,headerLength=headerLength,tailerLength=tailerLength,
-                                          column=column,row=row,frame=frame,crop=crop)
+        currVasMap, _, _ = ft.importRawJCamF(vasMapPath, saveFolder=None, dtype=dtype, headerLength=headerLength,
+                                             tailerLength=tailerLength,
+                                             column=column, row=row, frame=frame, crop=crop)
         vasMaps.append(currVasMap[0].astype(np.float32))
-    vasMap = mergeMethod(vasMaps,axis=0)
+    vasMap = mergeMethod(vasMaps, axis=0)
 
     return vasMap
+
 
 '''
 def analysisMappingDisplayLogs(logPathList):
@@ -289,6 +309,7 @@ def analysisMappingDisplayLogs(logPathList):
     return displayInfo
 '''
 
+
 def analysisMappingDisplayLog(display_log):
     '''
     :param logFile: log dictionary or the path of visual display log of a mapping experiment
@@ -304,11 +325,11 @@ def analysisMappingDisplayLog(display_log):
     '''
 
     displayInfo = {
-                   'B2U':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
-                   'U2B':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
-                   'L2R':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]},
-                   'R2L':{'ind':[],'startTime':[],'sweepDur':[],'slope':[],'intercept':[]}
-                   }
+        'B2U': {'ind': [], 'startTime': [], 'sweepDur': [], 'slope': [], 'intercept': []},
+        'U2B': {'ind': [], 'startTime': [], 'sweepDur': [], 'slope': [], 'intercept': []},
+        'L2R': {'ind': [], 'startTime': [], 'sweepDur': [], 'slope': [], 'intercept': []},
+        'R2L': {'ind': [], 'startTime': [], 'sweepDur': [], 'slope': [], 'intercept': []}
+    }
 
     if isinstance(display_log, dict):
         log = display_log
@@ -317,52 +338,63 @@ def analysisMappingDisplayLog(display_log):
     else:
         raise ValueError('log should be either dictionary or a path string!')
 
-    #check display order
-    if log['presentation']['displayOrder']==-1: raise ValueError, 'Display order is -1 (should be 1)!'
+    # check display order
+    if log['presentation']['displayOrder'] == -1: raise ValueError, 'Display order is -1 (should be 1)!'
     refreshRate = float(log['monitor']['refreshRate'])
 
-    #check display visual frame interval
+    # check display visual frame interval
     interFrameInterval = np.mean(np.diff(log['presentation']['timeStamp']))
-    if interFrameInterval > (1.01/refreshRate): raise ValueError, 'Mean visual display too long: '+str(interFrameInterval)+'sec' # check display
-    if interFrameInterval < (0.99/refreshRate): raise ValueError, 'Mean visual display too short: '+str(interFrameInterval)+'sec' # check display
+    if interFrameInterval > (1.01 / refreshRate): raise ValueError, 'Mean visual display too long: ' + str(
+        interFrameInterval) + 'sec'  # check display
+    if interFrameInterval < (0.99 / refreshRate): raise ValueError, 'Mean visual display too short: ' + str(
+        interFrameInterval) + 'sec'  # check display
 
-    #get sweep start time relative to display onset
+    # get sweep start time relative to display onset
     try:
         startTime = -1 * log['stimulation']['preGapDur']
     except KeyError:
         startTime = -1 * log['stimulation']['preGapFrameNum'] / log['monitor']['refreshRate']
-    print 'Movie chunk start time relative to sweep onset:',startTime,'sec'
-    displayInfo['B2U']['startTime']=startTime;displayInfo['U2B']['startTime']=startTime
-    displayInfo['L2R']['startTime']=startTime;displayInfo['R2L']['startTime']=startTime
+    print 'Movie chunk start time relative to sweep onset:', startTime, 'sec'
+    displayInfo['B2U']['startTime'] = startTime;
+    displayInfo['U2B']['startTime'] = startTime
+    displayInfo['L2R']['startTime'] = startTime;
+    displayInfo['R2L']['startTime'] = startTime
 
-    #get basic information
+    # get basic information
     frames = log['stimulation']['frames']
     displayIter = log['presentation']['displayIteration']
     sweepTable = log['stimulation']['sweepTable']
     dirList = []
-    B2Uframes = []; U2Bframes = []; L2Rframes = []; R2Lframes = []
+    B2Uframes = [];
+    U2Bframes = [];
+    L2Rframes = [];
+    R2Lframes = []
 
     # parcel frames for each direction
     for frame in frames:
         currDir = frame[4]
         if currDir not in dirList: dirList.append(currDir)
-        if currDir=='B2U': B2Uframes.append(frame)
-        elif currDir=='U2B': U2Bframes.append(frame)
-        elif currDir=='L2R': L2Rframes.append(frame)
-        elif currDir=='R2L': R2Lframes.append(frame)
+        if currDir == 'B2U':
+            B2Uframes.append(frame)
+        elif currDir == 'U2B':
+            U2Bframes.append(frame)
+        elif currDir == 'L2R':
+            L2Rframes.append(frame)
+        elif currDir == 'R2L':
+            R2Lframes.append(frame)
 
-    #get sweep order indices for each direction
+    # get sweep order indices for each direction
     dirList = dirList * displayIter
-    displayInfo['B2U']['ind'] = [ind for ind, dir in enumerate(dirList) if dir=='B2U']
-    print 'B2U sweep order indices:',displayInfo['B2U']['ind']
-    displayInfo['U2B']['ind'] = [ind for ind, dir in enumerate(dirList) if dir=='U2B']
-    print 'U2B sweep order indices:',displayInfo['U2B']['ind']
-    displayInfo['L2R']['ind'] = [ind for ind, dir in enumerate(dirList) if dir=='L2R']
-    print 'L2R sweep order indices:',displayInfo['L2R']['ind']
-    displayInfo['R2L']['ind'] = [ind for ind, dir in enumerate(dirList) if dir=='R2L']
-    print 'R2L sweep order indices:',displayInfo['R2L']['ind']
+    displayInfo['B2U']['ind'] = [ind for ind, dir in enumerate(dirList) if dir == 'B2U']
+    print 'B2U sweep order indices:', displayInfo['B2U']['ind']
+    displayInfo['U2B']['ind'] = [ind for ind, dir in enumerate(dirList) if dir == 'U2B']
+    print 'U2B sweep order indices:', displayInfo['U2B']['ind']
+    displayInfo['L2R']['ind'] = [ind for ind, dir in enumerate(dirList) if dir == 'L2R']
+    print 'L2R sweep order indices:', displayInfo['L2R']['ind']
+    displayInfo['R2L']['ind'] = [ind for ind, dir in enumerate(dirList) if dir == 'R2L']
+    print 'R2L sweep order indices:', displayInfo['R2L']['ind']
 
-    #get sweep duration for each direction
+    # get sweep duration for each direction
     displayInfo['B2U']['sweepDur'] = len(B2Uframes) / refreshRate
     print 'Chunk duration for B2U sweeps:', displayInfo['B2U']['sweepDur'], 'sec'
     displayInfo['U2B']['sweepDur'] = len(U2Bframes) / refreshRate
@@ -372,11 +404,11 @@ def analysisMappingDisplayLog(display_log):
     displayInfo['R2L']['sweepDur'] = len(R2Lframes) / refreshRate
     print 'Chunk duration for R2L sweeps:', displayInfo['R2L']['sweepDur'], 'sec'
 
-    #get phase position slopes and intercepts for each direction
-    displayInfo['B2U']['slope'],displayInfo['B2U']['intercept'] = rm.getPhasePositionEquation2(B2Uframes,sweepTable)
-    displayInfo['U2B']['slope'],displayInfo['U2B']['intercept'] = rm.getPhasePositionEquation2(U2Bframes,sweepTable)
-    displayInfo['L2R']['slope'],displayInfo['L2R']['intercept'] = rm.getPhasePositionEquation2(L2Rframes,sweepTable)
-    displayInfo['R2L']['slope'],displayInfo['R2L']['intercept'] = rm.getPhasePositionEquation2(R2Lframes,sweepTable)
+    # get phase position slopes and intercepts for each direction
+    displayInfo['B2U']['slope'], displayInfo['B2U']['intercept'] = rm.getPhasePositionEquation2(B2Uframes, sweepTable)
+    displayInfo['U2B']['slope'], displayInfo['U2B']['intercept'] = rm.getPhasePositionEquation2(U2Bframes, sweepTable)
+    displayInfo['L2R']['slope'], displayInfo['L2R']['intercept'] = rm.getPhasePositionEquation2(L2Rframes, sweepTable)
+    displayInfo['R2L']['slope'], displayInfo['R2L']['intercept'] = rm.getPhasePositionEquation2(R2Lframes, sweepTable)
 
     return displayInfo
 
@@ -396,30 +428,30 @@ def analyzeSparseNoiseDisplayLog(logPath):
     if log['stimulation']['stimName'] != 'SparseNoise':
         raise LookupError('The stimulus type should be sparse noise!')
 
-
     frames = log['presentation']['displayFrames']
-    frames = [tuple([np.array([x[1][1],x[1][0]]),x[2],x[3],i]) for i, x in enumerate(frames)]
-    dtype = [('location',np.ndarray),('sign',int),('isOnset',int),('index',int)]
-    frames = np.array(frames, dtype = dtype)
+    frames = [tuple([np.array([x[1][1], x[1][0]]), x[2], x[3], i]) for i, x in enumerate(frames)]
+    dtype = [('location', np.ndarray), ('sign', int), ('isOnset', int), ('index', int)]
+    frames = np.array(frames, dtype=dtype)
 
     allOnsetInd = []
     for i in range(len(frames)):
-        if frames[i]['isOnset'] == 1 and (i == 0 or frames[i-1]['isOnset'] == -1):
+        if frames[i]['isOnset'] == 1 and (i == 0 or frames[i - 1]['isOnset'] == -1):
             allOnsetInd.append(i)
 
     onsetFrames = frames[allOnsetInd]
 
-    allSquares = list(set([tuple([x[0][0],x[0][1],x[1]]) for x in onsetFrames]))
+    allSquares = list(set([tuple([x[0][0], x[0][1], x[1]]) for x in onsetFrames]))
 
     onsetIndWithLocationSign = []
 
     for square in allSquares:
         indices = []
         for j, onsetFrame in enumerate(onsetFrames):
-            if onsetFrame['location'][0]==square[0] and onsetFrame['location'][1]==square[1] and onsetFrame['sign']==square[2]:
+            if onsetFrame['location'][0] == square[0] and onsetFrame['location'][1] == square[1] and onsetFrame[
+                'sign'] == square[2]:
                 indices.append(j)
 
-        onsetIndWithLocationSign.append([np.array([square[0],square[1]]),square[2],indices])
+        onsetIndWithLocationSign.append([np.array([square[0], square[1]]), square[2], indices])
 
     return allOnsetInd, onsetIndWithLocationSign
 
@@ -438,7 +470,7 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
 
     if temporalDownSampleRate == 1:
         frameTS_real = frameTS
-    elif temporalDownSampleRate >1:
+    elif temporalDownSampleRate > 1:
         frameTS_real = frameTS[::temporalDownSampleRate]
     else:
         raise ValueError, 'temporal downsampling rate can not be less than 1!'
@@ -462,7 +494,7 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
     meanFrameDur = np.mean(np.diff(frameTS_real))
     baselineFrameDur = int(abs(startTime) / meanFrameDur)
 
-    baselinePicture = np.mean((aveMov[0:baselineFrameDur,:,:]).astype(np.float32),axis=0)
+    baselinePicture = np.mean((aveMov[0:baselineFrameDur, :, :]).astype(np.float32), axis=0)
     _, aveMovNor, _ = ia.normalize_movie(aveMov, baselinePicture)
 
     return aveMov, aveMovNor
@@ -484,7 +516,7 @@ def getAverageDfMovieFromH5Dataset(dset, frameTS, onsetTimes, chunkDur, startTim
 
     if temporalDownSampleRate == 1:
         frameTS_real = frameTS
-    elif temporalDownSampleRate >1:
+    elif temporalDownSampleRate > 1:
         frameTS_real = frameTS[::temporalDownSampleRate]
     else:
         raise ValueError, 'temporal downsampling rate can not be less than 1!'
@@ -496,15 +528,16 @@ def getAverageDfMovieFromH5Dataset(dset, frameTS, onsetTimes, chunkDur, startTim
 
     if startTime < 0.:
         baselineFrameDur = int(abs(startTime) / meanFrameDur)
-        baselinePicture = np.mean((aveMov[0:baselineFrameDur,:,:]).astype(np.float32),axis=0)
+        baselinePicture = np.mean((aveMov[0:baselineFrameDur, :, :]).astype(np.float32), axis=0)
     else:
         baselinePicture = None
 
     return aveMov.astype(np.float32), n, baselinePicture.astype(np.float32), ts.astype(np.float32)
 
 
-def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampleRate=1,saveFolder=None,savePrefix='',
-                     FFTmode='peak',cycles=1,isRectify=False,is_load_all=False):
+def getMappingMovies(movPath, frameTS, displayOnsets, displayInfo, temporalDownSampleRate=1, saveFolder=None,
+                     savePrefix='',
+                     FFTmode='peak', cycles=1, isRectify=False, is_load_all=False):
     '''
 
     :param movPath: path of total movie with all directions
@@ -522,18 +555,22 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
     '''
     maps = {}
 
-    if FFTmode=='peak': isReverse=False
-    elif FFTmode=='valley': isReverse=True
-    else: raise LookupError, 'FFTmode should be either "peak" or "valley"!'
+    if FFTmode == 'peak':
+        isReverse = False
+    elif FFTmode == 'valley':
+        isReverse = True
+    else:
+        raise LookupError, 'FFTmode should be either "peak" or "valley"!'
 
-    for dir in ['B2U','U2B','L2R','R2L']:
+    for dir in ['B2U', 'U2B', 'L2R', 'R2L']:
         print '\nAnalyzing sweeps with direction:', dir
 
         onsetInd = list(displayInfo[dir]['ind'])
 
         for ind in displayInfo[dir]['ind']:
             if ind >= len(displayOnsets):
-                print 'Visual Stimulation Direction:'+dir+' index:'+str(ind)+' was not displayed. Remove from averageing.'
+                print 'Visual Stimulation Direction:' + dir + ' index:' + str(
+                    ind) + ' was not displayed. Remove from averageing.'
                 onsetInd.remove(ind)
 
         aveMov, aveMovNor = getAverageDfMovie(movPath=movPath,
@@ -547,34 +584,35 @@ def getMappingMovies(movPath,frameTS,displayOnsets,displayInfo,temporalDownSampl
         if isRectify:
             aveMovNorRec = np.array(aveMovNor)
             aveMovNorRec[aveMovNorRec < 0.] = 0.
-            phaseMap, powerMap = rm.generatePhaseMap2(aveMovNorRec,cycles,isReverse)
+            phaseMap, powerMap = rm.generatePhaseMap2(aveMovNorRec, cycles, isReverse)
         else:
-            phaseMap, powerMap = rm.generatePhaseMap2(aveMov,cycles,isReverse)
-
+            phaseMap, powerMap = rm.generatePhaseMap2(aveMov, cycles, isReverse)
 
         powerMap = powerMap / np.amax(powerMap)
         positionMap = phaseMap * displayInfo[dir]['slope'] + displayInfo[dir]['intercept']
-        maps.update({'posMap_'+dir:positionMap,
-                     'powerMap_'+dir:powerMap})
+        maps.update({'posMap_' + dir: positionMap,
+                     'powerMap_' + dir: powerMap})
 
         if saveFolder is not None:
             if savePrefix:
-                tf.imsave(os.path.join(saveFolder,savePrefix+'_aveMov_'+dir+'.tif'),aveMov.astype(np.float32))
-                tf.imsave(os.path.join(saveFolder,savePrefix+'_aveMovNor_'+dir+'.tif'),aveMovNor.astype(np.float32))
+                tf.imsave(os.path.join(saveFolder, savePrefix + '_aveMov_' + dir + '.tif'), aveMov.astype(np.float32))
+                tf.imsave(os.path.join(saveFolder, savePrefix + '_aveMovNor_' + dir + '.tif'),
+                          aveMovNor.astype(np.float32))
             else:
-                tf.imsave(os.path.join(saveFolder,savePrefix+'aveMov_'+dir+'.tif'),aveMov.astype(np.float32))
-                tf.imsave(os.path.join(saveFolder,savePrefix+'aveMovNor_'+dir+'.tif'),aveMovNor.astype(np.float32))
+                tf.imsave(os.path.join(saveFolder, savePrefix + 'aveMov_' + dir + '.tif'), aveMov.astype(np.float32))
+                tf.imsave(os.path.join(saveFolder, savePrefix + 'aveMovNor_' + dir + '.tif'),
+                          aveMovNor.astype(np.float32))
 
-    altPosMap = np.mean([maps['posMap_B2U'],maps['posMap_U2B']],axis=0)
-    aziPosMap = np.mean([maps['posMap_L2R'],maps['posMap_R2L']],axis=0)
+    altPosMap = np.mean([maps['posMap_B2U'], maps['posMap_U2B']], axis=0)
+    aziPosMap = np.mean([maps['posMap_L2R'], maps['posMap_R2L']], axis=0)
 
-    altPowerMap = np.mean([maps['powerMap_B2U'],maps['powerMap_U2B']],axis=0)
+    altPowerMap = np.mean([maps['powerMap_B2U'], maps['powerMap_U2B']], axis=0)
     altPowerMap = altPowerMap / np.amax(altPowerMap)
 
-    aziPowerMap = np.mean([maps['powerMap_L2R'],maps['powerMap_L2R']],axis=0)
+    aziPowerMap = np.mean([maps['powerMap_L2R'], maps['powerMap_L2R']], axis=0)
     aziPowerMap = aziPowerMap / np.amax(aziPowerMap)
 
-    return altPosMap,aziPosMap,altPowerMap,aziPowerMap
+    return altPosMap, aziPosMap, altPowerMap, aziPowerMap
 
 
 def regression_detrend(mov, roi, verbose=True):
@@ -595,7 +633,7 @@ def regression_detrend(mov, roi, verbose=True):
     """
 
     if len(mov.shape) != 3:
-        raise(ValueError, 'Input movie should be 3-dimensional!')
+        raise (ValueError, 'Input movie should be 3-dimensional!')
 
     roi = ia.WeightedROI(roi)
     trend = roi.get_weighted_trace(mov)
@@ -635,7 +673,6 @@ def neural_pil_subtraction(trace_center, trace_surround, lam=0.05):
         error: final cross-validation error
         trace: trace after neuropil subtracction
     """
-
 
     if trace_center.shape != trace_surround.shape:
         raise ValueError('center trace and surround trace should have same shape')
@@ -678,7 +715,7 @@ def get_lfp(trace, fs=30000., notch_base=60., notch_bandwidth=1., notch_harmonic
     :return: filtered LFP, 1-d array with same dtype as input trace
     """
 
-    trace_float=trace.astype(np.float32)
+    trace_float = trace.astype(np.float32)
     trace_notch = ta.notch_filter(trace_float, fs=fs, freq_base=notch_base, bandwidth=notch_bandwidth,
                                   harmonics=notch_harmonics, order=notch_order)
     lfp = ta.butter_lowpass(trace_notch, fs=fs, cutoff=lowpass_cutoff, order=lowpass_order)
@@ -688,18 +725,18 @@ def get_lfp(trace, fs=30000., notch_base=60., notch_bandwidth=1., notch_harmonic
 
 def array_to_rois(input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), is_plot=False):
     """
-    generate arrays of rois and their neuropil surround masks from Leonard's segmentation results.  
-    :param input_folder: the folder that contains Leonard's segmentation results, there should be a file with name 
-                         'maxInt_masks2.tif' containing information about rois. This is a 3-d array, 
-                         frame by y by x, each frame should have the same pixel resolution as 2-p image frame. 
-                         Continuous Non-zero regions in each frame represent roi masks. Each frame contains a set of 
+    generate arrays of rois and their neuropil surround masks from Leonard's segmentation results.
+    :param input_folder: the folder that contains Leonard's segmentation results, there should be a file with name
+                         'maxInt_masks2.tif' containing information about rois. This is a 3-d array,
+                         frame by y by x, each frame should have the same pixel resolution as 2-p image frame.
+                         Continuous Non-zero regions in each frame represent roi masks. Each frame contains a set of
                          non-overlapping rois.
-    :param overlap_threshold: float, within (0., 1.], allensdk_internal.brain_observatory.mask_set.MaskSet class to 
-                              detect and remove overlap roi 
-    :param neuropil_limit: tuple of 2 positive integers, the inner and outer dilation iteration numbers to mark 
+    :param overlap_threshold: float, within (0., 1.], allensdk_internal.brain_observatory.mask_set.MaskSet class to
+                              detect and remove overlap roi
+    :param neuropil_limit: tuple of 2 positive integers, the inner and outer dilation iteration numbers to mark
                            neuropil mask for each center roi
     :return: center_mask_array: 3-d array, np.uint8, each frame is a binary mask for a single center roi
-             neuropil_mask_array: 3-d array, np.uint8, each frame is a binary mask of surrounding neuropil region for 
+             neuropil_mask_array: 3-d array, np.uint8, each frame is a binary mask of surrounding neuropil region for
                                   a single center roi
     """
 
@@ -812,7 +849,7 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
 
     next_start = 0.
 
-    analog_dict={}
+    analog_dict = {}
     for analog_ch in analog_chs:
         analog_dict.update({analog_ch: []})
 
@@ -887,7 +924,7 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
 
         # handle running signals
         if is_save_running:
-            curr_running_sig_trace = curr_f['acquisition/timeseries']['running_sig']['data'].\
+            curr_running_sig_trace = curr_f['acquisition/timeseries']['running_sig']['data']. \
                                          value.astype(np.float32) * \
                                      curr_f['acquisition/timeseries']['running_sig']['data'].attrs['conversion']
 
@@ -905,8 +942,6 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
             curr_running_gap = np.zeros(int(gap_dur * fs), dtype=np.float32)
             curr_running_gap[:] = np.nan
             analog_dict['running'] += [curr_running_trace, curr_running_gap]
-
-
 
         # handle ephys units
         if unit_groups:
@@ -932,9 +967,8 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
                 time_series_dict[curr_ts_n]['data'].append(curr_ts_data)
                 time_series_dict[curr_ts_n]['timestamps'].append(curr_ts_ts + next_start)
 
-        next_start =  next_start + gap_dur + float(total_analog_sample_count) / fs
+        next_start = next_start + gap_dur + float(total_analog_sample_count) / fs
         curr_f.close()
-
 
     fs_dset = save_f.create_dataset('sampling_rate', data=fs)
     fs_dset.attrs['unit'] = 'Hz'
@@ -1066,18 +1100,30 @@ def get_sort_order(sta_f, sta_t):
     return sort_order
 
 
-if __name__ == '__main__':
+def get_drifting_grating_dataframe(dgr_grp):
+    """
+    return a comprehensive dataframe representation of responses to a set of drifting gratings
 
-    #===========================================================================
+    :param dgr_grp: hdf5 group object. this object should have an attri
+                    should contain a set of dataset with names 'grating_00000', 'grating_00001', ...
+                    each dataset is a 2d array,
+    :return:
+    """
+
+    pass
+
+
+if __name__ == '__main__':
+    # ===========================================================================
     # dateRecorded = '150930'
     # mouseID = '187474'
     # fileNum = 101
     # displayFolder = r'\\W7DTMJ007LHW\data\sequence_display_log'
     # logPath = findLogPath(date=dateRecorded,mouseID=mouseID,stimulus='KSstimAllDir',userID='',fileNumber=str(fileNum),displayFolder=displayFolder)
     # displayInfo = analysisMappingDisplayLog(logPath)
-    #===========================================================================
+    # ===========================================================================
 
-    #===========================================================================
+    # ===========================================================================
     # inputPath = r"E:\data\python_temp_folder\testNPY.npy"
     # outputPath = r"E:\data\python_temp_folder\testNPY_T.npy"
     # parameterPath = r"E:\data\python_temp_folder\ExampleTraslationParameters.json"
@@ -1089,9 +1135,9 @@ if __name__ == '__main__':
     # outputMov = np.load(outputPath)
     # tf.imshow(outputMov,vmin=0,vmax=100)
     # plt.show()
-    #===========================================================================
+    # ===========================================================================
 
-    #===========================================================================
+    # ===========================================================================
     # movPath = r"\\watersraid\data\Jun\150901-M177931\150901JCamF105_1_1_10.npy"
     # jphysPath = r"\\watersraid\data\Jun\150901-M177931\150901JPhys105"
     # vasMapPaths = [r"\\watersraid\data\Jun\150901-M177931\150901JCamF104"]
@@ -1246,7 +1292,7 @@ if __name__ == '__main__':
     #
     # trialDict = trialObj.generateTrialDict()
     # ft.saveFile(os.path.join(saveFolder,trialObj.getName()+'.pkl'),trialDict)
-    #===========================================================================
+    # ===========================================================================
 
     # ===========================================================================
     input_folder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData" \
@@ -1258,4 +1304,3 @@ if __name__ == '__main__':
     # ===========================================================================
 
     print 'for debug...'
-

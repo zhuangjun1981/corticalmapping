@@ -3,6 +3,7 @@ __author__ = 'junz'
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sig
+import numbers
 
 plt.ioff()
 
@@ -781,6 +782,42 @@ def event_triggered_event_trains(event_ts, triggers, t_range=(-1., 2.)):
         etts.append(curr_train - trigger)
 
     return etts, t_range
+
+
+def haramp(trace, periods, ceil_f=4):
+    """
+    get amplitudes of first couple harmonic components from a time series corresponding to a sinusoidal stimulus.
+
+    :param trace: 1d array, input time series
+    :param periods: positive int, number of stimulus periods contained in the input trace
+    :param ceil_f: positive int, the number of harmonic component you want to get (default=4)
+    :return: list of amplitude of each harmonic component [F0, F1, F2, ...], len will be ceil_f
+    """
+
+    if not (isinstance(periods, numbers.Integral) and periods > 0):
+        raise ValueError('period should be a positive integer.')
+
+    if not (isinstance(ceil_f, numbers.Integral) and ceil_f > 0):
+        raise ValueError('ceil_f should be a positive integer.')
+
+    if len(trace.shape) != 1:
+        raise ValueError('input trace should be an 1d array.')
+
+    if (ceil_f * periods * 1) > trace.shape[0]:
+        raise ValueError('ceiling harmonic number: ceil_f is too high.')
+
+    amp = np.abs(np.fft.fft(trace))
+    harmonic = []
+
+    for f in range(ceil_f):
+        bin = f * periods
+        if f == 0:
+            harmonic.append(amp[bin] / float(trace.shape[0]))
+        else:
+            harmonic.append(2 * amp[bin] / float(trace.shape[0]))
+
+    return harmonic
+
 
 
 if __name__=='__main__':

@@ -33,7 +33,7 @@ except ImportError as e:
 
 
 def gaussian(x, mu=0, sig=1.):
-    
+
     return np.exp(np.divide(-np.power(x - mu, 2.) , 2 * np.power(sig, 2.)))
 
 
@@ -42,12 +42,12 @@ def analyze_frames(ts, refreshRate, checkPoint=(0.02, 0.033, 0.05, 0.1)):
     analyze frame durations. input is the time stamps of each frame and
     the refresh rate of the monitor
     """
-    
+
     frameDuration = ts[1::] - ts[0:-1]
     plt.figure()
     plt.hist(frameDuration, bins=np.linspace(0.0, 0.05, num=51))
     refreshRate = float(refreshRate)
-    
+
     frame_stats = '\n'
     frame_stats += 'Total frame number: %d. \n' % (len(ts)-1)
     frame_stats += 'Total length of display   : %.5f second. \n' % (ts[-1]-ts[0])
@@ -56,51 +56,51 @@ def analyze_frames(ts, refreshRate, checkPoint=(0.02, 0.033, 0.05, 0.1)):
     frame_stats += 'Standard deviation of frame durations: %.2f ms. \n' % (np.std(frameDuration)*1000)
     frame_stats += 'Shortest frame: %.2f ms, index: %d. \n' % (min(frameDuration)*1000, np.nonzero(frameDuration==np.min(frameDuration))[0][0])
     frame_stats += 'longest frame : %.2f ms, index: %d. \n' % (max(frameDuration)*1000, np.nonzero(frameDuration==np.max(frameDuration))[0][0])
-    
+
     for i in range(len(checkPoint)):
         checkNumber = checkPoint[i]
         frameNumber = len(frameDuration[frameDuration>checkNumber])
         frame_stats += 'Number of frames longer than %d ms: %d; %.2f%% \n' % (round(checkNumber*1000), frameNumber, round(frameNumber*10000/(len(ts)-1))/100)
-    
+
     print frame_stats
-    
+
     return frameDuration, frame_stats
 
 
 def noise_movie(frameFilter, widthFilter, heightFilter, isplot = False):
     """
     creating a numpy array with shape [len(frameFilter), len(heightFilter), len(widthFilter)]
-    
+
     this array is random noize filtered by these three filters in Fourier domain
     each pixel of the movie have the value in [-1 1]
     """
-    
+
     rawMov = np.random.rand(len(frameFilter), len(heightFilter), len(widthFilter))
-    
+
     rawMovFFT = np.fft.fftn(rawMov)
-    
+
     filterX = np.repeat(np.array([widthFilter]), len(heightFilter), axis = 0)
     filterY = np.repeat(np.transpose(np.array([heightFilter])), len(widthFilter), axis = 1)
-    
+
     filterXY = filterX * filterY
-    
+
     for i in xrange(rawMovFFT.shape[0]):
-        rawMovFFT[i] = frameFilter[i]* (rawMovFFT[i] * filterXY) 
-    
-    
+        rawMovFFT[i] = frameFilter[i]* (rawMovFFT[i] * filterXY)
+
+
 #    heightFilter = heightFilter.reshape((len(heightFilter),1))
 #    frameFilter = frameFilter.reshape((len(frameFilter),1,1))
-#    
+#
 #    rawMovFFT = np.multiply(np.multiply(np.multiply(rawMovFFT,widthFilter),heightFilter),frameFilter)
-    
+
     filteredMov = np.real(np.fft.ifftn(rawMovFFT))
-    
-    rangeFilteredMov = np.amax(filteredMov) - np.amin(filteredMov)    
+
+    rangeFilteredMov = np.amax(filteredMov) - np.amin(filteredMov)
     noise_movie = ((filteredMov - np.amin(filteredMov)) / rangeFilteredMov) * 2 - 1
-    
+
     if isplot:
         tf.imshow(noise_movie, vmin=-1, vmax=1, cmap='gray')
-    
+
     return noise_movie
 
 
@@ -113,16 +113,16 @@ def generate_filter(length, # length of filter
     """
     generate one dimensional filter on Fourier domain, with symmetrical structure
     """
-    
+
     freqs = np.fft.fftfreq(int(length), d = (1./float(Fs)))
-    
+
     filterArray = np.ones(length)
-    
+
     for i in xrange(len(freqs)):
         if ((freqs[i] > 0) and (freqs[i] < Flow) or (freqs[i] > Fhigh)) or \
            ((freqs[i] < 0) and (freqs[i] > -Flow) or (freqs[i] < -Fhigh)):
             filterArray[i] = 0
-    
+
     if mode == '1/f':
         filterArray[1:] = filterArray[1:] / abs(freqs[1:])
         filterArray[0] = 0
@@ -130,10 +130,10 @@ def generate_filter(length, # length of filter
     elif mode == 'box':
         filterArray[0] = 0
     else: raise NameError, 'Variable "mode" should be either "1/f" or "box"!'
-    
+
     if Flow == 0:
         filterArray[0] = 1
-    
+
     return filterArray
 
 
@@ -141,19 +141,19 @@ def lookup_image(img, lookupI, lookupJ):
     """
     generate warpped image from img, using look up talbel: lookupI and lookupJ
     """
-    
+
     if not img.shape == lookupI.shape:
         raise LookupError, 'The image and lookupI should have same size!!'
-        
+
     if not lookupI.shape == lookupJ.shape:
         raise LookupError, 'The lookupI and lookupJ should have same size!!'
 
     img2 = np.zeros(img.shape)
-    
+
     for i in range(img2.shape[0]):
         for j in range(img2.shape[1]):
             img2[i,j] = img[lookupI[i,j],lookupJ[i,j]]
-            
+
     return img2
 
 
@@ -253,31 +253,31 @@ def get_grating(map_x, map_y, ori=0., spatial_freq=0.1, center=(0.,60.), phase=0
 
 class Monitor(object):
     """
-    monitor object created by Jun, has the method "remap" to generate the 
+    monitor object created by Jun, has the method "remap" to generate the
     spherical corrected coordinates in degrees
     """
-    
-    def __init__(self, 
-                 resolution, 
-                 dis, 
-                 monWcm, 
-                 monHcm, 
-                 C2Tcm, 
-                 C2Acm, 
-                 monTilt, 
+
+    def __init__(self,
+                 resolution,
+                 dis,
+                 monWcm,
+                 monHcm,
+                 C2Tcm,
+                 C2Acm,
+                 monTilt,
                  visualField='right',
-                 degCorX=None, 
-                 degCorY=None, 
-                 name='testMonitor', 
-                 gamma=None, 
-                 gammaGrid=None, 
+                 degCorX=None,
+                 degCorY=None,
+                 name='testMonitor',
+                 gamma=None,
+                 gammaGrid=None,
                  luminance=None,
-                 downSampleRate=10, 
+                 downSampleRate=10,
                  refreshRate = 60.):
-                     
-        if resolution[0] % downSampleRate != 0 or resolution[1] % downSampleRate != 0:           
+
+        if resolution[0] % downSampleRate != 0 or resolution[1] % downSampleRate != 0:
            raise ArithmeticError, 'Resolution pixel numbers are not divisible by down sampling rate'
-        
+
         self.resolution = resolution
         self.dis = dis
         self.monWcm = monWcm
@@ -294,101 +294,101 @@ class Monitor(object):
         self.gammaGrid = gammaGrid
         self.luminance = luminance
         self.refreshRate = 60
-        
+
         #distance form the projection point of the eye to the bottom of the monitor
         self.C2Bcm = self.monHcm - self.C2Tcm
         #distance form the projection point of the eye to the right of the monitor
         self.C2Pcm = self.monWcm - self.C2Acm
-        
-        resolution=[0,0]        
+
+        resolution=[0,0]
         resolution[0]=self.resolution[0]/downSampleRate
         resolution[1]=self.resolution[1]/downSampleRate
-        
+
         mapcorX, mapcorY = np.meshgrid(range(resolution[1]), range(resolution[0]))
-        
-        if self.visualField == "left": 
+
+        if self.visualField == "left":
             mapX = np.linspace(self.C2Acm, -1.0 * self.C2Pcm, resolution[1])
-            
+
         if self.visualField == "right":
             mapX = np.linspace(-1 * self.C2Acm, self.C2Pcm, resolution[1])
-            
+
         mapY = np.linspace(self.C2Tcm, -1.0 * self.C2Bcm, resolution[0])
         oldmapX, oldmapY = np.meshgrid(mapX, mapY, sparse = False)
-        
+
         self.linCorX=oldmapX
         self.linCorY=oldmapY
-        
+
         self.remap()
-        
+
     def set_gamma(self, gamma, gammaGrid):
         self.gamma = gamma
         self.gammaGrid = gammaGrid
-        
+
     def set_luminance(self, luminance):
         self.luminance = luminance
-        
+
     def set_downsample_rate(self, downSampleRate):
-        
+
         if self.resolution[0] % downSampleRate != 0 or self.resolution[1] % downSampleRate != 0:
-           
+
            raise ArithmeticError, 'resolutionolution pixel numbers are not divisible by down sampling rate'
-        
+
         self.downSampleRate=downSampleRate
-        
-        resolution=[0,0]        
+
+        resolution=[0,0]
         resolution[0]=self.resolution[0]/downSampleRate
         resolution[1]=self.resolution[1]/downSampleRate
-        
+
         mapcorX, mapcorY = np.meshgrid(range(resolution[1]), range(resolution[0]))
-        
-        if self.visualField == "left": 
+
+        if self.visualField == "left":
             mapX = np.linspace(self.C2Acm, -1.0 * self.C2Pcm, resolution[1])
-            
+
         if self.visualField == "right":
             mapX = np.linspace(-1 * self.C2Pcm, self.C2Pcm, resolution[1])
-            
+
         mapY = np.linspace(self.C2Tcm, -1.0 * self.C2Bcm, resolution[0])
         oldmapX, oldmapY = np.meshgrid(mapX, mapY, sparse = False)
-        
+
         self.linCorX=oldmapX
         self.linCorY=oldmapY
-        
+
         self.remap()
-        
-        
+
+
     def remap(self):
-        
-        resolution=[0,0]        
+
+        resolution=[0,0]
         resolution[0]=self.resolution[0]/self.downSampleRate
         resolution[1]=self.resolution[1]/self.downSampleRate
-        
+
         mapcorX, mapcorY = np.meshgrid(range(resolution[1]), range(resolution[0]))
-        
+
         newmapX = np.zeros(resolution,dtype=np.float16)
         newmapY = np.zeros(resolution,dtype=np.float16)
-        
-        
+
+
         for j in range(resolution[1]):
             newmapX[:, j] = (180.0 / np.pi) * np.arctan(self.linCorX[0, j] / self.dis)
-            dis2 = np.sqrt(np.square(self.dis) + np.square(self.linCorX[0, j])) #distance from 
-            
+            dis2 = np.sqrt(np.square(self.dis) + np.square(self.linCorX[0, j])) #distance from
+
             for i in range(resolution[0]):
                 newmapY[i, j] = (180.0 / np.pi) * np.arctan(self.linCorY[i, 0] / dis2)
-                
+
         self.degCorX = newmapX+90-self.monTilt
         self.degCorY = newmapY
-        
+
     def plot_map(self):
-        
-        resolution=[0,0]        
+
+        resolution=[0,0]
         resolution[0]=self.resolution[0]/self.downSampleRate
         resolution[1]=self.resolution[1]/self.downSampleRate
-        
+
         mapcorX, mapcorY = np.meshgrid(range(resolution[1]), range(resolution[0]))
-        
+
         f1 = plt.figure(figsize=(12,5))
         f1.suptitle('Remap monitor', fontsize=14, fontweight='bold')
-        
+
         OMX = plt.subplot(221)
         OMX.set_title('Linear Map X (cm)')
         currfig = plt.imshow(self.linCorX)
@@ -397,7 +397,7 @@ class Monitor(object):
 #        plt.clabel(im1, levels1, fontsize = 10, inline = 1, fmt='%2.1f')
         f1.colorbar(currfig,ticks=levels1)
         plt.gca().set_axis_off()
-        
+
         OMY = plt.subplot(222)
         OMY.set_title('Linear Map Y (cm)')
         currfig = plt.imshow(self.linCorY)
@@ -406,7 +406,7 @@ class Monitor(object):
 #        plt.clabel(im2, levels2, fontsize = 10, inline = 1, fmt='%2.2f')
         f1.colorbar(currfig,ticks=levels2)
         plt.gca().set_axis_off()
-        
+
         NMX = plt.subplot(223)
         NMX.set_title('Spherical Map X (deg)')
         currfig = plt.imshow(self.degCorX)
@@ -415,7 +415,7 @@ class Monitor(object):
 #        plt.clabel(im3, levels3, fontsize = 10, inline = 1, fmt='%2.1f')
         f1.colorbar(currfig,ticks=levels3)
         plt.gca().set_axis_off()
-        
+
         NMY = plt.subplot(224)
         NMY.set_title('Spherical Map Y (deg)')
         currfig = plt.imshow(self.degCorY)
@@ -424,44 +424,44 @@ class Monitor(object):
 #        plt.clabel(im4, levels4, fontsize = 10, inline = 1, fmt='%2.1f')
         f1.colorbar(currfig,ticks=levels4)
         plt.gca().set_axis_off()
-        
+
     def save_monitor(self):
         pass
-    
+
     def generate_Lookup_table(self):
         """
         generate lookup talbe between degree corrdinates and linear corrdinates
-        return two matrix: 
+        return two matrix:
         lookupI: i index in linear matrix to this pixel after warping
         lookupJ: j index in linear matrix to this pixel after warping
         """
-        
+
         #length of one degree on monitor at gaze point
         degDis = np.tan(np.pi / 180) * self.dis
-        
+
         #generate degree coordinate without warpping
         degNoWarpCorX = self.linCorX / degDis
         degNoWarpCorY = self.linCorY / degDis
-        
+
         #deg coordinates
         degCorX = self.degCorX+self.monTilt-90
         degCorY = self.degCorY
-        
+
         lookupI = np.zeros(degCorX.shape).astype(np.int32)
         lookupJ = np.zeros(degCorX.shape).astype(np.int32)
-        
+
         for j in xrange(lookupI.shape[1]):
             currDegX = degCorX[0,j]
             diffDegX = degNoWarpCorX[0,:] - currDegX
             IndJ = np.argmin(np.abs(diffDegX))
             lookupJ[:,j] = IndJ
-            
+
             for i in xrange(lookupI.shape[0]):
                 currDegY = degCorY[i,j]
                 diffDegY = degNoWarpCorY[:,IndJ] - currDegY
                 indI = np.argmin(np.abs(diffDegY))
                 lookupI[i,j] = indI
-        
+
         return lookupI, lookupJ
 
 
@@ -542,7 +542,7 @@ class Indicator(object):
 
         return refreshRate/self.freq
 
-        
+
 class Stim(object):
     """
     generic class for visual stimulation
@@ -577,7 +577,7 @@ class Stim(object):
         """
         print 'Nothing executed! This is place holder of function "generate_frames" for each specific stimulus.'
         print 'This function should return a list of tuples, each tuple represents a single frame of the stimulus and contains all the information to recreate the frame.'
-        
+
     def generate_movie(self):
         """
         place holder of function "generate_movie" for each specific stimulus
@@ -586,16 +586,16 @@ class Stim(object):
         print 'This function should return two things:'
         print 'First: a 3-d array (with format of uint8) of the stimulus to be displayed.'
         print 'Second: a dictionary contain the information of this particular stimulus'
-        
+
     def clear(self):
         self.frames = None
-    
+
     def set_pre_gap_dur(self,preGapDur):
-        self.preGapFrameNum = int(preGapDur * self.monitor.refreshRate)
+        self.preGapDur = preGapDur
         self.clear()
-        
+
     def set_post_gap_dur(self,postGapDur):
-        self.postGapFrameNum = int(postGapDur * self.monitor.refreshRate)
+        self.postGapDur = postGapDur
         self.clear()
 
 
@@ -685,7 +685,7 @@ class UniformContrast(Stim):
 
 class KSstim(Stim):
     """
-    generate Kalatsky & Stryker stimulation integrats flashing indicator for 
+    generate Kalatsky & Stryker stimulation integrats flashing indicator for
     photodiode
     """
     def __init__(self,
@@ -700,12 +700,12 @@ class KSstim(Stim):
                  stepWidth=0.15, # width of steps (unit same as Map, cm or deg)
                  direction='B2U', # the direction of sweep movement, should be one of "B2U","U2B","L2R","R2L"
                  sweepFrame=1,
-                 iteration=1, 
+                 iteration=1,
                  preGapDur=2.,
                  postGapDur=3.):
-        
+
         super(KSstim,self).__init__(monitor=monitor,indicator=indicator,coordinate=coordinate,background=background,preGapDur=preGapDur,postGapDur=postGapDur)
-                     
+
         self.stimName = 'KSstim'
         self.squareSize = squareSize
         self.squareCenter = squareCenter
@@ -718,62 +718,62 @@ class KSstim(Stim):
         self.iteration = iteration
         self.frameConfig = ('isDisplay', 'squarePolarity', 'sweepIndex', 'indicatorColor')
         self.sweepConfig = ('orientation', 'sweepStartCoordinate', 'sweepEndCoordinate')
-        
+
         self.sweepSpeed = self.monitor.refreshRate * self.stepWidth / self.sweepFrame #the speed of sweeps deg/sec
         self.flickerHZ = self.monitor.refreshRate / self.flickerFrame
 
         self.clear()
-        
+
 
     def generate_squares(self):
         """
         generate checker board squares
         """
-        
-        
+
+
         if self.coordinate == 'degree':
             mapX = self.monitor.degCorX
             mapY = self.monitor.degCorY
-            
+
         elif self.coordinate == 'linear':
             mapX = self.monitor.linCorX
             mapY = self.monitor.linCorY
-            
+
         else:
             raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
-        
+
         minX = mapX.min()
         maxX = mapX.max()
-        
+
         minY = mapY.min()
         maxY = mapY.max()
-        
+
         negX = np.ceil( abs( ( ( minX - self.squareCenter[0] ) / ( 2 * self.squareSize ) ) ) ) + 1
         posX = np.ceil( abs( ( ( maxX - self.squareCenter[0] ) / ( 2 * self.squareSize ) ) ) ) + 1
-        
+
         negY = np.ceil( abs( ( ( minY - self.squareCenter[0] ) / ( 2 * self.squareSize ) ) ) ) + 1
         posY = np.ceil( abs( ( ( maxY - self.squareCenter[0] ) / ( 2 * self.squareSize ) ) ) ) + 1
-        
+
         squareV = np.ones((np.size(mapX, 0), np.size(mapX, 1)), dtype = np.float16)
         squareV = -1 * squareV
-        
-        stepV = np.arange(self.squareCenter[0] - ( 2 * negX + 0.5 ) * self.squareSize, 
+
+        stepV = np.arange(self.squareCenter[0] - ( 2 * negX + 0.5 ) * self.squareSize,
                           self.squareCenter[0] + ( 2 * posX - 0.5 ) * self.squareSize, self.squareSize*2)
-        
+
         for i in range(len(stepV)):
             squareV[ np.where( np.logical_and( mapX >= stepV[i], mapX < (stepV[i] + self.squareSize)))] = 1.0
-        
+
         squareH = np.ones((np.size(mapY, 0), np.size(mapY, 1)), dtype = np.float16)
         squareH = -1 * squareH
-        
-        stepH = np.arange(self.squareCenter[1] - ( 2 * negY + 0.5 ) * self.squareSize, 
+
+        stepH = np.arange(self.squareCenter[1] - ( 2 * negY + 0.5 ) * self.squareSize,
                           self.squareCenter[1] + ( 2 * posY - 0.5 ) * self.squareSize, self.squareSize*2)
-        
+
         for j in range(len(stepH)):
             squareH[ np.where( np.logical_and( mapY >= stepH[j], mapY < (stepH[j] + self.squareSize)))] = 1
-        
+
         squares = np.multiply(squareV, squareH)
-        
+
         return squares
 
     def plot_squares(self):
@@ -790,23 +790,23 @@ class KSstim(Stim):
         sweepWidth = self.sweepWidth
         stepWidth =  self.stepWidth
         direction = self.direction
-        
+
         if self.coordinate == 'degree':
             mapX = self.monitor.degCorX
             mapY = self.monitor.degCorY
-            
+
         elif self.coordinate == 'linear':
             mapX = self.monitor.linCorX
             mapY = self.monitor.linCorY
         else:
             raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
-        
+
         minX = mapX.min()
         maxX = mapX.max()
-        
+
         minY = mapY.min()
         maxY = mapY.max()
-        
+
         if direction == "B2U":
             stepY = np.arange(minY - sweepWidth, maxY + stepWidth, stepWidth)
         elif direction == "U2B":
@@ -819,9 +819,9 @@ class KSstim(Stim):
             # stepX = np.arange(maxX, minX - sweepWidth - stepWidth, -1 * stepWidth)
         else:
             raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
-        
+
         sweepTable = []
-        
+
         if 'stepX' in locals():
             sweeps = np.zeros((len(stepX), np.size(mapX, 0), np.size(mapX, 1)), dtype = np.float16)
             for i in range(len(stepX)):
@@ -829,7 +829,7 @@ class KSstim(Stim):
                 temp[np.where(np.logical_and(mapX >= stepX[i], mapX < (stepX[i] + sweepWidth)))] = 1.0
                 sweepTable.append(('V', stepX[i], stepX[i] + sweepWidth))
                 del temp
-                
+
         if 'stepY' in locals():
             sweeps = np.zeros((len(stepY), np.size(mapY, 0), np.size(mapY, 1)), dtype = np.float16)
             for j in range(len(stepY)):
@@ -837,17 +837,17 @@ class KSstim(Stim):
                 temp[np.where(np.logical_and(mapY >= stepY[j], mapY < (stepY[j] + sweepWidth)))] = 1.0
                 sweepTable.append(('H', stepY[j], stepY[j] + sweepWidth))
                 del temp
-                
+
         return sweeps.astype(np.bool), sweepTable
 
     def generate_frames(self):
         """
         function to generate all the frames needed for KS stimulation
-        
+
         returning a list of information of all frames, list of tuples
-        
+
         for each frame:
-        
+
         first element: gap:0 or display:1
         second element: square polarity, 1: not reversed; -1: reversed
         third element: sweeps, index in sweep table
@@ -856,117 +856,117 @@ class KSstim(Stim):
                        non-synchronized: alternating between -1 and 1 at defined frequency
         for gap frames the second and third elements should be 'None'
         """
-        
+
         sweeps, _ = self.generate_sweeps()
         sweepFrame = self.sweepFrame
         flickerFrame = self.flickerFrame
         iteration = self.iteration
-        
+
         sweepNum = np.size(sweeps,0) # Number of sweeps, vertical or horizontal
         displayFrameNum = sweepFrame * sweepNum # total frame number for the visual stimulation of 1 iteration
-        
+
         #frames for one iteration
-        iterFrames=[] 
-        
+        iterFrames=[]
+
         #add frames for gaps
         for i in range(self.preGapFrameNum):
             iterFrames.append([0,None,None,-1])
-        
-        
+
+
         #add frames for display
         isreverse=[]
-        
+
         for i in range(displayFrameNum):
-            
+
             if (np.floor(i // flickerFrame)) % 2 == 0:
                 isreverse = -1
             else:
                 isreverse = 1
-                
+
             sweepIndex=int(np.floor(i // sweepFrame))
-            
+
             #add sychornized indicator
             if self.indicator.isSync == True:
                 indicatorColor = 1
             else:
                 indicatorColor = -1
-                
+
             iterFrames.append([1,isreverse,sweepIndex,indicatorColor])
-            
-            
+
+
         # add gap frames at the end
         for i in range(self.postGapFrameNum):
             iterFrames.append([0,None,None,-1])
-        
+
         fullFrames = []
-        
+
         #add frames for multiple iteration
         for i in range(int(iteration)):
             fullFrames += iterFrames
-        
+
         #add non-synchronized indicator
         if self.indicator.isSync == False:
             indicatorFrame = self.indicator.frameNum
-            
+
             for j in range(np.size(fullFrames,0)):
                 if np.floor(j // indicatorFrame) % 2 == 0:
                     fullFrames[j][3] = 1
                 else:
                     fullFrames[j][3] = -1
-            
+
         fullFrames = [tuple(x) for x in fullFrames]
-        
+
         return tuple(fullFrames)
 
     def generate_movie(self):
         """
         Function to Generate Kalatsky & Stryker visual stimulus frame by frame
         """
-        
+
         self.squares = self.generate_squares()
-        
+
         sweeps, self.sweepTable = self.generate_sweeps()
 
         self.frames=self.generate_frames()
-        
+
         fullSequence = np.zeros((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16)
-        
+
         indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
         indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
         indicatorHmin=self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
         indicatorHmax=self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
-        
+
         background = self.background * np.ones((np.size(self.monitor.degCorX, 0), np.size(self.monitor.degCorX,1)), dtype = np.float16)
-        
+
         for i in range(len(self.frames)):
             currFrame = self.frames[i]
-            
+
             if currFrame[0] == 0:
                 currNMsequence = background
-                
+
             else:
                 currSquare = self.squares * currFrame[1]
                 currSweep = sweeps[currFrame[2]]
                 currNMsequence = (currSweep * currSquare) + ((-1 * (currSweep - 1)) * background)
 
             currNMsequence[indicatorHmin:indicatorHmax, indicatorWmin:indicatorWmax] = currFrame[3]
-            
+
             fullSequence[i] = currNMsequence
-            
+
             if i in range(0, len(self.frames),len(self.frames)/10):
                 print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
-        
-        
+
+
         mondict=dict(self.monitor.__dict__)
         indicatordict=dict(self.indicator.__dict__)
-        indicatordict.pop('monitor')        
+        indicatordict.pop('monitor')
         KSdict=dict(self.__dict__)
         KSdict.pop('monitor')
         KSdict.pop('indicator')
-        fulldictionary={'stimulation':KSdict, 
+        fulldictionary={'stimulation':KSdict,
                         'monitor':mondict,
-                        'indicator':indicatordict} 
-                        
+                        'indicator':indicatordict}
+
         return fullSequence, fulldictionary
 
     def clear(self):
@@ -975,7 +975,7 @@ class KSstim(Stim):
         self.square = None
 
     def set_direction(self,direction):
-        
+
         if direction == "B2U" or direction == "U2B" or direction == "L2R" or direction == "R2L":
             self.direction = direction
             self.clear()
@@ -995,9 +995,9 @@ class NoiseKSstim(Stim):
     """
     obsolete
 
-    generate Kalatsky & Stryker stimulation but with noise movie not flashing 
-    squares 
-    
+    generate Kalatsky & Stryker stimulation but with noise movie not flashing
+    squares
+
     it also integrats flashing indicator for photodiode
     """
     def __init__(self,
@@ -1015,11 +1015,11 @@ class NoiseKSstim(Stim):
                  isWarp = False, # warp noise or not
                  direction='B2U', # the direction of sweep movement, should be one of "B2U","U2B","L2R","R2L"
                  sweepFrame=1, # display frame numbers for each step
-                 iteration=1, 
+                 iteration=1,
                  preGapDur=2., # gap frame number before flash
                  postGapDur=3., # gap frame number after flash
                  enhanceExp = None): # (0, inf], if smaller than 1, enhance contrast, if bigger than 1, reduce contrast
-                     
+
         super(NoiseKSstim,self).__init__(monitor=monitor,indicator=indicator,background=background,coordinate=coordinate,preGapDur=preGapDur,postGapDur=postGapDur)
 
 
@@ -1037,23 +1037,23 @@ class NoiseKSstim(Stim):
         self.sweepFrame = sweepFrame
         self.iteration = iteration
         self.enhanceExp = enhanceExp
-        
+
         self.sweepSpeed = self.monitor.refreshRate * self.stepWidth / self.sweepFrame #the speed of sweeps deg/sec
 
         self.sweepTable = None
 
-        
+
 
     def generate_noise_movie(self, frameNum):
         """
         generate filtered noise movie with defined number of frames
         """
-        
+
         Fs_T = self.monitor.refreshRate
         Flow_T = 0
         Fhigh_T = self.tempFreqCeil
         filter_T = generate_filter(frameNum, Fs_T, Flow_T, Fhigh_T, mode = self.filterMode)
-        
+
         hPixNum = self.monitor.resolution[0]/self.monitor.downSampleRate
         pixHeightCM = self.monitor.monHcm / hPixNum
         Fs_H = 1 / (np.arcsin(pixHeightCM / self.monitor.dis) * 180 /  np.pi)
@@ -1061,7 +1061,7 @@ class NoiseKSstim(Stim):
         Flow_H = 0
         Fhigh_H = self.spatialFreqCeil
         filter_H = generate_filter(hPixNum, Fs_H, Flow_H, Fhigh_H, mode = self.filterMode)
-        
+
         wPixNum = self.monitor.resolution[1]/self.monitor.downSampleRate
         pixWidthCM = self.monitor.monWcm / wPixNum
         Fs_W = 1 / (np.arcsin(pixWidthCM / self.monitor.dis) * 180 / np.pi)
@@ -1069,12 +1069,12 @@ class NoiseKSstim(Stim):
         Flow_W = 0
         Fhigh_W = self.spatialFreqCeil
         filter_W = generate_filter(wPixNum, Fs_W, Flow_W, Fhigh_W, mode = self.filterMode)
-        
+
         movie = noise_movie(filter_T, filter_W, filter_H, isplot = False)
 
         if self.enhanceExp:
                 movie = (np.abs(movie)**self.enhanceExp)*(np.copysign(1,movie))
-        
+
         return movie
 
     def generate_sweeps(self):
@@ -1086,24 +1086,24 @@ class NoiseKSstim(Stim):
         direction = self.direction
         sweepWidth = float(self.sweepWidth)
         edgeWidth = self.sweepEdgeWidth * self.sweepSigma
-        
+
         if self.coordinate == 'degree':
             mapX = self.monitor.degCorX
             mapY = self.monitor.degCorY
-            
+
         elif self.coordinate == 'linear':
             mapX = self.monitor.linCorX
             mapY = self.monitor.linCorY
-            
+
         else:
             raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
-        
+
         minX = mapX.min()
         maxX = mapX.max()
-        
+
         minY = mapY.min()
         maxY = mapY.max()
-        
+
         if direction == "B2U":
             stepY = np.arange(minY - edgeWidth - sweepWidth / 2, maxY + edgeWidth + stepWidth + sweepWidth / 2, stepWidth)
         elif direction == "U2B":
@@ -1116,141 +1116,141 @@ class NoiseKSstim(Stim):
             # stepX = np.arange(maxX + edgeWidth + sweepWidth / 2, minX - edgeWidth - stepWidth - sweepWidth / 2, -1 * stepWidth)
         else:
             raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
-        
+
         sweepTable = []
-        
+
         if 'stepX' in locals():
             sweeps = np.ones((len(stepX), np.size(mapX, 0), np.size(mapX, 1)), dtype = np.float16)
             for i in range(len(stepX)):
                 currSweep = sweeps[i,:,:]
-                
+
                 sweep1 = gaussian(mapX, mu = stepX[i] - sweepWidth / 2, sig = sweepSigma)
                 sweep2 = gaussian(mapX, mu = stepX[i] + sweepWidth / 2, sig = sweepSigma)
-                
+
                 currSweep[mapX < (stepX[i] - sweepWidth / 2)] = sweep1[mapX < (stepX[i] - sweepWidth / 2)]
                 currSweep[mapX > (stepX[i] + sweepWidth / 2)] = sweep2[mapX > (stepX[i] + sweepWidth / 2)]
-                
+
                 sweeps[i,:,:] = currSweep
-                
+
                 sweepTable.append(('V', stepX[i] - sweepWidth / 2, stepX[i] + sweepWidth / 2))
-                
+
         if 'stepY' in locals():
             sweeps = np.ones((len(stepY), np.size(mapY, 0), np.size(mapY, 1)), dtype = np.float16)
             for j in range(len(stepY)):
                 currSweep = sweeps[j,:,:]
-                
+
                 sweep1 = gaussian(mapY, mu = stepY[j] - sweepWidth / 2, sig = sweepSigma)
                 sweep2 = gaussian(mapY, mu = stepY[j] + sweepWidth / 2, sig = sweepSigma)
-                
+
                 currSweep[mapY < (stepY[j] - sweepWidth / 2)] = sweep1[mapY < (stepY[j] - sweepWidth / 2)]
                 currSweep[mapY > (stepY[j] + sweepWidth / 2)] = sweep2[mapY > (stepY[j] + sweepWidth / 2)]
-                
+
                 sweeps[j,:,:] = currSweep
-                
+
                 sweepTable.append(('H', stepY[j] - sweepWidth / 2, stepY[j] + sweepWidth / 2))
-                
+
         return sweeps, sweepTable
 
     def generate_frames(self):
         """
         function to generate all the frames needed for KS stimulation
-        
+
         returning a list of information of all frames, list of tuples
-        
+
         for each frame:
-        
+
         first element: gap:0 or display:1
         second element: square polarity, None for new KSstim
         third element: sweeps, index in sweep table
         forth element: color of indicator, gap:0, then alternating between -1 and 1 for each sweep
         for gap frames the second and third elements should be 'None'
         """
-        
+
         if not(self.sweepTable):
             _, self.sweepTable = self.generate_sweeps()
-        
+
         sweepTable = self.sweepTable
         sweepFrame = self.sweepFrame
         iteration = self.iteration
-        
+
         sweepNum = len(sweepTable) # Number of sweeps, vertical or horizontal
         displayFrameNum = sweepFrame * sweepNum # total frame number for the visual stimulation of 1 iteration
-        
+
         #frames for one iteration
-        iterFrames=[] 
-        
+        iterFrames=[]
+
         #add frames for gaps
         for i in range(self.preGapFrameNum):
             iterFrames.append([0,None,None,-1])
-        
-        
+
+
         #add frames for display
-        
+
         for i in range(displayFrameNum):
-                
+
             sweepIndex=int(np.floor(i // sweepFrame))
-            
+
             #add sychornized indicator
             if self.indicator.isSync == True:
                 indicatorColor = 1
             else:
                 indicatorColor = 0
-                
+
             iterFrames.append([1,None,sweepIndex,indicatorColor])
-            
-            
+
+
         # add gap frames at the end
         for i in range(self.postGapFrameNum):
             iterFrames.append([0,None,None,-1])
-        
+
         fullFrames = []
-        
+
         #add frames for multiple iteration
         for i in range(int(iteration)):
             fullFrames += iterFrames
-            
-        
+
+
         #add non-synchronized indicator
         if self.indicator.isSync == False:
             indicatorFrame = self.indicator.frameNum
-            
+
             for j in range(np.size(fullFrames,0)):
                 if np.floor(j // indicatorFrame) % 2 == 0:
                     fullFrames[j][3] = 1
                 else:
                     fullFrames[j][3] = -1
-            
+
         fullFrames = [tuple(x) for x in fullFrames]
-        
-        
+
+
         return tuple(fullFrames)
 
     def generate_movie(self):
         """
         Function to Generate Kalatsky & Stryker visual stimulus frame by frame
         """
-        
+
         sweeps, self.sweepTable = self.generate_sweeps()
-        
+
         self.frames = self.generate_frames()
-        
+
         noise_movie = self.generate_noise_movie(len(self.frames))
-        
+
         if self.isWarp:
             lookupI, lookupJ = self.monitor.generate_Lookup_table()
-         
+
         fullSequence = np.zeros((len(self.frames),self.monitor.degCorX.shape[0],self.monitor.degCorX.shape[1]),dtype=np.float16)
-        
+
         indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
         indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
         indicatorHmin=self.indicator.centerHpixel - (self.indicator.height_pixel / 2)
         indicatorHmax=self.indicator.centerHpixel + (self.indicator.height_pixel / 2)
-        
+
         background = np.ones(self.monitor.degCorX.shape, dtype = np.float16) * self.background
-        
+
         for i in range(len(self.frames)):
             currFrame = self.frames[i]
-            
+
             if currFrame[0] == 0:
                 currNMsequence = background
             else:
@@ -1258,42 +1258,42 @@ class NoiseKSstim(Stim):
                 if self.isWarp:
                     currImage = lookup_image(currImage, lookupI, lookupJ)
                 currNMsequence = currImage * sweeps[currFrame[2]]
-                
+
             currNMsequence[indicatorHmin:indicatorHmax, indicatorWmin:indicatorWmax] = currFrame[3]
 
             fullSequence[i] = currNMsequence
-            
+
             if i in range(0, len(self.frames),len(self.frames)/10):
                 print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
-        
-        
+
+
         mondict=dict(self.monitor.__dict__)
         indicatordict=dict(self.indicator.__dict__)
         KSdict=dict(self.__dict__)
         KSdict.pop('monitor')
         KSdict.pop('indicator')
-        fullDictionary={'stimulation':KSdict, 
+        fullDictionary={'stimulation':KSdict,
                         'monitor':mondict,
                         'indicator':indicatordict}
-                        
+
         return fullSequence, fullDictionary
 
     def clear(self):
         self.sweepTable = None
         self.frames = None
-    
+
     def set_direction(self,direction):
-        
+
         if direction == "B2U" or direction == "U2B" or direction == "L2R" or direction == "R2L":
             self.direction = direction
             self.clear()
         else:
             raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
-            
+
     def set_sweep_sigma(self,sweepSigma):
         self.sweepSigma = sweepSigma
         self.clear()
-        
+
     def set_sweep_width(self,sweepWidth):
         self.sweepWidth = sweepWidth
         self.clear()
@@ -2404,8 +2404,8 @@ class DriftingGratingCircle(Stim):
         self.dire_list = dire_list
         self.con_list = con_list
         self.size_list = size_list
-        self.blockDur = blockDur
-        self.midGapDur = midGapDur
+        self.blockDur = float(blockDur)
+        self.midGapDur = float(midGapDur)
         self.iteration = iteration
         self.frameConfig = ('isDisplay', 'isCycleStart', 'spatialFrequency', 'temporalFrequency', 'direction',
                             'contrast', 'radius', 'phase', 'indicatorColor')
@@ -2532,25 +2532,25 @@ class DriftingGratingCircle(Stim):
         frames = [tuple(frame) for frame in frames]
 
         return tuple(frames)
-    
+
     def _generate_circle_mask_dict(self):
         """
         generate a dictionary of circle masks for each size in size list
         """
-        
+
         masks = {}
         if self.coordinate=='degree':corX=self.monitor.degCorX;corY=self.monitor.degCorY
         elif self.coordinate=='linear':corX=self.monitor.linCorX;corY=self.monitor.linCorY
-        
+
         for size in self.size_list:
             curr_mask = circle_mask(corX, corY, self.center, size)
             masks.update({size:curr_mask})
-            
+
         return masks
 
     def generate_movie(self):
-        
-        
+
+
         self.frames = self.generate_frames()
         mask_dict = self._generate_circle_mask_dict()
 
@@ -2608,7 +2608,7 @@ class DriftingGratingCircle(Stim):
 
         return mov, log
 
-   
+
 class KSstimAllDir(object):
     """
     generate Kalatsky & Stryker stimulation in all four direction contiuously
@@ -2811,12 +2811,12 @@ class ObliqueKSstimAllDir(object):
 
         return mov, log
 
-         
+
 class DisplaySequence(object):
     """
     Display the numpy sequence from memory
-    """        
-    
+    """
+
     def __init__(self,
                  logdir,
                  backupdir=None,
@@ -2850,7 +2850,7 @@ class DisplaySequence(object):
                  fileNumNIDev='Dev1',
                  fileNumNIPort='0',
                  fileNumNILines='0:7'):
-                     
+
         self.sequence = None
         self.sequenceLog = {}
         self.psychopyMonitor = psychopyMonitor
@@ -2860,7 +2860,7 @@ class DisplaySequence(object):
         self.remoteSyncIP = remoteSyncIP
         self.remoteSyncPort = remoteSyncPort
         self.remoteSyncTriggerEvent = remoteSyncTriggerEvent
-        self.isVideoRecord = isVideoRecord 
+        self.isVideoRecord = isVideoRecord
         self.isTriggered = isTriggered
         self.triggerNIDev = triggerNIDev
         self.triggerNIPort = triggerNIPort
@@ -2890,19 +2890,19 @@ class DisplaySequence(object):
         # set up remote zro object for sync program
         if self.isRemoteSync:
             self.remoteSync = Proxy(str(self.remoteSyncIP) + ':' + str(self.remoteSyncPort))
-        
+
         if displayIteration % 1 == 0:
             self.displayIteration = displayIteration
         else:
             raise ArithmeticError, "displayIteration should be a whole number."
-            
+
         self.displayOrder = displayOrder
         self.logdir = logdir
         self.backupdir = backupdir
         self.mouseid = mouseid
         self.userid = userid
         self.sequenceLog = None
-        
+
         #FROM DW, setup socket
         try:
             self.displayControlSock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -2912,7 +2912,7 @@ class DisplaySequence(object):
             self.displayControlSock.settimeout(0.0)
         except Exception:
             self.displayControlSock = None
-        
+
         self.clear()
 
 
@@ -2922,7 +2922,7 @@ class DisplaySequence(object):
         """
         if len(anyArray.shape) != 3:
             raise LookupError, "Input numpy array should have dimension of 3!"
-        
+
         Vmax = np.amax(anyArray).astype(np.float32)
         Vmin = np.amin(anyArray).astype(np.float32)
         Vrange = (Vmax-Vmin)
@@ -2937,7 +2937,7 @@ class DisplaySequence(object):
         else:
             self.sequenceLog = {}
         self.clear()
-    
+
 
     def set_stim(self, stim):
         """
@@ -3059,12 +3059,12 @@ class DisplaySequence(object):
         if self.isRemoteSync:
             syncWait = self._wait_for_trigger(event=self.remoteSyncTriggerEvent)
             if not syncWait:
-                try: 
+                try:
                     self.remoteSync.stop()
                 except Exception as err:
                     print "remote sync object is not stopped correctly. \n" + str(err)
-                    
-                # backup remote sync file 
+
+                # backup remote sync file
                 try:
                     backupFileFolder = self._get_backup_folder()
                     print '\nRemote sync backup file folder: ' + backupFileFolder + '\n'
@@ -3078,10 +3078,10 @@ class DisplaySequence(object):
                         print "did not find backup path, no remote sync dataset has been saved."
                 except Exception as e:
                     print "remote sync dataset is not saved successfully!\n", e
-                
+
                 # save display log
                 self.save_log()
-                                
+
                 # analyze frames
                 try:
                     self.frameDuration, self.frame_stats = analyze_frames(ts=self.timeStamp,
@@ -3193,9 +3193,9 @@ class DisplaySequence(object):
             self.fileName = datetime.datetime.now().strftime('%y%m%d%H%M%S') + \
                             '-' + 'customStim' + '-M' + self.mouseid + '-' + \
                             self.userid
-        
+
         fileNumber = self._get_file_number()
-        
+
         if self.isTriggered: self.fileName += '-' + str(fileNumber)+'-Triggered'
         else: self.fileName += '-' + str(fileNumber) + '-notTriggered'
 
@@ -3204,7 +3204,7 @@ class DisplaySequence(object):
         """
         get synced file number for log file name
         """
-        
+
         try:
             fileNumTask = iodaq.DigitalInput(self.fileNumNIDev,self.fileNumNIPort,self.fileNumNILines)
             fileNumTask.StartTask()
@@ -3217,16 +3217,16 @@ class DisplaySequence(object):
             fileNumber = None
 
         return fileNumber
-        
+
 
     def _display(self, window, stim):
-        
-        
+
+
         # display frames
         timeStamp=[]
         startTime = time.clock()
         singleRunFrames = self.sequence.shape[0]
-        
+
         if self.isSyncPulse:
             syncPulseTask = iodaq.DigitalOutput(self.syncPulseNIDev, self.syncPulseNIPort, self.syncPulseNILine)
             syncPulseTask.StartTask()
@@ -3256,13 +3256,13 @@ class DisplaySequence(object):
 
             self._update_display_status()
             i=i+1
-            
+
         # timeStamp.append(time.clock()-startTime)
         stopTime = time.clock()
         window.close()
-        
+
         if self.isSyncPulse:syncPulseTask.StopTask()
-        
+
         self.timeStamp = np.array(timeStamp)
         self.displayLength = stopTime-startTime
 
@@ -3292,33 +3292,33 @@ class DisplaySequence(object):
                 self.keepDisplay = False
                 print "Remote stop signal detected. Stop displaying. \n"
         except: pass
-    
+
         if self.isRemoteSync:
             self._remote_obj._check_rep()
-    
+
 
     def set_display_order(self, displayOrder):
-        
+
         self.displayOrder = displayOrder
         self.clear()
-    
+
 
     def set_display_iteration(self, displayIteration):
-        
+
         if displayIteration % 1 == 0:self.displayIteration = displayIteration
         else:raise ArithmeticError, "displayIteration should be a whole number."
         self.clear()
-        
+
 
     def save_log(self):
-        
+
         if self.displayLength is None:
             self.clear()
             raise LookupError, "Please display sequence first!"
 
         if self.fileName is None:
             self._get_file_name()
-            
+
         if self.keepDisplay == True:
             self.fileName += '-complete'
         elif self.keepDisplay == False:
@@ -3327,7 +3327,7 @@ class DisplaySequence(object):
         #set up log object
         directory = self.logdir + '\sequence_display_log'
         if not(os.path.isdir(directory)):os.makedirs(directory)
-        
+
         logFile = dict(self.sequenceLog)
         displayLog = dict(self.__dict__)
         if hasattr(self, '_remote_obj'):
@@ -3340,13 +3340,13 @@ class DisplaySequence(object):
         logFile.update({'presentation':displayLog})
 
         filename =  self.fileName + ".pkl"
-        
+
         #generate full log dictionary
         path = os.path.join(directory, filename)
         ft.saveFile(path,logFile)
         print ".pkl file generated successfully."
-        
-        
+
+
         backupFileFolder = self._get_backup_folder()
         if backupFileFolder is not None:
             if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
@@ -3355,14 +3355,14 @@ class DisplaySequence(object):
             print ".pkl backup file generate successfully"
         else:
             print "did not find backup path, no backup has been saved."
-            
-            
+
+
     def _get_backup_folder(self):
-        
+
         if self.fileName is None:
             raise LookupError, 'self.fileName not found.'
         else:
-        
+
             if self.backupdir is not None:
 
                 currDate = self.fileName[0:6]

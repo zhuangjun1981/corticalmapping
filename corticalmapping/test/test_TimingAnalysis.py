@@ -79,6 +79,19 @@ class TestTimingAnalysis(unittest.TestCase):
         assert (np.array_equal(cc, np.array([0., 0., 0., 0., 0., 2., 0., 0., 0., 0., 0., 0., 0., 0., 0., 2., 0., 0.,
                                              0., 0.])))
 
+    def test_haramp(self):
+        t = np.arange(1000) * 0.001
+        trace = np.sin(t * 2 * 2 * np.pi) + 1
+        har = ta.haramp(trace=trace, periods=1, ceil_f=3)
+        assert (len(har) == 3)
+        assert (har[2] / har[0] == 1.)
+
+        trace = np.zeros(1000)
+        trace[np.array([0, 249, 499, 749])] = 1.
+        har = ta.haramp(trace=trace, periods=4, ceil_f=4)
+        assert (len(har) == 4)
+        assert (round(1000. * har[1] / har[0]) / 1000. == 2.)
+
 
 if __name__ == '__main__':
     TestTimingAnalysis.test_get_onset_time_stamps()

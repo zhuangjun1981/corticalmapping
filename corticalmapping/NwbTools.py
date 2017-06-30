@@ -1376,6 +1376,7 @@ class RecordedFile(NWB):
         stim.set_value('background_color', log_dict['stimulation']['background'])
         stim.set_value('iteration', log_dict['stimulation']['iteration'])
         stim.set_value('stim_name', log_dict['stimulation']['stimName'])
+        stim.set_value('sweep_dur_sec', log_dict['stimulation']['blockDur'])
         stim.set_source('corticalmapping.VisualStim.DriftingGratingCircle for stimulus; '
                         'corticalmapping.VisualStim.DisplaySequence for display')
         stim.set_value('background_color', log_dict['stimulation']['background'])
