@@ -8,6 +8,7 @@ Created on Fri Oct 31 11:07:20 2014
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import matplotlib.gridspec as gridspec
 import colorsys
 import matplotlib.colors as col
 import scipy.ndimage as ni
@@ -429,6 +430,64 @@ def grid_axis(rowNum, columnNum, totalPlotNum, **kwarg):
     return figureHandles, axisHandles
 
 
+def grid_axis2(nrows, ncols, fig=None, fig_kw=None, gridspec_kw=None, share_level=2):
+    """
+    return a grid of axes acorrding to the gridspec specified by input parameters
+
+    :param nrows: positive int, number of rows
+    :param ncols: positive int, number of cols
+    :param fig: matplotlib.figure object
+    :param fig_kw: dict, keyword arguments for matplotlib.figure() method
+    :param gridspec_kw: dict, keyword arguments for matplotlib.gridspec.GridSpec class
+    :param share_level: 0, the generated axes do not share axis at all;
+                        1, the generated axes according to the rows and columns
+                        2, the generated axes all share same x and y axis
+    :return: a 2d array of matplotlib.axes objects
+    """
+
+    if fig_kw is None:
+        fig_kw = {'figsize': (10, 10)}
+
+    if fig is None:
+        fig = plt.figure(**fig_kw)
+
+    if gridspec_kw is None:
+        gridspec_kw = {}
+
+    gs = gridspec.GridSpec(nrows=nrows, ncols=ncols, **gridspec_kw)
+
+    if share_level == 0:
+        axs = [[fig.add_subplot(gs[i, j]) for j in range(ncols)] for i in range(nrows)]
+    elif share_level == 1:
+
+        axs = [[0 for j in range(ncols)] for i in range(nrows)]
+        for i in range(nrows)[::-1]:
+            for j in range(ncols):
+                if i < nrows - 1 and j > 0:
+                    axs[i][j] = fig.add_subplot(gs[i, j], sharex=axs[nrows - 1][j], sharey=axs[i][0])
+                elif i < nrows - 1 and j == 0:
+                    axs[i][j] = fig.add_subplot(gs[i, j], sharex=axs[nrows - 1][j])
+                elif i == nrows - 1 and j > 0:
+                    axs[i][j] = fig.add_subplot(gs[i, j], sharey=axs[i][0])
+                else:
+                    axs[i][j] = fig.add_subplot(gs[i, j])
+
+    elif share_level == 2:
+        axs = [[0 for j in range(ncols)] for i in range(nrows)]
+        for i in range(nrows)[::-1]:
+            for j in range(ncols):
+                if i < nrows - 1 or j > 0:
+                    axs[i][j] = fig.add_subplot(gs[i, j], sharex=axs[nrows - 1][0], sharey=axs[nrows - 1][0])
+                else:
+                    axs[i][j] = fig.add_subplot(gs[i, j])
+    else:
+        raise ValueError('do not understand "share_level", should be 0 or 1 or 2.')
+
+    axs = np.array([np.array(a) for a in axs])
+
+    return axs
+
+
 def tile_axis(f, rowNum, columnNum, topDownMargin=0.05, leftRightMargin=0.01, rowSpacing=0.01, columnSpacing=0.01):
     if 2 * topDownMargin + (
         (rowNum - 1) * rowSpacing) >= 1: raise ValueError, 'Top down margin or row spacing are too big!'
@@ -709,12 +768,12 @@ def plot_multiple_traces(traces, x=None, plot_axis=None, mean_kw=None, is_plot_s
     :param x: 1d array, len should equal to traces.shape[1], if None, it will be np.arange(traces.shape[1])
     :param plot_axis: matplotlib axes object, plotting axes
     :param mean_kw: keyword arguments for plotting mean trace, follow matplotlib.axes.plot function
-    :param is_plot_shade: bool, plot variance as shaded area or not
-    :param shade_type: str, type of measurement of variance, 'std' or 'sem'
-    :param shade_kw: keyword arguments for plotting shaded variance, follow matplotlib.axes.fill_between function
-    :param is_plot_sample: bool, plot each individual trace or not
-    :param sample_kw: keyword arguments for plotting individual traces, follow matplotlib.axes.plot function
-    :return: plot_axis, matplotlib axes object,
+    :param is_plot_shade: bool, plot vairance as shaded area or not
+    :param shade_type: keyword arguments for plotting shaded variance, follow matplotlib.axes.
+    :param shade_kw:
+    :param is_plot_sample:
+    :param sample_kw:
+    :return:
     """
 
     traces = np.array(traces, dtype=np.float64)
@@ -877,8 +936,13 @@ if __name__ == '__main__':
     # ----------------------------------------------------
 
     # ----------------------------------------------------
-    traces = np.random.rand(50, 20)
-    plot_multiple_traces(traces)
+    # traces = np.random.rand(50, 20)
+    # plot_multiple_traces(traces)
+    # plt.show()
+    # ----------------------------------------------------
+
+    # ----------------------------------------------------
+    grid_axis2(nrows=4, ncols=3, share_level=1)
     plt.show()
     # ----------------------------------------------------
 

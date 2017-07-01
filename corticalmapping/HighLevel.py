@@ -5,6 +5,7 @@ import json
 import h5py
 import numpy as np
 import itertools
+import pandas as pd
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 import core.ImageAnalysis as ia
@@ -1100,17 +1101,140 @@ def get_sort_order(sta_f, sta_t):
     return sort_order
 
 
-def get_drifting_grating_dataframe(dgr_grp):
+def get_drifting_grating_dataframe(dgr_grp, sweep_dur):
     """
     return a comprehensive dataframe representation of responses to a set of drifting gratings
 
-    :param dgr_grp: hdf5 group object. this object should have an attri
-                    should contain a set of dataset with names 'grating_00000', 'grating_00001', ...
-                    each dataset is a 2d array,
-    :return:
+    :param dgr_grp: hdf5 group object. this object should have an attribute 'time_axis_sec' indicating timestamps of
+                    the traces. It should also contain a set of dataset with names 'grating_00000', 'grating_00001',
+                    etc, each dataset is a 2d array, trial x time points. The values are number of spikes in each bin
+                    each dataset should have attributies: 'contrast' for contrast, from 0. to 1.; 'direction_arc' for
+                    direction, 'radius_deg': for radius, 'sf_cyc_per_deg': for spatial frequency, 'tf_hz': for temporal
+                    frequency.
+    :param sweep_dur: float, the duration of the drifting grating sweep, second
+    :return: a dataframe, each row is a unique drifting grating condition, columns: 'sf', 'tf', 'con', 'dir', 'radius',
+             'n', 'baseline', 'baseline_std', 'F0', 'F0_std', 'F1', 'F1_std', 'F2', 'F2_std'
     """
 
-    pass
+    t = dgr_grp.attrs['time_axis_sec']
+    bin_width = np.mean(np.diff(t))
+    bl_bins = t <= 0
+    res_bins = (t > 0) & (t <= sweep_dur)
+
+    gratings = dgr_grp.keys()
+
+    dg_df = pd.DataFrame(columns=['n', 'sf', 'tf', 'dir', 'con', 'radius', 'baseline', 'baseline_std', 'F0', 'F0_std',
+                                  'F1', 'F1_std', 'F2', 'F2_std'])
+
+    for i, grating in enumerate(gratings):
+
+        tf = round(dgr_grp[grating].attrs['tf_hz'] * 100.) / 100.
+        sf = round(dgr_grp[grating].attrs['sf_cyc_per_deg'] * 1000.) / 1000.
+        dire = int(round(180 * dgr_grp[grating].attrs['direction_arc'] // np.pi))
+        con = round(dgr_grp[grating].attrs['contrast'] * 100.) / 100.
+        radius = round(dgr_grp[grating].attrs['radius_deg'])
+        traces = dgr_grp[grating].value / bin_width
+        n = traces.shape[0]
+        periods = int(round(tf * sweep_dur))
+
+        trace_mean = np.mean(traces, axis=0)
+
+        bls = []
+        F0s = []
+        F1s = []
+        F2s = []
+        for trace in traces:
+            bls.append(np.mean(trace[bl_bins]))
+            curr_trace_res = trace[res_bins]
+            curr_har = ta.haramp(trace=curr_trace_res, periods=periods, ceil_f=4)
+            F0s.append(curr_har[0])
+            F1s.append(curr_har[1])
+            F2s.append(curr_har[2])
+
+        bl_std = np.std(bls)
+        F0_std = np.std(F0s)
+        F1_std = np.std(F1s)
+        F2_std = np.std(F2s)
+
+        bl = np.mean(trace_mean[bl_bins])
+        trace_mean_res = trace_mean[res_bins]
+        har = ta.haramp(trace=trace_mean_res, periods=periods, ceil_f=4)
+        F0 = har[0]
+        F1 = har[1]
+        F2 = har[2]
+
+        dg_df.loc[i] = [n, sf, tf, dire, con, radius, bl, bl_std, F0, F0_std, F1, F1_std, F2, F2_std]
+
+    return dg_df
+
+
+def plot_dg_df(dgr_df, grid_x_col, grid_y_col, x_col, y_col=('F0', 'F1'), fig=None, fig_kw=None, gridspec_kw=None, ax_kw=None,
+               is_shaded=True, shaded_type='std', shade_kw=None, trace_kw=None):
+
+    if shade_kw is None:
+        shade_kw = {'lw':0, 'alpha':0.3}
+
+    if trace_kw is None:
+        trace_kw = {'lw': 2, 'ls': '-'}
+
+    grid_row_lst = np.unique(dgr_df[grid_y_col])
+    grid_row_lst.sort()
+    grid_col_lst = np.unique(dgr_df[grid_x_col])
+    grid_col_lst.sort()
+
+    if shaded_type == 'sem':
+        dgr_df['F0_sem'] = dgr_df['F0_std'] / np.sqrt(dgr_df['n'])
+        dgr_df['F1_sem'] = dgr_df['F1_std'] / np.sqrt(dgr_df['n'])
+        dgr_df['F2_sem'] = dgr_df['F2_std'] / np.sqrt(dgr_df['n'])
+        dgr_df['baseline_sem'] = dgr_df['baseline_std'] / np.sqrt(dgr_df['n'])
+
+    if fig is None:
+        fig = plt.figure(**fig_kw)
+
+    axs = pt.grid_axis2(nrows=len(grid_row_lst), ncols=len(grid_col_lst), fig=fig, fig_kw=None,
+                        gridspec_kw=gridspec_kw, share_level=2)
+
+    for row_ind, row_value in enumerate(grid_row_lst):
+        for col_ind, col_value in enumerate(grid_col_lst):
+
+            curr_title = '{}:{}; {}:{}'.format(grid_x_col, col_value, grid_y_col, row_value)
+
+            curr_df = dgr_df[(dgr_df[grid_y_col] == row_value) & (dgr_df[grid_x_col] == col_value)]
+            curr_df = curr_df.sort_values(by=x_col, axis=0)
+
+            curr_ax = axs[row_ind, col_ind]
+            if 'F0' in y_col:
+                curr_ax.plot(curr_df['dir'], curr_df['F0'], color='#404088', label='F0', **trace_kw)
+                if is_shaded:
+                    curr_ax.fill_between(curr_df['dir'], curr_df['F0'] - curr_df['F0_' + shaded_type],
+                                         curr_df['F0'] + curr_df['F0_' + shaded_type], facecolor='#404088',
+                                         **shade_kw)
+            if 'F1' in y_col:
+                curr_ax.plot(curr_df['dir'], curr_df['F1'], color='#884040', label='F1', **trace_kw)
+                if is_shaded:
+                    curr_ax.fill_between(curr_df['dir'], curr_df['F1'] - curr_df['F1_' + shaded_type],
+                                         curr_df['F1'] + curr_df['F1_' + shaded_type], facecolor='#884040',
+                                         **shade_kw)
+            if 'F2' in y_col:
+                curr_ax.plot(curr_df['dir'], curr_df['F2'], color='#408840', label='F2', **trace_kw)
+                if is_shaded:
+                    curr_ax.fill_between(curr_df['dir'], curr_df['F2'] - curr_df['F2_' + shaded_type],
+                                         curr_df['F2'] + curr_df['F2_' + shaded_type], facecolor='#408840',
+                                         **shade_kw)
+            if 'baseline' in y_col:
+                curr_ax.plot(curr_df['dir'], curr_df['baseline'], color='#888888', label='bl', **trace_kw)
+                if is_shaded:
+                    curr_ax.fill_between(curr_df['dir'], curr_df['baseline'] - curr_df['baseline_' + shaded_type],
+                                         curr_df['baseline'] + curr_df['baseline_' + shaded_type],
+                                         facecolor='#888888', **shade_kw)
+            curr_ax.set_title(curr_title)
+            curr_ax.set_xticks([])
+            curr_ax.set_yticks([])
+            if row_ind == 0 and col_ind == 0:
+                curr_ax.legend()
+
+
+
 
 
 if __name__ == '__main__':
