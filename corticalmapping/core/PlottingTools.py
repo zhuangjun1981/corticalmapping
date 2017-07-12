@@ -596,7 +596,7 @@ def value_2_rgb(value, cmap):
     if value < 0: value = 0
     if value > 1: value = 1
     cmap = plt.get_cmap(cmap)
-    color = cmap(value)[0:3];
+    color = cmap(value)[0:3]
     color = [int(x * 255) for x in color]
     return get_color_str(*color)
 

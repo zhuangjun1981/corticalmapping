@@ -154,18 +154,10 @@ class SpatialReceptiveField(WeightedROI):
         if interpolate_rate is None:
             self.interpolate_rate = interpolate_rate
         else:
-            if isinstance(interpolate_rate, int):
-                if interpolate_rate > 1:
-                    self.interpolate_rate = interpolate_rate
-                else:
-                    raise ValueError('interpolate_rate should be an integer larger than 1!')
+            if interpolate_rate > 1:
+                self.interpolate_rate = interpolate_rate
             else:
-                print 'interpolate_rate is not an integer. convert it into an integer.'
-                interpolate_rate_int = int(round(interpolate_rate))
-                if interpolate_rate_int > 1:
-                    self.interpolate_rate = interpolate_rate_int
-                else:
-                    raise ValueError('interpolate_rate should be an integer larger than 1!')
+                raise ValueError('interpolate_rate should be larger than 1!')
 
     def get_name(self):
 
@@ -298,26 +290,24 @@ class SpatialReceptiveField(WeightedROI):
 
     def interpolate(self, ratio, method='cubic', fill_value=0.):
 
-        if not isinstance(ratio, int):
-            print 'interpolate ratio is not an integer. convert it into an integer.'
-            ratio_int = int(round(ratio))
-        else:
-            ratio_int = ratio
+        ratio = float(ratio)
 
-        if ratio_int <= 1:
+        if ratio <= 1:
             raise ValueError('interpolate_rate should be an integer larger than 1!')
 
         # altInterpolation = ip.interp1d(np.arange(len(self.altPos)),self.altPos)
         # aziInterpolation = ip.interp1d(np.arange(len(self.aziPos)),self.aziPos)
-        newAltPos = np.arange(0, len(self.altPos), 1. / ratio_int)
-        newAziPos = np.arange(0, len(self.aziPos), 1. / ratio_int)
+        altStep = np.mean(np.diff(self.altPos))
+        aziStep = np.mean(np.diff(self.aziPos))
+        newAltPos = np.arange(self.altPos[0], self.altPos[-1], altStep / ratio)
+        newAziPos = np.arange(self.aziPos[0], self.aziPos[-1], aziStep / ratio)
         mask = self.get_weighted_mask()
         mask_ip = ip.interp2d(self.aziPos, self.altPos, mask, kind=method, fill_value=fill_value)
         newMask = mask_ip(newAziPos, newAltPos)
 
         return SpatialReceptiveField(newMask, newAltPos, newAziPos, sign=self.sign, temporalWindow=self.temporalWindow,
                                      pixelSizeUnit=self.pixelSizeUnit, dataType=self.dataType, thr=self.thr,
-                                     filter_sigma=self.filter_sigma, interpolate_rate=ratio_int)
+                                     filter_sigma=self.filter_sigma, interpolate_rate=ratio)
 
     def gaussian_filter(self, sigma):
         """

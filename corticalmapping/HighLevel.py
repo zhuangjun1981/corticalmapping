@@ -7,16 +7,17 @@ import numpy as np
 import itertools
 import pandas as pd
 import scipy.stats as stats
-import matplotlib.pyplot as plt
-import core.ImageAnalysis as ia
-import core.TimingAnalysis as ta
-import core.PlottingTools as pt
-import tifffile as tf
-import RetinotopicMapping as rm
-import core.FileTools as ft
 import scipy.ndimage as ni
+import matplotlib.pyplot as plt
+import tifffile as tf
 from toolbox.misc import BinarySlicer
 import allensdk_internal.brain_observatory.mask_set as mask_set
+import corticalmapping.core.ImageAnalysis as ia
+import corticalmapping.core.TimingAnalysis as ta
+import corticalmapping.core.PlottingTools as pt
+import corticalmapping.core.FileTools as ft
+import corticalmapping.SingleCellAnalysis as sca
+import corticalmapping.RetinotopicMapping as rm
 
 try:
     # from r_neuropil import NeuropilSubtract as NS
@@ -1234,7 +1235,96 @@ def plot_dg_df(dgr_df, grid_x_col, grid_y_col, x_col, y_col=('F0', 'F1'), fig=No
                 curr_ax.legend()
 
 
+def generate_strf_from_timestamps(unit_ts, squares_ts_grp, unit_n='', sta_start=-0.055, sta_end=0.205, bin_num=26):
+    """
+    generate corticalmapping.SingleCellAnalysis.SpatialTemporalReceptiveField object from discrete spike timestamps
+    series.
 
+    :param unit_ts: 1d array, spike timestamps, should be monotonic increasing
+    :param squares_ts_grp: h5py group object, containing the timestamps of each square displayed, this should be the
+                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli() function
+    :param unit_n: str, name of the unit
+    :param sta_start: float, stimulus triggered average start time relative to stimulus onset
+    :param sta_end: float, stimulus triggered average end time relative to stimulus onset
+    :param bin_num: positive int, number of bins
+    :return: corticalmapping.SingleCellAnalysis.SpatialTemporalReceptiveField object
+    """
+
+    bin_width = (sta_end - sta_start) / bin_num
+    t = np.arange((sta_start + bin_width / 2), (sta_end + bin_width / 2), bin_width)
+    t = np.round(t * 100000) / 100000
+
+    all_squares = squares_ts_grp.keys()
+    traces = []
+    locations = []
+    signs = []
+
+    for square in all_squares:
+        square_grp = squares_ts_grp[square]
+        square_ts = square_grp['timestamps'].value
+        curr_square_traces = []
+
+        for ts in square_ts:
+            _, curr_trace = ta.discrete_cross_correlation([ts], unit_ts, (sta_start, sta_end), bin_num)
+            curr_trace = curr_trace.astype(np.float32)
+            curr_square_traces.append(curr_trace)
+
+        traces.append(np.array(curr_square_traces))
+        locations.append([square_grp['altitude_deg'].value, square_grp['azimuth_deg'].value])
+        signs.append(square_grp['sign'].value)
+
+    return sca.SpatialTemporalReceptiveField(locations, signs, traces, t, name=unit_n, trace_data_type='spike_count')
+
+
+def generate_strf_from_continuous(continuous, continuous_ts, squares_ts_grp, roi_n='', sta_start=0.5, sta_end=1.5):
+    """
+    generate corticalmapping.SingleCellAnalysis.SpatialTemporalReceptiveField object from continuous trace with
+    regular timestamps
+
+    :param continuous: 1d array, signal trace
+    :param continuous_ts: 1d array, timestamp series for the continuous, monotonically increasing, should have same
+                          size as continuous
+    :param squares_ts_grp: h5py group object, containing the timestamps of each square displayed, this should be the
+                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli() function
+    :param roi_n: str, name of the roi
+    :param sta_start: float, stimulus triggered average start time relative to stimulus onset
+    :param sta_end: float, stimulus triggered average end time relative to stimulus onset
+    :param bin_num: positive int, number of bins
+    :return: corticalmapping.SingleCellAnalysis.SpatialTemporalReceptiveField object
+    """
+
+    mean_frame_dur = np.mean(np.diff(continuous_ts))
+    chunk_frame_dur = int(np.ceil((sta_end - sta_start) / mean_frame_dur))
+    chunk_frame_start = int(np.floor(sta_start / mean_frame_dur))
+    t = (np.arange(chunk_frame_dur) + chunk_frame_start) * mean_frame_dur
+
+    all_squares = squares_ts_grp.keys()
+
+    traces = []  # square x trial x t
+    locations = []
+    signs = []
+
+    for square in all_squares:
+        square_grp = squares_ts_grp[square]
+        square_ts = square_grp['timestamps'].value
+        square_traces = []
+
+        for ts in square_ts:
+            curr_frame_start = ta.find_nearest(continuous_ts, ts) + chunk_frame_start
+            curr_frame_end = curr_frame_start + chunk_frame_dur
+            if curr_frame_start >= 0 and curr_frame_end <= len(continuous_ts):
+                square_traces.append(continuous[curr_frame_start: curr_frame_end])
+
+        square_traces = np.array(square_traces)
+        square_bl = np.mean(square_traces[:, 0: abs(chunk_frame_start)], axis=1)
+        square_bl = np.array([square_bl]).transpose()
+        square_dff = (square_traces - square_bl) / square_bl
+
+        traces.append(square_dff)
+        locations.append([square_grp['altitude_deg'].value, square_grp['azimuth_deg'].value])
+        signs.append(square_grp['sign'].value)
+
+    return sca.SpatialTemporalReceptiveField(locations, signs, traces, t, name=roi_n, trace_data_type='df/f')
 
 
 if __name__ == '__main__':

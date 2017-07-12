@@ -899,7 +899,8 @@ class RecordedFile(NWB):
             total_onsets += curr_onset_arr.shape[0]
 
         if total_onsets != len(onsets_ts):
-            raise ValueError('Number of stimuli onsets do not match the number of given onsets_ts.')
+            raise ValueError('Number of stimuli onsets ({}) do not match the number of given onsets_ts ({}).'
+                             .format(total_onsets, len(onsets_ts)))
 
         curr_onset_start_ind = 0
 
@@ -1161,6 +1162,64 @@ class RecordedFile(NWB):
 
         mc_interf.finalize()
         mc_mod.finalize()
+
+    def generate_dat_file_for_kilosort(self, output_folder, output_name, ch_ns, is_filtered=True, cutoff_f_low=300.,
+                                       cutoff_f_high=6000.):
+        """
+        generate .dat file for kilolsort: "https://github.com/cortex-lab/KiloSort", it is binary raw code, with
+        structure: ch0_t0, ch1_t0, ch2_t0, ...., chn_t0, ch0_t1, ch1_t1, ch2_t1, ..., chn_t1, ..., ch0_tm, ch1_tm,
+        ch2_tm, ..., chn_tm
+
+        :param output_folder: str, path to output directory
+        :param output_name: str, output file name, an extension of '.dat' will be automatically added.
+        :param ch_ns: list of strings, name of included analog channels
+        :param is_filtered: bool, if Ture, another .dat file with same size will be generated in the output folder.
+                            this file will contain temporally filtered data (filter done by
+                            corticalmapping.core.TimingAnalysis.butter_... functions). '_filtered' will be attached
+                            to the filtered file name.
+        :param cutoff_f_low: float, low cutoff frequency, Hz. if None, it will be low-pass
+        :param cutoff_f_high: float, high cutoff frequency, Hz, if None, it will be high-pass
+        :return: None
+        """
+
+        save_path = os.path.join(output_folder, output_name + '.dat')
+        if os.path.isfile(save_path):
+            raise IOError('Output file already exists.')
+
+        data_lst = []
+        for ch_n in ch_ns:
+            data_lst.append(self.file_pointer['acquisition/timeseries'][ch_n]['data'].value)
+
+        dtype = data_lst[0].dtype
+
+        print dtype
+        data = np.array(data_lst, dtype=dtype).flatten(order='F')
+
+        data.tofile(save_path)
+
+        if is_filtered:
+
+            if cutoff_f_low is None and cutoff_f_high is None:
+                print ('both low cutoff frequency and high cutoff frequency are None. Do nothing.')
+                return
+
+            save_path_f = os.path.join(output_folder, output_name + '_filtered.dat')
+            if os.path.isfile(save_path_f):
+                raise IOError('Output file for filtered data already existes.')
+
+            fs = self.file_pointer['general/extracellular_ephys/sampling_rate'].value
+            data_lst_f = []
+            for data_r in data_lst:
+                if cutoff_f_high is None:
+                    data_lst_f.append(ta.butter_lowpass(data_r, fs=fs, cutoff=cutoff_f_low).astype(dtype))
+                elif cutoff_f_low is None:
+                    data_lst_f.append(ta.butter_highpass(data_r, fs=fs, cutoff=cutoff_f_high).astype(dtype))
+                else:
+                    data_lst_f.append(ta.butter_bandpass(data_r,
+                                                         fs=fs,
+                                                         cutoffs=(cutoff_f_low, cutoff_f_high)).astype(dtype))
+            data_f = np.array(data_lst_f, dtype=dtype).flatten(order='F')
+            data_f.tofile(save_path_f)
 
     def _get_channel_names(self):
         """

@@ -1122,24 +1122,24 @@ def sort_masks(masks, keyPrefix=None, labelLength=3):
     return newMasks
 
 
-def temp_downsample(A, rate, verbose=False):
-    '''
-    down sample a 3-d array in 0 direction
-    '''
-
-    if len(A.shape) != 3: raise ValueError, 'input array should be 3-d.'
-    rate = int(rate)
-    dataType = A.dtype
-    newZDepth = (A.shape[0] - (A.shape[0]%rate))/rate
-    newA = np.empty((newZDepth,A.shape[1],A.shape[2]),dtype=dataType)
-
-    for i in range(newZDepth):
-        if verbose:
-            print (float(i)*100/newZDepth),'%'
-            currChunk = A[i*3:(i+1)*3,:,:].astype(np.float)
-            currFrame = np.mean(currChunk,axis=0)
-            newA[i,:,:]=currFrame.astype(dataType)
-    return newA
+# def temp_downsample(A, rate, verbose=False):
+#     '''
+#     down sample a 3-d array in 0 direction
+#     '''
+#
+#     if len(A.shape) != 3: raise ValueError, 'input array should be 3-d.'
+#     rate = int(rate)
+#     dataType = A.dtype
+#     newZDepth = (A.shape[0] - (A.shape[0]%rate))/rate
+#     newA = np.empty((newZDepth,A.shape[1],A.shape[2]),dtype=dataType)
+#
+#     for i in range(newZDepth):
+#         if verbose:
+#             print (float(i)*100/newZDepth),'%'
+#             currChunk = A[i*rate:(i+1)*rate,:,:].astype(np.float)
+#             currFrame = np.mean(currChunk,axis=0)
+#             newA[i,:,:]=currFrame.astype(dataType)
+#     return newA
 
 
 def get_average_movie(mov, frameTS, onsetTimes, chunkDur, isReturnN=False):
