@@ -7,7 +7,6 @@ import corticalmapping.ephys.KilosortWrapper as kw
 import corticalmapping.HighLevel as hl
 import corticalmapping.core.FileTools as ft
 import corticalmapping.core.TimingAnalysis as ta
-import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.PlottingTools as pt
 try:
     from nwb.nwb import NWB
@@ -1191,10 +1190,7 @@ class RecordedFile(NWB):
             data_lst.append(self.file_pointer['acquisition/timeseries'][ch_n]['data'].value)
 
         dtype = data_lst[0].dtype
-
-        print dtype
         data = np.array(data_lst, dtype=dtype).flatten(order='F')
-
         data.tofile(save_path)
 
         if is_filtered:

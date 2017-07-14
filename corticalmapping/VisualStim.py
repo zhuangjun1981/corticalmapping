@@ -2203,10 +2203,15 @@ class SparseNoise(Stim):
 
         self.clear()
 
-    def _getGridPoints(self):
+    def _getGridPoints(self, is_include_edge=True):
         """
-        generate all the grid points in display area (subregion and monitor coverage)
-        [azi, alt]
+        generate all the grid points in display area (covered by both subregion and monitor span)
+
+        :param is_include_edge: bool, default True, if True, the displayed probes will cover the edge case and
+                                ensure that the entire subregion is covered. If False, the displayed probes will
+                                exclude edge case and ensure that all the centers of displayed probes are within
+                                the subregion.
+        :return: n x 2 array, refined [azi, alt] pairs of probe centers going to be displayed
         """
 
         rows = np.arange(self.subregion[0], self.subregion[1] + self.gridSpace[0], self.gridSpace[0])
@@ -2218,12 +2223,40 @@ class SparseNoise(Stim):
 
         #get all the visual points for each pixels on monitor
         if self.coordinate == 'degree':
-            monitorPoints = np.transpose(np.array([self.monitor.degCorX.flatten(),self.monitor.degCorY.flatten()]))
-        if self.coordinate == 'linear':
-            monitorPoints = np.transpose(np.array([self.monitor.linCorX.flatten(),self.monitor.linCorY.flatten()]))
+            monitor_x = self.monitor.degCorX
+            monitor_y = self.monitor.degCorY
+            # monitorPoints = np.transpose(np.array([self.monitor.degCorX.flatten(),self.monitor.degCorY.flatten()]))
+        elif self.coordinate == 'linear':
+            monitor_x = self.monitor.linCorX
+            monitor_y = self.monitor.linCorY
+        else:
+            raise ValueError('Do not understand coordinate system: {}. Should be either "linear" or "degree".'.
+                             format(self.coordinate))
+            # monitorPoints = np.transpose(np.array([self.monitor.linCorX.flatten(),self.monitor.linCorY.flatten()]))
+
+        if is_include_edge:
+            left_azi = monitor_x[:, 0] - self.gridSpace[1]
+            right_azi = monitor_x[:, -1] + self.gridSpace[1]
+            top_alt = monitor_y[0, :] + self.gridSpace[0]
+            bottom_alt = monitor_y[-1, :] - self.gridSpace[0]
+        else:
+            left_azi = monitor_x[:, 0]
+            right_azi = monitor_x[:, -1]
+            top_alt = monitor_y[0, :]
+            bottom_alt = monitor_y[-1, :]
+
+        left_alt = monitor_y[:, 0]
+        right_alt = monitor_y[:, -1]
+        top_azi = monitor_x[0, :]
+        bottom_azi = monitor_x[-1, :]
+
+        all_alt = np.concatenate((left_alt, right_alt, top_alt, bottom_alt))
+        all_azi = np.concatenate((left_azi, right_azi, top_azi, bottom_azi))
+
+        monitorPoints = np.array([all_azi, all_alt]).transpose()
 
         #get the grid points within the coverage of monitor
-        gridPoints = gridPoints[in_hull(gridPoints,monitorPoints)]
+        gridPoints = gridPoints[in_hull(gridPoints, monitorPoints)]
 
         return gridPoints
 

@@ -1,6 +1,4 @@
 import OpenEphys as oe
-import glob
-import matplotlib.pyplot as plt
 import os
 import h5py
 import numpy as np
@@ -16,12 +14,12 @@ CONTINUOUS_MARKER_BYTES = 10 # number of bytes of marker field in each record (b
 
 def find_next_valid_block(input_array, bytes_per_block, start_index):
     """
-    this is for finding starting byte index of first valid block after a certain position of a continuous file. Valid 
-    block is defined as the last 10 bytes equals oe.RECORD_MARKER if read as unsigned integer 8-bit (little endian). This 
-    is useful when two open ephys recordings are accidentally recorded in a same file. To extract the data of the 
+    this is for finding starting byte index of first valid block after a certain position of a continuous file. Valid
+    block is defined as the last 10 bytes equals oe.RECORD_MARKER if read as unsigned integer 8-bit (little endian). This
+    is useful when two open ephys recordings are accidentally recorded in a same file. To extract the data of the
     second recording. It is necessary to find the first valid block after the first recording.
-    
-    :param input_array: 
+
+    :param input_array:
     :param bytes_per_block: positive integer, number of bytes per block
     :param start_index: non-negative int
     :return: first_block_start: non-negative int, the start index of the first block after start_index
@@ -39,7 +37,7 @@ def find_next_valid_block(input_array, bytes_per_block, start_index):
             break
     else:
         print 'no valid block found after index:', start_index
-        
+
     return first_valid_block_start
 
 
