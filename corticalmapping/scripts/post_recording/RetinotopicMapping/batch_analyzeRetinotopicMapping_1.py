@@ -11,15 +11,15 @@ import corticalmapping.core.FileTools as ft
 import corticalmapping.core.TimingAnalysis as ta
 import corticalmapping.HighLevel as hl
 import corticalmapping.RetinotopicMapping as rm
+import corticalmapping.core.ImageAnalysis as ia
 
 
-
-dateRecorded = '160211' # str 'yymmdd'
-mouseID = 'TEST' # str, without 'M', for example: '214522'
-userID = 'Naveen' # user name, should be consistent withe the display log user name
-mouseType='Scnn1a-Tg3-Cre;Camk2a-tTA;Ai93(TITL-GCaMP6f)'
+dateRecorded = '170720' # str 'yymmdd'
+mouseID = '312805' # str, without 'M', for example: '214522'
+userID = 'Jun' # user name, should be consistent withe the display log user name
+mouseType='Rorb-Cre;Camk2a-tTA;Ai94(TITL-GCaMP6s)'
 trialNum='1' # str
-vasfileNums = [100] # file numbers of vasculature images, should be a list
+vasfileNums = [100, 101] # file numbers of vasculature images, should be a list
 fileNum = 103 # file number of the imaged movie
 FFTmode='peak' # detecting peak of valley of the signal, GCaMP:'peak'; intrinsic signal: 'valley'
 
@@ -41,8 +41,8 @@ os.chdir(saveFolder)
 
 # vasculature map parameters
 vasMapDtype = np.dtype('<u2')
-vasMapHeaderLength = 116
-vasMapTailerLength = 218
+vasMapHeaderLength = 432 # 116
+vasMapTailerLength = 1616
 vasMapColumn = 1024
 vasMapRow = 1024
 vasMapFrame = 1
@@ -81,6 +81,8 @@ if vasMapPaths:
 else:
     print 'No vasculature map find. Taking first frame of movie as vasculature map.'
     vasMap = BinarySlicer(movPath)[0,:,:]
+
+vasMap = ia.array_nor(vasMap).astype(np.float32)
 
 tf.imsave(os.path.join(saveFolder,dateRecorded+'_M'+mouseID+'_Trial'+trialNum+'_vasMap.tif'),vasMap)
 

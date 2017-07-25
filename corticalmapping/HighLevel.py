@@ -251,6 +251,8 @@ def getVasMap(vasMapPaths,
         currVasMap, _, _ = ft.importRawJCamF(vasMapPath, saveFolder=None, dtype=dtype, headerLength=headerLength,
                                              tailerLength=tailerLength,
                                              column=column, row=row, frame=frame, crop=crop)
+        currVasMap[currVasMap > 65534] = np.mean(currVasMap.flat)
+        currVasMap[currVasMap < 1] = np.mean(currVasMap.flat)
         vasMaps.append(currVasMap[0].astype(np.float32))
     vasMap = mergeMethod(vasMaps, axis=0)
 
