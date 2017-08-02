@@ -53,22 +53,22 @@ def loadTrial(trialPath):
         trial.altPosMapf = trialDict['altPosMapf']
     except KeyError:
         pass
-    
+
     try:
         trial.aziPosMapf = trialDict['aziPosMapf']
     except KeyError:
         pass
-    
+
     try:
         trial.altPowerMapf = trialDict['altPowerMapf']
     except KeyError:
         pass
-    
+
     try:
         trial.aziPowerMapf = trialDict['aziPowerMapf']
     except KeyError:
         pass
-    
+
     try:
         if isinstance(trialDict['finalPatches'].values()[0],dict):
             trial.finalPatches = {}
@@ -88,27 +88,27 @@ def loadTrial(trialPath):
         else: pass
     except KeyError:
         pass
-    
+
     try:
         trial.signMap = trialDict['signMap']
     except KeyError:
         pass
-    
+
     try:
         trial.signMapf = trialDict['signMapf']
     except KeyError:
         pass
-    
+
     try:
         trial.rawPatchMap = trialDict['rawPatchMap']
     except KeyError:
         pass
-    
+
     try:
         trial.rawPatches = trialDict['rawPatches']
     except KeyError:
         pass
-    
+
     try:
         trial.eccentricityMapf = trialDict['eccentricityMapf']
     except KeyError:
@@ -438,7 +438,7 @@ def visualSignMap(phasemap1,phasemap2):
 
     gradmap1 = np.gradient(phasemap1)
     gradmap2 = np.gradient(phasemap2)
-    
+
     # gradmap1 = ni.filters.median_filter(gradmap1,100.)
     # gradmap2 = ni.filters.median_filter(gradmap2,100.)
 
@@ -2741,7 +2741,8 @@ class RetinotopicMappingTrial(object):
         plotAxis.set_title(name)
 
 
-    def plotFinalPatchBorders(self,plotAxis = None,plotName=True,plotVasMap=True,isTitle=True,isColor=True,borderWidth=2,fontSize=15,interpolation='bilinear'):
+    def plotFinalPatchBorders(self,plotAxis = None,plotName=True,plotVasMap=True,isTitle=True,isColor=True,
+                              borderWidth=2,fontSize=15,interpolation='bilinear'):
 
         if hasattr(self,'finalPatchesMarked'):finalPatches=self.finalPatchesMarked
         elif hasattr(self, 'finalPatches'):finalPatches=self.finalPatches
@@ -2776,7 +2777,7 @@ class RetinotopicMappingTrial(object):
 
         plotAxis.set_axis_off()
         if isTitle:plotAxis.set_title(name)
-        
+
         return plotAxis.get_figure()
 
 
@@ -3224,25 +3225,25 @@ class RetinotopicMappingTrial(object):
 
         X,Y = np.meshgrid(np.arange(altPosMap.shape[1]),
                           np.arange(altPosMap.shape[0]))
-        
-        
+
+
         # plotting altitute contours
         if not altAxis:
             altf=plt.figure(figsize=figSize,facecolor='#ffffff')
             altAxis = altf.add_subplot(111)
-                                   
+
         altContour = altAxis.contour(X,
                                      Y,
                                      altPosMap,
                                      inline=inline,
                                      levels=altLevels,
                                      linewidths=lineWidth)
-        
+
         if inline:
             altContour.clabel(inline=inline, fontsize=fontSize,fmt='%1.1f')
         else:
             altAxis.get_figure().colorbar(altContour)
-        
+
         if isPlottingBorder:
             self.plotFinalPatchBorders(plotAxis=altAxis,
                                        plotName=False,
@@ -3250,15 +3251,15 @@ class RetinotopicMappingTrial(object):
                                        isColor=False,
                                        borderWidth=lineWidth,
                                        interpolation='bilinear')
-                                       
+
         altAxis.set_title('Altitute Positions')
-        
-        
+
+
         # plotting azimuth contours
         if not aziAxis:
             azif=plt.figure(figsize=figSize,facecolor='#ffffff')
             aziAxis = azif.add_subplot(111)
-                                   
+
         aziContour = aziAxis.contour(X,
                                      Y,
                                      aziPosMap,
@@ -3269,7 +3270,7 @@ class RetinotopicMappingTrial(object):
             aziContour.clabel(inline=1, fontsize=fontSize,fmt='%1.1f')
         else:
             aziAxis.get_figure().colorbar(aziContour)
-        
+
         if isPlottingBorder:
             self.plotFinalPatchBorders(plotAxis=aziAxis,
                                        plotName=False,
@@ -3277,10 +3278,10 @@ class RetinotopicMappingTrial(object):
                                        isColor=False,
                                        borderWidth=lineWidth,
                                        interpolation='bilinear')
-                                       
-                                       
+
+
         aziAxis.set_title('Azimuth Positions')
-        
+
         return altAxis, aziAxis
 
 
@@ -3472,7 +3473,7 @@ class Patch(object):
         patchName: str, original patch name
         '''
         minMarker = localMin(eccMap, cutStep)
-        
+
         connectivity=np.array([[1,1,1],[1,1,1],[1,1,1]])
 
         newLabel = sm.watershed(eccMap, minMarker, connectivity=connectivity, mask = self.array)
@@ -3627,31 +3628,31 @@ class Patch(object):
         '''
 
         patchMap = np.array(self.array, dtype = np.float32)
-        
+
         smallPatch = ni.binary_erosion(patchMap, iterations = borderWidth).astype(np.float32)
-        
+
         border = patchMap - smallPatch
-        
+
         border[border==0] = np.nan
 
         return border
-        
+
     def getCorticalPixelForVisualSpaceCenter(self,eccMap):
         '''
-        return the coordinates of the pixel representing the center of the 
+        return the coordinates of the pixel representing the center of the
         visual space of the patch
         '''
         eccMap2=np.array(eccMap).astype(np.float)
-        
+
         eccMap2[self.array==0]=np.nan
-        
+
         cor = np.array(np.where(eccMap2 == np.nanmin(eccMap2))).transpose()
-        
+
         return cor
-                                             
+
 
 if __name__ == "__main__":
-    
+
     plt.ioff()
 
 #    testTrial = ft.loadFile(r'\\aibsdata2\nc-ophys\Jun\exampleData\testTrial.pkl')
@@ -3688,74 +3689,74 @@ if __name__ == "__main__":
 #
 #    trial.processTrial(isPlot=True)
 #    trial._getSignMap()
-#    
+#
 #    traces = trial.getTraces(moviePath = r'\\aibsdata2\nc-ophys\Jun\exampleData\testMov.tif', isPlot = True)
 #    trial.generateStandardOutput(traces=traces)
-#    
+#
 #    trialDict = trial.generateTrialDict()
 #    print trialDict.keys()
-#    
+#
 #    trial.plotTrial()
-#    
+#
 #    altPosMapfNor, aziPosMapfNor, altPowerMapfNor, aziPowerMapfNor, signMapfNor = trial.generateNormalizedMaps(isPlot = True)
-#    
-#    
+#
+#
 #    trial.plotNormalizedPatchCenter()
-#    
+#
 #    trial.plotFinalPatches()
 #
-#    
+#
 #    vasMapNor, finalPatchesNor = trial.normalize(isPlot = True)
 
 #    plt.show()
 
-    
+
 #------------------------------------------------------------------------------------------------
 #    testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\20140623_M140174_Trial3.pkl")
-#    
+#
 #    testTrial.plotFinalPatchBorders()
 #    plt.show()
-#    
+#
 #    corArea = testTrial.getCorticalArea()
 #    print '\nCortical area for each visual area (mm^2):'
-#    for key, item in corArea.iteritems():    
-#        print key, ':', item    
-#    
+#    for key, item in corArea.iteritems():
+#        print key, ':', item
+#
 #    baselineF = testTrial.getBaselineFluorscence()
 #    print '\nNormalized baseline fluroscence for each visual area:'
 #    for key, item in baselineF.iteritems():
 #        print key, ':', item
-#        
+#
 #    power = testTrial.getMeanPowerAmplitude()
 #    print '\nNormalized power amplitude for each visual area:'
 #    for key, item in power.iteritems():
 #        print key, ':', item
-#        
+#
 #    magnification = testTrial.getMagnification()
 #    print '\nMagnification for each visual area (mm^2/deg^2):'
 #    for key, item in magnification.iteritems():
 #        print key, ':', item
-        
+
 #    altPosOrigin, aziPosOrigin = testTrial.getVisualFieldOrigin()
 #    print 'Altitude origin:', altPosOrigin
 #    print 'Azimuth origin:', aziPosOrigin
-    
-    
+
+
 #-------------------------------------------------------------------------------------------------
-    
+
 #    testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\20150130_M160809_Trial1_2_3_4.pkl")
 #    visualArea = 'LM'
 #    patch = testTrial.finalPatchesMarked[visualArea]
-#    
+#
 #    testTrial._getSignMap()
-#    
+#
 #    f=plt.figure()
 #    ax=f.add_subplot(111)
 #    ax.imshow(testTrial.altPosMapf,vmin=-30,vmax=50,cmap='hsv',interpolation='nearest')
 #    pt.plot_mask(patch.getMask(),plotAxis=ax)
-#        
+#
 #    VSlist = patch.getVisualSpace(testTrial.altPosMapf,testTrial.aziPosMapf)
-#                                                                       
+#
 #    VSSpace, VSCoverage, VSAltCenter, VSAziCenter = VSlist
 #    print 'Altitute center for area '+visualArea+': '+str(VSAltCenter)
 #    print 'Azimuth center for area '+visualArea+': '+str(VSAziCenter)
@@ -3764,22 +3765,22 @@ if __name__ == "__main__":
 #    plt.title(visualArea)
 #    plt.show()
 #------------------------------------------------------------------------------------------------
-    
+
 #    testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\20150116_M156569_Trial1_2_3_4.pkl")
 #    visualArea = 'V1'
 #    patch = testTrial.finalPatchesMarked[visualArea]
-#    
+#
 #    testTrial._getSignMap()
-#    
+#
 #    f=plt.figure()
 #    ax=f.add_subplot(111)
 #    ax.imshow(testTrial.altPosMapf,vmin=-30,vmax=50,cmap='hsv',interpolation='nearest')
 #    pt.plot_mask(patch.getMask(),plotAxis=ax)
-#    
+#
 #    plt.show()
-    
+
 #----------------------------------------------------------------------------------------------
-        
+
 #    testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTrial_Ai9330min.pkl")
 #    testTrial.plotMagnificationMap(isFilter=False)
 #    plt.show()
@@ -3795,26 +3796,26 @@ if __name__ == "__main__":
 
 #----------------------------------------------------------------------------------------------
 #    testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTrial_All.pkl")
-#    
+#
 #    locationList = [[0.,40.],
 #                    [0.,50.],
 #                    [0.,60.]]
-#                    
+#
 #    colorList = pt.random_color(len(locationList))
-#    
+#
 #    f=plt.figure(figsize=(12,12))
 #    ax=f.add_subplot(111)
 #    testTrial.plotFinalPatchBorders(plotAxis=ax,plotName=False,isTitle=True)
-#    
+#
 #    for i, location in enumerate(locationList):
 #        testTrial.plotRetinotopicLocation(plotAxis=ax,location=location,color=colorList[i])
-#    
+#
 #    labels = ['alt:'+str(x[0])+'; azi:'+str(x[1]) for x in locationList]
 #    [ax.plot(None,None,ls='',c=c,label=l) for c,l in zip(colorList,labels)]
 #    leg = ax.legend(labels,frameon=False)
 #    for color,text in zip(colorList,leg.get_texts()):
 #        text.set_color(color)
-#    
+#
 #    plt.show()
 
 
@@ -3824,7 +3825,7 @@ if __name__ == "__main__":
 #    testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTial_Ai93&Ai9630min.pkl")
 #    testTrial.plotVisualCoverage()
 #    plt.show()
-#    
+#
 #----------------------------------------------------------------------------------------------
 
     # testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTial_Ai93&Ai9630min.pkl")
@@ -3832,12 +3833,11 @@ if __name__ == "__main__":
     # testTrial.processTrial(isPlot=True)
     testTrial.plotFinalPatchBorders2(borderWidth=1)
     plt.show()
-    
+
 #----------------------------------------------------------------------------------------------
 #    testTrial, traces = loadTrial(r"E:\data2\2015-02-03-population-maps\populationTial_Ai93&Ai9630min.pkl")
 #    eccMap = testTrial.eccentricityMapf
 #    V1 = testTrial.finalPatchesMarked['V1']
 #    V1center = V1.getCorticalPixelForVisualSpaceCenter(eccMap)
 #    print V1center
-    
-    
+
