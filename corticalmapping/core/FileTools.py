@@ -8,6 +8,8 @@ import struct
 import ImageAnalysis as ia
 import tifffile as tf
 import h5py
+import sync.dataset as sync_dset
+import warnings
 
 
 try: import cv2
@@ -476,8 +478,8 @@ def generateAVI(saveFolder,
 
     out.release()
     cv2.destroyAllWindows()
-    
-    
+
+
 def importRawJCamF(path,
                    saveFolder = None,
                    dtype = np.dtype('<u2'),
@@ -487,7 +489,7 @@ def importRawJCamF(path,
                    row = 2048,
                    frame = None, #how many frame to read
                    crop = None):
-    
+
     if frame:
         data = np.fromfile(path,dtype=dtype,count=frame*column*row+headerLength)
         header = data[0:headerLength]
@@ -500,7 +502,7 @@ def importRawJCamF(path,
         frame = (len(data)-headerLength-tailerLength)/(column*row)
         # print len(data[headerLength:len(data)-tailerLength])
         mov = data[headerLength:len(data)-tailerLength].reshape((frame,column,row))
-    
+
     if saveFolder:
         if crop:
             try:
@@ -511,7 +513,7 @@ def importRawJCamF(path,
 
         fileName = os.path.splitext(os.path.split(path)[-1])[0] + '.tif'
         tf.imsave(os.path.join(saveFolder,fileName),mov)
-    
+
     return mov, header, tailer
 
 
@@ -671,14 +673,101 @@ def write_dictionary_to_h5group_recursively(target, source, is_overwrite=True):
         raise TypeError('target: "' + target.name + '" should be either h5py.Dataset or h5py.Group classes.')
 
 
+def read_sync(f_path, analog_downsample_rate=None, by_label=True, digital_labels=None,
+              analog_labels=None):
+    """
+    convert sync output to a dictionary
+
+    :param f_path: path to the sync output .h5 file
+    :param analog_downsample_rate: int, temporal downsample factor for analog channel
+    :param by_label: bool, if True: only extract channels with string labels
+                           if False: extract all saved channels by indices
+    :param digital_labels: list of strings,
+                           selected labels for extracting digital channels. Use this only
+                           if you know what you are doing.
+    :param analog_labels: list of strings,
+                          selected labels for extracting analog channels. Use this only
+                          if you know what you are doing
+    :return: sync_dict: {'digital_channels': {'rise': rise_ts (in seconds),
+                                              'fall': fall_ts (in seconds)},
+                         'analog_channels': analog_traces,
+                         'analog_sample_rate': analog_fs (float)}
+    """
+
+    ds = sync_dset.Dataset(path=f_path)
+
+    # print(ds.meta_data)
+    # print(ds.analog_meta_data)
+
+    # read digital channels
+    digital_channels = {}
+
+    if digital_labels is not None:
+        digital_cns = digital_labels
+    elif by_label:
+        digital_cns = [dl for dl in ds.meta_data['line_labels'] if dl]
+    else:
+        digital_cns = [dl for dl in ds.meta_data['line_labels'] if dl]
+        if len(digital_cns) > 0:
+            warnings.warn('You choose to extract digital channels by index. But there are '
+                          'digital channels with string labels: {}. All the string labels '
+                          'will be lost.'.format(str(digital_cns)))
+        digital_cns = range(ds.meta_data['ni_daq']['event_bits'])
+
+    # print(digital_cns)
+
+    for digital_cn in digital_cns:
+        digital_channels[str(digital_cn)] = {'rise': ds.get_rising_edges(line=digital_cn, units='seconds'),
+                                             'fall': ds.get_falling_edges(line=digital_cn, units='seconds')}
+
+    # read analog channels
+    analog_channels = {}
+
+    data_f = h5py.File(f_path, 'r')
+    if 'analog_meta' not in data_f.keys():
+        data_f.close()
+        print ('no analog data found in file: {}.'.format(f_path))
+        return {'digital_channels': digital_channels,
+                'analog_channels': analog_channels}
+    else:
+        if analog_downsample_rate is None:
+            analog_downsample_rate = 1
+        analog_fs = ds.analog_meta_data['analog_sample_rate'] / analog_downsample_rate
+        if analog_labels is not None:
+            analog_cns = analog_labels
+        elif by_label:
+            analog_cns = [al for al in ds.analog_meta_data['analog_labels'] if al]
+        else:
+            analog_cns = [al for al in ds.analog_meta_data['analog_labels'] if al]
+            if len(analog_cns) > 0:
+                warnings.warn('You choose to extract analog channels by index. But there are '
+                              'analog channels with string labels: {}. All the string labels '
+                              'will be lost.'.format(str(digital_cns)))
+            analog_cns = range(len(ds.analog_meta_data['analog_channels']))
+
+        for analog_cn in analog_cns:
+            analog_channels[str(analog_cn)] = ds.get_analog_channel(channel=analog_cn,
+                                                                    downsample=analog_downsample_rate)
+
+        return {'digital_channels': digital_channels,
+                'analog_channels': analog_channels,
+                'analog_sample_rate': analog_fs}
+
 
 if __name__=='__main__':
 
-    #----------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------
+    sync_path = r"D:\data2\rabies_tracing_project\method_development" \
+                r"\2017-10-05-read-sync\171003_M345521_FlashingCircle_106_171003165755.h5"
+    # sync_path = r"\\allen\programs\braintv\workgroups\nc-ophys\ImageData\Soumya\trees\m255" \
+    #             r"\log_m255\sync_pkl\m255_presynaptic_pop_vol1_stimDG_bessel170918013215.h5"
+    sync_dict = read_sync(f_path=sync_path, by_label=False, digital_labels=['vsync_2p'],
+                          analog_labels=['photodiode'], analog_downsample_rate=None)
+    # ----------------------------------------------------------------------------
 
+    #----------------------------------------------------------------------------
     # mov = np.random.rand(250,512,512,4)
     # generateAVI(r'C:\JunZhuang\labwork\data\python_temp_folder','tempMov',mov)
-
     #----------------------------------------------------------------------------
     # print int2str(5)
     # print int2str(5,2)
@@ -691,15 +780,15 @@ if __name__=='__main__':
     # ----------------------------------------------------------------------------
 
     # ----------------------------------------------------------------------------
-    ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
-    test_dict = {'a':1, 'b':2, 'c': {'A': 4, 'B': 5}}
-    write_dictionary_to_h5group_recursively(target=ff, source=test_dict, is_overwrite=True)
-    ff.close()
-
-    ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
-    test_dict2 = {'a': {'C': 6, 'D': 7}, 'c': {'A': 4, 'B': 6}, 'd':10, 'e':{'E':11, 'F':'xx'}}
-    write_dictionary_to_h5group_recursively(target=ff, source=test_dict2, is_overwrite=False)
-    ff.close()
+    # ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
+    # test_dict = {'a':1, 'b':2, 'c': {'A': 4, 'B': 5}}
+    # write_dictionary_to_h5group_recursively(target=ff, source=test_dict, is_overwrite=True)
+    # ff.close()
+    #
+    # ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
+    # test_dict2 = {'a': {'C': 6, 'D': 7}, 'c': {'A': 4, 'B': 6}, 'd':10, 'e':{'E':11, 'F':'xx'}}
+    # write_dictionary_to_h5group_recursively(target=ff, source=test_dict2, is_overwrite=False)
+    # ff.close()
     # ----------------------------------------------------------------------------
 
 
