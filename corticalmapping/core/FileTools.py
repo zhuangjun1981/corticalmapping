@@ -724,18 +724,18 @@ def read_sync(f_path, analog_downsample_rate=None, by_label=True, digital_labels
 
     for digital_cn in digital_cns:
         digital_channels[digital_cn] = {'rise': ds.get_rising_edges(line=digital_cn, units='seconds'),
-                                             'fall': ds.get_falling_edges(line=digital_cn, units='seconds')}
+                                        'fall': ds.get_falling_edges(line=digital_cn, units='seconds')}
 
     # read analog channels
-    analog_channels = {}
-
     data_f = h5py.File(f_path, 'r')
     if 'analog_meta' not in data_f.keys():
         data_f.close()
         print ('no analog data found in file: {}.'.format(f_path))
-        return {'digital_channels': digital_channels,
-                'analog_channels': analog_channels}
+        return {'digital_channels': digital_channels}
     else:
+
+        analog_channels = {}
+
         if analog_downsample_rate is None:
             analog_downsample_rate = 1
         analog_fs = ds.analog_meta_data['analog_sample_rate'] / analog_downsample_rate
