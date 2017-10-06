@@ -246,6 +246,51 @@ class RecordedFile(NWB):
                     ch_series_fall.set_comments('digital')
                     ch_series_fall.finalize()
 
+    def add_sync_data(self, f_path, analog_downsample_rate=None, by_label=True, digital_labels=None,
+                      analog_labels=None):
+
+        sync_dict = ft.read_sync(f_path=f_path, analog_downsample_rate=analog_downsample_rate,
+                                 by_label=by_label, digital_labels=digital_labels,
+                                 analog_labels=analog_labels)
+
+        # add digital channel
+        digital_channels = sync_dict['digital_channels']
+        for d_chn, d_ch in digital_channels:
+            if d_chn.isdigit():
+                curr_chn = 'CH_' + ft.int2str(int(d_chn), 3)
+            else:
+                curr_chn = d_chn
+
+            curr_rise = d_ch['rise']
+            ch_series_rise = self.create_timeseries('TimeSeries', curr_chn + '_rise', 'acquisition')
+            ch_series_rise.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+            if len(curr_rise) == 0:
+                curr_rise = np.array([np.nan])
+                ch_series_rise.set_time(curr_rise)
+                ch_series_rise.set_value('num_samples', 0)
+            else:
+                ch_series_rise.set_time(curr_rise)
+            ch_series_rise.set_description('timestamps of rise cross of digital channel: ' + curr_chn)
+            ch_series_rise.set_source('sync program')
+            ch_series_rise.set_comments('digital')
+            ch_series_rise.finalize()
+
+            curr_fall = d_ch['fall']
+            ch_series_fall = self.create_timeseries('TimeSeries', curr_chn + '_fall', 'acquisition')
+            ch_series_fall.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+            if len(curr_fall) == 0:
+                curr_fall = np.array([np.nan])
+                ch_series_fall.set_time(curr_fall)
+                ch_series_fall.set_value('num_samples', 0)
+            else:
+                ch_series_fall.set_time(curr_fall)
+            ch_series_fall.set_description('timestamps of fall cross of digital channel: ' + curr_chn)
+            ch_series_fall.set_source('sync program')
+            ch_series_fall.set_comments('digital')
+            ch_series_fall.finalize()
+
+        #todo finish analog channel
+
     def add_open_ephys_continuous_data(self, folder, prefix):
         """
         add open ephys raw continuous data to self, in acquisition group
@@ -1506,10 +1551,6 @@ class RecordedFile(NWB):
             equ_dset.attrs['description'] = 'the linear equation to transform fft phase into retinotopy visual degrees.' \
                                             'degree = phase * slope + intercept'
             equ_dset.attrs['data_format'] = ['slope', 'intercept']
-
-    def add_sync_data(self):
-        # not for now
-        pass
 
     def add_kilosort_clusters(self, folder, module_name, ind_start=None, ind_end=None):
         """

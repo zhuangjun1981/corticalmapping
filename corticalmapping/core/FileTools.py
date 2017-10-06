@@ -683,11 +683,13 @@ def read_sync(f_path, analog_downsample_rate=None, by_label=True, digital_labels
     :param by_label: bool, if True: only extract channels with string labels
                            if False: extract all saved channels by indices
     :param digital_labels: list of strings,
-                           selected labels for extracting digital channels. Use this only
-                           if you know what you are doing.
+                           selected labels for extracting digital channels. Overwrites
+                           'by_label' for digital channel. Use this only if you know what
+                           you are doing.
     :param analog_labels: list of strings,
-                          selected labels for extracting analog channels. Use this only
-                          if you know what you are doing
+                          selected labels for extracting analog channels. Overwrites
+                          'by_label' for analog channel. Use this only if you know what
+                          you are doing.
     :return: sync_dict: {'digital_channels': {'rise': rise_ts (in seconds),
                                               'fall': fall_ts (in seconds)},
                          'analog_channels': analog_traces,
@@ -717,7 +719,7 @@ def read_sync(f_path, analog_downsample_rate=None, by_label=True, digital_labels
     # print(digital_cns)
 
     for digital_cn in digital_cns:
-        digital_channels[str(digital_cn)] = {'rise': ds.get_rising_edges(line=digital_cn, units='seconds'),
+        digital_channels[digital_cn] = {'rise': ds.get_rising_edges(line=digital_cn, units='seconds'),
                                              'fall': ds.get_falling_edges(line=digital_cn, units='seconds')}
 
     # read analog channels
@@ -735,19 +737,26 @@ def read_sync(f_path, analog_downsample_rate=None, by_label=True, digital_labels
         analog_fs = ds.analog_meta_data['analog_sample_rate'] / analog_downsample_rate
         if analog_labels is not None:
             analog_cns = analog_labels
+            for analog_cn in analog_cns:
+                analog_channels[str(analog_cn)] = ds.get_analog_channel(channel=analog_cn,
+                                                                        downsample=analog_downsample_rate)
         elif by_label:
             analog_cns = [al for al in ds.analog_meta_data['analog_labels'] if al]
+
+            for analog_cn in analog_cns:
+                analog_channels[str(analog_cn)] = ds.get_analog_channel(channel=analog_cn,
+                                                                        downsample=analog_downsample_rate)
         else:
             analog_cns = [al for al in ds.analog_meta_data['analog_labels'] if al]
             if len(analog_cns) > 0:
                 warnings.warn('You choose to extract analog channels by index. But there are '
                               'analog channels with string labels: {}. All the string labels '
                               'will be lost.'.format(str(digital_cns)))
-            analog_cns = range(len(ds.analog_meta_data['analog_channels']))
+            analog_cns = ds.analog_meta_data['analog_channels']
 
-        for analog_cn in analog_cns:
-            analog_channels[str(analog_cn)] = ds.get_analog_channel(channel=analog_cn,
-                                                                    downsample=analog_downsample_rate)
+            for analog_ind, analog_cn in enumerate(analog_cns):
+                analog_channels[str(analog_cn)] = ds.get_analog_channel(channel=analog_ind,
+                                                                        downsample=analog_downsample_rate)
 
         return {'digital_channels': digital_channels,
                 'analog_channels': analog_channels,
@@ -763,6 +772,9 @@ if __name__=='__main__':
     #             r"\log_m255\sync_pkl\m255_presynaptic_pop_vol1_stimDG_bessel170918013215.h5"
     sync_dict = read_sync(f_path=sync_path, by_label=False, digital_labels=['vsync_2p'],
                           analog_labels=['photodiode'], analog_downsample_rate=None)
+    # sync_dict = read_sync(f_path=sync_path, by_label=False, digital_labels=None,
+    #                       analog_labels=None, analog_downsample_rate=None)
+    # print sync_dict
     # ----------------------------------------------------------------------------
 
     #----------------------------------------------------------------------------
