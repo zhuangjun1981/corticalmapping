@@ -254,42 +254,66 @@ class RecordedFile(NWB):
                                  analog_labels=analog_labels)
 
         # add digital channel
-        digital_channels = sync_dict['digital_channels']
-        for d_chn, d_ch in digital_channels:
-            if d_chn.isdigit():
-                curr_chn = 'CH_' + ft.int2str(int(d_chn), 3)
-            else:
-                curr_chn = d_chn
+        if 'digital_channels' in sync_dict.keys():
 
-            curr_rise = d_ch['rise']
-            ch_series_rise = self.create_timeseries('TimeSeries', curr_chn + '_rise', 'acquisition')
-            ch_series_rise.set_data([], unit='', conversion=np.nan, resolution=np.nan)
-            if len(curr_rise) == 0:
-                curr_rise = np.array([np.nan])
-                ch_series_rise.set_time(curr_rise)
-                ch_series_rise.set_value('num_samples', 0)
-            else:
-                ch_series_rise.set_time(curr_rise)
-            ch_series_rise.set_description('timestamps of rise cross of digital channel: ' + curr_chn)
-            ch_series_rise.set_source('sync program')
-            ch_series_rise.set_comments('digital')
-            ch_series_rise.finalize()
+            digital_channels = sync_dict['digital_channels']
 
-            curr_fall = d_ch['fall']
-            ch_series_fall = self.create_timeseries('TimeSeries', curr_chn + '_fall', 'acquisition')
-            ch_series_fall.set_data([], unit='', conversion=np.nan, resolution=np.nan)
-            if len(curr_fall) == 0:
-                curr_fall = np.array([np.nan])
-                ch_series_fall.set_time(curr_fall)
-                ch_series_fall.set_value('num_samples', 0)
-            else:
-                ch_series_fall.set_time(curr_fall)
-            ch_series_fall.set_description('timestamps of fall cross of digital channel: ' + curr_chn)
-            ch_series_fall.set_source('sync program')
-            ch_series_fall.set_comments('digital')
-            ch_series_fall.finalize()
+            # get channel names
+            for d_chn, d_ch in digital_channels.items():
+                if ft.is_integer(d_chn):
+                    curr_chn = 'digital_CH_' + ft.int2str(d_chn, 3)
+                else:
+                    curr_chn = 'digital_' + d_chn
 
-        #todo finish analog channel
+                curr_rise = d_ch['rise']
+                ch_series_rise = self.create_timeseries('TimeSeries', curr_chn + '_rise', 'acquisition')
+                ch_series_rise.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+                if len(curr_rise) == 0:
+                    curr_rise = np.array([np.nan])
+                    ch_series_rise.set_time(curr_rise)
+                    ch_series_rise.set_value('num_samples', 0)
+                else:
+                    ch_series_rise.set_time(curr_rise)
+                ch_series_rise.set_description('timestamps of rise cross of digital channel: ' + curr_chn)
+                ch_series_rise.set_source('sync program')
+                ch_series_rise.set_comments('digital')
+                ch_series_rise.finalize()
+
+                curr_fall = d_ch['fall']
+                ch_series_fall = self.create_timeseries('TimeSeries', curr_chn + '_fall', 'acquisition')
+                ch_series_fall.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+                if len(curr_fall) == 0:
+                    curr_fall = np.array([np.nan])
+                    ch_series_fall.set_time(curr_fall)
+                    ch_series_fall.set_value('num_samples', 0)
+                else:
+                    ch_series_fall.set_time(curr_fall)
+                ch_series_fall.set_description('timestamps of fall cross of digital channel: ' + curr_chn)
+                ch_series_fall.set_source('sync program')
+                ch_series_fall.set_comments('digital')
+                ch_series_fall.finalize()
+
+        # add analog channels
+        if 'analog_channels' in sync_dict.keys():
+
+            analog_channels = sync_dict['analog_channels']
+            analog_fs = sync_dict['analog_sample_rate']
+
+            # get channel names
+            for a_chn, a_ch in analog_channels.items():
+                if ft.is_integer(a_chn):
+                    curr_chn = 'analog_CH_' + ft.int2str(a_chn, 3)
+                else:
+                    curr_chn = 'analog_' + a_chn
+
+                ch_series = self.create_timeseries('TimeSeries', curr_chn, 'acquisition')
+                ch_series.set_data(a_ch, unit='voltage', conversion=1., resolution=1.)
+                ch_series.set_time_by_rate(time_zero=0.0, rate=1. / analog_fs)
+                ch_series.set_value('num_samples', len(a_ch))
+                ch_series.set_comments('continuous')
+                ch_series.set_description('analog channel recorded by sync program')
+                ch_series.set_source('sync program')
+                ch_series.finalize()
 
     def add_open_ephys_continuous_data(self, folder, prefix):
         """

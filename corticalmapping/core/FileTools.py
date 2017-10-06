@@ -5,15 +5,19 @@ import pickle
 import os
 import shutil
 import struct
-import ImageAnalysis as ia
+import corticalmapping.core.ImageAnalysis as ia
 import tifffile as tf
 import h5py
 import sync.dataset as sync_dset
 import warnings
-
+import numbers
 
 try: import cv2
 except ImportError as e: print 'can not import OpenCV. ' + str(e)
+
+
+def is_integer(var):
+    return isinstance(var, numbers.Integral)
 
 
 def saveFile(path,data):
