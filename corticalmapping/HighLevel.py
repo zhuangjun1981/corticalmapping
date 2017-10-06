@@ -145,26 +145,35 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     :return:
     '''
 
-    pdDigitized = np.array(pd)
-    # plt.plot(pdDigitized[0: 100 * 30000])
+    # plt.plot(pd)
+    # plt.title('pd raw')
     # plt.show()
 
-    pdDigitized[pd < digitizeThr] = 0.;
+    pdDigitized = np.array(pd)
+
+    pdDigitized[pd < digitizeThr] = 0.
     pdDigitized[pd >= digitizeThr] = 5.
-    # plt.plot(pdDigitized[0: 100 * 30000])
+
+    # plt.plot(pdDigitized)
+    # plt.title('pd digitized')
     # plt.show()
 
     filterDataPoint = int(filterSize * Fs)
 
     pdFiltered = ni.filters.gaussian_filter(pdDigitized, filterDataPoint)
+
+    # plt.plot(pdFiltered)
+    # plt.title('pd filtered')
+    # plt.show()
+
     pdFilteredDiff = np.diff(pdFiltered)
     pdFilteredDiff = np.hstack(([0], pdFilteredDiff))
     pdSignal = np.multiply(pdDigitized, pdFilteredDiff)
-    # plt.plot(pdSignal[0: 100 * 30000])
+
+    # plt.plot(pdSignal)
+    # plt.title('pd signal')
     # plt.show()
 
-    # plt.plot(pdSignal[:1000000])
-    # plt.show()
     displayOnsets = ta.get_onset_timeStamps(pdSignal, Fs, threshold=segmentThr, onsetType='raising')
 
     trueDisplayOnsets = []

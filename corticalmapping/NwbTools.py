@@ -308,7 +308,7 @@ class RecordedFile(NWB):
 
                 ch_series = self.create_timeseries('TimeSeries', curr_chn, 'acquisition')
                 ch_series.set_data(a_ch, unit='voltage', conversion=1., resolution=1.)
-                ch_series.set_time_by_rate(time_zero=0.0, rate=1. / analog_fs)
+                ch_series.set_time_by_rate(time_zero=0.0, rate=analog_fs)
                 ch_series.set_value('num_samples', len(a_ch))
                 ch_series.set_comments('continuous')
                 ch_series.set_description('analog channel recorded by sync program')
@@ -1054,7 +1054,8 @@ class RecordedFile(NWB):
 
             curr_onset_start_ind = curr_onset_start_ind + curr_onset_arr.shape[0]
 
-    def add_photodiode_onsets(self, digitizeThr=0.9, filterSize=0.01, segmentThr=0.01, smallestInterval=0.03,
+    def add_photodiode_onsets(self, photodiode_ch_path='acquisition/timeseries/photodiode',
+                              digitizeThr=0.9, filterSize=0.01, segmentThr=0.01, smallestInterval=0.03,
                               expected_onsets_number=None):
         """
         intermediate processing step for analysis of visual display. Containing the information about the onset of
@@ -1075,9 +1076,12 @@ class RecordedFile(NWB):
                                        be abort. If None, no such check will be performed.
         :return:
         """
-        fs = self.file_pointer['acquisition/timeseries/photodiode/starting_time'].attrs['rate']
-        pd = self.file_pointer['acquisition/timeseries/photodiode/data'].value * \
-             self.file_pointer['acquisition/timeseries/photodiode/data'].attrs['conversion']
+
+        pd_grp = self.file_pointer[photodiode_ch_path]
+
+        fs = pd_grp['starting_time'].attrs['rate']
+
+        pd = pd_grp['data'].value * pd_grp['data'].attrs['conversion']
 
         pd_onsets = hl.segmentPhotodiodeSignal(pd, digitizeThr=digitizeThr, filterSize=filterSize,
                                                segmentThr=segmentThr, Fs=fs, smallestInterval=smallestInterval)
