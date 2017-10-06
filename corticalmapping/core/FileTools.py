@@ -5,7 +5,7 @@ import pickle
 import os
 import shutil
 import struct
-import corticalmapping.core.ImageAnalysis as ia
+import ImageAnalysis as ia
 import tifffile as tf
 import h5py
 import sync.dataset as sync_dset
