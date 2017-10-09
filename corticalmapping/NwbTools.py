@@ -1114,6 +1114,38 @@ class RecordedFile(NWB):
         pd_ts.set_value('smallest_interval', smallestInterval)
         pd_ts.finalize()
 
+    def add_display_frame_ts_brain_observatory(self, pkl_dict, max_mismatch=0.1, verbose=True, refresh_rate=60.,
+                                               allowed_jitter=0.01):
+
+        ts_pd_fall = self.file_pointer['acquisition/timeseries/digital_photodiode_fall/timestamps'].value
+        ts_display_rise = self.file_pointer['acquisition/timeseries/digital_vsync_visual_rise/timestamps'].value
+
+        ts_display_real, display_lag = hl.align_visual_display_time(pkl_dict=pkl_dict, ts_pd_fall=ts_pd_fall,
+                                                                    ts_display_rise=ts_display_rise,
+                                                                    max_mismatch=max_mismatch,
+                                                                    verbose=verbose, refresh_rate=refresh_rate,
+                                                                    allowed_jitter=allowed_jitter)
+
+        frame_ts = self.create_timeseries('TimeSeries', 'frame_timestamps', modality='other')
+        frame_ts.set_time(ts_display_rise)
+        frame_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+        frame_ts.set_description('onset timestamps of each display frames after correction for display lag. '
+                                 'Used corticalmapping.HighLevel.align_visual_display_time() function to '
+                                 'calculate display lag.')
+        frame_ts.set_path('/processing/VisualDisplay')
+        frame_ts.set_value('max_mismatch_sec', max_mismatch)
+        frame_ts.set_value('refresh_rate_hz', refresh_rate)
+        frame_ts.set_value('allowed_jitter_sec', allowed_jitter)
+        frame_ts.finalize()
+
+        display_lag_ts = self.create_timeseries('TimeSeries', 'display_lag', modality='other')
+        display_lag_ts.set_time(display_lag[:, 0])
+        display_lag_ts.set_data(display_lag[:, 1], unit='second', conversion=np.nan, resolution=np.nan)
+        display_lag_ts.set_path('/processing/VisualDisplay')
+        display_lag_ts.set_value('mean_display_lag_sec', np.mean(display_lag[:, 1]))
+        display_lag_ts.finalize()
+
+
     def plot_spike_waveforms(self, modulen, unitn, is_plot_filtered=False, fig=None, axes_size=(0.2, 0.2), **kwargs):
         """
         plot spike waveforms

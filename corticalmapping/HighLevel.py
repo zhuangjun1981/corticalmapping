@@ -1338,6 +1338,99 @@ def generate_strf_from_continuous(continuous, continuous_ts, squares_ts_grp, roi
     return sca.SpatialTemporalReceptiveField(locations, signs, traces, t, name=roi_n, trace_data_type='df/f')
 
 
+def align_visual_display_time(pkl_dict, ts_pd_fall, ts_display_rise, max_mismatch=0.1, verbose=True,
+                              refresh_rate=60., allowed_jitter=0.01):
+
+    """
+    align photodiode and display frame TTL for Brain Observatory stimulus. During display, sync square
+    alternate between black (duration 1 second) and white (duration 1 second) start with black.
+    The beginning of the display was indicated by a quick flash of [black, white, black, white, black, white],
+    16.6667 ms each. This function will find the frame indices of each onset of black syncsquare during display,
+    and compare them to the corresponding photodiode timestamps (digital), and calculate mean display lag.
+
+    :param pkl_dict: the dictionay of display log
+    :param ts_pd_fall: 1d array, timestameps of photodiode fall
+    :param ts_display_rise: 1d array, timestamps of the rise of display frames
+    :param max_mismatch: positive float, second, If any single display lag is larger than 'max_mismatch'.
+                         a ValueException will raise
+    :param refresh_rate: positive float, monitor refresh rate, Hz
+    :param allowed_jitter: positive float, allowed jitter to evaluate time interval, sec
+    :return: ts_display_real, onset timestamps of each display frames after correction for display lag
+             display_lag: 2d array, with two columns
+                          first column: timestamps of black sync square onsets
+                          second column: display lag at that time
+    """
+
+    if not (len(ts_pd_fall.shape) == 1 and ts_pd_fall.shape[0] > 8):
+        raise ValueError('input "ts_pd_fall" should be a 1d array with more than 8 items.')
+
+    if not len(ts_display_rise.shape) == 1:
+        raise ValueError('input "ts_display_rise" should be a 1d array.')
+
+    if not pkl_dict['items']['sync_square']['colorSequence'][0] == -1:
+        raise ValueError('The visual display did not start with black sync_square!')
+
+    frame_period = pkl_dict['items']['sync_square']['frequency'] * \
+                   len(pkl_dict['items']['sync_square']['colorSequence'])
+
+    ts_onset_frame_ttl = ts_display_rise[::frame_period]
+
+    if verbose:
+        print('Number of onset frame TTLs of black sync square: {}'.format(len(ts_onset_frame_ttl)))
+
+    # detect display start in photodiode signal
+    refresh_rate = float(refresh_rate)
+    for i in range(3, len(ts_pd_fall) - 1):
+        post_interval = ts_pd_fall[i + 1] - ts_pd_fall[i]
+        pre_interval_1 = ts_pd_fall[i] - ts_pd_fall[i - 1]
+        pre_interval_2 = ts_pd_fall[i - 1] - ts_pd_fall[i - 2]
+        pre_interval_3 = ts_pd_fall[i - 2] - ts_pd_fall[i - 3]
+
+        if abs(post_interval - frame_period / refresh_rate) <= allowed_jitter and \
+            abs(pre_interval_1 - 20. / refresh_rate <= allowed_jitter) and \
+            abs(pre_interval_2 - 20. / refresh_rate <= allowed_jitter) and \
+            abs(pre_interval_3 - 20. / refresh_rate <= allowed_jitter):
+                pd_start_ind = i
+                break
+
+        raise ValueError('Did not find photodiode signal marking the start of display.')
+
+    for j in range(0, len(ts_pd_fall) - 1)[::-1]:
+        pre_interval_1 = ts_pd_fall[j] - ts_pd_fall[j - 1]
+        pre_interval_2 = ts_pd_fall[j - 1] - ts_pd_fall[j - 2]
+
+        if abs(pre_interval_1 - 20. / refresh_rate <= allowed_jitter) and \
+            abs(pre_interval_2 - 20. / refresh_rate <= allowed_jitter):
+                pd_end_ind = j - 2
+                break
+
+        raise ValueError('Did not find photodiode signal marking the end of display.')
+
+
+    ts_onset_frame_pd = ts_pd_fall[pd_start_ind : pd_end_ind]
+
+    if verbose:
+        print('Number of onset frame photodiode falls of black sync square: {}'.format(len(ts_onset_frame_pd)))
+
+    if not len(ts_onset_frame_ttl) == len(ts_onset_frame_pd):
+        raise ValueError('Number of onset frame TTLs ({}) and Number of onset frame photodiode signals ({}),'
+                         'do not match!'.format(len(ts_onset_frame_ttl), len(ts_onset_frame_pd)))
+
+    display_lag = ts_onset_frame_pd - ts_onset_frame_ttl
+
+    display_lag_max = np.max(np.abs(display_lag))
+    display_lag_max_ind = np.argmax(np.abs(display_lag))
+    if display_lag_max > max_mismatch:
+        raise ValueError('Display lag number {} : {}(sec) is greater than allow max_mismatch {} sec.'
+                         .foramt(display_lag_max_ind, display_lag_max, max_mismatch))
+
+    display_lag_mean = np.mean(display_lag)
+    if verbose:
+        print('Average display lag: {} sec.'.format(display_lag_mean))
+
+    return ts_display_rise + display_lag_mean, np.array([ts_onset_frame_pd, display_lag]).transpose()
+
+
 if __name__ == '__main__':
     # ===========================================================================
     # dateRecorded = '150930'
