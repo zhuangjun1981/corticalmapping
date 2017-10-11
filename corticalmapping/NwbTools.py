@@ -1132,7 +1132,7 @@ class RecordedFile(NWB):
         frame_ts.set_description('onset timestamps of each display frames after correction for display lag. '
                                  'Used corticalmapping.HighLevel.align_visual_display_time() function to '
                                  'calculate display lag.')
-        frame_ts.set_path('/processing/VisualDisplay')
+        frame_ts.set_path('/processing/visual_display')
         frame_ts.set_value('max_mismatch_sec', max_mismatch)
         frame_ts.set_value('refresh_rate_hz', refresh_rate)
         frame_ts.set_value('allowed_jitter_sec', allowed_jitter)
@@ -1141,10 +1141,9 @@ class RecordedFile(NWB):
         display_lag_ts = self.create_timeseries('TimeSeries', 'display_lag', modality='other')
         display_lag_ts.set_time(display_lag[:, 0])
         display_lag_ts.set_data(display_lag[:, 1], unit='second', conversion=np.nan, resolution=np.nan)
-        display_lag_ts.set_path('/processing/VisualDisplay')
+        display_lag_ts.set_path('/processing/visual_display')
         display_lag_ts.set_value('mean_display_lag_sec', np.mean(display_lag[:, 1]))
         display_lag_ts.finalize()
-
 
     def plot_spike_waveforms(self, modulen, unitn, is_plot_filtered=False, fig=None, axes_size=(0.2, 0.2), **kwargs):
         """
@@ -1215,8 +1214,8 @@ class RecordedFile(NWB):
         :param interface_name: str, interface name of the image series
         :param original_timeseries_path: str, the path to the timeseries of the original images
         :param corrected_file_path: str, the full file system path to the hdf5 file containing the raw image data
-        :param corrected_dataset_path: str, the path within the hdf5 file pointing to the raw data. the object should have at
-                             least 3 attributes: 'conversion', resolution, unit
+        :param corrected_dataset_path: str, the path within the hdf5 file pointing to the motion corrected data.
+                                       the object should have at least 3 attributes: 'conversion', resolution, unit
         :param xy_translation_offsets: 2d array with two columns,
         :param mean_projection: 2d array, mean_projection of corrected image, if None, no dataset will be
                                 created
@@ -1263,6 +1262,90 @@ class RecordedFile(NWB):
 
         if max_projection is not None:
             mc_interf.set_value('max_projection', max_projection)
+
+        mc_interf.finalize()
+        mc_mod.finalize()
+
+    def add_muliple_dataset_to_motion_correction_module(self, input_parameters, module_name='motion_correction'):
+        """
+        add multiple motion corrected datasets into a motion correction module. Designed for adding multiplane
+        imaging datasets at once. The motion correction module will contain multiple interfaces each corresponding
+        to one imaging plane.
+
+        :param input_parameters: list of dictionaries, each dictionary in the list represents one imaging plane
+                                 the dictionary should contain the following keys:
+                                 'field_name': str, name of the hdf5 group for the motion correction information
+                                 'original_timeseries_path': str, the path to the timeseries of the original images
+                                 'corrected_file_path': str, the full file system path to the hdf5 file
+                                                        containing the corrected image data
+                                 'corrected_dataset_path': str, the path within the hdf5 file pointing to the motion
+                                                           corrected data. the object should have at least 3
+                                                           attributes: 'conversion', resolution and unit
+                                 'xy_translation_offsets': 2d array with two columns
+                                 'mean_projection': optional, 2d array, mean_projection of corrected image,
+                                                    if not existing, no dataset will be created
+                                 'max_projection': optional, 2d array, max_projection of corrected image,
+                                                    if not existing, no dataset will be created
+                                 'description': optional, str, if not existing, it will be set as ''
+                                 'comments': optional, str, if not existing, it will be set as ''
+                                 'source': optional, str, if not existing, it will be set as ''
+        :param module_name: str, module name to be created
+        """
+
+        mc_mod = self.create_module(module_name)
+        mc_interf = mc_mod.create_interface('MotionCorrection')
+
+        for mov_dict in input_parameters:
+            if 'description' not in mov_dict.keys():
+                mov_dict['description'] = ''
+
+            if 'comments' not in mov_dict.keys():
+                mov_dict['comment'] = ''
+
+            if 'source' not in mov_dict.keys():
+                mov_dict['source'] = ''
+
+            orig = self.file_pointer[mov_dict['original_timeseries_path']]
+            timestamps = orig['timestamps'].value
+
+            img_file = h5py.File(mov_dict['corrected_file_path'])
+            img_data = img_file[mov_dict['corrected_dataset_path']]
+            if timestamps.shape[0] != img_data.shape[0]:
+                raise ValueError('Number of frames does not equal to the length of timestamps!')
+
+            if mov_dict['xy_translation_offsets'].shape[0] != timestamps.shape[0]:
+                raise ValueError('Number of offsets does not equal to the length of timestamps!')
+
+            corrected = self.create_timeseries(ts_type='ImageSeries', name='corrected', modality='other')
+            corrected.set_data_as_remote_link(mov_dict['corrected_file_path'],
+                                              mov_dict['corrected_dataset_path'])
+            corrected.set_time_as_link(mov_dict['original_timeseries_path'])
+            corrected.set_description(mov_dict['description'])
+            corrected.set_comments(mov_dict['comments'])
+            corrected.set_source(mov_dict['source'])
+
+            if 'mean_projection' in mov_dict.keys() and mov_dict['mean_projection'] is not None:
+                corrected.set_value('mean_projection', mov_dict['mean_projection'])
+
+            if 'max_projection' in mov_dict.keys() and mov_dict['max_projection'] is not None:
+                corrected.set_value('max_projection', mov_dict['max_projection'])
+
+            for value_n in orig.keys():
+                if value_n not in ['image_data_path_within_file', 'image_file_path', 'data', 'timestamps']:
+                    corrected.set_value(value_n, orig[value_n].value)
+
+            xy_translation = self.create_timeseries(ts_type='TimeSeries', name='xy_translation', modality='other')
+            xy_translation.set_data(mov_dict['xy_translation_offsets'], unit='pixel', conversion=np.nan,
+                                    resolution=np.nan)
+            xy_translation.set_time_as_link(mov_dict['original_timeseries_path'])
+            xy_translation.set_value('num_samples', mov_dict['xy_translation_offsets'].shape[0])
+            xy_translation.set_description('Time series of x, y shifts applied to create motion '
+                                           'stabilized image series')
+            xy_translation.set_value('feature_description', ['x_motion', 'y_motion'])
+
+            mc_interf.add_corrected_image(mov_dict['field_name'], orig=mov_dict['original_timeseries_path'],
+                                          xy_translation=xy_translation,
+                                          corrected=corrected)
 
         mc_interf.finalize()
         mc_mod.finalize()
@@ -1508,9 +1591,9 @@ class RecordedFile(NWB):
                                       'stimulus')
         stim.set_time(time_stamps)
         stim.set_data(frame_array, unit='', conversion=np.nan, resolution=np.nan)
-        stim.set_comments('the timestamps of displayed frames (saved in data) are referenced to the start of'
-                          'this particular display, not the master time clock. For more useful timestamps, check'
-                          '/processing for aligned photodiode onset timestamps.')
+        stim.set_comments('the timestamps of displayed frames (saved in data) are referenced to the start of '
+                          'this particular display, not the master time clock. For more useful timestamps, check '
+                          '"/processing" for aligned photodiode onset timestamps.')
         stim.set_description('data formatting: [isDisplay (0:gap; 1:display), '
                              'firstFrameInCycle (first frame in cycle:1, rest display frames: 0), '
                              'spatialFrequency (cyc/deg), '
