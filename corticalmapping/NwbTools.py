@@ -8,6 +8,7 @@ import corticalmapping.HighLevel as hl
 import corticalmapping.core.FileTools as ft
 import corticalmapping.core.TimingAnalysis as ta
 import corticalmapping.core.PlottingTools as pt
+import corticalmapping.CamstimTools as ct
 try:
     from nwb.nwb import NWB
 except ImportError:
@@ -1120,13 +1121,13 @@ class RecordedFile(NWB):
         ts_pd_fall = self.file_pointer['acquisition/timeseries/digital_photodiode_fall/timestamps'].value
         ts_display_rise = self.file_pointer['acquisition/timeseries/digital_vsync_visual_rise/timestamps'].value
 
-        ts_display_real, display_lag = hl.align_visual_display_time(pkl_dict=pkl_dict, ts_pd_fall=ts_pd_fall,
+        ts_display_real, display_lag = c.align_visual_display_time(pkl_dict=pkl_dict, ts_pd_fall=ts_pd_fall,
                                                                     ts_display_rise=ts_display_rise,
                                                                     max_mismatch=max_mismatch,
                                                                     verbose=verbose, refresh_rate=refresh_rate,
                                                                     allowed_jitter=allowed_jitter)
 
-        frame_ts = self.create_timeseries('TimeSeries', 'frame_timestamps', modality='other')
+        frame_ts = self.create_timeseries('TimeSeries', 'FrameTimestamps', modality='other')
         frame_ts.set_time(ts_display_rise)
         frame_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
         frame_ts.set_description('onset timestamps of each display frames after correction for display lag. '
@@ -1138,7 +1139,7 @@ class RecordedFile(NWB):
         frame_ts.set_value('allowed_jitter_sec', allowed_jitter)
         frame_ts.finalize()
 
-        display_lag_ts = self.create_timeseries('TimeSeries', 'display_lag', modality='other')
+        display_lag_ts = self.create_timeseries('TimeSeries', 'DisplayLag', modality='other')
         display_lag_ts.set_time(display_lag[:, 0])
         display_lag_ts.set_data(display_lag[:, 1], unit='second', conversion=np.nan, resolution=np.nan)
         display_lag_ts.set_path('/processing/visual_display')
@@ -1695,30 +1696,31 @@ class RecordedFile(NWB):
                                             'degree = phase * slope + intercept'
             equ_dset.attrs['data_format'] = ['slope', 'intercept']
 
-    def add_kilosort_clusters(self, folder, module_name, ind_start=None, ind_end=None):
-        """
-        expects spike clusters.npy, spike_templates.npy, and spike_times.npy in the folder. use only for the direct outputs of kilosort,
-        that haven't been modified with phy-template.
-        :param folder:
-        :return:
-        """
+    def _add_drifting_grating_stimulation_brain_observatory(self, stim_dict):
 
-        # if ind_start == None:
-        #     ind_start = 0
-        #
-        # if ind_end == None:
-        #     ind_end = self.file_pointer['acquisition/timeseries/photodiode/num_samples'].value
-        #
-        # if ind_start >= ind_end:
-        #     raise ValueError('ind_end should be larger than ind_start.')
-        #
-        # spike_clusters = np.load(os.path.join(folder, 'spike_clusters.npy'))
-        # spike_templates = np.load(os.path.join(folder, 'spike_templates.npy'))
-        # spikes_times = np.load(os.path.join(folder, 'spike_times.npy'))
-        # templates = np.load(os.path.join(folder, 'templates.npy'))
+        dgts = self.create_timeseries(ts_type='TimeSeries',
+                                      name=stim_dict['stim_name'],
+                                      modality='stimulus')
 
-        # not for now
-        pass
+        dgts.set_time(stim_dict['sweep_onset_frames'])
+        dgts.set_data(stim_dict['sweeps'], unit='', conversion=np.nan, resolution=np.nan)
+        dgts.set_source(stim_dict['source'])
+        dgts.set_comments(stim_dict['comments'])
+        dgts.set_description(stim_dict['description'])
+        for fn, fv in stim_dict.items():
+            if fn not in ['sweep_onset_frames', 'sweeps', 'sources', 'comments', 'description']:
+                dgts.set_value(fn, fv)
+        dgts.finalize()
+
+    def add_visual_stimuli_brain_observatory(self, stim_dict_lst):
+
+        for stim_dict in stim_dict_lst:
+            if stim_dict['stim_type'] == 'drifting_grating_brain_observatory':
+                print('adding stimulus: {} to nwb.'.format(stim_dict['stim_name']))
+                self._add_drifting_grating_stimulation_brain_observatory(stim_dict=stim_dict)
+            else:
+                pass
+
 
 
 if __name__ == '__main__':
