@@ -1121,7 +1121,7 @@ class RecordedFile(NWB):
         ts_pd_fall = self.file_pointer['acquisition/timeseries/digital_photodiode_fall/timestamps'].value
         ts_display_rise = self.file_pointer['acquisition/timeseries/digital_vsync_visual_rise/timestamps'].value
 
-        ts_display_real, display_lag = c.align_visual_display_time(pkl_dict=pkl_dict, ts_pd_fall=ts_pd_fall,
+        ts_display_real, display_lag = ct.align_visual_display_time(pkl_dict=pkl_dict, ts_pd_fall=ts_pd_fall,
                                                                     ts_display_rise=ts_display_rise,
                                                                     max_mismatch=max_mismatch,
                                                                     verbose=verbose, refresh_rate=refresh_rate,
@@ -1720,6 +1720,7 @@ class RecordedFile(NWB):
                 self._add_drifting_grating_stimulation_brain_observatory(stim_dict=stim_dict)
             else:
                 pass
+
 
 
 
