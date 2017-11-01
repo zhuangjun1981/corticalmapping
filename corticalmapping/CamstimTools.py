@@ -157,7 +157,6 @@ def get_stim_dict_list(pkl_path):
 
     stim_dict_lst = []
 
-
     for stim_ind, stim in enumerate(stimuli):
         # print('\n'.join(stim.keys()))
         # print stim['stim_path']
@@ -190,7 +189,7 @@ def get_stim_dict_list(pkl_path):
             stim_type = None
 
         if stim_type == 'drifting_grating_brain_observatory':
-            stim_name = '{:02d}_DriftingGratingBrainObservatory'.format(stim_ind)
+            stim_name = '{:03d}_DriftingGratingBrainObservatory'.format(stim_ind)
             print('\n\nextracting stimulus: ' + stim_name)
             stim_dict = get_stim_dict_drifting_grating(input_dict=stim, stim_name=stim_name)
             stim_dict['sweep_onset_frames'] = stim_dict['sweep_onset_frames'] + start_frame_num
@@ -205,7 +204,6 @@ def get_stim_dict_list(pkl_path):
         stim_dict_lst.append(stim_dict)
 
     return stim_dict_lst
-
 
 
 if __name__ == '__main__':
