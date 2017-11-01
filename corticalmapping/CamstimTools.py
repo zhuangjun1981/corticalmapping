@@ -168,9 +168,9 @@ def get_stim_dict_list(pkl_path):
             if stim_str[0:stim_str.index('(')] == 'GratingStim':
 
                 if 'Phase' in stim['sweep_params'].keys():
-                    stim_type = 'static_grating_brain_observatory'
+                    stim_type = 'static_grating_camstim'
                 elif 'TF' in stim['sweep_params'].keys():
-                    stim_type = 'drifting_grating_brain_observatory'
+                    stim_type = 'drifting_grating_camstim'
                 else:
                     print('\n\nunknow stimulus type:')
                     print(stim['stim_path'])
@@ -188,12 +188,12 @@ def get_stim_dict_list(pkl_path):
             print(stim['stim_text'])
             stim_type = None
 
-        if stim_type == 'drifting_grating_brain_observatory':
-            stim_name = '{:03d}_DriftingGratingBrainObservatory'.format(stim_ind)
+        if stim_type == 'drifting_grating_camstim':
+            stim_name = '{:03d}_DriftingGratingCamStim'.format(stim_ind)
             print('\n\nextracting stimulus: ' + stim_name)
             stim_dict = get_stim_dict_drifting_grating(input_dict=stim, stim_name=stim_name)
             stim_dict['sweep_onset_frames'] = stim_dict['sweep_onset_frames'] + start_frame_num
-            stim_dict.update({'stim_type': 'drifting_grating_brain_observatory'})
+            stim_dict.update({'stim_type': 'drifting_grating_camstim'})
         elif stim_type == 'static_gratings':
             print('\n\nskip static_gratings stimulus. stim index: {}.'.format(stim_ind))
             stim_dict = None

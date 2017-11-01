@@ -1115,7 +1115,7 @@ class RecordedFile(NWB):
         pd_ts.set_value('smallest_interval', smallestInterval)
         pd_ts.finalize()
 
-    def add_display_frame_ts_brain_observatory(self, pkl_dict, max_mismatch=0.1, verbose=True, refresh_rate=60.,
+    def add_display_frame_ts_camstim(self, pkl_dict, max_mismatch=0.1, verbose=True, refresh_rate=60.,
                                                allowed_jitter=0.01):
 
         ts_pd_fall = self.file_pointer['acquisition/timeseries/digital_photodiode_fall/timestamps'].value
@@ -1696,7 +1696,7 @@ class RecordedFile(NWB):
                                             'degree = phase * slope + intercept'
             equ_dset.attrs['data_format'] = ['slope', 'intercept']
 
-    def _add_drifting_grating_stimulation_brain_observatory(self, stim_dict):
+    def _add_drifting_grating_stimulation_camstim(self, stim_dict):
 
         dgts = self.create_timeseries(ts_type='TimeSeries',
                                       name=stim_dict['stim_name'],
@@ -1712,16 +1712,14 @@ class RecordedFile(NWB):
                 dgts.set_value(fn, fv)
         dgts.finalize()
 
-    def add_visual_stimuli_brain_observatory(self, stim_dict_lst):
+    def add_visual_stimuli_camstim(self, stim_dict_lst):
 
         for stim_dict in stim_dict_lst:
-            if stim_dict['stim_type'] == 'drifting_grating_brain_observatory':
+            if stim_dict['stim_type'] == 'drifting_grating_camstim':
                 print('adding stimulus: {} to nwb.'.format(stim_dict['stim_name']))
-                self._add_drifting_grating_stimulation_brain_observatory(stim_dict=stim_dict)
+                self._add_drifting_grating_stimulation_camstim(stim_dict=stim_dict)
             else:
                 pass
-
-
 
 
 if __name__ == '__main__':
