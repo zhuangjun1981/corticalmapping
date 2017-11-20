@@ -1737,6 +1737,7 @@ class RetinotopicMappingTrial(object):
                                                               aziPosMapf,
                                                               pixelSize = visualSpacePixelSize,
                                                               closeIter = visualSpaceCloseIter)
+                    visualSpace1 = visualSpace1.astype(np.uint8)
                     AU1 = np.sum(visualSpace1[:]) * (visualSpacePixelSize ** 2)
 
                     #calculate the visual space and unique area of the second patch
@@ -1744,12 +1745,25 @@ class RetinotopicMappingTrial(object):
                                                               aziPosMapf,
                                                               pixelSize = visualSpacePixelSize,
                                                               closeIter = visualSpaceCloseIter)
+                    visualSpace2 = visualSpace2.astype(np.uint8)
                     AU2 = np.sum(visualSpace2[:]) * (visualSpacePixelSize ** 2)
 
                     #calculate the overlapping area of these two patches
                     sumSpace = visualSpace1 + visualSpace2
                     overlapSpace = np.zeros(sumSpace.shape, dtype = np.int)
                     overlapSpace[sumSpace == 2] = 1
+
+                    # f = plt.figure()
+                    # ax1 = f.add_subplot(141)
+                    # ax1.imshow(visualSpace1)
+                    # ax2 = f.add_subplot(142)
+                    # ax2.imshow(visualSpace2)
+                    # ax3 = f.add_subplot(143)
+                    # ax3.imshow(sumSpace)
+                    # ax4 = f.add_subplot(144)
+                    # ax4.imshow(overlapSpace)
+                    # plt.show()
+
                     Aoverlap = np.sum(overlapSpace[:]) * (visualSpacePixelSize ** 2)
 
                     #calculate the ratio of overlaping area to the unique area of each patch
