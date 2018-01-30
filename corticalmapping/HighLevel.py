@@ -1253,7 +1253,8 @@ def generate_strf_from_timestamps(unit_ts, squares_ts_grp, unit_n='', sta_start=
 
     :param unit_ts: 1d array, spike timestamps, should be monotonic increasing
     :param squares_ts_grp: h5py group object, containing the timestamps of each square displayed, this should be the
-                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli() function
+                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli_corticalmapping()
+                         function
     :param unit_n: str, name of the unit
     :param sta_start: float, stimulus triggered average start time relative to stimulus onset
     :param sta_end: float, stimulus triggered average end time relative to stimulus onset
@@ -1296,7 +1297,8 @@ def generate_strf_from_continuous(continuous, continuous_ts, squares_ts_grp, roi
     :param continuous_ts: 1d array, timestamp series for the continuous, monotonically increasing, should have same
                           size as continuous
     :param squares_ts_grp: h5py group object, containing the timestamps of each square displayed, this should be the
-                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli() function
+                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli_corticalmapping()
+                         function
     :param roi_n: str, name of the roi
     :param sta_start: float, stimulus triggered average start time relative to stimulus onset
     :param sta_end: float, stimulus triggered average end time relative to stimulus onset
