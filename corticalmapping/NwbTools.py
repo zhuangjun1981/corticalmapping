@@ -1171,15 +1171,15 @@ class RecordedFile(NWB):
             elif stim_n[-32:] == 'FlashingCircleRetinotopicMapping':
                 self._add_flashing_circle_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-39:] == 'DriftingGratingCircleRetinotopicMapping':
-                self._add_drifting_grating_circle_retinotopic_mapping()
+                self._add_drifting_grating_circle_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-37:] == 'StaticGratingCircleRetinotopicMapping':
-                self._add_static_grating_circle_retinotopic_mapping()
+                self._add_static_grating_circle_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-29:] == 'SparseNoiseRetinotopicMapping':
-                self._add_sparse_noise_retinotopic_mapping()
+                self._add_sparse_noise_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-36:] == 'LocallySparseNoiseRetinotopicMapping':
-                self._add_locally_sparse_noise_retinotopic_mapping()
-            elif stim_n[-29:] == 'StaticImageRetinotopicMapping':
-                self._add_static_image_retinotopic_mapping()
+                self._add_locally_sparse_noise_retinotopic_mapping(curr_stim_dict)
+            elif stim_n[-30:] == 'StaticImagesRetinotopicMapping':
+                self._add_static_image_retinotopic_mapping(curr_stim_dict)
             else:
                 raise ValueError('Do not understand stimulus name: {}.'.format(stim_n))
 
