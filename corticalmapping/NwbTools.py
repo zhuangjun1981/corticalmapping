@@ -9,6 +9,7 @@ import corticalmapping.core.FileTools as ft
 import corticalmapping.core.TimingAnalysis as ta
 import corticalmapping.core.PlottingTools as pt
 import corticalmapping.CamstimTools as ct
+
 try:
     from nwb.nwb import NWB
 except ImportError:
@@ -16,47 +17,48 @@ except ImportError:
           'http://stimash.corp.alleninstitute.org/projects/INF/repos/ainwb/browse'
 
 DEFAULT_GENERAL = {
-                   'session_id': '',
-                   'experimenter': '',
-                   'institution': 'Allen Institute for Brain Science',
-                   # 'lab': '',
-                   # 'related_publications': '',
-                   'notes': '',
-                   'experiment_description': '',
-                   # 'data_collection': '',
-                   'stimulus': '',
-                   # 'pharmacology': '',
-                   # 'surgery': '',
-                   # 'protocol': '',
-                   'subject': {
-                               'subject_id': '',
-                               # 'description': '',
-                               'species': 'Mus musculus',
-                               'genotype': '',
-                               'sex': '',
-                               'age': '',
-                               # 'weight': '',
-                               },
-                   # 'virus': '',
-                   # 'slices': '',
-                   'extracellular_ephys': {
-                                           'electrode_map': '',
-                                           'sampling_rate': 30000.,
-                                           # 'electrode_group': [],
-                                           # 'impedance': [],
-                                           # 'filtering': []
-                                           },
-                   'optophysiology': {
-                                      # 'indicator': '',
-                                      # 'excitation_lambda': '',
-                                      # 'imaging_rate': '',
-                                      # 'location': '',
-                                      # 'device': '',
-                                      },
-                   # 'optogenetics': {},
-                   'devices': {}
-                   }
+    'session_id': '',
+    'experimenter': '',
+    'institution': 'Allen Institute for Brain Science',
+    # 'lab': '',
+    # 'related_publications': '',
+    'notes': '',
+    'experiment_description': '',
+    # 'data_collection': '',
+    'stimulus': '',
+    # 'pharmacology': '',
+    # 'surgery': '',
+    # 'protocol': '',
+    'subject': {
+        'subject_id': '',
+        # 'description': '',
+        'species': 'Mus musculus',
+        'genotype': '',
+        'sex': '',
+        'age': '',
+        # 'weight': '',
+    },
+    # 'virus': '',
+    # 'slices': '',
+    'extracellular_ephys': {
+        'electrode_map': '',
+        'sampling_rate': 30000.,
+        # 'electrode_group': [],
+        # 'impedance': [],
+        # 'filtering': []
+    },
+    'optophysiology': {
+        # 'indicator': '',
+        # 'excitation_lambda': '',
+        # 'imaging_rate': '',
+        # 'location': '',
+        # 'device': '',
+    },
+    # 'optogenetics': {},
+    'devices': {}
+}
 SPIKE_WAVEFORM_TIMEWINDOW = (-0.002, 0.002)
+
 
 def plot_waveforms(waveforms, ch_locations=None, stds=None, waveforms_filtered=None, stds_filtered=None,
                    f=None, ch_ns=None, axes_size=(0.2, 0.2), **kwargs):
@@ -120,7 +122,7 @@ def plot_waveforms(waveforms, ch_locations=None, stds=None, waveforms_filtered=N
         if stds is not None:
             curr_std = stds[:, j]
             ax.fill_between(range(waveforms.shape[0]), curr_wf - curr_std, curr_wf + curr_std,
-                            color='#8888ff',alpha=0.5, edgecolor='none')
+                            color='#8888ff', alpha=0.5, edgecolor='none')
         ax.plot(curr_wf, '-', color='#3333ff', label='unfiltered', **kwargs)
 
         # plot title
@@ -167,85 +169,6 @@ class RecordedFile(NWB):
         """
         slf = self.file_pointer
         ft.write_dictionary_to_h5group_recursively(target=slf['general'], source=general, is_overwrite=is_overwrite)
-
-    def add_open_ephys_data(self, folder, prefix, digital_channels=()):
-        """
-        add open ephys raw data to self, in acquisition group, less useful, because the digital events needs to be
-        processed before added in
-        :param folder: str, the folder contains open ephys raw data
-        :param prefix: str, prefix of open ephys files
-        :param digital_channels: list of str, digital channel
-        :return:
-        """
-        output = oew.pack_folder_for_nwb(folder=folder, prefix=prefix, digital_channels=digital_channels)
-
-        for key, value in output.items():
-
-            if 'CH' in key:  # analog channel for electrode recording
-                ch_ind = int(key[key.find('CH') + 2:])
-                ch_name = 'ch_' + ft.int2str(ch_ind, 4)
-                ch_trace = value['trace']
-                ch_series = self.create_timeseries('ElectricalSeries', ch_name, 'acquisition')
-                ch_series.set_data(ch_trace, unit='bit', conversion=float(value['header']['bitVolts']),
-                                   resolution=1.)
-                ch_series.set_time_by_rate(time_zero=0.0,  # value['header']['start_time'],
-                                           rate=float(value['header']['sampleRate']))
-                ch_series.set_value('electrode_idx', ch_ind)
-                ch_series.set_value('num_samples', len(ch_trace))
-                ch_series.set_comments('continuous')
-                ch_series.set_description('extracellular continuous voltage recording from tetrode')
-                ch_series.set_source('open ephys')
-                ch_series.finalize()
-
-            elif key != 'events':  # other continuous channels
-                ch_name = key[len(prefix) + 1:]
-                ch_trace = value['trace']
-                ch_series = self.create_timeseries('AbstractFeatureSeries', ch_name, 'acquisition')
-                ch_series.set_data(ch_trace, unit='bit', conversion=float(value['header']['bitVolts']),
-                                   resolution=1.)
-                ch_series.set_time_by_rate(time_zero=0.0,  # value['header']['start_time'],
-                                           rate=float(value['header']['sampleRate']))
-                ch_series.set_value('features', ch_name)
-                ch_series.set_value('feature_units', 'bit')
-                ch_series.set_value('num_samples', len(ch_trace))
-                ch_series.set_value('help', 'continuously recorded analog channels with same sampling times as '
-                                            'of electrode recordings')
-                ch_series.set_comments('continuous')
-                ch_series.set_description('continuous voltage recording from IO board')
-                ch_series.set_source('open ephys')
-                ch_series.finalize()
-
-            else:  # digital events
-
-                for key2, value2 in value.items():
-
-                    ch_rise_ts = value2['rise']
-                    ch_series_rise = self.create_timeseries('TimeSeries', key2+'_rise', 'acquisition')
-                    ch_series_rise.set_data([], unit='', conversion=np.nan, resolution=np.nan)
-                    if len(ch_rise_ts) == 0:
-                        ch_rise_ts = np.array([np.nan])
-                        ch_series_rise.set_time(ch_rise_ts)
-                        ch_series_rise.set_value('num_samples', 0)
-                    else:
-                        ch_series_rise.set_time(ch_rise_ts)
-                    ch_series_rise.set_description('timestamps of rise cross of digital channel: ' + key2)
-                    ch_series_rise.set_source('open ephys')
-                    ch_series_rise.set_comments('digital')
-                    ch_series_rise.finalize()
-
-                    ch_fall_ts = value2['fall']
-                    ch_series_fall = self.create_timeseries('TimeSeries', key2 + '_fall', 'acquisition')
-                    ch_series_fall.set_data([], unit='', conversion=np.nan, resolution=np.nan)
-                    if len(ch_fall_ts) == 0:
-                        ch_fall_ts = np.array([np.nan])
-                        ch_series_fall.set_time(ch_fall_ts)
-                        ch_series_fall.set_value('num_samples', 0)
-                    else:
-                        ch_series_fall.set_time(ch_fall_ts)
-                    ch_series_fall.set_description('timestamps of fall cross of digital channel: ' + key2)
-                    ch_series_fall.set_source('open ephys')
-                    ch_series_fall.set_comments('digital')
-                    ch_series_fall.finalize()
 
     def add_sync_data(self, f_path, analog_downsample_rate=None, by_label=True, digital_labels=None,
                       analog_labels=None):
@@ -316,6 +239,204 @@ class RecordedFile(NWB):
                 ch_series.set_source('sync program')
                 ch_series.finalize()
 
+    def add_acquisition_image(self, name, img, format='array', description=''):
+        """
+        add arbitrarily recorded image into acquisition group, mostly surface vasculature image
+        :param name:
+        :param img:
+        :param format:
+        :param description:
+        :return:
+        """
+        img_dset = self.file_pointer['acquisition/images'].create_dataset(name, data=img)
+        img_dset.attrs['format'] = format
+        img_dset.attrs['description'] = description
+
+    def get_analog_data(self, ch_n):
+        """
+        :param ch_n: string, analog channel name
+        :return: 1-d array, analog data, data * conversion
+                 1-d array, time stamps
+        """
+        grp = self.file_pointer['acquisition/timeseries'][ch_n]
+        data = grp['data'].value
+        if not np.isnan(grp['data'].attrs['conversion']):
+            data = data.astype(np.float32) * grp['data'].attrs['conversion']
+        if 'timestamps' in grp.keys():
+            t = grp['timestamps']
+        elif 'starting_time' in grp.keys():
+            fs = self.file_pointer['general/extracellular_ephys/sampling_rate'].value
+            sample_num = grp['num_samples'].value
+            t = np.arange(sample_num) / fs + grp['starting_time'].value
+        else:
+            raise ValueError('can not find timing information of channel:' + ch_n)
+        return data, t
+
+    def _check_display_order(self, display_order=None):
+        """
+        check display order make sure each presentation has a unique position, and move from increment order.
+        also check the given display_order is of the next number
+        """
+        stimuli = self.file_pointer['stimulus/presentation'].keys()
+
+        print('\nExisting visual stimuli:')
+        print('\n'.join(stimuli))
+
+        stimuli = [int(s[0:s.find('_')]) for s in stimuli]
+        stimuli.sort()
+        if stimuli != range(len(stimuli)):
+            raise ValueError('display order is not incremental.')
+
+        if display_order is not None:
+
+            if display_order != len(stimuli):
+                raise ValueError('input display order not the next display.')
+
+    # ===========================photodiode related=====================================================================
+    def add_photodiode_onsets(self, photodiode_ch_path='acquisition/timeseries/photodiode',
+                              digitizeThr=0.9, filterSize=0.01, segmentThr=0.01, smallestInterval=0.03,
+                              expected_onsets_number=None):
+        """
+        intermediate processing step for analysis of visual display. Containing the information about the onset of
+        photodiode signal. Timestamps are extracted from photodiode signal, should be aligned to the master clock.
+        extraction is done by corticalmapping.HighLevel.segmentPhotodiodeSignal() function. The raw signal
+        was first digitized by the digitize_threshold, then filtered by a gaussian fileter with filter_size. Then
+        the derivative of the filtered signal was calculated by numpy.diff. The derivative signal was then timed
+        with the digitized signal. Then the segmentation_threshold was used to detect rising edge of the resulting
+        signal. Any onset with interval from its previous onset smaller than smallest_interval will be discarded.
+        the resulting timestamps of photodiode onsets will be saved in 'processing/photodiode_onsets' timeseries
+
+        :param digitizeThr: float
+        :param filterSize: float
+        :param segmentThr: float
+        :param smallestInterval: float
+        :param expected_onsets_number: int, expected number of photodiode onsets, may extract from visual display
+                                       log. if extracted onset number does not match this number, the process will
+                                       be abort. If None, no such check will be performed.
+        :return:
+        """
+
+        pd_grp = self.file_pointer[photodiode_ch_path]
+
+        fs = pd_grp['starting_time'].attrs['rate']
+
+        pd = pd_grp['data'].value * pd_grp['data'].attrs['conversion']
+
+        pd_onsets = hl.segmentPhotodiodeSignal(pd, digitizeThr=digitizeThr, filterSize=filterSize,
+                                               segmentThr=segmentThr, Fs=fs, smallestInterval=smallestInterval)
+
+        if pd_onsets.shape[0] == 0:
+            return
+
+        if expected_onsets_number is not None:
+            if len(pd_onsets) != expected_onsets_number:
+                raise ValueError('The number of photodiode onsets (' + str(len(pd_onsets)) + ') and the expected '
+                                                                                             'number of sweeps ' + str(
+                    expected_onsets_number) + ' do not match. Abort.')
+
+        pd_ts = self.create_timeseries('TimeSeries', 'photodiode_onsets', modality='other')
+        pd_ts.set_time(pd_onsets)
+        pd_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+        pd_ts.set_description('intermediate processing step for analysis of visual display. '
+                              'Containing the information about the onset of photodiode signal. Timestamps '
+                              'are extracted from photodiode signal, should be aligned to the master clock.'
+                              'extraction is done by corticalmapping.HighLevel.segmentPhotodiodeSignal()'
+                              'function. The raw signal was first digitized by the digitize_threshold, then '
+                              'filtered by a gaussian fileter with filter_size. Then the derivative of the filtered '
+                              'signal was calculated by numpy.diff. The derivative signal was then timed with the '
+                              'digitized signal. Then the segmentation_threshold was used to detect rising edge of '
+                              'the resulting signal. Any onset with interval from its previous onset smaller than '
+                              'smallest_interval will be discarded.')
+        pd_ts.set_path('/processing/PhotodiodeOnsets')
+        pd_ts.set_value('digitize_threshold', digitizeThr)
+        pd_ts.set_value('fileter_size', filterSize)
+        pd_ts.set_value('segmentation_threshold', segmentThr)
+        pd_ts.set_value('smallest_interval', smallestInterval)
+        pd_ts.finalize()
+
+    # ===========================photodiode related=====================================================================
+
+
+    # ===========================ephys related==========================================================================
+    def add_open_ephys_data(self, folder, prefix, digital_channels=()):
+        """
+        add open ephys raw data to self, in acquisition group, less useful, because the digital events needs to be
+        processed before added in
+        :param folder: str, the folder contains open ephys raw data
+        :param prefix: str, prefix of open ephys files
+        :param digital_channels: list of str, digital channel
+        :return:
+        """
+        output = oew.pack_folder_for_nwb(folder=folder, prefix=prefix, digital_channels=digital_channels)
+
+        for key, value in output.items():
+
+            if 'CH' in key:  # analog channel for electrode recording
+                ch_ind = int(key[key.find('CH') + 2:])
+                ch_name = 'ch_' + ft.int2str(ch_ind, 4)
+                ch_trace = value['trace']
+                ch_series = self.create_timeseries('ElectricalSeries', ch_name, 'acquisition')
+                ch_series.set_data(ch_trace, unit='bit', conversion=float(value['header']['bitVolts']),
+                                   resolution=1.)
+                ch_series.set_time_by_rate(time_zero=0.0,  # value['header']['start_time'],
+                                           rate=float(value['header']['sampleRate']))
+                ch_series.set_value('electrode_idx', ch_ind)
+                ch_series.set_value('num_samples', len(ch_trace))
+                ch_series.set_comments('continuous')
+                ch_series.set_description('extracellular continuous voltage recording from tetrode')
+                ch_series.set_source('open ephys')
+                ch_series.finalize()
+
+            elif key != 'events':  # other continuous channels
+                ch_name = key[len(prefix) + 1:]
+                ch_trace = value['trace']
+                ch_series = self.create_timeseries('AbstractFeatureSeries', ch_name, 'acquisition')
+                ch_series.set_data(ch_trace, unit='bit', conversion=float(value['header']['bitVolts']),
+                                   resolution=1.)
+                ch_series.set_time_by_rate(time_zero=0.0,  # value['header']['start_time'],
+                                           rate=float(value['header']['sampleRate']))
+                ch_series.set_value('features', ch_name)
+                ch_series.set_value('feature_units', 'bit')
+                ch_series.set_value('num_samples', len(ch_trace))
+                ch_series.set_value('help', 'continuously recorded analog channels with same sampling times as '
+                                            'of electrode recordings')
+                ch_series.set_comments('continuous')
+                ch_series.set_description('continuous voltage recording from IO board')
+                ch_series.set_source('open ephys')
+                ch_series.finalize()
+
+            else:  # digital events
+
+                for key2, value2 in value.items():
+
+                    ch_rise_ts = value2['rise']
+                    ch_series_rise = self.create_timeseries('TimeSeries', key2 + '_rise', 'acquisition')
+                    ch_series_rise.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+                    if len(ch_rise_ts) == 0:
+                        ch_rise_ts = np.array([np.nan])
+                        ch_series_rise.set_time(ch_rise_ts)
+                        ch_series_rise.set_value('num_samples', 0)
+                    else:
+                        ch_series_rise.set_time(ch_rise_ts)
+                    ch_series_rise.set_description('timestamps of rise cross of digital channel: ' + key2)
+                    ch_series_rise.set_source('open ephys')
+                    ch_series_rise.set_comments('digital')
+                    ch_series_rise.finalize()
+
+                    ch_fall_ts = value2['fall']
+                    ch_series_fall = self.create_timeseries('TimeSeries', key2 + '_fall', 'acquisition')
+                    ch_series_fall.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+                    if len(ch_fall_ts) == 0:
+                        ch_fall_ts = np.array([np.nan])
+                        ch_series_fall.set_time(ch_fall_ts)
+                        ch_series_fall.set_value('num_samples', 0)
+                    else:
+                        ch_series_fall.set_time(ch_fall_ts)
+                    ch_series_fall.set_description('timestamps of fall cross of digital channel: ' + key2)
+                    ch_series_fall.set_source('open ephys')
+                    ch_series_fall.set_comments('digital')
+                    ch_series_fall.finalize()
+
     def add_open_ephys_continuous_data(self, folder, prefix):
         """
         add open ephys raw continuous data to self, in acquisition group
@@ -361,53 +482,6 @@ class RecordedFile(NWB):
                 ch_series.set_description('continuous voltage recording from IO board')
                 ch_series.set_source('open ephys')
                 ch_series.finalize()
-
-    def add_acquisition_image(self, name, img, format='array', description=''):
-        """
-        add arbitrarily recorded image into acquisition group, mostly surface vasculature image
-        :param name:
-        :param img:
-        :param format:
-        :param description:
-        :return:
-        """
-        img_dset = self.file_pointer['acquisition/images'].create_dataset(name, data=img)
-        img_dset.attrs['format'] = format
-        img_dset.attrs['description'] = description
-
-    def add_acquired_image_series_as_remote_link(self, name, image_file_path, dataset_path, timestamps,
-                                                 description='', comments='', data_format='zyx', pixel_size=np.nan,
-                                                 pixel_size_unit=''):
-        """
-        add a required image series in to acquisition field as a link to an external hdf5 file.
-        :param name: str, name of the image series
-        :param image_file_path: str, the full file system path to the hdf5 file containing the raw image data
-        :param dataset_path: str, the path within the hdf5 file pointing to the raw data. the object should have at
-                             least 3 attributes: 'conversion', resolution, unit
-        :param timestamps: 1-d array, the length of this array should be the same as number of frames in the image data
-        :param data_format: str, required field for ImageSeries object
-        :param pixel_size: array, size of pixel
-        :param pixel_size_unit: str, unit of pixel size
-        :return:
-        """
-
-        img_file = h5py.File(image_file_path)
-        img_data = img_file[dataset_path]
-        if timestamps.shape[0] != img_data.shape[0]:
-            raise ValueError('Number of frames does not equal to the length of timestamps!')
-        img_series = self.create_timeseries(ts_type='ImageSeries', name=name, modality='acquisition')
-        img_series.set_data_as_remote_link(image_file_path, dataset_path)
-        img_series.set_time(timestamps)
-        img_series.set_description(description)
-        img_series.set_comments(comments)
-        img_series.set_value('bits_per_pixel', img_data.dtype.itemsize * 8)
-        img_series.set_value('format', data_format)
-        img_series.set_value('dimension', img_data.shape)
-        img_series.set_value('image_file_path', image_file_path)
-        img_series.set_value('image_data_path_within_file', dataset_path)
-        img_series.set_value('pixel_size', pixel_size)
-        img_series.set_value('pixel_size_unit', pixel_size_unit)
-        img_series.finalize()
 
     def add_phy_template_clusters(self, folder, module_name, ind_start=None, ind_end=None,
                                   is_add_artificial_unit=False, artificial_unit_firing_rate=2.,
@@ -583,9 +657,10 @@ class RecordedFile(NWB):
         unit_times.finalize()
         mod.finalize()
 
-    def add_external_LFP(self,  traces, fs=30000., module_name=None, notch_base=60., notch_bandwidth=1., notch_harmonics=4,
+    def add_external_LFP(self, traces, fs=30000., module_name=None, notch_base=60., notch_bandwidth=1.,
+                         notch_harmonics=4,
                          notch_order=2, lowpass_cutoff=300., lowpass_order=5, resolution=0, conversion=0, unit='',
-                        comments='', source=''):
+                         comments='', source=''):
         """
         add LFP of raw arbitrary electrical traces into LFP module into /procession field. the trace will be filtered
         by corticalmapping.HighLevel.get_lfp() function. All filters are butterworth digital filters
@@ -606,12 +681,12 @@ class RecordedFile(NWB):
         :param source: str, interface source
         """
 
-        if module_name is None or module_name=='':
+        if module_name is None or module_name == '':
             module_name = 'external_LFP'
 
         lfp = {}
         for tn, trace in traces.items():
-            curr_lfp = hl.get_lfp(trace,fs=fs, notch_base=notch_base, notch_bandwidth=notch_bandwidth,
+            curr_lfp = hl.get_lfp(trace, fs=fs, notch_base=notch_base, notch_bandwidth=notch_bandwidth,
                                   notch_harmonics=notch_harmonics, notch_order=notch_order,
                                   lowpass_cutoff=lowpass_cutoff, lowpass_order=lowpass_order)
             lfp.update({tn: curr_lfp})
@@ -620,9 +695,9 @@ class RecordedFile(NWB):
         lfp_mod.set_description('LFP from external traces')
         lfp_interface = lfp_mod.create_interface('LFP')
         lfp_interface.set_value('description', 'LFP of raw arbitrary electrical traces. The traces were filtered by '
-                                'corticalmapping.HighLevel.get_lfp() function. First, the powerline contamination at '
-                                'multiplt harmonics were filtered out by a notch filter. Then the resulting traces were'
-                                ' filtered by a lowpass filter. All filters are butterworth digital filters')
+                                               'corticalmapping.HighLevel.get_lfp() function. First, the powerline contamination at '
+                                               'multiplt harmonics were filtered out by a notch filter. Then the resulting traces were'
+                                               ' filtered by a lowpass filter. All filters are butterworth digital filters')
         lfp_interface.set_value('comments', comments)
         lfp_interface.set_value('notch_base', notch_base)
         lfp_interface.set_value('notch_bandwidth', notch_bandwidth)
@@ -663,7 +738,7 @@ class RecordedFile(NWB):
         :param source: str, interface source
         """
 
-        if module_name is None or module_name=='':
+        if module_name is None or module_name == '':
             module_name = 'LFP'
 
         lfp_mod = self.create_module(module_name)
@@ -684,7 +759,6 @@ class RecordedFile(NWB):
         lfp_interface.set_source(source)
 
         for channel in continuous_channels:
-
             print '\n', channel, ': start adding LFP ...'
 
             trace = self.file_pointer['acquisition/timeseries'][channel]['data'].value
@@ -714,6 +788,465 @@ class RecordedFile(NWB):
 
         lfp_mod.finalize()
 
+    def plot_spike_waveforms(self, modulen, unitn, is_plot_filtered=False, fig=None, axes_size=(0.2, 0.2), **kwargs):
+        """
+        plot spike waveforms
+
+        :param modulen: str, name of the module containing ephys recordings
+        :param unitn: str, name of ephys unit, should be in '/processing/ephys_units/UnitTimes'
+        :param is_plot_filtered: bool, plot unfiltered waveforms or not
+        :param channel_names: list of strs, channel names in continuous recordings, should be in '/acquisition/timeseries'
+        :param fig: matplotlib figure object
+        :param t_range: tuple of two floats, time range to plot along spike time stamps
+        :param kwargs: inputs to matplotlib.axes.plot() function
+        :return: fig
+        """
+        if modulen not in self.file_pointer['processing'].keys():
+            raise LookupError('Can not find module for ephys recording: ' + modulen + '.')
+
+        if unitn not in self.file_pointer['processing'][modulen]['UnitTimes'].keys():
+            raise LookupError('Can not find ephys unit: ' + unitn + '.')
+
+        ch_ns = self._get_channel_names()
+
+        unit_grp = self.file_pointer['processing'][modulen]['UnitTimes'][unitn]
+        waveforms = unit_grp['template'].value
+
+        if 'template_std' in unit_grp.keys():
+            stds = unit_grp['template_std'].value
+        else:
+            stds = None
+
+        if is_plot_filtered:
+            if 'template_filtered' in unit_grp.keys():
+                waveforms_f = unit_grp['template_filtered'].value
+                if 'template_std_filtered' in unit_grp.keys():
+                    stds_f = unit_grp['template_std_filtered'].value
+                else:
+                    stds_f = None
+            else:
+                print('can not find unfiltered spike waveforms for unit: ' + unitn)
+                waveforms_f = None
+                stds_f = None
+        else:
+            waveforms_f = None
+            stds_f = None
+
+        if 'channel_xpos' in self.file_pointer['processing'][modulen].keys():
+            ch_xpos = self.file_pointer['processing'][modulen]['channel_xpos']
+            ch_ypos = self.file_pointer['processing'][modulen]['channel_ypos']
+            ch_locations = zip(ch_xpos, ch_ypos)
+        else:
+            ch_locations = None
+
+        fig = plot_waveforms(waveforms, ch_locations=ch_locations, stds=stds, waveforms_filtered=waveforms_f,
+                             stds_filtered=stds_f, f=fig, ch_ns=ch_ns, axes_size=axes_size, **kwargs)
+
+        fig.suptitle(self.file_pointer['identifier'].value + ' : ' + unitn)
+
+        return fig
+
+    def generate_dat_file_for_kilosort(self, output_folder, output_name, ch_ns, is_filtered=True, cutoff_f_low=300.,
+                                       cutoff_f_high=6000.):
+        """
+        generate .dat file for kilolsort: "https://github.com/cortex-lab/KiloSort", it is binary raw code, with
+        structure: ch0_t0, ch1_t0, ch2_t0, ...., chn_t0, ch0_t1, ch1_t1, ch2_t1, ..., chn_t1, ..., ch0_tm, ch1_tm,
+        ch2_tm, ..., chn_tm
+
+        :param output_folder: str, path to output directory
+        :param output_name: str, output file name, an extension of '.dat' will be automatically added.
+        :param ch_ns: list of strings, name of included analog channels
+        :param is_filtered: bool, if Ture, another .dat file with same size will be generated in the output folder.
+                            this file will contain temporally filtered data (filter done by
+                            corticalmapping.core.TimingAnalysis.butter_... functions). '_filtered' will be attached
+                            to the filtered file name.
+        :param cutoff_f_low: float, low cutoff frequency, Hz. if None, it will be low-pass
+        :param cutoff_f_high: float, high cutoff frequency, Hz, if None, it will be high-pass
+        :return: None
+        """
+
+        save_path = os.path.join(output_folder, output_name + '.dat')
+        if os.path.isfile(save_path):
+            raise IOError('Output file already exists.')
+
+        data_lst = []
+        for ch_n in ch_ns:
+            data_lst.append(self.file_pointer['acquisition/timeseries'][ch_n]['data'].value)
+
+        dtype = data_lst[0].dtype
+        data = np.array(data_lst, dtype=dtype).flatten(order='F')
+        data.tofile(save_path)
+
+        if is_filtered:
+
+            if cutoff_f_low is None and cutoff_f_high is None:
+                print ('both low cutoff frequency and high cutoff frequency are None. Do nothing.')
+                return
+
+            save_path_f = os.path.join(output_folder, output_name + '_filtered.dat')
+            if os.path.isfile(save_path_f):
+                raise IOError('Output file for filtered data already existes.')
+
+            fs = self.file_pointer['general/extracellular_ephys/sampling_rate'].value
+            data_lst_f = []
+            for data_r in data_lst:
+                if cutoff_f_high is None:
+                    data_lst_f.append(ta.butter_lowpass(data_r, fs=fs, cutoff=cutoff_f_low).astype(dtype))
+                elif cutoff_f_low is None:
+                    data_lst_f.append(ta.butter_highpass(data_r, fs=fs, cutoff=cutoff_f_high).astype(dtype))
+                else:
+                    data_lst_f.append(ta.butter_bandpass(data_r,
+                                                         fs=fs,
+                                                         cutoffs=(cutoff_f_low, cutoff_f_high)).astype(dtype))
+            data_f = np.array(data_lst_f, dtype=dtype).flatten(order='F')
+            data_f.tofile(save_path_f)
+
+    def _get_channel_names(self):
+        """
+        :return: sorted list of channel names, each channel name should have prefix 'ch_'
+        """
+        analog_chs = self.file_pointer['acquisition/timeseries'].keys()
+        channel_ns = [cn for cn in analog_chs if cn[0:3] == 'ch_']
+        channel_ns.sort()
+        return channel_ns
+
+    # ===========================ephys related==========================================================================
+
+
+    # ===========================2p movie related=======================================================================
+    def add_acquired_image_series_as_remote_link(self, name, image_file_path, dataset_path, timestamps,
+                                                 description='', comments='', data_format='zyx', pixel_size=np.nan,
+                                                 pixel_size_unit=''):
+        """
+        add a required image series in to acquisition field as a link to an external hdf5 file.
+        :param name: str, name of the image series
+        :param image_file_path: str, the full file system path to the hdf5 file containing the raw image data
+        :param dataset_path: str, the path within the hdf5 file pointing to the raw data. the object should have at
+                             least 3 attributes: 'conversion', resolution, unit
+        :param timestamps: 1-d array, the length of this array should be the same as number of frames in the image data
+        :param data_format: str, required field for ImageSeries object
+        :param pixel_size: array, size of pixel
+        :param pixel_size_unit: str, unit of pixel size
+        :return:
+        """
+
+        img_file = h5py.File(image_file_path)
+        img_data = img_file[dataset_path]
+        if timestamps.shape[0] != img_data.shape[0]:
+            raise ValueError('Number of frames does not equal to the length of timestamps!')
+        img_series = self.create_timeseries(ts_type='ImageSeries', name=name, modality='acquisition')
+        img_series.set_data_as_remote_link(image_file_path, dataset_path)
+        img_series.set_time(timestamps)
+        img_series.set_description(description)
+        img_series.set_comments(comments)
+        img_series.set_value('bits_per_pixel', img_data.dtype.itemsize * 8)
+        img_series.set_value('format', data_format)
+        img_series.set_value('dimension', img_data.shape)
+        img_series.set_value('image_file_path', image_file_path)
+        img_series.set_value('image_data_path_within_file', dataset_path)
+        img_series.set_value('pixel_size', pixel_size)
+        img_series.set_value('pixel_size_unit', pixel_size_unit)
+        img_series.finalize()
+
+    def add_motion_correction_module(self, module_name, original_timeseries_path, corrected_file_path,
+                                     corrected_dataset_path, xy_translation_offsets, interface_name='MotionCorrection',
+                                     mean_projection=None, max_projection=None, description='', comments='',
+                                     source=''):
+        """
+        add a motion corrected image series in to processing field as a module named 'motion_correction' and create a
+        link to an external hdf5 file which contains the images.
+        :param module_name: str, module name to be created
+        :param interface_name: str, interface name of the image series
+        :param original_timeseries_path: str, the path to the timeseries of the original images
+        :param corrected_file_path: str, the full file system path to the hdf5 file containing the raw image data
+        :param corrected_dataset_path: str, the path within the hdf5 file pointing to the motion corrected data.
+                                       the object should have at least 3 attributes: 'conversion', resolution, unit
+        :param xy_translation_offsets: 2d array with two columns,
+        :param mean_projection: 2d array, mean_projection of corrected image, if None, no dataset will be
+                                created
+        :param max_projection: 2d array,  max_projection of corrected image, if None, no dataset will be
+                                created
+        :return:
+        """
+
+        orig = self.file_pointer[original_timeseries_path]
+        timestamps = orig['timestamps'].value
+
+        img_file = h5py.File(corrected_file_path)
+        img_data = img_file[corrected_dataset_path]
+        if timestamps.shape[0] != img_data.shape[0]:
+            raise ValueError('Number of frames does not equal to the length of timestamps!')
+
+        if xy_translation_offsets.shape[0] != timestamps.shape[0]:
+            raise ValueError('Number of offsets does not equal to the length of timestamps!')
+
+        corrected = self.create_timeseries(ts_type='ImageSeries', name='corrected', modality='other')
+        corrected.set_data_as_remote_link(corrected_file_path, corrected_dataset_path)
+        corrected.set_time_as_link(original_timeseries_path)
+        corrected.set_description(description)
+        corrected.set_comments(comments)
+        corrected.set_source(source)
+        for value_n in orig.keys():
+            if value_n not in ['image_data_path_within_file', 'image_file_path', 'data', 'timestamps']:
+                corrected.set_value(value_n, orig[value_n].value)
+
+        xy_translation = self.create_timeseries(ts_type='TimeSeries', name='xy_translation', modality='other')
+        xy_translation.set_data(xy_translation_offsets, unit='pixel', conversion=np.nan, resolution=np.nan)
+        xy_translation.set_time_as_link(original_timeseries_path)
+        xy_translation.set_value('num_samples', xy_translation_offsets.shape[0])
+        xy_translation.set_description('Time series of x, y shifts applied to create motion stabilized image series')
+        xy_translation.set_value('feature_description', ['x_motion', 'y_motion'])
+
+        mc_mod = self.create_module(module_name)
+        mc_interf = mc_mod.create_interface("MotionCorrection")
+        mc_interf.add_corrected_image(interface_name, orig=original_timeseries_path, xy_translation=xy_translation,
+                                      corrected=corrected)
+
+        if mean_projection is not None:
+            mc_interf.set_value('mean_projection', mean_projection)
+
+        if max_projection is not None:
+            mc_interf.set_value('max_projection', max_projection)
+
+        mc_interf.finalize()
+        mc_mod.finalize()
+
+    def add_muliple_dataset_to_motion_correction_module(self, input_parameters, module_name='motion_correction'):
+        """
+        add multiple motion corrected datasets into a motion correction module. Designed for adding multiplane
+        imaging datasets at once. The motion correction module will contain multiple interfaces each corresponding
+        to one imaging plane.
+
+        :param input_parameters: list of dictionaries, each dictionary in the list represents one imaging plane
+                                 the dictionary should contain the following keys:
+                                 'field_name': str, name of the hdf5 group for the motion correction information
+                                 'original_timeseries_path': str, the path to the timeseries of the original images
+                                 'corrected_file_path': str, the full file system path to the hdf5 file
+                                                        containing the corrected image data
+                                 'corrected_dataset_path': str, the path within the hdf5 file pointing to the motion
+                                                           corrected data. the object should have at least 3
+                                                           attributes: 'conversion', resolution and unit
+                                 'xy_translation_offsets': 2d array with two columns
+                                 'mean_projection': optional, 2d array, mean_projection of corrected image,
+                                                    if not existing, no dataset will be created
+                                 'max_projection': optional, 2d array, max_projection of corrected image,
+                                                    if not existing, no dataset will be created
+                                 'description': optional, str, if not existing, it will be set as ''
+                                 'comments': optional, str, if not existing, it will be set as ''
+                                 'source': optional, str, if not existing, it will be set as ''
+        :param module_name: str, module name to be created
+        """
+
+        mc_mod = self.create_module(module_name)
+        mc_interf = mc_mod.create_interface('MotionCorrection')
+
+        for mov_dict in input_parameters:
+            if 'description' not in mov_dict.keys():
+                mov_dict['description'] = ''
+
+            if 'comments' not in mov_dict.keys():
+                mov_dict['comment'] = ''
+
+            if 'source' not in mov_dict.keys():
+                mov_dict['source'] = ''
+
+            orig = self.file_pointer[mov_dict['original_timeseries_path']]
+            timestamps = orig['timestamps'].value
+
+            img_file = h5py.File(mov_dict['corrected_file_path'])
+            img_data = img_file[mov_dict['corrected_dataset_path']]
+            if timestamps.shape[0] != img_data.shape[0]:
+                raise ValueError('Number of frames does not equal to the length of timestamps!')
+
+            if mov_dict['xy_translation_offsets'].shape[0] != timestamps.shape[0]:
+                raise ValueError('Number of offsets does not equal to the length of timestamps!')
+
+            corrected = self.create_timeseries(ts_type='ImageSeries', name='corrected', modality='other')
+            corrected.set_data_as_remote_link(mov_dict['corrected_file_path'],
+                                              mov_dict['corrected_dataset_path'])
+            corrected.set_time_as_link(mov_dict['original_timeseries_path'])
+            corrected.set_description(mov_dict['description'])
+            corrected.set_comments(mov_dict['comments'])
+            corrected.set_source(mov_dict['source'])
+
+            if 'mean_projection' in mov_dict.keys() and mov_dict['mean_projection'] is not None:
+                corrected.set_value('mean_projection', mov_dict['mean_projection'])
+
+            if 'max_projection' in mov_dict.keys() and mov_dict['max_projection'] is not None:
+                corrected.set_value('max_projection', mov_dict['max_projection'])
+
+            for value_n in orig.keys():
+                if value_n not in ['image_data_path_within_file', 'image_file_path', 'data', 'timestamps']:
+                    corrected.set_value(value_n, orig[value_n].value)
+
+            xy_translation = self.create_timeseries(ts_type='TimeSeries', name='xy_translation', modality='other')
+            xy_translation.set_data(mov_dict['xy_translation_offsets'], unit='pixel', conversion=np.nan,
+                                    resolution=np.nan)
+            xy_translation.set_time_as_link(mov_dict['original_timeseries_path'])
+            xy_translation.set_value('num_samples', mov_dict['xy_translation_offsets'].shape[0])
+            xy_translation.set_description('Time series of x, y shifts applied to create motion '
+                                           'stabilized image series')
+            xy_translation.set_value('feature_description', ['x_motion', 'y_motion'])
+
+            mc_interf.add_corrected_image(mov_dict['field_name'], orig=mov_dict['original_timeseries_path'],
+                                          xy_translation=xy_translation,
+                                          corrected=corrected)
+
+        mc_interf.finalize()
+        mc_mod.finalize()
+
+    # ===========================2p movie related=======================================================================
+
+
+    # ===========================camstim visual stimuli related=========================================================
+    def add_display_frame_ts_camstim(self, pkl_dict, max_mismatch=0.1, verbose=True, refresh_rate=60.,
+                                     allowed_jitter=0.01):
+
+        ts_pd_fall = self.file_pointer['acquisition/timeseries/digital_photodiode_fall/timestamps'].value
+        ts_display_rise = self.file_pointer['acquisition/timeseries/digital_vsync_visual_rise/timestamps'].value
+
+        ts_display_real, display_lag = ct.align_visual_display_time(pkl_dict=pkl_dict, ts_pd_fall=ts_pd_fall,
+                                                                    ts_display_rise=ts_display_rise,
+                                                                    max_mismatch=max_mismatch,
+                                                                    verbose=verbose, refresh_rate=refresh_rate,
+                                                                    allowed_jitter=allowed_jitter)
+
+        frame_ts = self.create_timeseries('TimeSeries', 'FrameTimestamps', modality='other')
+        frame_ts.set_time(ts_display_rise)
+        frame_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+        frame_ts.set_description('onset timestamps of each display frames after correction for display lag. '
+                                 'Used corticalmapping.HighLevel.align_visual_display_time() function to '
+                                 'calculate display lag.')
+        frame_ts.set_path('/processing/visual_display')
+        frame_ts.set_value('max_mismatch_sec', max_mismatch)
+        frame_ts.set_value('refresh_rate_hz', refresh_rate)
+        frame_ts.set_value('allowed_jitter_sec', allowed_jitter)
+        frame_ts.finalize()
+
+        display_lag_ts = self.create_timeseries('TimeSeries', 'DisplayLag', modality='other')
+        display_lag_ts.set_time(display_lag[:, 0])
+        display_lag_ts.set_data(display_lag[:, 1], unit='second', conversion=np.nan, resolution=np.nan)
+        display_lag_ts.set_path('/processing/visual_display')
+        display_lag_ts.set_value('mean_display_lag_sec', np.mean(display_lag[:, 1]))
+        display_lag_ts.finalize()
+
+    def _add_drifting_grating_stimulation_camstim(self, stim_dict):
+
+        dgts = self.create_timeseries(ts_type='TimeSeries',
+                                      name=stim_dict['stim_name'],
+                                      modality='stimulus')
+
+        dgts.set_time(stim_dict['sweep_onset_frames'])
+        dgts.set_data(stim_dict['sweeps'], unit='', conversion=np.nan, resolution=np.nan)
+        dgts.set_source(stim_dict['source'])
+        dgts.set_comments(stim_dict['comments'])
+        dgts.set_description(stim_dict['description'])
+        for fn, fv in stim_dict.items():
+            if fn not in ['sweep_onset_frames', 'sweeps', 'sources', 'comments', 'description']:
+                dgts.set_value(fn, fv)
+        dgts.finalize()
+
+    def add_visual_stimuli_camstim(self, stim_dict_lst):
+
+        for stim_dict in stim_dict_lst:
+            if stim_dict['stim_type'] == 'drifting_grating_camstim':
+                print('adding stimulus: {} to nwb.'.format(stim_dict['stim_name']))
+                self._add_drifting_grating_stimulation_camstim(stim_dict=stim_dict)
+            else:
+                pass
+
+    # ===========================camstim visual stimuli related=========================================================
+
+
+    # ===========================retinotopic_mapping visual stimuli related (indexed display)===========================
+    def add_visual_display_log_retinotopic_mapping(self, stim_dict):
+
+        stim_ns = stim_dict.keys()
+        stim_ns.sort()
+        for stim_n in stim_ns:
+            curr_stim_dict = stim_dict[stim_n]
+
+            if stim_n[-35:] == 'StimulusSeparatorRetinotopicMapping':
+                self._add_stimulus_spearator_retinotopic_mapping(curr_stim_dict)
+            elif stim_n[-32:] == 'FlashingCircleRetinotopicMapping':
+                self._add_flashing_circle_retinotopic_mapping(curr_stim_dict)
+            elif stim_n[-39:] == 'DriftingGratingCircleRetinotopicMapping':
+                self._add_drifting_grating_circle_retinotopic_mapping()
+            elif stim_n[-37:] == 'StaticGratingCircleRetinotopicMapping':
+                self._add_static_grating_circle_retinotopic_mapping()
+            elif stim_n[-29:] == 'SparseNoiseRetinotopicMapping':
+                self._add_sparse_noise_retinotopic_mapping()
+            elif stim_n[-36:] == 'LocallySparseNoiseRetinotopicMapping':
+                self._add_locally_sparse_noise_retinotopic_mapping()
+            elif stim_n[-29:] == 'StaticImageRetinotopicMapping':
+                self._add_static_image_retinotopic_mapping()
+            else:
+                raise ValueError('Do not understand stimulus name: {}.'.format(stim_n))
+
+    def _add_stimulus_spearator_retinotopic_mapping(self, ss_dict):
+
+        stim_name = ss_dict['stim_name']
+
+        if stim_name[-35:] != 'StimulusSeparatorRetinotopicMapping':
+            raise ValueError('stimulus should be "StimulusSeparatorRetinotopicMapping" (StimulusSeparator from '
+                             'retinotopic_mapping package). ')
+
+        # add template
+        template_ts = self.create_timeseries('TimeSeries', stim_name, 'template')
+        template_ts.set_data(ss_dict['frames_unique'], unit='', conversion=np.nan, resolution=np.nan)
+        template_ts.set_value('num_samples', len(ss_dict['frames_unique']))
+        template_ts.set_source(ss_dict['source'])
+        template_ts.finalize()
+
+        # add stimulus
+        stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
+        stim_ts.set_time(ss_dict['timestamps'])
+        stim_ts.set_data(ss_dict['index_to_display'], unit='frame', conversion=1, resolution=1)
+        stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
+        stim_ts.set_comments('the timestamps of displayed frames (saved in data) are referenced to the start of'
+                             'this particular display, not the master time clock. For more useful timestamps, check'
+                             '/processing for aligned photodiode onset timestamps.')
+        stim_ts.set_description('the displayed frame indices to the corresponding unique frame templates saved in '
+                                '"/stimulus/templates"')
+        stim_ts.set_source(ss_dict['source'])
+        stim_ts.set_value('frame_config', ss_dict['frame_config'])
+        stim_ts.set_value('stim_name', ss_dict['stim_name'])
+        stim_ts.set_value('indicator_on_frame_num', ss_dict['indicator_on_frame_num'])
+        stim_ts.set_value('indicator_off_frame_num', ss_dict['indicator_off_frame_num'])
+        stim_ts.set_value('pregap_dur', ss_dict['pregap_dur'])
+        stim_ts.set_value('postgap_dur', ss_dict['postgap_dur'])
+        stim_ts.set_value('cycle_num', ss_dict['cycle_num'])
+        stim_ts.set_value('coordinate', ss_dict['coordinate'])
+        stim_ts.finalize()
+
+    def _add_flashing_circle_retinotopic_mapping(self, fc_dict):
+        # todo: finish this
+        pass
+
+    def _add_drifting_grating_circle_retinotopic_mapping(self, dgc_dict):
+        # todo: finish this
+        pass
+
+    def _add_static_grating_circle_retinotopic_mapping(self, sgc_dict):
+        # todo: finish this
+        pass
+
+    def _add_sparse_noise_retinotopic_mapping(self, sn_dict):
+        # todo: finish this
+        pass
+
+    def _add_locally_sparse_noise_retinotopic_mapping(self, lsn_dict):
+        # todo: finish this
+        pass
+
+    def _add_static_image_retinotopic_mapping(self, si_dict):
+        # todo: finish this
+        pass
+
+    # ===========================retinotopic_mapping visual stimuli related (indexed display)===========================
+
+
+    # ===========================corticalmapping visual stimuli related (non-indexed display)===========================
     def add_visual_stimulation(self, log_path, display_order=0):
         """
         load visual stimulation given saved display log pickle file
@@ -792,7 +1325,7 @@ class RecordedFile(NWB):
             if frames[i]['isDisplay'] == 1 and \
                     (i == 0 or (frames[i - 1]['isOnset'] == -1 and frames[i]['isOnset'] == 1)):
                 all_squares.append(np.array((i, frames[i]['azimuth'], frames[i]['altitude'], frames[i]['sign']),
-                                             dtype=np.float32))
+                                            dtype=np.float32))
 
         all_squares = np.array(all_squares)
 
@@ -853,7 +1386,7 @@ class RecordedFile(NWB):
         for i in range(len(frames)):
             if frames[i][8] == 1 and (i == 0 or (frames[i - 1][8] == -1)):
                 all_gratings.append(np.array((i, frames[i][2], frames[i][3], frames[i][4], frames[i][5], frames[i][6]),
-                                            dtype=np.float32))
+                                             dtype=np.float32))
 
         all_gratings = np.array(all_gratings)
 
@@ -1054,406 +1587,6 @@ class RecordedFile(NWB):
                     curr_g_ts.finalize()
 
             curr_onset_start_ind = curr_onset_start_ind + curr_onset_arr.shape[0]
-
-    def add_photodiode_onsets(self, photodiode_ch_path='acquisition/timeseries/photodiode',
-                              digitizeThr=0.9, filterSize=0.01, segmentThr=0.01, smallestInterval=0.03,
-                              expected_onsets_number=None):
-        """
-        intermediate processing step for analysis of visual display. Containing the information about the onset of
-        photodiode signal. Timestamps are extracted from photodiode signal, should be aligned to the master clock.
-        extraction is done by corticalmapping.HighLevel.segmentPhotodiodeSignal() function. The raw signal
-        was first digitized by the digitize_threshold, then filtered by a gaussian fileter with filter_size. Then
-        the derivative of the filtered signal was calculated by numpy.diff. The derivative signal was then timed
-        with the digitized signal. Then the segmentation_threshold was used to detect rising edge of the resulting
-        signal. Any onset with interval from its previous onset smaller than smallest_interval will be discarded.
-        the resulting timestamps of photodiode onsets will be saved in 'processing/photodiode_onsets' timeseries
-
-        :param digitizeThr: float
-        :param filterSize: float
-        :param segmentThr: float
-        :param smallestInterval: float
-        :param expected_onsets_number: int, expected number of photodiode onsets, may extract from visual display
-                                       log. if extracted onset number does not match this number, the process will
-                                       be abort. If None, no such check will be performed.
-        :return:
-        """
-
-        pd_grp = self.file_pointer[photodiode_ch_path]
-
-        fs = pd_grp['starting_time'].attrs['rate']
-
-        pd = pd_grp['data'].value * pd_grp['data'].attrs['conversion']
-
-        pd_onsets = hl.segmentPhotodiodeSignal(pd, digitizeThr=digitizeThr, filterSize=filterSize,
-                                               segmentThr=segmentThr, Fs=fs, smallestInterval=smallestInterval)
-
-        if pd_onsets.shape[0] == 0:
-            return
-
-        if expected_onsets_number is not None:
-            if len(pd_onsets) != expected_onsets_number:
-                raise ValueError('The number of photodiode onsets (' + str(len(pd_onsets)) + ') and the expected '
-                                 'number of sweeps ' + str(expected_onsets_number) + ' do not match. Abort.')
-
-        pd_ts = self.create_timeseries('TimeSeries', 'photodiode_onsets', modality='other')
-        pd_ts.set_time(pd_onsets)
-        pd_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
-        pd_ts.set_description('intermediate processing step for analysis of visual display. '
-                              'Containing the information about the onset of photodiode signal. Timestamps '
-                              'are extracted from photodiode signal, should be aligned to the master clock.'
-                              'extraction is done by corticalmapping.HighLevel.segmentPhotodiodeSignal()'
-                              'function. The raw signal was first digitized by the digitize_threshold, then '
-                              'filtered by a gaussian fileter with filter_size. Then the derivative of the filtered '
-                              'signal was calculated by numpy.diff. The derivative signal was then timed with the '
-                              'digitized signal. Then the segmentation_threshold was used to detect rising edge of '
-                              'the resulting signal. Any onset with interval from its previous onset smaller than '
-                              'smallest_interval will be discarded.')
-        pd_ts.set_path('/processing/PhotodiodeOnsets')
-        pd_ts.set_value('digitize_threshold', digitizeThr)
-        pd_ts.set_value('fileter_size', filterSize)
-        pd_ts.set_value('segmentation_threshold', segmentThr)
-        pd_ts.set_value('smallest_interval', smallestInterval)
-        pd_ts.finalize()
-
-    def add_display_frame_ts_camstim(self, pkl_dict, max_mismatch=0.1, verbose=True, refresh_rate=60.,
-                                               allowed_jitter=0.01):
-
-        ts_pd_fall = self.file_pointer['acquisition/timeseries/digital_photodiode_fall/timestamps'].value
-        ts_display_rise = self.file_pointer['acquisition/timeseries/digital_vsync_visual_rise/timestamps'].value
-
-        ts_display_real, display_lag = ct.align_visual_display_time(pkl_dict=pkl_dict, ts_pd_fall=ts_pd_fall,
-                                                                    ts_display_rise=ts_display_rise,
-                                                                    max_mismatch=max_mismatch,
-                                                                    verbose=verbose, refresh_rate=refresh_rate,
-                                                                    allowed_jitter=allowed_jitter)
-
-        frame_ts = self.create_timeseries('TimeSeries', 'FrameTimestamps', modality='other')
-        frame_ts.set_time(ts_display_rise)
-        frame_ts.set_data([], unit='', conversion=np.nan, resolution=np.nan)
-        frame_ts.set_description('onset timestamps of each display frames after correction for display lag. '
-                                 'Used corticalmapping.HighLevel.align_visual_display_time() function to '
-                                 'calculate display lag.')
-        frame_ts.set_path('/processing/visual_display')
-        frame_ts.set_value('max_mismatch_sec', max_mismatch)
-        frame_ts.set_value('refresh_rate_hz', refresh_rate)
-        frame_ts.set_value('allowed_jitter_sec', allowed_jitter)
-        frame_ts.finalize()
-
-        display_lag_ts = self.create_timeseries('TimeSeries', 'DisplayLag', modality='other')
-        display_lag_ts.set_time(display_lag[:, 0])
-        display_lag_ts.set_data(display_lag[:, 1], unit='second', conversion=np.nan, resolution=np.nan)
-        display_lag_ts.set_path('/processing/visual_display')
-        display_lag_ts.set_value('mean_display_lag_sec', np.mean(display_lag[:, 1]))
-        display_lag_ts.finalize()
-
-    def plot_spike_waveforms(self, modulen, unitn, is_plot_filtered=False, fig=None, axes_size=(0.2, 0.2), **kwargs):
-        """
-        plot spike waveforms
-
-        :param modulen: str, name of the module containing ephys recordings
-        :param unitn: str, name of ephys unit, should be in '/processing/ephys_units/UnitTimes'
-        :param is_plot_filtered: bool, plot unfiltered waveforms or not
-        :param channel_names: list of strs, channel names in continuous recordings, should be in '/acquisition/timeseries'
-        :param fig: matplotlib figure object
-        :param t_range: tuple of two floats, time range to plot along spike time stamps
-        :param kwargs: inputs to matplotlib.axes.plot() function
-        :return: fig
-        """
-        if modulen not in self.file_pointer['processing'].keys():
-            raise LookupError('Can not find module for ephys recording: ' + modulen + '.')
-
-        if unitn not in self.file_pointer['processing'][modulen]['UnitTimes'].keys():
-            raise LookupError('Can not find ephys unit: ' + unitn + '.')
-
-        ch_ns = self._get_channel_names()
-
-        unit_grp = self.file_pointer['processing'][modulen]['UnitTimes'][unitn]
-        waveforms = unit_grp['template'].value
-
-        if 'template_std' in unit_grp.keys():
-            stds = unit_grp['template_std'].value
-        else:
-            stds = None
-
-        if is_plot_filtered:
-            if 'template_filtered' in unit_grp.keys():
-                waveforms_f = unit_grp['template_filtered'].value
-                if 'template_std_filtered' in unit_grp.keys():
-                    stds_f = unit_grp['template_std_filtered'].value
-                else:
-                    stds_f = None
-            else:
-                print('can not find unfiltered spike waveforms for unit: ' + unitn)
-                waveforms_f = None
-                stds_f = None
-        else:
-            waveforms_f = None
-            stds_f = None
-
-        if 'channel_xpos' in self.file_pointer['processing'][modulen].keys():
-            ch_xpos = self.file_pointer['processing'][modulen]['channel_xpos']
-            ch_ypos = self.file_pointer['processing'][modulen]['channel_ypos']
-            ch_locations = zip(ch_xpos, ch_ypos)
-        else:
-            ch_locations = None
-
-        fig = plot_waveforms(waveforms, ch_locations=ch_locations, stds=stds, waveforms_filtered=waveforms_f,
-                             stds_filtered=stds_f, f=fig, ch_ns=ch_ns, axes_size=axes_size, **kwargs)
-
-        fig.suptitle(self.file_pointer['identifier'].value + ' : ' + unitn)
-
-        return fig
-
-    def add_motion_correction_module(self, module_name, original_timeseries_path, corrected_file_path,
-                                     corrected_dataset_path, xy_translation_offsets, interface_name='MotionCorrection',
-                                     mean_projection=None, max_projection=None, description='', comments='',
-                                     source=''):
-        """
-        add a motion corrected image series in to processing field as a module named 'motion_correction' and create a
-        link to an external hdf5 file which contains the images.
-        :param module_name: str, module name to be created
-        :param interface_name: str, interface name of the image series
-        :param original_timeseries_path: str, the path to the timeseries of the original images
-        :param corrected_file_path: str, the full file system path to the hdf5 file containing the raw image data
-        :param corrected_dataset_path: str, the path within the hdf5 file pointing to the motion corrected data.
-                                       the object should have at least 3 attributes: 'conversion', resolution, unit
-        :param xy_translation_offsets: 2d array with two columns,
-        :param mean_projection: 2d array, mean_projection of corrected image, if None, no dataset will be
-                                created
-        :param max_projection: 2d array,  max_projection of corrected image, if None, no dataset will be
-                                created
-        :return:
-        """
-
-        orig = self.file_pointer[original_timeseries_path]
-        timestamps = orig['timestamps'].value
-
-        img_file = h5py.File(corrected_file_path)
-        img_data = img_file[corrected_dataset_path]
-        if timestamps.shape[0] != img_data.shape[0]:
-            raise ValueError('Number of frames does not equal to the length of timestamps!')
-
-        if xy_translation_offsets.shape[0] != timestamps.shape[0]:
-            raise ValueError('Number of offsets does not equal to the length of timestamps!')
-
-        corrected = self.create_timeseries(ts_type='ImageSeries', name='corrected', modality='other')
-        corrected.set_data_as_remote_link(corrected_file_path, corrected_dataset_path)
-        corrected.set_time_as_link(original_timeseries_path)
-        corrected.set_description(description)
-        corrected.set_comments(comments)
-        corrected.set_source(source)
-        for value_n in orig.keys():
-            if value_n not in ['image_data_path_within_file', 'image_file_path', 'data', 'timestamps']:
-                corrected.set_value(value_n, orig[value_n].value)
-
-        xy_translation = self.create_timeseries(ts_type='TimeSeries', name='xy_translation', modality='other')
-        xy_translation.set_data(xy_translation_offsets, unit='pixel', conversion=np.nan, resolution=np.nan)
-        xy_translation.set_time_as_link(original_timeseries_path)
-        xy_translation.set_value('num_samples', xy_translation_offsets.shape[0])
-        xy_translation.set_description('Time series of x, y shifts applied to create motion stabilized image series')
-        xy_translation.set_value('feature_description', ['x_motion', 'y_motion'])
-
-        mc_mod = self.create_module(module_name)
-        mc_interf = mc_mod.create_interface("MotionCorrection")
-        mc_interf.add_corrected_image(interface_name, orig=original_timeseries_path, xy_translation=xy_translation,
-                                      corrected=corrected)
-
-        if mean_projection is not None:
-            mc_interf.set_value('mean_projection', mean_projection)
-
-        if max_projection is not None:
-            mc_interf.set_value('max_projection', max_projection)
-
-        mc_interf.finalize()
-        mc_mod.finalize()
-
-    def add_muliple_dataset_to_motion_correction_module(self, input_parameters, module_name='motion_correction'):
-        """
-        add multiple motion corrected datasets into a motion correction module. Designed for adding multiplane
-        imaging datasets at once. The motion correction module will contain multiple interfaces each corresponding
-        to one imaging plane.
-
-        :param input_parameters: list of dictionaries, each dictionary in the list represents one imaging plane
-                                 the dictionary should contain the following keys:
-                                 'field_name': str, name of the hdf5 group for the motion correction information
-                                 'original_timeseries_path': str, the path to the timeseries of the original images
-                                 'corrected_file_path': str, the full file system path to the hdf5 file
-                                                        containing the corrected image data
-                                 'corrected_dataset_path': str, the path within the hdf5 file pointing to the motion
-                                                           corrected data. the object should have at least 3
-                                                           attributes: 'conversion', resolution and unit
-                                 'xy_translation_offsets': 2d array with two columns
-                                 'mean_projection': optional, 2d array, mean_projection of corrected image,
-                                                    if not existing, no dataset will be created
-                                 'max_projection': optional, 2d array, max_projection of corrected image,
-                                                    if not existing, no dataset will be created
-                                 'description': optional, str, if not existing, it will be set as ''
-                                 'comments': optional, str, if not existing, it will be set as ''
-                                 'source': optional, str, if not existing, it will be set as ''
-        :param module_name: str, module name to be created
-        """
-
-        mc_mod = self.create_module(module_name)
-        mc_interf = mc_mod.create_interface('MotionCorrection')
-
-        for mov_dict in input_parameters:
-            if 'description' not in mov_dict.keys():
-                mov_dict['description'] = ''
-
-            if 'comments' not in mov_dict.keys():
-                mov_dict['comment'] = ''
-
-            if 'source' not in mov_dict.keys():
-                mov_dict['source'] = ''
-
-            orig = self.file_pointer[mov_dict['original_timeseries_path']]
-            timestamps = orig['timestamps'].value
-
-            img_file = h5py.File(mov_dict['corrected_file_path'])
-            img_data = img_file[mov_dict['corrected_dataset_path']]
-            if timestamps.shape[0] != img_data.shape[0]:
-                raise ValueError('Number of frames does not equal to the length of timestamps!')
-
-            if mov_dict['xy_translation_offsets'].shape[0] != timestamps.shape[0]:
-                raise ValueError('Number of offsets does not equal to the length of timestamps!')
-
-            corrected = self.create_timeseries(ts_type='ImageSeries', name='corrected', modality='other')
-            corrected.set_data_as_remote_link(mov_dict['corrected_file_path'],
-                                              mov_dict['corrected_dataset_path'])
-            corrected.set_time_as_link(mov_dict['original_timeseries_path'])
-            corrected.set_description(mov_dict['description'])
-            corrected.set_comments(mov_dict['comments'])
-            corrected.set_source(mov_dict['source'])
-
-            if 'mean_projection' in mov_dict.keys() and mov_dict['mean_projection'] is not None:
-                corrected.set_value('mean_projection', mov_dict['mean_projection'])
-
-            if 'max_projection' in mov_dict.keys() and mov_dict['max_projection'] is not None:
-                corrected.set_value('max_projection', mov_dict['max_projection'])
-
-            for value_n in orig.keys():
-                if value_n not in ['image_data_path_within_file', 'image_file_path', 'data', 'timestamps']:
-                    corrected.set_value(value_n, orig[value_n].value)
-
-            xy_translation = self.create_timeseries(ts_type='TimeSeries', name='xy_translation', modality='other')
-            xy_translation.set_data(mov_dict['xy_translation_offsets'], unit='pixel', conversion=np.nan,
-                                    resolution=np.nan)
-            xy_translation.set_time_as_link(mov_dict['original_timeseries_path'])
-            xy_translation.set_value('num_samples', mov_dict['xy_translation_offsets'].shape[0])
-            xy_translation.set_description('Time series of x, y shifts applied to create motion '
-                                           'stabilized image series')
-            xy_translation.set_value('feature_description', ['x_motion', 'y_motion'])
-
-            mc_interf.add_corrected_image(mov_dict['field_name'], orig=mov_dict['original_timeseries_path'],
-                                          xy_translation=xy_translation,
-                                          corrected=corrected)
-
-        mc_interf.finalize()
-        mc_mod.finalize()
-
-    def generate_dat_file_for_kilosort(self, output_folder, output_name, ch_ns, is_filtered=True, cutoff_f_low=300.,
-                                       cutoff_f_high=6000.):
-        """
-        generate .dat file for kilolsort: "https://github.com/cortex-lab/KiloSort", it is binary raw code, with
-        structure: ch0_t0, ch1_t0, ch2_t0, ...., chn_t0, ch0_t1, ch1_t1, ch2_t1, ..., chn_t1, ..., ch0_tm, ch1_tm,
-        ch2_tm, ..., chn_tm
-
-        :param output_folder: str, path to output directory
-        :param output_name: str, output file name, an extension of '.dat' will be automatically added.
-        :param ch_ns: list of strings, name of included analog channels
-        :param is_filtered: bool, if Ture, another .dat file with same size will be generated in the output folder.
-                            this file will contain temporally filtered data (filter done by
-                            corticalmapping.core.TimingAnalysis.butter_... functions). '_filtered' will be attached
-                            to the filtered file name.
-        :param cutoff_f_low: float, low cutoff frequency, Hz. if None, it will be low-pass
-        :param cutoff_f_high: float, high cutoff frequency, Hz, if None, it will be high-pass
-        :return: None
-        """
-
-        save_path = os.path.join(output_folder, output_name + '.dat')
-        if os.path.isfile(save_path):
-            raise IOError('Output file already exists.')
-
-        data_lst = []
-        for ch_n in ch_ns:
-            data_lst.append(self.file_pointer['acquisition/timeseries'][ch_n]['data'].value)
-
-        dtype = data_lst[0].dtype
-        data = np.array(data_lst, dtype=dtype).flatten(order='F')
-        data.tofile(save_path)
-
-        if is_filtered:
-
-            if cutoff_f_low is None and cutoff_f_high is None:
-                print ('both low cutoff frequency and high cutoff frequency are None. Do nothing.')
-                return
-
-            save_path_f = os.path.join(output_folder, output_name + '_filtered.dat')
-            if os.path.isfile(save_path_f):
-                raise IOError('Output file for filtered data already existes.')
-
-            fs = self.file_pointer['general/extracellular_ephys/sampling_rate'].value
-            data_lst_f = []
-            for data_r in data_lst:
-                if cutoff_f_high is None:
-                    data_lst_f.append(ta.butter_lowpass(data_r, fs=fs, cutoff=cutoff_f_low).astype(dtype))
-                elif cutoff_f_low is None:
-                    data_lst_f.append(ta.butter_highpass(data_r, fs=fs, cutoff=cutoff_f_high).astype(dtype))
-                else:
-                    data_lst_f.append(ta.butter_bandpass(data_r,
-                                                         fs=fs,
-                                                         cutoffs=(cutoff_f_low, cutoff_f_high)).astype(dtype))
-            data_f = np.array(data_lst_f, dtype=dtype).flatten(order='F')
-            data_f.tofile(save_path_f)
-
-    def _get_channel_names(self):
-        """
-        :return: sorted list of channel names, each channel name should have prefix 'ch_'
-        """
-        analog_chs = self.file_pointer['acquisition/timeseries'].keys()
-        channel_ns = [cn for cn in analog_chs if cn[0:3] == 'ch_']
-        channel_ns.sort()
-        return channel_ns
-
-    def get_analog_data(self, ch_n):
-        """
-        :param ch_n: string, analog channel name
-        :return: 1-d array, analog data, data * conversion
-                 1-d array, time stamps
-        """
-        grp = self.file_pointer['acquisition/timeseries'][ch_n]
-        data = grp['data'].value
-        if not np.isnan(grp['data'].attrs['conversion']):
-            data = data.astype(np.float32) * grp['data'].attrs['conversion']
-        if 'timestamps' in grp.keys():
-            t = grp['timestamps']
-        elif 'starting_time' in grp.keys():
-            fs = self.file_pointer['general/extracellular_ephys/sampling_rate'].value
-            sample_num = grp['num_samples'].value
-            t = np.arange(sample_num) / fs + grp['starting_time'].value
-        else:
-            raise ValueError('can not find timing information of channel:' + ch_n)
-        return data, t
-
-    def _check_display_order(self, display_order=None):
-        """
-        check display order make sure each presentation has a unique position, and move from increment order.
-        also check the given display_order is of the next number
-        """
-        stimuli = self.file_pointer['stimulus/presentation'].keys()
-
-        print('\nExisting visual stimuli:')
-        print('\n'.join(stimuli))
-
-        stimuli = [int(s[0:s.find('_')]) for s in stimuli]
-        stimuli.sort()
-        if stimuli != range(len(stimuli)):
-            raise ValueError('display order is not incremental.')
-
-        if display_order is not None:
-
-            if display_order != len(stimuli):
-                raise ValueError('input display order not the next display.')
 
     def _add_sparse_noise_stimulation(self, log_dict, display_order):
 
@@ -1665,7 +1798,8 @@ class RecordedFile(NWB):
                              'indicatorColor (for photodiode, from -1 to 1)]. '
                              'direction (B2U: 0, U2B: 1, L2R: 2, R2L: 3), '
                              'for gap frames, the 2ed to 3th elements should be np.nan.')
-        stim.set_value('data_formatting', ['isDisplay', 'squarePolarity', 'sweepIndex', 'indicatorColor', 'sweepDirection'])
+        stim.set_value('data_formatting',
+                       ['isDisplay', 'squarePolarity', 'sweepIndex', 'indicatorColor', 'sweepDirection'])
         stim.set_source('corticalmapping.VisualStim.KSstimAllDir for stimulus; '
                         'corticalmapping.VisualStim.DisplaySequence for display')
         stim.set_value('background_color', log_dict['stimulation']['background'])
@@ -1695,35 +1829,10 @@ class RecordedFile(NWB):
             equ_dset.attrs['description'] = 'the linear equation to transform fft phase into retinotopy visual degrees.' \
                                             'degree = phase * slope + intercept'
             equ_dset.attrs['data_format'] = ['slope', 'intercept']
-
-    def _add_drifting_grating_stimulation_camstim(self, stim_dict):
-
-        dgts = self.create_timeseries(ts_type='TimeSeries',
-                                      name=stim_dict['stim_name'],
-                                      modality='stimulus')
-
-        dgts.set_time(stim_dict['sweep_onset_frames'])
-        dgts.set_data(stim_dict['sweeps'], unit='', conversion=np.nan, resolution=np.nan)
-        dgts.set_source(stim_dict['source'])
-        dgts.set_comments(stim_dict['comments'])
-        dgts.set_description(stim_dict['description'])
-        for fn, fv in stim_dict.items():
-            if fn not in ['sweep_onset_frames', 'sweeps', 'sources', 'comments', 'description']:
-                dgts.set_value(fn, fv)
-        dgts.finalize()
-
-    def add_visual_stimuli_camstim(self, stim_dict_lst):
-
-        for stim_dict in stim_dict_lst:
-            if stim_dict['stim_type'] == 'drifting_grating_camstim':
-                print('adding stimulus: {} to nwb.'.format(stim_dict['stim_name']))
-                self._add_drifting_grating_stimulation_camstim(stim_dict=stim_dict)
-            else:
-                pass
+    # ===========================corticalmapping visual stimuli related (non-indexed display)===========================
 
 
 if __name__ == '__main__':
-
     # =========================================================================================================
     # tmp_path = r"E:\data\python_temp_folder\test.nwb"
     # open_ephys_folder = r"E:\data\2016-07-19-160719-M256896\100_spontaneous_2016-07-19_09-45-06_Jun"
@@ -1836,7 +1945,5 @@ if __name__ == '__main__':
     plot_waveforms(wfs, zip(x_pos, y_pos), stds, axes_size=(0.3, 0.3))
     plt.show()
     # =========================================================================================================
-
-
 
     print('for debug ...')
