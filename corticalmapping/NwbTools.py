@@ -1166,24 +1166,28 @@ class RecordedFile(NWB):
         for stim_n in stim_ns:
             curr_stim_dict = stim_dict[stim_n]
 
+            print('adding {} to nwb ...'.format(stim_n))
+
             if stim_n[-35:] == 'StimulusSeparatorRetinotopicMapping':
-                self._add_stimulus_spearator_retinotopic_mapping(curr_stim_dict)
+                self._add_stimulus_separator_retinotopic_mapping(curr_stim_dict)
+            elif stim_n[-33:] == 'UniformContrastRetinotopicMapping':
+                self._add_uniform_contrast_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-32:] == 'FlashingCircleRetinotopicMapping':
                 self._add_flashing_circle_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-39:] == 'DriftingGratingCircleRetinotopicMapping':
                 self._add_drifting_grating_circle_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-37:] == 'StaticGratingCircleRetinotopicMapping':
                 self._add_static_grating_circle_retinotopic_mapping(curr_stim_dict)
-            elif stim_n[-29:] == 'SparseNoiseRetinotopicMapping':
+            elif stim_n[-30:] == '_SparseNoiseRetinotopicMapping':
                 self._add_sparse_noise_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-36:] == 'LocallySparseNoiseRetinotopicMapping':
                 self._add_locally_sparse_noise_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-30:] == 'StaticImagesRetinotopicMapping':
-                self._add_static_image_retinotopic_mapping(curr_stim_dict)
+                self._add_static_images_retinotopic_mapping(curr_stim_dict)
             else:
                 raise ValueError('Do not understand stimulus name: {}.'.format(stim_n))
 
-    def _add_stimulus_spearator_retinotopic_mapping(self, ss_dict):
+    def _add_stimulus_separator_retinotopic_mapping(self, ss_dict):
 
         stim_name = ss_dict['stim_name']
 
@@ -1200,48 +1204,362 @@ class RecordedFile(NWB):
 
         # add stimulus
         stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
-        stim_ts.set_time(ss_dict['timestamps'])
-        stim_ts.set_data(ss_dict['index_to_display'], unit='frame', conversion=1, resolution=1)
+        stim_ts.set_time(ss_dict['timestamps'], dtype='u8')
+        stim_ts.set_data(ss_dict['index_to_display'], unit='frame', conversion=1, resolution=1, dtype='u4')
         stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
-        stim_ts.set_comments('the timestamps of displayed frames (saved in data) are referenced to the start of'
-                             'this particular display, not the master time clock. For more useful timestamps, check'
-                             '/processing for aligned photodiode onset timestamps.')
-        stim_ts.set_description('the displayed frame indices to the corresponding unique frame templates saved in '
-                                '"/stimulus/templates"')
+        stim_ts.set_comments('The "timestamps" of this TimeSeries are indices (64-bit unsigned integer, hacked the '
+                             'original ainwb code) referencing the entire display sequence. It should match hardware '
+                             'vsync TTL (see "/acquisition/timeseries/digital_vsync_stim/rise"). The "data" of this '
+                             'TimeSeries are indices referencing the frames template saved in the "indexed_timeseries" '
+                             'field.')
+        stim_ts.set_description('stimulus separator displayed by retinotopic_mapping package')
         stim_ts.set_source(ss_dict['source'])
-        stim_ts.set_value('frame_config', ss_dict['frame_config'])
-        stim_ts.set_value('stim_name', ss_dict['stim_name'])
+        for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
+            stim_ts.set_value(key, ss_dict[key])
         stim_ts.set_value('indicator_on_frame_num', ss_dict['indicator_on_frame_num'])
         stim_ts.set_value('indicator_off_frame_num', ss_dict['indicator_off_frame_num'])
-        stim_ts.set_value('pregap_dur', ss_dict['pregap_dur'])
-        stim_ts.set_value('postgap_dur', ss_dict['postgap_dur'])
         stim_ts.set_value('cycle_num', ss_dict['cycle_num'])
-        stim_ts.set_value('coordinate', ss_dict['coordinate'])
+
+        stim_ts.finalize()
+
+    def _add_uniform_contrast_retinotopic_mapping(self, uc_dict):
+        stim_name = uc_dict['stim_name']
+
+        if stim_name[-33:] != 'UniformContrastRetinotopicMapping':
+            raise ValueError('stimulus should be "UniformContrastRetinotopicMapping" (UniformContrast from '
+                             'retinotopic_mapping package). ')
+
+        # add template
+        template_ts = self.create_timeseries('TimeSeries', stim_name, 'template')
+        template_ts.set_data(uc_dict['frames_unique'], unit='', conversion=np.nan, resolution=np.nan)
+        template_ts.set_value('num_samples', len(uc_dict['frames_unique']))
+        template_ts.set_source(uc_dict['source'])
+        template_ts.finalize()
+
+        # add stimulus
+        stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
+        stim_ts.set_time(uc_dict['timestamps'], dtype='u8')
+        stim_ts.set_data(uc_dict['index_to_display'], unit='frame', conversion=1, resolution=1, dtype='u4')
+        stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
+        stim_ts.set_comments('The "timestamps" of this TimeSeries are indices (64-bit unsigned integer, hacked the '
+                             'original ainwb code) referencing the entire display sequence. It should match hardware '
+                             'vsync TTL (see "/acquisition/timeseries/digital_vsync_stim/rise"). The "data" of this '
+                             'TimeSeries are indices referencing the frames template saved in the "indexed_timeseries" '
+                             'field.')
+        stim_ts.set_description('uniform contrast displayed by retinotopic_mapping package')
+        stim_ts.set_source(uc_dict['source'])
+        for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
+            stim_ts.set_value(key, uc_dict[key])
+        stim_ts.set_value('duration', uc_dict['duration'])
+        stim_ts.set_value('color', uc_dict['color'])
         stim_ts.finalize()
 
     def _add_flashing_circle_retinotopic_mapping(self, fc_dict):
-        # todo: finish this
-        pass
+        stim_name = fc_dict['stim_name']
+
+        if stim_name[-32:] != 'FlashingCircleRetinotopicMapping':
+            raise ValueError('stimulus should be "FlashingCircleRetinotopicMapping" (FlashingCircle from '
+                             'retinotopic_mapping package). ')
+
+        # add template
+        template_ts = self.create_timeseries('TimeSeries', stim_name, 'template')
+        template_ts.set_data(fc_dict['frames_unique'], unit='', conversion=np.nan, resolution=np.nan)
+        template_ts.set_value('num_samples', len(fc_dict['frames_unique']))
+        template_ts.set_source(fc_dict['source'])
+        template_ts.finalize()
+
+        # add stimulus
+        stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
+        stim_ts.set_time(fc_dict['timestamps'], dtype='u8')
+        stim_ts.set_data(fc_dict['index_to_display'], unit='frame', conversion=1, resolution=1, dtype='u4')
+        stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
+        stim_ts.set_comments('The "timestamps" of this TimeSeries are indices (64-bit unsigned integer, hacked the '
+                             'original ainwb code) referencing the entire display sequence. It should match hardware '
+                             'vsync TTL (see "/acquisition/timeseries/digital_vsync_stim/rise"). The "data" of this '
+                             'TimeSeries are indices referencing the frames template saved in the "indexed_timeseries" '
+                             'field.')
+        stim_ts.set_description('flashing circle displayed by retinotopic_mapping package')
+        stim_ts.set_source(fc_dict['source'])
+        for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
+            stim_ts.set_value(key, fc_dict[key])
+        stim_ts.set_value('is_smooth_dege', fc_dict['is_smooth_edge'])
+        stim_ts.set_value('smooth_width_ratio', fc_dict['smooth_width_ratio'])
+        stim_ts.set_value('center', fc_dict['center'])
+        stim_ts.set_value('radius', fc_dict['radius'])
+        stim_ts.set_value('flash_frame_num', fc_dict['flash_frame_num'])
+        stim_ts.set_value('iteration', fc_dict['iteration'])
+        stim_ts.set_value('color', fc_dict['color'])
+        stim_ts.finalize()
 
     def _add_drifting_grating_circle_retinotopic_mapping(self, dgc_dict):
-        # todo: finish this
-        pass
+        stim_name = dgc_dict['stim_name']
+
+        if stim_name[-39:] != 'DriftingGratingCircleRetinotopicMapping':
+            raise ValueError('stimulus should be "DriftingGratingCircleRetinotopicMapping" (DriftingGratingCircle from '
+                             'retinotopic_mapping package). ')
+
+        # add template
+        template_ts = self.create_timeseries('TimeSeries', stim_name, 'template')
+        frames_unique = dgc_dict['frames_unique']
+        frames_template = []
+        for frame in frames_unique:
+            curr_frame = np.array(frame)
+            curr_frame[curr_frame == None] = np.nan
+            frames_template.append(np.array(curr_frame, dtype=np.float32))
+        frames_template = np.array(frames_template)
+        template_ts.set_data(frames_template, unit='', conversion=np.nan, resolution=np.nan)
+        template_ts.set_value('num_samples', frames_template.shape[0])
+        template_ts.set_source(dgc_dict['source'])
+        template_ts.finalize()
+
+        # add stimulus
+        stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
+        stim_ts.set_time(dgc_dict['timestamps'], dtype='u8')
+        stim_ts.set_data(dgc_dict['index_to_display'], unit='frame', conversion=1, resolution=1, dtype='u4')
+        stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
+        stim_ts.set_comments('The "timestamps" of this TimeSeries are indices (64-bit unsigned integer, hacked the '
+                             'original ainwb code) referencing the entire display sequence. It should match hardware '
+                             'vsync TTL (see "/acquisition/timeseries/digital_vsync_stim/rise"). The "data" of this '
+                             'TimeSeries are indices referencing the frames template saved in the "indexed_timeseries" '
+                             'field.')
+        stim_ts.set_description('drifting grating circle displayed by retinotopic_mapping package')
+        stim_ts.set_source(dgc_dict['source'])
+        for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
+            stim_ts.set_value(key, dgc_dict[key])
+        stim_ts.set_value('is_smooth_dege', dgc_dict['is_smooth_edge'])
+        stim_ts.set_value('smooth_width_ratio', dgc_dict['smooth_width_ratio'])
+        stim_ts.set_value('center', dgc_dict['center'])
+        stim_ts.set_value('iteration', dgc_dict['iteration'])
+        stim_ts.set_value('dire_list', dgc_dict['dire_list'])
+        stim_ts.set_value('radius_list', dgc_dict['radius_list'])
+        stim_ts.set_value('con_list', dgc_dict['con_list'])
+        stim_ts.set_value('sf_list', dgc_dict['sf_list'])
+        stim_ts.set_value('tf_list', dgc_dict['tf_list'])
+        stim_ts.set_value('block_dur', dgc_dict['block_dur'])
+        stim_ts.set_value('midgap_dur', dgc_dict['midgap_dur'])
+        stim_ts.finalize()
 
     def _add_static_grating_circle_retinotopic_mapping(self, sgc_dict):
-        # todo: finish this
-        pass
+        stim_name = sgc_dict['stim_name']
+
+        if stim_name[-37:] != 'StaticGratingCircleRetinotopicMapping':
+            raise ValueError('stimulus should be "StaticGratingCircleRetinotopicMapping" (StaticGratingCircle from '
+                             'retinotopic_mapping package). ')
+
+        # add template
+        template_ts = self.create_timeseries('TimeSeries', stim_name, 'template')
+        frames_unique = sgc_dict['frames_unique']
+        frames_template = []
+        for frame in frames_unique:
+            curr_frame = np.array(frame)
+            curr_frame[curr_frame == None] = np.nan
+            frames_template.append(np.array(curr_frame, dtype=np.float32))
+        frames_template = np.array(frames_template)
+        template_ts.set_data(frames_template, unit='', conversion=np.nan, resolution=np.nan)
+        template_ts.set_value('num_samples', frames_template.shape[0])
+        template_ts.set_source(sgc_dict['source'])
+        template_ts.finalize()
+
+        # add stimulus
+        stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
+        stim_ts.set_time(sgc_dict['timestamps'], dtype='u8')
+        stim_ts.set_data(sgc_dict['index_to_display'], unit='frame', conversion=1, resolution=1, dtype='u4')
+        stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
+        stim_ts.set_comments('The "timestamps" of this TimeSeries are indices (64-bit unsigned integer, hacked the '
+                             'original ainwb code) referencing the entire display sequence. It should match hardware '
+                             'vsync TTL (see "/acquisition/timeseries/digital_vsync_stim/rise"). The "data" of this '
+                             'TimeSeries are indices referencing the frames template saved in the "indexed_timeseries" '
+                             'field.')
+        stim_ts.set_description('static grating circle displayed by retinotopic_mapping package')
+        stim_ts.set_source(sgc_dict['source'])
+        for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
+            stim_ts.set_value(key, sgc_dict[key])
+        stim_ts.set_value('is_smooth_dege', sgc_dict['is_smooth_edge'])
+        stim_ts.set_value('smooth_width_ratio', sgc_dict['smooth_width_ratio'])
+        stim_ts.set_value('center', sgc_dict['center'])
+        stim_ts.set_value('iteration', sgc_dict['iteration'])
+        stim_ts.set_value('ori_list', sgc_dict['ori_list'])
+        stim_ts.set_value('radius_list', sgc_dict['radius_list'])
+        stim_ts.set_value('con_list', sgc_dict['con_list'])
+        stim_ts.set_value('sf_list', sgc_dict['sf_list'])
+        stim_ts.set_value('phase_list', sgc_dict['phase_list'])
+        stim_ts.set_value('display_dur', sgc_dict['display_dur'])
+        stim_ts.set_value('midgap_dur', sgc_dict['midgap_dur'])
+        stim_ts.finalize()
 
     def _add_sparse_noise_retinotopic_mapping(self, sn_dict):
-        # todo: finish this
-        pass
+        stim_name = sn_dict['stim_name']
+
+        if stim_name[-30:] != '_SparseNoiseRetinotopicMapping':
+            raise ValueError('stimulus should be "SparseNoiseRetinotopicMapping" (SparseNoise from '
+                             'retinotopic_mapping package). ')
+
+        # add template
+        template_ts = self.create_timeseries('TimeSeries', stim_name, 'template')
+        frames_template = []
+        probes = []
+        for frame in sn_dict['frames_unique']:
+
+            frames_template.append(np.array([frame[0], frame[3]], dtype=np.float32))
+
+            if frame[1] is None:
+                probes.append(np.array([np.nan, np.nan, np.nan], dtype=np.float32))
+            else:
+                # print([frame[1][0], frame[1][1], frame[2]])
+                probes.append(np.array([frame[1][0], frame[1][1], frame[2]], dtype=np.float32))
+
+        frames_template = np.array(frames_template)
+        probes = np.array(probes)
+        template_ts.set_data(frames_template, unit='', conversion=np.nan, resolution=np.nan)
+        template_ts.set_value('probes', probes)
+        template_ts.set_value('num_samples', frames_template.shape[0])
+        template_ts.set_source(sn_dict['source'])
+        template_ts.set_description('The "data" field saved modified frame configuration: '
+                                    '[is_display, indicator color)]. While the "probe" field saved modified probe '
+                                    'configuration: [altitude, azimuth, polarity]. These two fields have one-to-one '
+                                    'relationship. Together they define an unique display frame of sparse noise '
+                                    'stimulus. The order of these two fields should not be changed.')
+        template_ts.finalize()
+
+        # add stimulus
+        stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
+        stim_ts.set_time(sn_dict['timestamps'], dtype='u8')
+        stim_ts.set_data(sn_dict['index_to_display'], unit='frame', conversion=1, resolution=1, dtype='u4')
+        stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
+        stim_ts.set_comments('The "timestamps" of this TimeSeries are indices (64-bit unsigned integer, hacked the '
+                             'original ainwb code) referencing the entire display sequence. It should match hardware '
+                             'vsync TTL (see "/acquisition/timeseries/digital_vsync_stim/rise"). The "data" of this '
+                             'TimeSeries are indices referencing the frames template saved in the "indexed_timeseries" '
+                             'field.')
+        stim_ts.set_description('sparse noise displayed by retinotopic_mapping package')
+        stim_ts.set_source(sn_dict['source'])
+        for key in ['stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
+            stim_ts.set_value(key, sn_dict[key])
+        stim_ts.set_value('frame_config', ['is_display', 'indicator color[-1., 1.]']) # modified frame config
+        stim_ts.set_value('probe_config', ['altitude (deg)', 'azimuth (deg)', 'polarity']) # modified probe config
+        stim_ts.set_value('is_include_dege', sn_dict['is_include_edge'])
+        stim_ts.set_value('probe_frame_num', sn_dict['probe_frame_num'])
+        stim_ts.set_value('subregion', sn_dict['subregion'])
+        stim_ts.set_value('iteration', sn_dict['iteration'])
+        stim_ts.set_value('grid_space', sn_dict['grid_space'])
+        stim_ts.set_value('probe_orientation', sn_dict['probe_orientation'])
+        stim_ts.set_value('sign', sn_dict['sign'])
+        stim_ts.set_value('probe_size', sn_dict['probe_size'])
+        stim_ts.finalize()
 
     def _add_locally_sparse_noise_retinotopic_mapping(self, lsn_dict):
-        # todo: finish this
-        pass
+        stim_name = lsn_dict['stim_name']
 
-    def _add_static_image_retinotopic_mapping(self, si_dict):
-        # todo: finish this
-        pass
+        if stim_name[-36:] != 'LocallySparseNoiseRetinotopicMapping':
+            raise ValueError('stimulus should be "LocallySparseNoiseRetinotopicMapping" (LocallySparseNoise from '
+                             'retinotopic_mapping package). ')
+
+        # add template
+        template_ts = self.create_timeseries('TimeSeries', stim_name, 'template')
+
+        max_probe_num = 0 # get max probe number in a single frame
+        for frame in lsn_dict['frames_unique']:
+            if frame[1] is not None:
+                max_probe_num = max([max_probe_num, len(frame[1])])
+
+        frames_template = np.empty((len(lsn_dict['frames_unique']), 2), dtype=np.float32)
+        probes = np.empty((len(lsn_dict['frames_unique']), max_probe_num, 3), dtype=np.float64)
+        probes[:] = np.nan
+
+        for frame_ind, frame in enumerate(lsn_dict['frames_unique']):
+
+            frames_template[frame_ind] = np.array([frame[0], frame[3]], dtype=np.float32)
+
+            if frame[1] is not None:
+                for curr_probe_i, curr_probe in enumerate(frame[1]):
+                    probes[frame_ind, curr_probe_i, :] = np.array([curr_probe], dtype=np.float64)
+
+        template_ts.set_data(frames_template, unit='', conversion=np.nan, resolution=np.nan)
+        template_ts.set_value('probes', probes, dtype='float64')
+        template_ts.set_value('num_samples', frames_template.shape[0])
+        template_ts.set_source(lsn_dict['source'])
+        template_ts.set_description('The "data" field saved modified frame configuration: '
+                                    '[is_display, indicator color)]. While the "probe" field saved modified probe '
+                                    'configuration. It is a 3-d array with axis: [frame_num, probe_num, probe_info], '
+                                    'the probe info is specified as: [altitude, azimuth, polarity]. The frame '
+                                    'dimension of these two fields have one-to-one relationship. '
+                                    'Together they define an unique display frame of locally sparse noise stimulus. '
+                                    'The order of these two fields should not be changed.')
+        template_ts.finalize()
+
+        # add stimulus
+        stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
+        stim_ts.set_time(lsn_dict['timestamps'], dtype='u8')
+        stim_ts.set_data(lsn_dict['index_to_display'], unit='frame', conversion=1, resolution=1, dtype='u4')
+        stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
+        stim_ts.set_comments('The "timestamps" of this TimeSeries are indices (64-bit unsigned integer, hacked the '
+                             'original ainwb code) referencing the entire display sequence. It should match hardware '
+                             'vsync TTL (see "/acquisition/timeseries/digital_vsync_stim/rise"). The "data" of this '
+                             'TimeSeries are indices referencing the frames template saved in the "indexed_timeseries" '
+                             'field.')
+        stim_ts.set_description('locally sparse noise displayed by retinotopic_mapping package')
+        stim_ts.set_source(lsn_dict['source'])
+        for key in ['stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
+            stim_ts.set_value(key, lsn_dict[key])
+        stim_ts.set_value('frame_config', ['is_display', 'indicator color[-1., 1.]'])  # modified frame config
+        stim_ts.set_value('probe_config', ['frame_num x probe_num x probe_info (altitude_deg, azimuth_deg, polarity)'])  # modified probe config
+        stim_ts.set_value('is_include_dege', lsn_dict['is_include_edge'])
+        stim_ts.set_value('probe_frame_num', lsn_dict['probe_frame_num'])
+        stim_ts.set_value('subregion', lsn_dict['subregion'])
+        stim_ts.set_value('iteration', lsn_dict['iteration'])
+        stim_ts.set_value('grid_space', lsn_dict['grid_space'])
+        stim_ts.set_value('probe_orientation', lsn_dict['probe_orientation'])
+        stim_ts.set_value('sign', lsn_dict['sign'])
+        stim_ts.set_value('probe_size', lsn_dict['probe_size'])
+        stim_ts.set_value('min_distance', lsn_dict['min_distance'])
+        stim_ts.finalize()
+
+    def _add_static_images_retinotopic_mapping(self, si_dict):
+        stim_name = si_dict['stim_name']
+
+        if stim_name[-30:] != 'StaticImagesRetinotopicMapping':
+            raise ValueError('stimulus should be "StaticImagesetinotopicMapping" (StaticImages from '
+                             'retinotopic_mapping package). ')
+
+        # add template
+        template_ts = self.create_timeseries('TimeSeries', stim_name, 'template')
+        frames_unique = si_dict['frames_unique']
+        frames_template = []
+        for frame in frames_unique:
+            curr_frame = np.array(frame)
+            curr_frame[curr_frame == None] = np.nan
+            frames_template.append(np.array(curr_frame, dtype=np.float32))
+        frames_template = np.array(frames_template)
+        template_ts.set_data(frames_template, unit='', conversion=np.nan, resolution=np.nan)
+        template_ts.set_value('num_samples', frames_template.shape[0])
+        template_ts.set_value('images_wrapped', si_dict['images_wrapped'])
+        template_ts.set_value('images_dewrapped', si_dict['images_dewrapped'])
+        template_ts.set_source(si_dict['source'])
+        template_ts.finalize()
+
+        # add stimulus
+        stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
+        stim_ts.set_time(si_dict['timestamps'], dtype='u8')
+        stim_ts.set_data(si_dict['index_to_display'], unit='frame', conversion=1, resolution=1, dtype='u4')
+        stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
+        stim_ts.set_comments('The "timestamps" of this TimeSeries are indices (64-bit unsigned integer, hacked the '
+                             'original ainwb code) referencing the entire display sequence. It should match hardware '
+                             'vsync TTL (see "/acquisition/timeseries/digital_vsync_stim/rise"). The "data" of this '
+                             'TimeSeries are indices referencing the frames template saved in the "indexed_timeseries" '
+                             'field.')
+        stim_ts.set_description('static images displayed by retinotopic_mapping package')
+        stim_ts.set_source(si_dict['source'])
+        for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
+            stim_ts.set_value(key, si_dict[key])
+        stim_ts.set_value('altitude_dewrapped', si_dict['altitude_dewrapped'])
+        stim_ts.set_value('azimuth_dewrapped', si_dict['azimuth_dewrapped'])
+        stim_ts.set_value('img_center', si_dict['img_center'])
+        stim_ts.set_value('midgap_dur', si_dict['midgap_dur'])
+        stim_ts.set_value('display_dur', si_dict['display_dur'])
+        stim_ts.set_value('iteration', si_dict['iteration'])
+        stim_ts.set_value('deg_per_pixel_azi', si_dict['deg_per_pixel_azi'])
+        stim_ts.set_value('deg_per_pixel_alt', si_dict['deg_per_pixel_alt'])
+        stim_ts.finalize()
 
     # ===========================retinotopic_mapping visual stimuli related (indexed display)===========================
 
