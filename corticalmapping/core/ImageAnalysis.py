@@ -1509,6 +1509,9 @@ class WeightedROI(ROI):
     def get_weight_sum(self):
         return sum(self.weights)
 
+    def get_mean_weight(self):
+        return np.mean(self.weights)
+
     def get_weighted_mask(self):
         mask = np.zeros(self.dimension,dtype=np.float32)
         mask[self.pixels] = self.weights
@@ -1584,9 +1587,9 @@ class WeightedROI(ROI):
             # trace += mov[:, pixel[0], pixel[1]]  # somehow this is less precise !! do not use
             trace = trace + self.weights[i] * (mov[:, pixel[0], pixel[1]]).astype(np.float32)
         # print trace
-        if is_area_weighted:
+        if not is_area_weighted:
             return trace / self.get_binary_area()
-        elif not is_area_weighted:
+        elif is_area_weighted:
             return trace / self.get_weight_sum()
         else:
             raise ValueError('is_area_weighted should be a boolean variable.')

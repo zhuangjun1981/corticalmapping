@@ -304,7 +304,7 @@ class RecordedFile(NWB):
         the derivative of the filtered signal was calculated by numpy.diff. The derivative signal was then timed
         with the digitized signal. Then the segmentation_threshold was used to detect rising edge of the resulting
         signal. Any onset with interval from its previous onset smaller than smallest_interval will be discarded.
-        the resulting timestamps of photodiode onsets will be saved in 'processing/photodiode_onsets' timeseries
+        the resulting timestamps of photodiode onsets will be saved in 'analysis/photodiode_onsets' timeseries
 
         :param digitizeThr: float
         :param filterSize: float
@@ -347,7 +347,7 @@ class RecordedFile(NWB):
                               'digitized signal. Then the segmentation_threshold was used to detect rising edge of '
                               'the resulting signal. Any onset with interval from its previous onset smaller than '
                               'smallest_interval will be discarded.')
-        pd_ts.set_path('/processing/PhotodiodeOnsets')
+        pd_ts.set_path('/analysis/PhotodiodeOnsets')
         pd_ts.set_value('digitize_threshold', digitizeThr)
         pd_ts.set_value('fileter_size', filterSize)
         pd_ts.set_value('segmentation_threshold', segmentThr)
@@ -1160,13 +1160,20 @@ class RecordedFile(NWB):
 
     # ===========================retinotopic_mapping visual stimuli related (indexed display)===========================
     def add_visual_display_log_retinotopic_mapping(self, stim_dict):
+        """
+        add visual display log into nwb.
+
+        :param stim_dict: dictionary, as returned by
+                          retinotopic_mapping.DisplayLogAnalysis.DisplayLogAnalyzer.get_stim_dict() function.
+        :return: None
+        """
 
         stim_ns = stim_dict.keys()
         stim_ns.sort()
         for stim_n in stim_ns:
             curr_stim_dict = stim_dict[stim_n]
 
-            print('adding {} to nwb ...'.format(stim_n))
+            print('\nadding {} to nwb ...'.format(stim_n))
 
             if stim_n[-35:] == 'StimulusSeparatorRetinotopicMapping':
                 self._add_stimulus_separator_retinotopic_mapping(curr_stim_dict)
@@ -1186,6 +1193,35 @@ class RecordedFile(NWB):
                 self._add_static_images_retinotopic_mapping(curr_stim_dict)
             else:
                 raise ValueError('Do not understand stimulus name: {}.'.format(stim_n))
+
+    def add_photodiode_onsets_combined_retinotopic_mapping(self, pd_onsets_com, display_delay,
+                                       vsync_frame_path='acquisition/timeseries/digital_vsync_stim_rise'):
+        """
+        add combined photodiode onsets to self, currently the field is 'analysis/photodiode_onsets'
+
+        :param pd_onsets_com: dictionary, product of
+                              retinotopic_mapping.DisplayLogAnalysis.DisplayLogAnalyzer.analyze_photodiode_onsets_combined()
+                              function
+        :param display_delay: float, display delay in seconds
+        :param vsync_frame_path: str, hdf5 path to digital timeseries of digital_vsync_frame_rise
+        :return: None
+        """
+
+        vsync_stim_ts = self.file_pointer[vsync_frame_path]['timestamps'].value + display_delay
+
+        stim_ns = pd_onsets_com.keys()
+        stim_ns.sort()
+
+        pd_grp = self.file_pointer['analysis'].create_group('photodiode_onsets')
+        for stim_n in stim_ns:
+            stim_grp = pd_grp.create_group(stim_n)
+            pd_onset_ns = pd_onsets_com[stim_n].keys()
+            pd_onset_ns.sort()
+            for pd_onset_n in pd_onset_ns:
+                pd_onset_grp = stim_grp.create_group(pd_onset_n)
+                pd_onset_grp['global_pd_onset_ind'] = pd_onsets_com[stim_n][pd_onset_n]['global_pd_onset_ind']
+                pd_onset_grp['global_frame_ind'] = pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']
+                pd_onset_grp['pd_onset_ts_sec'] = vsync_stim_ts[pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']]
 
     def _add_stimulus_separator_retinotopic_mapping(self, ss_dict):
 

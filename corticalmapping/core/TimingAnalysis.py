@@ -89,7 +89,7 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
     """
 
     bin_width = (float(t_range[1]) - float(t_range[0])) / bins
-    t = np.arange(bins) * bin_width + t_range[0]
+    t = np.arange(bins).astype(np.float64) * bin_width + t_range[0]
     intervals = zip(t, t + bin_width)
     values = np.zeros(bins, dtype=np.int64)
     ts1s = np.sort(ts1)  # sort first timestamps array
@@ -129,7 +129,7 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
         ax = f.add_subplot(111)
         ax.bar([a[0] for a in intervals], values, bin_width * 0.9)
 
-    return t, values.astype(np.float32)
+    return t, values.astype(np.float64)
 
 
 def find_nearest(trace, value, direction=0):

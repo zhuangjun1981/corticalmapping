@@ -710,7 +710,7 @@ def neural_pil_subtraction(trace_center, trace_surround, lam=0.05):
     ns.fit()
     # ns.fit_block_coordinate_desc()
 
-    return ns.r, ns.error, trace_center - ns.r * trace_surround
+    return ns.r, ns.error, trace_center - (ns.r * trace_surround)
 
 
 def get_lfp(trace, fs=30000., notch_base=60., notch_bandwidth=1., notch_harmonics=4, notch_order=2,
