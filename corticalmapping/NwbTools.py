@@ -138,7 +138,6 @@ def plot_waveforms(waveforms, ch_locations=None, stds=None, waveforms_filtered=N
 
     return f
 
-
 class RecordedFile(NWB):
     """
     Jun's wrapper of nwb file. Designed for LGN-ephys/V1-ophys dual recording experiments. Should be able to save
@@ -1159,15 +1158,15 @@ class RecordedFile(NWB):
 
 
     # ===========================retinotopic_mapping visual stimuli related (indexed display)===========================
-    def add_visual_display_log_retinotopic_mapping(self, stim_dict):
+    def add_visual_display_log_retinotopic_mapping(self, stim_log):
         """
         add visual display log into nwb.
 
-        :param stim_dict: dictionary, as returned by
-                          retinotopic_mapping.DisplayLogAnalysis.DisplayLogAnalyzer.get_stim_dict() function.
+        :param stim_log: retinotopic_mapping.DisplayLogAnalysis.DisplayLogAnalyzer instance
         :return: None
         """
 
+        stim_dict = stim_log.get_stim_dict()
         stim_ns = stim_dict.keys()
         stim_ns.sort()
         for stim_n in stim_ns:
@@ -1193,6 +1192,58 @@ class RecordedFile(NWB):
                 self._add_static_images_retinotopic_mapping(curr_stim_dict)
             else:
                 raise ValueError('Do not understand stimulus name: {}.'.format(stim_n))
+
+    def get_display_delay_retinotopic_mapping(self, stim_log, indicator_color_thr=0.5, ccg_t_range=(0., 0.1),
+                                              ccg_bins=100, is_plot=True, pd_onset_ts_path=None):
+        """
+
+        :param stim_log: retinotopic_mapping.DisplayLogAnalysis.DisplayLogAnalyzer instance
+        :param indicator_color_thr: float, [-1., 1.]
+        :param ccg_t_range:
+        :param ccg_bins:
+        :param is_plot:
+        :param pd_onset_ts_path: str, path to the timeseries of photodiode onsets in seconds
+        :return:
+        """
+
+        # get photodiode onset timestamps (after display)
+        if pd_onset_ts_path is None:
+            if 'acquisition/timeseries/digital_photodiode_rise' in self.file_pointer:
+                pd_ts_pd = self.file_pointer['acquisition/timeseries/digital_photodiode_risetimestamps'].value
+            elif 'analysis/PhotodiodeOnsets' in self.file_pointer:
+                 pd_ts_pd = self.file_pointer['analysis/PhotodiodeOnsets/timestamps'].value
+            else:
+                raise LookupError('Cannot find photodiode onset timeseries.')
+        else:
+            pd_ts_pd = self.file_pointer[pd_onset_ts_path + '/timestamps'].value
+
+        # check vsync_stim number and total frame number
+        vsync_ts = self.file_pointer['acquisition/timeseries/digital_vsync_stim_rise/timestamps'].value
+        print('\nnumber of total frames in log file: {}'.format(stim_log.num_frame_tot))
+        print('number of vsync_stim TTL rise events: {}'.format(len(vsync_ts)))
+        if stim_log.num_frame_tot != len(vsync_ts):
+            raise ValueError('number of vsync_stim TTL rise events does not equal number of total frames in log file!')
+
+        # get photodiode onset timestamps from vsync_stim (before display)
+        stim_dict = stim_log.get_stim_dict()
+        pd_onsets_seq = stim_log.analyze_photodiode_onsets_sequential(stim_dict=stim_dict, pd_thr=indicator_color_thr)
+
+        pd_ts_vsync = []
+        for pd_onset in pd_onsets_seq:
+            pd_ts_vsync.append(vsync_ts[pd_onset['global_frame_ind']])
+
+        # calculate display delay as the weighted average of pd_ccg
+        print('calculating photodiode cross-correlogram ...')
+        pd_ccg = ta.discrete_cross_correlation(pd_ts_vsync, pd_ts_pd, t_range=ccg_t_range, bins=ccg_bins,
+                                               isPlot=is_plot)
+        if is_plot:
+            plt.show()
+
+        display_delay = np.sum(pd_ccg[0] * pd_ccg[1]) / np.sum(pd_ccg[1])
+        print('calculated display delay: {} second.'.format(display_delay))
+        self.file_pointer['analysis/visual_display_delay_sec'] = display_delay
+
+        return display_delay
 
     def add_photodiode_onsets_combined_retinotopic_mapping(self, pd_onsets_com, display_delay,
                                        vsync_frame_path='acquisition/timeseries/digital_vsync_stim_rise'):
