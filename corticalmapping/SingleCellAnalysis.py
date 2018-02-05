@@ -376,7 +376,7 @@ class SpatialTemporalReceptiveField(object):
         self.name = name
         self.locationUnit = locationUnit
         self.trace_data_type = trace_data_type
-        dtype = [('altitude',float),('azimuth',float),('sign',int),('traces',list)]
+        dtype = [('altitude', float),('azimuth', float),('sign', int),('traces', list)]
         values = [ (location[0], location[1], signs[i], traces[i]) for i, location in enumerate(locations)]
         if len(values) == 0:
             raise ValueError, 'Can not find input traces!'
@@ -481,15 +481,20 @@ class SpatialTemporalReceptiveField(object):
                     traces = self.data[index]['traces']
                     traces = [t for t in traces if not math.isnan(t[0])]
                     meanTrace = np.mean(np.array(traces, dtype=np.float32),axis=0)
-                    stdTrace = np.std(np.array(traces, dtype=np.float32),axis=0)
-                    semTrace = stdTrace/np.sqrt(float(len(traces)))
-                    if self.data[index]['sign'] == 1: color = '#ff0000'
-                    if self.data[index]['sign'] == -1: color = '#0000ff'
-                    # print self.time.shape
-                    # print (meanTrace-semTrace).shape
-                    # print (meanTrace+semTrace).shape
-                    axis.fill_between(self.time,meanTrace-semTrace,meanTrace+semTrace,facecolor=color,linewidth=0,alpha=0.5)
-                    axis.plot(self.time,meanTrace,'-',color=color,lw=1)
+
+                    if self.data[index]['sign'] == 1:
+                        color = '#ff0000'
+                    elif self.data[index]['sign'] == -1:
+                        color = '#0000ff'
+                    else:
+                        color = '#000000'
+
+                    if len(traces) > 1:
+                        stdTrace = np.std(np.array(traces, dtype=np.float32),axis=0)
+                        semTrace = stdTrace/np.sqrt(float(len(traces)))
+                        axis.fill_between(self.time,meanTrace - semTrace, meanTrace + semTrace, facecolor=color,
+                                          linewidth=0, alpha=0.5)
+                    axis.plot(self.time, meanTrace, '-', color=color, lw=1)
 
         return axisLists[0][0].figure
 
@@ -813,6 +818,65 @@ class SpatialTemporalReceptiveField(object):
             traces.append(traceItem.value)
 
         return SpatialTemporalReceptiveField(locations, signs, traces, time, name, locationUnit, trace_data_type)
+
+    def get_local_dff_strf(self, is_collaps_before_normalize=True):
+        """
+
+        :param is_collaps_before_normalize: if True, for each location, the traces across multiple trials will be
+                                            averaged before calculating df/f
+        :return:
+        """
+
+        bl_inds = self.time <= 0
+        # print(bl_inds)
+
+        dff_traces = []
+        for roi_ind, roi_row in enumerate(self.data):
+            curr_traces = np.array(roi_row['traces'])
+
+            if is_collaps_before_normalize:
+                curr_traces = np.mean(curr_traces, axis=0, keepdims=True)
+
+            curr_bl = np.mean(curr_traces[:, bl_inds], axis=1, keepdims=True)
+            curr_dff = (curr_traces - curr_bl) / curr_bl
+
+            dff_traces.append(list(curr_dff))
+
+        locations = zip(self.data['altitude'], self.data['azimuth'])
+        strf_dff = SpatialTemporalReceptiveField(locations=locations, signs=self.data['sign'], traces=dff_traces,
+                                                 time=self.time, name=self.name, locationUnit=self.locationUnit,
+                                                 trace_data_type=self.trace_data_type + '_local_dff')
+        return strf_dff
+
+    def get_data_range(self):
+
+        v_min = None
+        v_max = None
+
+        for roi_ind, roi_row in enumerate(self.data):
+
+            curr_trace = np.array(roi_row['traces'])
+
+            if curr_trace.shape[0] > 1:
+                curr_std_trace = np.std(np.array(curr_trace, dtype=np.float32), axis=0, keepdims=True)
+                curr_sem_trace = curr_std_trace / np.sqrt(float(len(curr_trace)))
+                curr_trace_high = curr_trace + curr_sem_trace
+                curr_trace_low = curr_trace - curr_sem_trace
+            else:
+                curr_trace_low = curr_trace
+                curr_trace_high = curr_trace
+
+            if v_min is None:
+                v_min = np.amin(curr_trace_low)
+            else:
+                v_min = min([v_min, np.amin(curr_trace_low)])
+
+            if v_max is None:
+                v_max = np.max(curr_trace_high)
+            else:
+                v_max = max([v_max, np.amax(curr_trace_high)])
+
+        return v_min, v_max
 
 
 if __name__=='__main__':

@@ -138,6 +138,7 @@ def plot_waveforms(waveforms, ch_locations=None, stds=None, waveforms_filtered=N
 
     return f
 
+
 class RecordedFile(NWB):
     """
     Jun's wrapper of nwb file. Designed for LGN-ephys/V1-ophys dual recording experiments. Should be able to save
