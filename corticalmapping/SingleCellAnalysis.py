@@ -819,7 +819,7 @@ class SpatialTemporalReceptiveField(object):
 
         return SpatialTemporalReceptiveField(locations, signs, traces, time, name, locationUnit, trace_data_type)
 
-    def get_local_dff_strf(self, is_collaps_before_normalize=True):
+    def get_local_dff_strf(self, is_collaps_before_normalize=True, add_to_trace=0.):
         """
 
         :param is_collaps_before_normalize: if True, for each location, the traces across multiple trials will be
@@ -832,13 +832,13 @@ class SpatialTemporalReceptiveField(object):
 
         dff_traces = []
         for roi_ind, roi_row in enumerate(self.data):
-            curr_traces = np.array(roi_row['traces'])
+            curr_traces = np.array(roi_row['traces']) + add_to_trace
 
             if is_collaps_before_normalize:
                 curr_traces = np.mean(curr_traces, axis=0, keepdims=True)
 
             curr_bl = np.mean(curr_traces[:, bl_inds], axis=1, keepdims=True)
-            curr_dff = (curr_traces - curr_bl) / curr_bl
+            curr_dff = (curr_traces - curr_bl) / abs(curr_bl)
 
             dff_traces.append(list(curr_dff))
 

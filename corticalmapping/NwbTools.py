@@ -265,7 +265,7 @@ class RecordedFile(NWB):
         if 'timestamps' in grp.keys():
             t = grp['timestamps']
         elif 'starting_time' in grp.keys():
-            fs = self.file_pointer['general/extracellular_ephys/sampling_rate'].value
+            fs = grp['starting_time'].attrs['rate']
             sample_num = grp['num_samples'].value
             t = np.arange(sample_num) / fs + grp['starting_time'].value
         else:
@@ -1195,7 +1195,8 @@ class RecordedFile(NWB):
                 raise ValueError('Do not understand stimulus name: {}.'.format(stim_n))
 
     def get_display_delay_retinotopic_mapping(self, stim_log, indicator_color_thr=0.5, ccg_t_range=(0., 0.1),
-                                              ccg_bins=100, is_plot=True, pd_onset_ts_path=None):
+                                              ccg_bins=100, is_plot=True, pd_onset_ts_path=None,
+                                              vsync_frame_ts_path=None):
         """
 
         :param stim_log: retinotopic_mapping.DisplayLogAnalysis.DisplayLogAnalyzer instance
@@ -1210,7 +1211,7 @@ class RecordedFile(NWB):
         # get photodiode onset timestamps (after display)
         if pd_onset_ts_path is None:
             if 'acquisition/timeseries/digital_photodiode_rise' in self.file_pointer:
-                pd_ts_pd = self.file_pointer['acquisition/timeseries/digital_photodiode_risetimestamps'].value
+                pd_ts_pd = self.file_pointer['acquisition/timeseries/digital_photodiode_rise/timestamps'].value
             elif 'analysis/PhotodiodeOnsets' in self.file_pointer:
                  pd_ts_pd = self.file_pointer['analysis/PhotodiodeOnsets/timestamps'].value
             else:
@@ -1218,8 +1219,18 @@ class RecordedFile(NWB):
         else:
             pd_ts_pd = self.file_pointer[pd_onset_ts_path + '/timestamps'].value
 
+        # get vsync TTL timestamps for displayed frames
+        if vsync_frame_ts_path is None:
+            if 'acquisition/timeseries/digital_vsync_stim_rise' in self.file_pointer:
+                vsync_ts = self.file_pointer['acquisition/timeseries/digital_vsync_stim_rise/timestamps'].value
+            elif 'acquisition/timeseries/digital_vsync_visual_rise' in self.file_pointer:
+                vsync_ts = self.file_pointer['acquisition/timeseries/digital_vsync_visual_rise/timestamps'].value
+            else:
+                raise LookupError('Cannot find vsync TTL signal for displayed frames.')
+        else:
+            vsync_ts = self.file_pointer[vsync_frame_ts_path + '/timestamps'].value
+
         # check vsync_stim number and total frame number
-        vsync_ts = self.file_pointer['acquisition/timeseries/digital_vsync_stim_rise/timestamps'].value
         print('\nnumber of total frames in log file: {}'.format(stim_log.num_frame_tot))
         print('number of vsync_stim TTL rise events: {}'.format(len(vsync_ts)))
         if stim_log.num_frame_tot != len(vsync_ts):
@@ -1274,6 +1285,76 @@ class RecordedFile(NWB):
                 pd_onset_grp['global_pd_onset_ind'] = pd_onsets_com[stim_n][pd_onset_n]['global_pd_onset_ind']
                 pd_onset_grp['global_frame_ind'] = pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']
                 pd_onset_grp['pd_onset_ts_sec'] = vsync_stim_ts[pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']]
+
+    def get_drifting_grating_response_table_retinotopic_mapping(self, stim_name, time_window=(-1, 2.5)):
+
+        def get_sta(arr, arr_ts, trigger_ts, frame_start, frame_end):
+
+            sta_arr = []
+
+            for trig in trigger_ts:
+                trig_ind = ta.find_nearest(arr_ts, trig)
+                curr_sta = arr[:, (trig_ind + frame_start): (trig_ind + frame_end)]
+                sta_arr.append(curr_sta.reshape((curr_sta.shape[0], 1, curr_sta.shape[1])))
+
+            sta_arr = np.concatenate(sta_arr, axis=1)
+            return sta_arr
+
+        if time_window[0] >= time_window[1]:
+            raise ValueError('time window should be from early time to late time.')
+
+        grating_onsets_path = 'analysis/photodiode_onsets/{}'.format(stim_name)
+        grating_ns = self.file_pointer[grating_onsets_path].keys()
+        grating_ns.sort()
+        # print('\n'.join(grating_ns))
+
+        rois_and_traces_names = self.file_pointer['processing'].keys()
+        rois_and_traces_names = [n for n in rois_and_traces_names if n[0:15] == 'rois_and_traces']
+        rois_and_traces_names.sort()
+        # print('\n'.join(rois_and_traces_paths))
+
+        res_grp = self.file_pointer['analysis'].create_group('response_table_{}'.format(stim_name))
+        for curr_trace_name in rois_and_traces_names:
+
+            print('\nadding drifting grating response table for {} ...'.format(curr_trace_name))
+
+            curr_plane_n = curr_trace_name[16:]
+
+            res_grp_plane = res_grp.create_group(curr_plane_n)
+
+            # get trace time stamps
+            trace_ts = self.file_pointer['processing/motion_correction/MotionCorrection' \
+                                          '/{}/corrected/timestamps'.format(curr_plane_n)]
+            # get traces
+            traces = {}
+            if 'processing/{}/DfOverF/dff_center'.format(curr_trace_name) in self.file_pointer:
+                traces['global_dff_center'] = self.file_pointer[
+                    'processing/{}/DfOverF/dff_center/data'.format(curr_trace_name)].value
+            if 'processing/{}/Fluorescence'.format(curr_trace_name) in self.file_pointer:
+                f_types = self.file_pointer['processing/{}/Fluorescence'.format(curr_trace_name)].keys()
+                for f_type in f_types:
+                    traces[f_type] = self.file_pointer['processing/{}/Fluorescence/{}/data'
+                        .format(curr_trace_name, f_type)].value
+            # print(traces.keys())
+
+            frame_dur = np.mean(np.diff(trace_ts))
+            frame_start = int(time_window[0] // frame_dur)
+            frame_end = int(time_window[1] // frame_dur)
+            t_axis = np.arange(frame_end - frame_start) * frame_dur + time_window[0]
+            res_grp_plane.attrs['sta_timestamps'] = t_axis
+
+            for grating_n in grating_ns:
+
+                onsets_grating_grp = self.file_pointer['{}/{}'.format(grating_onsets_path, grating_n)]
+
+                curr_grating_grp = res_grp_plane.create_group(grating_n)
+                curr_grating_grp.attrs['sta_traces_dimenstion'] = 'roi x trial x timepoint'
+
+                grating_onsets = onsets_grating_grp['pd_onset_ts_sec'].value
+                for trace_n, trace in traces.items():
+                    sta = get_sta(arr=trace, arr_ts=trace_ts, trigger_ts=grating_onsets, frame_start=frame_start,
+                                  frame_end=frame_end)
+                    curr_grating_grp.create_dataset('sta_' + trace_n, data=sta)
 
     def _add_stimulus_separator_retinotopic_mapping(self, ss_dict):
 

@@ -159,6 +159,7 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     # plt.show()
 
     filterDataPoint = int(filterSize * Fs)
+    # print filterDataPoint
 
     pdFiltered = ni.filters.gaussian_filter(pdDigitized, filterDataPoint)
 
