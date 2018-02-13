@@ -838,7 +838,7 @@ class SpatialTemporalReceptiveField(object):
                 curr_traces = np.mean(curr_traces, axis=0, keepdims=True)
 
             curr_bl = np.mean(curr_traces[:, bl_inds], axis=1, keepdims=True)
-            curr_dff = (curr_traces - curr_bl) / abs(curr_bl)
+            curr_dff = (curr_traces - curr_bl) / curr_bl
 
             dff_traces.append(list(curr_dff))
 
