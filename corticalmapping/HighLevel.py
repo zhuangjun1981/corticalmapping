@@ -151,6 +151,9 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
 
     pdDigitized = np.array(pd)
 
+    # plt.plot(pd[1000000:2000000])
+    # plt.show()
+
     pdDigitized[pd < digitizeThr] = 0.
     pdDigitized[pd >= digitizeThr] = 5.
 
@@ -171,7 +174,7 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     pdFilteredDiff = np.hstack(([0], pdFilteredDiff))
     pdSignal = np.multiply(pdDigitized, pdFilteredDiff)
 
-    # plt.plot(pdSignal)
+    # plt.plot(pdSignal[1000000:2000000])
     # plt.title('pd signal')
     # plt.show()
 

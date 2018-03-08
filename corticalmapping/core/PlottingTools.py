@@ -512,13 +512,15 @@ def save_figure_without_borders(f,
     """
     remove borders of a figure
     """
-    # f.gca().get_xaxis().set_visible(False)
-    # f.gca().get_yaxis().set_visible(False)
+    f.gca().get_xaxis().set_visible(False)
+    f.gca().get_yaxis().set_visible(False)
     f.gca().set_axis_off()
     f.gca().set_title('')
     if removeSuperTitle:
         f.suptitle('')
-    f.savefig(savePath, pad_inches=0, bbox_inches='tight', **kwargs)
+    f.tight_layout(pad=0., h_pad=0., w_pad=0., rect=(0, 0, 1, 1))
+    # f.savefig(savePath, frameon=False, **kwargs)
+    f.savefig(savePath, pad_inches=0, bbox_inches='tight', frameon=False, **kwargs)
 
 
 def merge_normalized_images(imgList, isFilter=True, sigma=50, mergeMethod='mean', dtype=np.float32):
