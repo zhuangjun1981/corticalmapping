@@ -1451,7 +1451,7 @@ class RecordedFile(NWB):
         stim_ts.set_source(fc_dict['source'])
         for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
             stim_ts.set_value(key, fc_dict[key])
-        stim_ts.set_value('is_smooth_dege', fc_dict['is_smooth_edge'])
+        stim_ts.set_value('is_smooth_edge', fc_dict['is_smooth_edge'])
         stim_ts.set_value('smooth_width_ratio', fc_dict['smooth_width_ratio'])
         stim_ts.set_value('center', fc_dict['center'])
         stim_ts.set_value('radius', fc_dict['radius'])
@@ -1495,7 +1495,7 @@ class RecordedFile(NWB):
         stim_ts.set_source(dgc_dict['source'])
         for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
             stim_ts.set_value(key, dgc_dict[key])
-        stim_ts.set_value('is_smooth_dege', dgc_dict['is_smooth_edge'])
+        stim_ts.set_value('is_smooth_edge', dgc_dict['is_smooth_edge'])
         stim_ts.set_value('smooth_width_ratio', dgc_dict['smooth_width_ratio'])
         stim_ts.set_value('center', dgc_dict['center'])
         stim_ts.set_value('iteration', dgc_dict['iteration'])
@@ -1543,7 +1543,7 @@ class RecordedFile(NWB):
         stim_ts.set_source(sgc_dict['source'])
         for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
             stim_ts.set_value(key, sgc_dict[key])
-        stim_ts.set_value('is_smooth_dege', sgc_dict['is_smooth_edge'])
+        stim_ts.set_value('is_smooth_edge', sgc_dict['is_smooth_edge'])
         stim_ts.set_value('smooth_width_ratio', sgc_dict['smooth_width_ratio'])
         stim_ts.set_value('center', sgc_dict['center'])
         stim_ts.set_value('iteration', sgc_dict['iteration'])
@@ -1606,7 +1606,7 @@ class RecordedFile(NWB):
             stim_ts.set_value(key, sn_dict[key])
         stim_ts.set_value('frame_config', ['is_display', 'indicator color[-1., 1.]']) # modified frame config
         stim_ts.set_value('probe_config', ['altitude (deg)', 'azimuth (deg)', 'polarity']) # modified probe config
-        stim_ts.set_value('is_include_dege', sn_dict['is_include_edge'])
+        stim_ts.set_value('is_include_edge', sn_dict['is_include_edge'])
         stim_ts.set_value('probe_frame_num', sn_dict['probe_frame_num'])
         stim_ts.set_value('subregion', sn_dict['subregion'])
         stim_ts.set_value('iteration', sn_dict['iteration'])
@@ -1672,7 +1672,7 @@ class RecordedFile(NWB):
             stim_ts.set_value(key, lsn_dict[key])
         stim_ts.set_value('frame_config', ['is_display', 'indicator color[-1., 1.]'])  # modified frame config
         stim_ts.set_value('probe_config', ['frame_num x probe_num x probe_info (altitude_deg, azimuth_deg, polarity)'])  # modified probe config
-        stim_ts.set_value('is_include_dege', lsn_dict['is_include_edge'])
+        stim_ts.set_value('is_include_edge', lsn_dict['is_include_edge'])
         stim_ts.set_value('probe_frame_num', lsn_dict['probe_frame_num'])
         stim_ts.set_value('subregion', lsn_dict['subregion'])
         stim_ts.set_value('iteration', lsn_dict['iteration'])
@@ -1681,6 +1681,7 @@ class RecordedFile(NWB):
         stim_ts.set_value('sign', lsn_dict['sign'])
         stim_ts.set_value('probe_size', lsn_dict['probe_size'])
         stim_ts.set_value('min_distance', lsn_dict['min_distance'])
+        stim_ts.set_value('repeat', lsn_dict['repeat'])
         stim_ts.finalize()
 
     def _add_static_images_retinotopic_mapping(self, si_dict):
