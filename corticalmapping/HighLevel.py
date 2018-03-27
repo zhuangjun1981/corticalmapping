@@ -372,9 +372,9 @@ def analysisMappingDisplayLog(display_log):
     except KeyError:
         startTime = -1 * log['stimulation']['preGapFrameNum'] / log['monitor']['refreshRate']
     print 'Movie chunk start time relative to sweep onset:', startTime, 'sec'
-    displayInfo['B2U']['startTime'] = startTime;
+    displayInfo['B2U']['startTime'] = startTime
     displayInfo['U2B']['startTime'] = startTime
-    displayInfo['L2R']['startTime'] = startTime;
+    displayInfo['L2R']['startTime'] = startTime
     displayInfo['R2L']['startTime'] = startTime
 
     # get basic information
@@ -382,9 +382,9 @@ def analysisMappingDisplayLog(display_log):
     displayIter = log['presentation']['displayIteration']
     sweepTable = log['stimulation']['sweepTable']
     dirList = []
-    B2Uframes = [];
-    U2Bframes = [];
-    L2Rframes = [];
+    B2Uframes = []
+    U2Bframes = []
+    L2Rframes = []
     R2Lframes = []
 
     # parcel frames for each direction

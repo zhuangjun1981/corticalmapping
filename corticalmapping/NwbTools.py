@@ -1348,13 +1348,17 @@ class RecordedFile(NWB):
                 onsets_grating_grp = self.file_pointer['{}/{}'.format(grating_onsets_path, grating_n)]
 
                 curr_grating_grp = res_grp_plane.create_group(grating_n)
-                curr_grating_grp.attrs['sta_traces_dimenstion'] = 'roi x trial x timepoint'
 
                 grating_onsets = onsets_grating_grp['pd_onset_ts_sec'].value
+
+                curr_grating_grp.attrs['global_trigger_timestamps'] = grating_onsets
+                curr_grating_grp.attrs['sta_traces_dimenstion'] = 'roi x trial x timepoint'
+
                 for trace_n, trace in traces.items():
                     sta = get_sta(arr=trace, arr_ts=trace_ts, trigger_ts=grating_onsets, frame_start=frame_start,
                                   frame_end=frame_end)
                     curr_grating_grp.create_dataset('sta_' + trace_n, data=sta)
+
 
     def _add_stimulus_separator_retinotopic_mapping(self, ss_dict):
 
@@ -1472,7 +1476,16 @@ class RecordedFile(NWB):
         frames_unique = dgc_dict['frames_unique']
         frames_template = []
         for frame in frames_unique:
+
+            # temporally fix a bug
+            if frame == (1, 1, 0., 0., 0., 0., 0., 1.):
+                frame = (1, 1, 0., 0., 0., 0., 0., 0., 1.)
+
+            if frame == (1, 1, 0., 0., 0., 0., 0., 0.):
+                frame = (1, 1, 0., 0., 0., 0., 0., 0., 0.)
+
             curr_frame = np.array(frame)
+            # print(curr_frame)
             curr_frame[curr_frame == None] = np.nan
             frames_template.append(np.array(curr_frame, dtype=np.float32))
         frames_template = np.array(frames_template)
