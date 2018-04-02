@@ -145,7 +145,7 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     :return:
     '''
 
-    # plt.plot(pd)
+    # plt.plot(pd[:1000000])
     # plt.title('pd raw')
     # plt.show()
 

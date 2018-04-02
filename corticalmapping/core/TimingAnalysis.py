@@ -819,6 +819,108 @@ def haramp(trace, periods, ceil_f=4):
     return harmonic
 
 
+class TimeIntervals(object):
+    """
+    class to describe time intervals, designed to represent epochs
+
+    self.data save the (start, end) timestamps of each epochs. Shape (n, 2).
+    Each row: a single interval
+    column 0: start timestamps
+    column 1: end timestamps
+
+    the intervals are incremental in time and should not have overlap within them.
+    """
+
+    def __init__(self, intervals):
+        self._intervals = self.check_integraty(intervals)
+
+    def get_intervals(self):
+        return self._intervals
+
+    @staticmethod
+    def check_integraty(intervals):
+
+        intervals = np.array([np.array(d, dtype=np.float64) for d in intervals])
+        intervals = intervals.astype(np.float64)
+
+        if len(intervals.shape) != 2:
+            raise ValueError('intervals should be 2d.')
+
+        if intervals.shape[1] != 2:
+            raise ValueError('intervals.shape[1] should be 2. (start, end) of the interval')
+
+        # for interval_i, interval in enumerate(intervals):
+        #     if interval[1] <= interval[0]:
+        #         raise ValueError('the {}th interval: end time ({}) earlier than start time ({})'.
+        #                          format(interval_i, interval[1], interval[0]))
+
+        intervals = intervals[intervals[:, 0].argsort()]
+
+        ts_list = np.concatenate(intervals, axis=0)
+        if not check_monotonicity(arr=ts_list, direction='increasing'):
+            raise ValueError('The intervals should be incremental in time and should not have overlap within them.')
+
+        return intervals
+
+    def overlap(self, time_intervals):
+        """
+        return a new TimeIntervals object that represents the overlap between self and the input Timeintervals
+
+        :param time_intervals: corticalmapping.core.TimingAnalysis.TimeIntervals object
+        """
+
+        starts0 = [[s, 1] for s in self._intervals[:, 0]]
+        ends0 = [[e, -1] for e in self._intervals[:, 1]]
+
+        starts1 = [[s, 1] for s in time_intervals.get_intervals()[:, 0]]
+        ends1 = [[e, -1] for e in time_intervals.get_intervals()[:, 1]]
+
+        events_lst = starts0 + ends0 + starts1 + ends1
+        # print(events_lst)
+
+        ts_arr = np.array([e[0] for e in events_lst])
+        events_lst = [events_lst[i] for i in np.argsort(ts_arr)]
+        # print(events_lst)
+
+        mask = np.cumsum([e[1] for e in events_lst])
+
+        new_starts = []
+        new_ends = []
+
+        flag = 0 # 1: within overlap, 0: outside overlap
+        for ts_i, msk in enumerate(mask):
+
+            if flag == 0 and msk == 2:
+                new_starts.append(events_lst[ts_i][0])
+                flag = 1
+            elif flag == 1 and msk < 2:
+                new_ends.append(events_lst[ts_i][0])
+                flag = 0
+            elif flag == 1 and msk == 2:
+                raise ValueError('do not understand the timestamps: flag={}, msk={}.'.format(flag, msk))
+            else:
+                pass
+
+        if len(new_starts) != len(new_ends):
+            raise ValueError('the length of new_starts ({}) does not equal the length of new_ends ({}).'.
+                             format(len(new_starts), len(new_ends)))
+
+        if new_starts:
+            new_intervals = np.array([np.array(new_starts), np.array(new_ends)]).transpose()
+            return TimeIntervals(intervals=new_intervals)
+        else:
+            return None
+
+    def contain(self, time_intervals):
+        pass
+
+    def to_h5_group(self, grp):
+        pass
+
+    @staticmethod
+    def from_h5_group(grp):
+        pass
+
 
 if __name__=='__main__':
 
