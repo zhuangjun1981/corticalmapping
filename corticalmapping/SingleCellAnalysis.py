@@ -1,7 +1,3 @@
-from corticalmapping.core.ImageAnalysis import ROI, WeightedROI
-
-__author__ = 'junz'
-
 import numpy as np
 import matplotlib.pyplot as plt
 import core.PlottingTools as pt
@@ -12,6 +8,7 @@ import scipy.interpolate as ip
 import math
 import h5py
 from pandas import DataFrame
+from corticalmapping.core.ImageAnalysis import ROI, WeightedROI
 
 
 def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
@@ -23,30 +20,30 @@ def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
     onsetIndWithLocationSign: indices of frames for each white square, list with element structure [np.array([alt, azi]),sign,[list of indices]]
     """
 
-
     frames = sparseNoiseDisplayLog['presentation']['displayFrames']
-    frames = [tuple([np.array([x[1][1],x[1][0]]),x[2],x[3],i]) for i, x in enumerate(frames)]
-    dtype = [('location',np.ndarray),('sign',int),('isOnset',int),('index',int)]
-    frames = np.array(frames, dtype = dtype)
+    frames = [tuple([np.array([x[1][1], x[1][0]]), x[2], x[3], i]) for i, x in enumerate(frames)]
+    dtype = [('location', np.ndarray), ('sign', int), ('isOnset', int), ('index', int)]
+    frames = np.array(frames, dtype=dtype)
 
     allOnsetInd = []
     for i in range(len(frames)):
-        if frames[i]['isOnset'] == 1 and (i == 0 or frames[i-1]['isOnset'] == -1):
+        if frames[i]['isOnset'] == 1 and (i == 0 or frames[i - 1]['isOnset'] == -1):
             allOnsetInd.append(i)
 
     onsetFrames = frames[allOnsetInd]
 
-    allSquares = list(set([tuple([x[0][0],x[0][1],x[1]]) for x in onsetFrames]))
+    allSquares = list(set([tuple([x[0][0], x[0][1], x[1]]) for x in onsetFrames]))
 
     onsetIndWithLocationSign = []
 
     for square in allSquares:
         indices = []
         for onsetFrame in onsetFrames:
-            if onsetFrame['location'][0]==square[0] and onsetFrame['location'][1]==square[1] and onsetFrame['sign']==square[2]:
+            if onsetFrame['location'][0] == square[0] and onsetFrame['location'][1] == square[1] and onsetFrame[
+                'sign'] == square[2]:
                 indices.append(onsetFrame['index'])
 
-        onsetIndWithLocationSign.append([np.array([square[0],square[1]]),square[2],indices])
+        onsetIndWithLocationSign.append([np.array([square[0], square[1]]), square[2], indices])
 
     return allOnsetInd, onsetIndWithLocationSign
 
@@ -56,12 +53,15 @@ def get_peak_weighted_roi(arr, thr):
     return: a WeightROI object representing the mask which contains the peak of arr and cut by the thr (thr)
     """
     nanLabel = np.isnan(arr)
-    arr2=arr.copy();arr2[nanLabel]=np.nanmin(arr)
-    labeled,_=ni.label(arr2>=thr)
-    peakCoor = np.array(np.where(arr2==np.amax(arr2))).transpose()[0]
+    arr2 = arr.copy()
+    arr2[nanLabel] = np.nanmin(arr)
+    labeled, _ = ni.label(arr2 >= thr)
+    peakCoor = np.array(np.where(arr2 == np.amax(arr2))).transpose()[0]
     peakMask = ia.get_marked_masks(labeled, peakCoor)
-    if peakMask is None: 'Threshold too high! No ROI found. Returning None'; return None
-    else: return WeightedROI(arr2 * peakMask)
+    if peakMask is None:
+        'Threshold too high! No ROI found. Returning None'; return None
+    else:
+        return WeightedROI(arr2 * peakMask)
 
 
 def plot_2d_receptive_field(mapArray, altPos, aziPos, plot_axis=None, **kwargs):
@@ -76,8 +76,11 @@ def plot_2d_receptive_field(mapArray, altPos, aziPos, plot_axis=None, **kwargs):
     :return: plot_axis
     """
 
-    if plot_axis == None: f=plt.figure(figsize=(10,10)); plot_axis=f.add_subplot(111)
-    fig = plot_axis.imshow(mapArray,**kwargs)
+    if plot_axis == None:
+        f = plt.figure(figsize=(10, 10))
+        plot_axis = f.add_subplot(111)
+
+    fig = plot_axis.imshow(mapArray, **kwargs)
     plot_axis.set_yticks(np.arange(len(altPos)))
     plot_axis.set_xticks(np.arange(len(aziPos)))
     plot_axis.set_yticklabels(altPos.astype(np.int))
@@ -95,7 +98,8 @@ def merge_weighted_rois(roi1, roi2):
     if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
         raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
 
-    mask1 = roi1.get_weighted_mask(); mask2 = roi2.get_weighted_mask()
+    mask1 = roi1.get_weighted_mask()
+    mask2 = roi2.get_weighted_mask()
 
     return WeightedROI(mask1 + mask2, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
 
@@ -110,7 +114,9 @@ def merge_binary_rois(roi1, roi2):
     if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
         raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
 
-    mask1 = roi1.get_binary_mask(); mask2 = roi2.get_binary_mask(); mask3 = np.logical_or(mask1, mask2).astype(np.int8)
+    mask1 = roi1.get_binary_mask()
+    mask2 = roi2.get_binary_mask()
+    mask3 = np.logical_or(mask1, mask2).astype(np.int8)
 
     return ROI(mask3, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
 
@@ -135,17 +141,17 @@ class SpatialReceptiveField(WeightedROI):
 
         the correct way to process RF: gaussian filter first, interpolation second, and thr third
         """
-        super(SpatialReceptiveField,self).__init__(mask, pixelSize = None, pixelSizeUnit = pixelSizeUnit)
+        super(SpatialReceptiveField, self).__init__(mask, pixelSize=None, pixelSizeUnit=pixelSizeUnit)
         self.altPos = altPos
         self.aziPos = aziPos
         self.dataType = dataType
 
-        if (sign is None or sign=='ON' or sign=='OFF' or sign=='ON_OFF'):
-            self.sign=sign
-        elif sign==1:
-            self.sign='ON'
-        elif sign==-1:
-            self.sign='OFF'
+        if (sign is None or sign == 'ON' or sign == 'OFF' or sign == 'ON_OFF'):
+            self.sign = sign
+        elif sign == 1:
+            self.sign = 'ON'
+        elif sign == -1:
+            self.sign = 'OFF'
         else:
             raise ValueError('sign should be 1, -1, "ON", "OFF", "ON_OFF" or None!')
         self.temporalWindow = temporalWindow
@@ -177,12 +183,12 @@ class SpatialReceptiveField(WeightedROI):
             name.append('thr:None')
 
         if self.filter_sigma is not None:
-            name.append('sigma:'+str(self.filter_sigma))
+            name.append('sigma:' + str(self.filter_sigma))
         else:
             name.append('sigma:None')
 
         if self.interpolate_rate is not None:
-            name.append('interp:'+str(self.interpolate_rate))
+            name.append('interp:' + str(self.interpolate_rate))
         else:
             name.append('interp:None')
 
@@ -234,9 +240,9 @@ class SpatialReceptiveField(WeightedROI):
         elif self.sign == 'OFF':
             colors = 'b'
         else:
-            colors ='k'
+            colors = 'k'
 
-        contour_levels = list(np.arange(level_num) *  (float(peak_amplitude) / (level_num)))
+        contour_levels = list(np.arange(level_num) * (float(peak_amplitude) / (level_num)))
 
         if self.thr is not None:
             contour_levels = [l for l in contour_levels if l >= self.thr]
@@ -277,7 +283,7 @@ class SpatialReceptiveField(WeightedROI):
         thr the current receptive field, return a new SpatialReceptiveField object after thresholding
         """
 
-        if (self.thr is not None) and (thr<self.thr):
+        if (self.thr is not None) and (thr < self.thr):
             raise ValueError, 'Can not cut a thresholded receptive field with a lower thresold!'
         cutRF = get_peak_weighted_roi(self.get_weighted_mask(), thr)
         if cutRF is None:
@@ -349,7 +355,7 @@ class SpatialTemporalReceptiveField(object):
     class of spatial temporal receptive field represented by traces for each specified retinotopic location
     """
 
-    def __init__(self,locations,signs,traces,time,name=None,locationUnit='degree', trace_data_type='dF_over_F'):
+    def __init__(self, locations, signs, traces, time, name=None, locationUnit='degree', trace_data_type='dF_over_F'):
         """
         locations: list of retinotopic locations mapped, array([altitude, azimuth])
         signs: list of signs for each location
@@ -372,13 +378,12 @@ class SpatialTemporalReceptiveField(object):
         #     raise ValueError("The number of sample points of each trace does not equal to number of data points in time "
         #                      "axis!")
 
-
         self.time = time
         self.name = name
         self.locationUnit = locationUnit
         self.trace_data_type = trace_data_type
-        dtype = [('altitude', float),('azimuth', float),('sign', int),('traces', list)]
-        values = [ (location[0], location[1], signs[i], traces[i]) for i, location in enumerate(locations)]
+        dtype = [('altitude', float), ('azimuth', float), ('sign', int), ('traces', list)]
+        values = [(location[0], location[1], signs[i], traces[i]) for i, location in enumerate(locations)]
         if len(values) == 0:
             raise ValueError, 'Can not find input traces!'
 
@@ -386,17 +391,17 @@ class SpatialTemporalReceptiveField(object):
         self.sort_data()
 
     def merge_duplication(self):
-        #todo: merge traces with same retinotopic loacation
+        # todo: merge traces with same retinotopic loacation
         pass
 
     def sort_data(self):
-        self.data = np.sort(self.data, order=['sign','altitude','azimuth'])
+        self.data = np.sort(self.data, order=['sign', 'altitude', 'azimuth'])
 
     def get_data_type(self):
         return self.data.dtype
 
     def get_locations(self):
-        return list(np.array([self.data['altitude'],self.data['azimuth'],self.data['sign']]).transpose())
+        return list(np.array([self.data['altitude'], self.data['azimuth'], self.data['sign']]).transpose())
 
     def add_traces(self, locations, signs, traces):
 
@@ -413,12 +418,12 @@ class SpatialTemporalReceptiveField(object):
                                                                          "points in time axis!"
                 raise ValueError(error_msg)
 
-        dtype = [('altitude',float),('azimuth',float),('sign',int),('traces',np.ndarray)]
+        dtype = [('altitude', float), ('azimuth', float), ('sign', int), ('traces', np.ndarray)]
 
-        values = [ (location[0], location[1], signs[i], traces[i]) for i, location in enumerate(locations)]
+        values = [(location[0], location[1], signs[i], traces[i]) for i, location in enumerate(locations)]
         if not values: raise ValueError, 'Can not find input traces!'
 
-        locations = [np.array([x[0],x[1],x[2]]) for x in values]
+        locations = [np.array([x[0], x[1], x[2]]) for x in values]
 
         objLocations = self.get_locations()
 
@@ -430,7 +435,7 @@ class SpatialTemporalReceptiveField(object):
 
             for j, objLocation in enumerate(objLocations):
 
-                if np.array_equal(location,objLocation):
+                if np.array_equal(location, objLocation):
                     findSameLocation = True
                     objTraceItem = self.data[j]
                     objTraceItem['traces'] = np.vstack((objTraceItem['traces'], newTraceTuple[3]))
@@ -439,7 +444,7 @@ class SpatialTemporalReceptiveField(object):
                 traceTuplesNeedToBeAdded.append(tuple(newTraceTuple))
 
         if traceTuplesNeedToBeAdded:
-            self.data = np.concatenate((self.data,np.array(traceTuplesNeedToBeAdded,dtype=dtype)),axis=0)
+            self.data = np.concatenate((self.data, np.array(traceTuplesNeedToBeAdded, dtype=dtype)), axis=0)
 
         self.sort_data()
 
@@ -457,8 +462,8 @@ class SpatialTemporalReceptiveField(object):
             h5Group.attrs['name'] = ''
 
         for i in range(len(self.data)):
-            locationName = 'trace'+ft.int2str(i,4)
-            trace = h5Group.create_dataset(locationName,data=self.data[i]['traces'], dtype='f')
+            locationName = 'trace' + ft.int2str(i, 4)
+            trace = h5Group.create_dataset(locationName, data=self.data[i]['traces'], dtype='f')
             trace.attrs['altitude'] = self.data[i]['altitude']
             trace.attrs['azimuth'] = self.data[i]['azimuth']
             trace.attrs['sign'] = self.data[i]['sign']
@@ -471,17 +476,18 @@ class SpatialTemporalReceptiveField(object):
             for j, axis in enumerate(axisList):
                 indexList = indexLists[i][j]
                 axis.set_axis_off()
-                axis.set_xticks([]);axis.set_yticks([])
-                for pos in ['top','bottom','left','right']:
+                axis.set_xticks([])
+                axis.set_yticks([])
+                for pos in ['top', 'bottom', 'left', 'right']:
                     axis.spines[pos].set_linewidth(0.5)
                     axis.spines[pos].set_color('#888888')
-                axis.plot([0,0],[yRange[0],yRange[1]*0.5],'--',color='#888888',lw=0.5)
+                axis.plot([0, 0], [yRange[0], yRange[1] * 0.5], '--', color='#888888', lw=0.5)
                 axis.plot([self.time[0], self.time[-1]], [0., 0.], color='#888888', lw=0.5)
 
                 for index in indexList:
                     traces = self.data[index]['traces']
                     traces = [t for t in traces if not math.isnan(t[0])]
-                    meanTrace = np.mean(np.array(traces, dtype=np.float32),axis=0)
+                    meanTrace = np.mean(np.array(traces, dtype=np.float32), axis=0)
 
                     if self.data[index]['sign'] == 1:
                         color = '#ff0000'
@@ -491,9 +497,9 @@ class SpatialTemporalReceptiveField(object):
                         color = '#000000'
 
                     if len(traces) > 1:
-                        stdTrace = np.std(np.array(traces, dtype=np.float32),axis=0)
-                        semTrace = stdTrace/np.sqrt(float(len(traces)))
-                        axis.fill_between(self.time,meanTrace - semTrace, meanTrace + semTrace, facecolor=color,
+                        stdTrace = np.std(np.array(traces, dtype=np.float32), axis=0)
+                        semTrace = stdTrace / np.sqrt(float(len(traces)))
+                        axis.fill_between(self.time, meanTrace - semTrace, meanTrace + semTrace, facecolor=color,
                                           linewidth=0, alpha=0.5)
                     axis.plot(self.time, meanTrace, '-', color=color, lw=1)
 
@@ -503,29 +509,34 @@ class SpatialTemporalReceptiveField(object):
 
         locations = np.array(self.get_locations())
 
-        altPositions = np.sort(np.unique(locations[:,0]))[::-1]
-        if altRange is not None: altPositions = np.array([x for x in altPositions if (x>=altRange[0] and x<=altRange[1])])
+        altPositions = np.sort(np.unique(locations[:, 0]))[::-1]
+        if altRange is not None:
+            altPositions = np.array([x for x in altPositions if (x >= altRange[0] and x <= altRange[1])])
 
-        aziPositions = np.sort(np.unique(locations[:,1]))
-        if aziRange is not None: aziPositions = np.array([x for x in aziPositions if (x>=aziRange[0] and x<=aziRange[1])])
+        aziPositions = np.sort(np.unique(locations[:, 1]))
+        if aziRange is not None:
+            aziPositions = np.array([x for x in aziPositions if (x >= aziRange[0] and x <= aziRange[1])])
 
-        indexLists = [ [[] for aziPosition in aziPositions] for altPosition in altPositions]
+        indexLists = [[[] for aziPosition in aziPositions] for altPosition in altPositions]
 
-        if f is None: f=plt.figure(figsize=figSize)
-        f.suptitle('cell:'+str(self.name)+'; xrange:['+str(self.time[0])[0:6]+','+str(self.time[-1])[0:6]+']; yrange:'+str(yRange))
+        if f is None:
+            f = plt.figure(figsize=figSize)
+
+        f.suptitle('cell:{}; xrange:[{:6.3f}, {:6.3f}]; yrange: [{:.3f}, {:.3f}]'.
+                   format(self.name, self.time[0], self.time[-1], yRange[0], yRange[1]))
 
         axisLists = pt.tile_axis(f, len(altPositions), len(aziPositions), **kwargs)
 
         for i, altPosition in enumerate(altPositions):
             for j, aziPosition in enumerate(aziPositions):
-                axisLists[i][j].text(0,yRange[1],str(int(altPosition))+';'+str(int(aziPosition)),ha='left',va='top',fontsize=10)
-                axisLists[i][j].set_xlim([self.time[0],self.time[-1]])
+                axisLists[i][j].text(0, yRange[1], str(int(altPosition)) + ';' + str(int(aziPosition)), ha='left',
+                                     va='top', fontsize=10)
+                axisLists[i][j].set_xlim([self.time[0], self.time[-1]])
                 axisLists[i][j].set_ylim(yRange)
 
                 for k, location in enumerate(locations):
                     if location[0] == altPosition and location[1] == aziPosition:
                         indexLists[i][j].append(k)
-
 
         return indexLists, axisLists
 
@@ -536,16 +547,20 @@ class SpatialTemporalReceptiveField(object):
         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
         """
 
-        windowIndex = np.logical_and(self.time>=timeWindow[0], self.time<=timeWindow[1])
+        windowIndex = np.logical_and(self.time >= timeWindow[0], self.time <= timeWindow[1])
 
-        indON,indOFF,allAltPos,allAziPos = self._sort_index()
+        indON, indOFF, allAltPos, allAziPos = self._sort_index()
 
-        ampON = np.zeros(indON.shape); ampON[:]=np.nan; ampOFF = ampON.copy()
+        ampON = np.zeros(indON.shape)
+        ampON[:] = np.nan
+        ampOFF = ampON.copy()
 
         for i in np.ndindex(indON.shape):
-            traceIndON = indON[i]; traceIndOFF = indOFF[i]
-            if traceIndON is not None: ampON[i] = np.mean(np.mean(self.data[traceIndON]['traces'],axis=0)[windowIndex])
-            if traceIndOFF is not None: ampOFF[i] = np.mean(np.mean(self.data[traceIndOFF]['traces'],axis=0)[windowIndex])
+            traceIndON = indON[i]
+            traceIndOFF = indOFF[i]
+            if traceIndON is not None: ampON[i] = np.mean(np.mean(self.data[traceIndON]['traces'], axis=0)[windowIndex])
+            if traceIndOFF is not None: ampOFF[i] = np.mean(
+                np.mean(self.data[traceIndOFF]['traces'], axis=0)[windowIndex])
 
         return ampON, ampOFF, allAltPos, allAziPos
 
@@ -559,8 +574,10 @@ class SpatialTemporalReceptiveField(object):
 
         ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
 
-        ampRFON = SpatialReceptiveField(ampON,allAltPos,allAziPos,sign=1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='amplitude')
-        ampRFOFF = SpatialReceptiveField(ampOFF,allAltPos,allAziPos,sign=-1,temporalWindow=timeWindow,pixelSizeUnit=self.locationUnit,dataType='amplitude')
+        ampRFON = SpatialReceptiveField(ampON, allAltPos, allAziPos, sign=1, temporalWindow=timeWindow,
+                                        pixelSizeUnit=self.locationUnit, dataType='amplitude')
+        ampRFOFF = SpatialReceptiveField(ampOFF, allAltPos, allAziPos, sign=-1, temporalWindow=timeWindow,
+                                         pixelSizeUnit=self.locationUnit, dataType='amplitude')
 
         return ampRFON, ampRFOFF
 
@@ -578,12 +595,12 @@ class SpatialTemporalReceptiveField(object):
 
         indON, indOFF, allAltPos, allAziPos = self._sort_index()
 
-        ampON = np.zeros(indON.shape);
-        ampON[:] = np.nan;
+        ampON = np.zeros(indON.shape)
+        ampON[:] = np.nan
         ampOFF = ampON.copy()
 
         for i in np.ndindex(indON.shape):
-            traceIndON = indON[i];
+            traceIndON = indON[i]
             traceIndOFF = indOFF[i]
             if traceIndON is not None:
                 curr_trace_ON = np.mean(self.data[traceIndON]['traces'], axis=0)
@@ -610,7 +627,7 @@ class SpatialTemporalReceptiveField(object):
 
         ampRFON = SpatialReceptiveField(ampON, allAltPos, allAziPos, sign=1, temporalWindow=timeWindow,
                                         pixelSizeUnit=self.locationUnit, dataType='delta_amplitude')
-        ampRFOFF = SpatialReceptiveField(ampOFF, allAltPos, allAziPos, sign=-1,temporalWindow=timeWindow,
+        ampRFOFF = SpatialReceptiveField(ampOFF, allAltPos, allAziPos, sign=-1, temporalWindow=timeWindow,
                                          pixelSizeUnit=self.locationUnit, dataType='delta_amplitude')
 
         return ampRFON, ampRFOFF
@@ -638,10 +655,11 @@ class SpatialTemporalReceptiveField(object):
 
         ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
 
-        zscoreRFON = SpatialReceptiveField(ia.zscore(ampON),allAltPos,allAziPos,sign='ON',temporalWindow=timeWindow,
-                                           pixelSizeUnit=self.locationUnit,dataType='zscore')
-        zscoreRFOFF = SpatialReceptiveField(ia.zscore(ampOFF),allAltPos,allAziPos,sign='OFF',temporalWindow=timeWindow,
-                                            pixelSizeUnit=self.locationUnit,dataType='zscore')
+        zscoreRFON = SpatialReceptiveField(ia.zscore(ampON), allAltPos, allAziPos, sign='ON', temporalWindow=timeWindow,
+                                           pixelSizeUnit=self.locationUnit, dataType='zscore')
+        zscoreRFOFF = SpatialReceptiveField(ia.zscore(ampOFF), allAltPos, allAziPos, sign='OFF',
+                                            temporalWindow=timeWindow,
+                                            pixelSizeUnit=self.locationUnit, dataType='zscore')
 
         return zscoreRFON, zscoreRFOFF
 
@@ -673,7 +691,7 @@ class SpatialTemporalReceptiveField(object):
         else:
             zscoreROIALL = None
 
-        return zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos
+        return zscoreROION, zscoreROIOFF, zscoreROIALL, allAltPos, allAziPos
 
     def get_zscore_thresholded_receptive_fields(self, timeWindow=(0, 0.3), thr_ratio=0.3, filter_sigma=None,
                                                 interpolate_rate=None, absolute_thr=None):
@@ -693,11 +711,11 @@ class SpatialTemporalReceptiveField(object):
 
         zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(timeWindow)
 
-        zscoreRFON = SpatialReceptiveField(zscoreON, allAltPos, allAziPos, sign='ON',temporalWindow=timeWindow,
+        zscoreRFON = SpatialReceptiveField(zscoreON, allAltPos, allAziPos, sign='ON', temporalWindow=timeWindow,
                                            pixelSizeUnit=self.locationUnit, dataType='zscore')
 
         zscoreRFOFF = SpatialReceptiveField(zscoreOFF, allAltPos, allAziPos, sign='OFF', temporalWindow=timeWindow,
-                                           pixelSizeUnit=self.locationUnit, dataType='zscore')
+                                            pixelSizeUnit=self.locationUnit, dataType='zscore')
 
         if filter_sigma is not None:
             zscoreRFON = zscoreRFON.gaussian_filter(filter_sigma)
@@ -709,7 +727,7 @@ class SpatialTemporalReceptiveField(object):
 
         max_value = max([np.amax(zscoreRFON.get_weighted_mask()), np.amax(zscoreRFOFF.get_weighted_mask())])
 
-        thr =  max_value * thr_ratio
+        thr = max_value * thr_ratio
 
         if absolute_thr is not None:
             thr = max([thr, absolute_thr])
@@ -717,7 +735,7 @@ class SpatialTemporalReceptiveField(object):
         zscoreRFON = zscoreRFON.threshold(thr)
         zscoreRFOFF = zscoreRFOFF.threshold(thr)
 
-        zscoreRFALL = SpatialReceptiveField(zscoreRFON.get_weighted_mask()+zscoreRFOFF.get_weighted_mask(),
+        zscoreRFALL = SpatialReceptiveField(zscoreRFON.get_weighted_mask() + zscoreRFOFF.get_weighted_mask(),
                                             zscoreRFON.altPos, zscoreRFON.aziPos, sign='ON_OFF',
                                             temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
                                             dataType='zscore', thr=thr, filter_sigma=filter_sigma,
@@ -734,7 +752,7 @@ class SpatialTemporalReceptiveField(object):
 
         zscore ROIs was generated by the method get_zscore_rois()
         """
-        zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos = self.get_zscore_rois(timeWindow, zscoreThr)
+        zscoreROION, zscoreROIOFF, zscoreROIALL, allAltPos, allAziPos = self.get_zscore_rois(timeWindow, zscoreThr)
         if zscoreROION is not None:
             centerON = zscoreROION.get_weighted_center_in_coordinate(allAltPos, allAziPos)
         else:
@@ -760,37 +778,51 @@ class SpatialTemporalReceptiveField(object):
         allAltPos = np.array(sorted(list(set(list(self.data['altitude'])))))[::-1]
         allAziPos = np.array(sorted(list(set(list(self.data['azimuth'])))))
 
-        indON = [[None for azi in allAziPos] for alt in allAltPos]; indOFF = [[None for azi in allAziPos] for alt in allAltPos]
+        indON = [[None for azi in allAziPos] for alt in allAltPos];
+        indOFF = [[None for azi in allAziPos] for alt in allAltPos]
 
         for i, traceItem in enumerate(self.data):
-            alt = traceItem['altitude'];azi = traceItem['azimuth'];sign = traceItem['sign']
+            alt = traceItem['altitude'];
+            azi = traceItem['azimuth'];
+            sign = traceItem['sign']
             for j, altPos in enumerate(allAltPos):
                 for k, aziPos in enumerate(allAziPos):
-                    if alt==altPos and azi==aziPos:
-                        if sign==1:
-                            if indON[j][k] is not None: raise LookupError, 'Duplication of trace items found at location:'+str([alt, azi])+'; sign: 1!'
-                            else: indON[j][k]=i
+                    if alt == altPos and azi == aziPos:
+                        if sign == 1:
+                            if indON[j][k] is not None:
+                                raise LookupError, 'Duplication of trace items found at location:' + str(
+                                    [alt, azi]) + '; sign: 1!'
+                            else:
+                                indON[j][k] = i
 
-                        if sign==-1:
-                            if indOFF[j][k] is not None: raise LookupError, 'Duplication of trace items found at location:'+str([alt, azi])+'; sign:-1!'
-                            else: indOFF[j][k]=i
+                        if sign == -1:
+                            if indOFF[j][k] is not None:
+                                raise LookupError, 'Duplication of trace items found at location:' + str(
+                                    [alt, azi]) + '; sign:-1!'
+                            else:
+                                indOFF[j][k] = i
 
-        indON = np.array([np.array(x) for x in indON]); indOFF = np.array([np.array(x) for x in indOFF])
+        indON = np.array([np.array(x) for x in indON]);
+        indOFF = np.array([np.array(x) for x in indOFF])
 
-        return indON,indOFF,allAltPos,allAziPos
+        return indON, indOFF, allAltPos, allAziPos
 
-    def shrink(self,altRange=None,aziRange=None):
+    def shrink(self, altRange=None, aziRange=None):
         """
         shrink the current spatial temporal receptive field into the defined altitude and/or azimuth range
         """
 
         if altRange is None and aziRange is None: raise LookupError, 'At least one of altRange and aziRange should be defined!'
 
-        if altRange is not None: indAlt = np.logical_and(self.data['altitude']>=altRange[0],self.data['altitude']<=altRange[1])
-        else: indAlt = np.ones(len(self.data),dtype=np.bool)
-        if aziRange is not None: indAzi = np.logical_and(self.data['azimuth']>=aziRange[0],self.data['azimuth']<=aziRange[1])
-        else: indAzi = np.ones(len(self.data),dtype=np.bool)
-        ind = np.logical_and(indAlt,indAzi)
+        if altRange is not None:
+            indAlt = np.logical_and(self.data['altitude'] >= altRange[0], self.data['altitude'] <= altRange[1])
+        else:
+            indAlt = np.ones(len(self.data), dtype=np.bool)
+        if aziRange is not None:
+            indAzi = np.logical_and(self.data['azimuth'] >= aziRange[0], self.data['azimuth'] <= aziRange[1])
+        else:
+            indAzi = np.ones(len(self.data), dtype=np.bool)
+        ind = np.logical_and(indAlt, indAzi)
         self.data = self.data[ind]
 
     @staticmethod
@@ -914,7 +946,7 @@ class SpatialTemporalReceptiveField2(object):
         print('\ngenerating spatial temporal receptive field ...')
 
         locations = np.array([np.array(l, dtype=np.float32) for l in locations])
-        signs= np.array(signs, dtype=np.float32)
+        signs = np.array(signs, dtype=np.float32)
         self.time = np.array(time, dtype=np.float32)
         traces = [np.array([np.array(t, dtype=np.float32) for t in trace]) for trace in traces]
 
@@ -941,7 +973,8 @@ class SpatialTemporalReceptiveField2(object):
             raise ValueError('length of trigger_ts: {:d} is not consistent with number of probes: {:d}.'
                              .format(len(trigger_ts), len(locations)))
 
-        values = [(location[0], location[1], signs[i], traces[i], trigger_ts[i]) for i, location in enumerate(locations)]
+        values = [(location[0], location[1], signs[i], traces[i], trigger_ts[i]) for i, location in
+                  enumerate(locations)]
         if len(values) == 0:
             raise ValueError, 'Can not find input traces!'
         self.data = DataFrame(values, columns=['altitude', 'azimuth', 'sign', 'traces', 'trigger_ts'])
@@ -982,7 +1015,7 @@ class SpatialTemporalReceptiveField2(object):
         return self.data.dtypes
 
     def get_probes(self):
-        return list(np.array([self.data['altitude'],self.data['azimuth'],self.data['sign']]).transpose())
+        return list(np.array([self.data['altitude'], self.data['azimuth'], self.data['sign']]).transpose())
 
     def add_traces(self, locations, signs, traces, trigger_ts=None, verbose=False):
 
@@ -1022,7 +1055,7 @@ class SpatialTemporalReceptiveField2(object):
                              .format(len(trigger_ts), len(locations)))
 
         values = [(location[0], location[1], signs[i], traces[i], trigger_ts[i]) for i, location in
-                    enumerate(locations)]
+                  enumerate(locations)]
         if not values: raise ValueError, 'Can not find input traces!'
 
         df_to_add = DataFrame(values, columns=['altitude', 'azimuth', 'sign', 'traces', 'trigger_ts'])
@@ -1090,8 +1123,9 @@ class SpatialTemporalReceptiveField2(object):
             for j, axis in enumerate(axisList):
                 indexList = indexLists[i][j]
                 axis.set_axis_off()
-                axis.set_xticks([]);axis.set_yticks([])
-                for pos in ['top','bottom','left','right']:
+                axis.set_xticks([]);
+                axis.set_yticks([])
+                for pos in ['top', 'bottom', 'left', 'right']:
                     axis.spines[pos].set_linewidth(0.5)
                     axis.spines[pos].set_color('#888888')
                 axis.axvline(x=0, ls='--', color='#888888', lw=0.5)
@@ -1100,7 +1134,7 @@ class SpatialTemporalReceptiveField2(object):
                 for index in indexList:
                     traces = self.data.iloc[index]['traces']
                     traces = [t for t in traces if not math.isnan(t[0])]
-                    meanTrace = np.mean(np.array(traces, dtype=np.float32),axis=0)
+                    meanTrace = np.mean(np.array(traces, dtype=np.float32), axis=0)
 
                     if self.data.iloc[index]['sign'] == 1:
                         color = '#ff0000'
@@ -1110,9 +1144,9 @@ class SpatialTemporalReceptiveField2(object):
                         color = '#000000'
 
                     if len(traces) > 1:
-                        stdTrace = np.std(np.array(traces, dtype=np.float32),axis=0)
-                        semTrace = stdTrace/np.sqrt(float(len(traces)))
-                        axis.fill_between(self.time,meanTrace - semTrace, meanTrace + semTrace, facecolor=color,
+                        stdTrace = np.std(np.array(traces, dtype=np.float32), axis=0)
+                        semTrace = stdTrace / np.sqrt(float(len(traces)))
+                        axis.fill_between(self.time, meanTrace - semTrace, meanTrace + semTrace, facecolor=color,
                                           linewidth=0, alpha=0.5)
                     axis.plot(self.time, meanTrace, '-', color=color, lw=1)
 
@@ -1122,19 +1156,21 @@ class SpatialTemporalReceptiveField2(object):
 
         locations = np.array(self.get_probes())
 
-        altPositions = np.sort(np.unique(locations[:,0]))[::-1]
+        altPositions = np.sort(np.unique(locations[:, 0]))[::-1]
         if altRange is not None:
-            altPositions = np.array([x for x in altPositions if (x>=altRange[0] and x<=altRange[1])])
+            altPositions = np.array([x for x in altPositions if (x >= altRange[0] and x <= altRange[1])])
 
-        aziPositions = np.sort(np.unique(locations[:,1]))
+        aziPositions = np.sort(np.unique(locations[:, 1]))
         if aziRange is not None:
-            aziPositions = np.array([x for x in aziPositions if (x>=aziRange[0] and x<=aziRange[1])])
+            aziPositions = np.array([x for x in aziPositions if (x >= aziRange[0] and x <= aziRange[1])])
 
-        indexLists = [ [[] for aziPosition in aziPositions] for altPosition in altPositions]
+        indexLists = [[[] for aziPosition in aziPositions] for altPosition in altPositions]
 
         if f is None:
-            f=plt.figure(figsize=figSize)
-        f.suptitle('cell:'+str(self.name)+'; xrange:['+str(self.time[0])[0:6]+','+str(self.time[-1])[0:6]+']; yrange:'+str(yRange))
+            f = plt.figure(figsize=figSize)
+
+        f.suptitle('cell:{}; xrange:[{:6.3f}, {:6.3f}]; yrange: [{:.3f}, {:.3f}]'.
+                   format(self.name, self.time[0], self.time[-1], yRange[0], yRange[1]))
 
         axisLists = pt.tile_axis(f, len(altPositions), len(aziPositions), **kwargs)
 
@@ -1158,21 +1194,21 @@ class SpatialTemporalReceptiveField2(object):
         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
         """
 
-        windowIndex = np.logical_and(self.time>=timeWindow[0], self.time<=timeWindow[1])
+        windowIndex = np.logical_and(self.time >= timeWindow[0], self.time <= timeWindow[1])
 
-        indON,indOFF,allAltPos,allAziPos = self._sort_index()
+        indON, indOFF, allAltPos, allAziPos = self._sort_index()
 
         ampON = np.zeros(indON.shape)
-        ampON[:]=np.nan
+        ampON[:] = np.nan
         ampOFF = ampON.copy()
 
         for i in np.ndindex(indON.shape):
             traceIndON = indON[i]
             traceIndOFF = indOFF[i]
             if traceIndON is not None:
-                ampON[i] = np.mean(np.mean(self.data.iloc[traceIndON]['traces'],axis=0)[windowIndex])
+                ampON[i] = np.mean(np.mean(self.data.iloc[traceIndON]['traces'], axis=0)[windowIndex])
             if traceIndOFF is not None:
-                ampOFF[i] = np.mean(np.mean(self.data.iloc[traceIndOFF]['traces'],axis=0)[windowIndex])
+                ampOFF[i] = np.mean(np.mean(self.data.iloc[traceIndOFF]['traces'], axis=0)[windowIndex])
 
         return ampON, ampOFF, allAltPos, allAziPos
 
@@ -1327,11 +1363,11 @@ class SpatialTemporalReceptiveField2(object):
 
         zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(timeWindow)
 
-        zscoreRFON = SpatialReceptiveField(zscoreON, allAltPos, allAziPos, sign='ON',temporalWindow=timeWindow,
+        zscoreRFON = SpatialReceptiveField(zscoreON, allAltPos, allAziPos, sign='ON', temporalWindow=timeWindow,
                                            pixelSizeUnit=self.locationUnit, dataType='zscore')
 
         zscoreRFOFF = SpatialReceptiveField(zscoreOFF, allAltPos, allAziPos, sign='OFF', temporalWindow=timeWindow,
-                                           pixelSizeUnit=self.locationUnit, dataType='zscore')
+                                            pixelSizeUnit=self.locationUnit, dataType='zscore')
 
         if filter_sigma is not None:
             zscoreRFON = zscoreRFON.gaussian_filter(filter_sigma)
@@ -1343,7 +1379,7 @@ class SpatialTemporalReceptiveField2(object):
 
         max_value = max([np.amax(zscoreRFON.get_weighted_mask()), np.amax(zscoreRFOFF.get_weighted_mask())])
 
-        thr =  max_value * thr_ratio
+        thr = max_value * thr_ratio
 
         if absolute_thr is not None:
             thr = max([thr, absolute_thr])
@@ -1351,7 +1387,7 @@ class SpatialTemporalReceptiveField2(object):
         zscoreRFON = zscoreRFON.threshold(thr)
         zscoreRFOFF = zscoreRFOFF.threshold(thr)
 
-        zscoreRFALL = SpatialReceptiveField(zscoreRFON.get_weighted_mask()+zscoreRFOFF.get_weighted_mask(),
+        zscoreRFALL = SpatialReceptiveField(zscoreRFON.get_weighted_mask() + zscoreRFOFF.get_weighted_mask(),
                                             zscoreRFON.altPos, zscoreRFON.aziPos, sign='ON_OFF',
                                             temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
                                             dataType='zscore', thr=thr, filter_sigma=filter_sigma,
@@ -1368,7 +1404,7 @@ class SpatialTemporalReceptiveField2(object):
 
         zscore ROIs was generated by the method get_zscore_rois()
         """
-        zscoreROION,zscoreROIOFF,zscoreROIALL,allAltPos,allAziPos = self.get_zscore_rois(timeWindow, zscoreThr)
+        zscoreROION, zscoreROIOFF, zscoreROIALL, allAltPos, allAziPos = self.get_zscore_rois(timeWindow, zscoreThr)
         if zscoreROION is not None:
             centerON = zscoreROION.get_weighted_center_in_coordinate(allAltPos, allAziPos)
         else:
@@ -1403,21 +1439,24 @@ class SpatialTemporalReceptiveField2(object):
             sign = traceItem['sign']
             for j, altPos in enumerate(allAltPos):
                 for k, aziPos in enumerate(allAziPos):
-                    if alt==altPos and azi==aziPos:
+                    if alt == altPos and azi == aziPos:
 
-                        if sign==1:
+                        if sign == 1:
                             if indON[j][k] is not None:
-                                raise LookupError, 'Duplication of trace items found at location: '+str([alt, azi])+'; sign: 1!'
+                                raise LookupError, 'Duplication of trace items found at location: ' + str(
+                                    [alt, azi]) + '; sign: 1!'
                             else:
-                                indON[j][k]=i
+                                indON[j][k] = i
 
-                        if sign==-1:
+                        if sign == -1:
                             if indOFF[j][k] is not None:
-                                raise LookupError, 'Duplication of trace items found at location: '+str([alt, azi])+'; sign:-1!'
+                                raise LookupError, 'Duplication of trace items found at location: ' + str(
+                                    [alt, azi]) + '; sign:-1!'
                             else:
-                                indOFF[j][k]=i
+                                indOFF[j][k] = i
 
-        indON = np.array([np.array(x) for x in indON]); indOFF = np.array([np.array(x) for x in indOFF])
+        indON = np.array([np.array(x) for x in indON]);
+        indOFF = np.array([np.array(x) for x in indOFF])
 
         return indON, indOFF, allAltPos, allAziPos
 
@@ -1534,11 +1573,10 @@ class SpatialTemporalReceptiveField2(object):
         pass
 
 
-if __name__=='__main__':
-
+if __name__ == '__main__':
     plt.ioff()
 
-    #=====================================================================
+    # =====================================================================
     # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
     # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
     # ampRFON, ampRFOFF = STRF.get_amplitude_receptive_field()
@@ -1548,9 +1586,9 @@ if __name__=='__main__':
     #
     # plt.imshow(ampRFON.get_weighted_mask(),interpolation='nearest')
     # plt.show()
-    #=====================================================================
+    # =====================================================================
 
-    #=====================================================================
+    # =====================================================================
     # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
     # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
     # zscoreRFON, zscoreRFOFF = STRF.get_zscore_receptive_field()
@@ -1560,9 +1598,9 @@ if __name__=='__main__':
     #
     # plt.imshow(zscoreRFON.get_weighted_mask(),interpolation='nearest')
     # plt.show()
-    #=====================================================================
+    # =====================================================================
 
-    #=====================================================================
+    # =====================================================================
     # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
     # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
     # zscoreRFON, zscoreRFOFF = STRF.get_amplitude_receptive_field()
@@ -1571,16 +1609,16 @@ if __name__=='__main__':
     #
     # plt.imshow(zscoreRFON.get_weighted_mask(),interpolation='nearest')
     # plt.show()
-    #=====================================================================
+    # =====================================================================
 
-    #=====================================================================
+    # =====================================================================
     # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
     # STRF = load_STRF_FromH5(f['cell0003']['spatial_temporal_receptive_field'])
     # STRF.shrink([-10,10],None)
     # print np.unique(np.array(STRF.get_locations())[:,0])
     # STRF.shrink(None,[0,20])
     # print np.unique(np.array(STRF.get_locations())[:,1])
-    #=====================================================================
+    # =====================================================================
 
     # =====================================================================
     dfile = h5py.File(r"G:\2016-08-15-160815-M238599-wf2p-Retinotopy\sparse_noise_2p\cells_refined.hdf5", 'r')
@@ -1598,8 +1636,6 @@ if __name__=='__main__':
     rf_off.plot_contour(ax, peak_amplitude=peak_amplitude, level_num=10, linewidths=1.5)
     plt.show()
 
-
     # =====================================================================
-
 
     print 'for debug...'
