@@ -468,9 +468,12 @@ class SpatialTemporalReceptiveField(object):
             trace.attrs['azimuth'] = self.data[i]['azimuth']
             trace.attrs['sign'] = self.data[i]['sign']
 
-    def plot_traces(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None, **kwargs):
+    def plot_traces(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None,
+                    is_label_location=True, **kwargs):
 
-        indexLists, axisLists = self._get_axis_layout(f, figSize, yRange, altRange, aziRange, **kwargs)
+        indexLists, axisLists = self._get_axis_layout(f=f, figSize=figSize, yRange=yRange, altRange=altRange,
+                                                      aziRange=aziRange, is_label_location=is_label_location,
+                                                      **kwargs)
 
         for i, axisList in enumerate(axisLists):
             for j, axis in enumerate(axisList):
@@ -505,7 +508,8 @@ class SpatialTemporalReceptiveField(object):
 
         return axisLists[0][0].figure
 
-    def _get_axis_layout(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None, **kwargs):
+    def _get_axis_layout(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None,
+                         is_label_location=True, **kwargs):
 
         locations = np.array(self.get_locations())
 
@@ -529,8 +533,9 @@ class SpatialTemporalReceptiveField(object):
 
         for i, altPosition in enumerate(altPositions):
             for j, aziPosition in enumerate(aziPositions):
-                axisLists[i][j].text(0, yRange[1], str(int(altPosition)) + ';' + str(int(aziPosition)), ha='left',
-                                     va='top', fontsize=10)
+                if is_label_location:
+                    axisLists[i][j].text(0, yRange[1], str(int(altPosition)) + ';' + str(int(aziPosition)), ha='left',
+                                         va='top', fontsize=10)
                 axisLists[i][j].set_xlim([self.time[0], self.time[-1]])
                 axisLists[i][j].set_ylim(yRange)
 

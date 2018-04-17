@@ -157,7 +157,7 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     pdDigitized[pd < digitizeThr] = 0.
     pdDigitized[pd >= digitizeThr] = 5.
 
-    # plt.plot(pdDigitized)
+    # plt.plot(pdDigitized[:1000000])
     # plt.title('pd digitized')
     # plt.show()
 
@@ -166,7 +166,7 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
 
     pdFiltered = ni.filters.gaussian_filter(pdDigitized, filterDataPoint)
 
-    # plt.plot(pdFiltered)
+    # plt.plot(pdFiltered[:1000000])
     # plt.title('pd filtered')
     # plt.show()
 

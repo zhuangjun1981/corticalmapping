@@ -30,7 +30,6 @@ class TestImageAnalysis(unittest.TestCase):
         trace4 = ia.get_trace(mov, mask4, maskMode='weightedNan')
         assert(trace4[2] == 58)
 
-
     def test_ROI_binary_overlap(self):
         roi1 = np.zeros((10, 10))
         roi1[4:8, 3:7] = 1
@@ -40,7 +39,58 @@ class TestImageAnalysis(unittest.TestCase):
         roi2 = ia.ROI(roi2)
         assert(roi1.binary_overlap(roi2) == 6)
 
+    def test_ROI(self):
+        a = np.zeros((10, 10))
+        a[5:7, 3:6] = 1
+        a[8:9, 7:10] = np.nan
+        roi = ia.ROI(a)
+        # plt.imshow(roi.get_binary_mask(),interpolation='nearest')
+        assert (list(roi.get_center()) == [5.5, 4.])
 
-if __name__ == "__main__":
-    TestImageAnalysis.test_getTrace()
-    TestImageAnalysis.test_ROI_binary_overlap()
+    def test_ROI_getBinaryTrace(self):
+        mov = np.random.rand(5, 4, 4)
+        mask = np.zeros((4, 4))
+        mask[2, 3] = 1
+        trace1 = mov[:, 2, 3]
+        roi = ia.ROI(mask)
+        trace2 = roi.get_binary_trace(mov)
+        assert (np.array_equal(trace1, trace2))
+
+    def test_WeigthedROI_getWeightedCenter(self):
+        aa = np.random.rand(5, 5);
+        mask = np.zeros((5, 5))
+        mask[2, 3] = aa[2, 3];
+        mask[1, 4] = aa[1, 4];
+        mask[3, 4] = aa[3, 4]
+        roi = ia.WeightedROI(mask)
+        center = roi.get_weighted_center()
+        assert (center[0] == (2 * aa[2, 3] + 1 * aa[1, 4] + 3 * aa[3, 4]) / (aa[2, 3] + aa[1, 4] + aa[3, 4]))
+
+    def test_plot_ROIs(self):
+        aa = np.zeros((50, 50));
+        aa[15:20, 30:35] = np.random.rand(5, 5)
+        roi1 = ia.ROI(aa)
+        _ = roi1.plot_binary_mask_border();
+        _ = roi1.plot_binary_mask()
+        roi2 = ia.WeightedROI(aa)
+        _ = roi2.plot_binary_mask_border();
+        _ = roi2.plot_binary_mask();
+        _ = roi2.plot_weighted_mask()
+
+    def test_WeightedROI_getWeightedCenterInCoordinate(self):
+        aa = np.zeros((5, 5));
+        aa[1:3, 2:4] = 0.5
+        roi = ia.WeightedROI(aa)
+        assert (list(roi.get_weighted_center_in_coordinate(range(2, 7), range(1, 6))) == [3.5, 3.5])
+
+    def test_mergeROIs(self):
+
+        import corticalmapping.core.ImageAnalysis as ia
+        roi1 = ia.WeightedROI(np.arange(9).reshape((3, 3)))
+        roi2 = ia.WeightedROI(np.arange(1, 10).reshape((3, 3)))
+
+        merged_ROI = ia.merge_weighted_rois(roi1, roi2)
+        merged_ROI2 = ia.merge_binary_rois(roi1, roi2)
+
+        assert (np.array_equal(merged_ROI.get_weighted_mask(), np.arange(1, 18, 2).reshape((3, 3))))
+        assert (np.array_equal(merged_ROI2.get_binary_mask(), np.ones((3, 3))))

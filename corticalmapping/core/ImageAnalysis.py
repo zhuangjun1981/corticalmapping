@@ -1286,15 +1286,53 @@ def regression_detrend_1d(sig, trend):
     return sig_detrend, slope, r_value
 
 
-# def get_surround_pixels(shape, (i, j), connectivity=8):
-#     """
-#     given a 2-d shape and a pixel location [i, j], return the locations of its surround pixels.
-#
-#     :param shape: tuple or list of integers, should have length of 2
-#     :param i:
-#     :param j:
-#     :return:
-#     """
+def merge_weighted_rois(roi1, roi2):
+    """
+    merge two WeightedROI objects, most useful for merge ON and OFF subfields
+    """
+    if (roi1.pixelSizeX != roi2.pixelSizeX) or (roi1.pixelSizeY != roi2.pixelSizeY):
+        raise ValueError, 'The pixel sizes of the two WeightedROI objects should match!'
+
+    if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
+        raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
+
+    mask1 = roi1.get_weighted_mask()
+    mask2 = roi2.get_weighted_mask()
+
+    return WeightedROI(mask1 + mask2, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
+
+
+def merge_binary_rois(roi1, roi2):
+    """
+    merge two ROI objects, most useful for merge ON and OFF subfields
+    """
+    if (roi1.pixelSizeX != roi2.pixelSizeX) or (roi1.pixelSizeY != roi2.pixelSizeY):
+        raise ValueError, 'The pixel sizes of the two WeightedROI objects should match!'
+
+    if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
+        raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
+
+    mask1 = roi1.get_binary_mask()
+    mask2 = roi2.get_binary_mask()
+    mask3 = np.logical_or(mask1, mask2).astype(np.int8)
+
+    return ROI(mask3, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
+
+
+def get_peak_weighted_roi(arr, thr):
+    """
+    return: a WeightROI object representing the mask which contains the peak of arr and cut by the thr (thr)
+    """
+    nanLabel = np.isnan(arr)
+    arr2 = arr.copy()
+    arr2[nanLabel] = np.nanmin(arr)
+    labeled, _ = ni.label(arr2 >= thr)
+    peakCoor = np.array(np.where(arr2 == np.amax(arr2))).transpose()[0]
+    peakMask = get_marked_masks(labeled, peakCoor)
+    if peakMask is None:
+        'Threshold too high! No ROI found. Returning None'; return None
+    else:
+        return WeightedROI(arr2 * peakMask)
 
 
 class ROI(object):

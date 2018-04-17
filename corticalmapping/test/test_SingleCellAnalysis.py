@@ -1,8 +1,3 @@
-import corticalmapping.core.ImageAnalysis
-
-__author__ = 'junz'
-
-
 import os
 import h5py
 import numpy as np
@@ -45,37 +40,6 @@ def test_SpatialTemporalReceptiveField_from_h5_group():
     trace = np.array(STRF.data['traces'][20])
     assert((float(trace[4, 8])+0.934942364693) < 1e-10)
     # STRF.plot_traces(figSize=(15,10),yRange=[-5,50],columnSpacing=0.002,rowSpacing=0.002)
-
-def test_ROI():
-    a = np.zeros((10,10))
-    a[5:7,3:6]=1
-    a[8:9,7:10]=np.nan
-    roi = corticalmapping.core.ImageAnalysis.ROI(a)
-    # plt.imshow(roi.get_binary_mask(),interpolation='nearest')
-    assert(list(roi.get_center()) == [5.5, 4.])
-
-def test_ROI_getBinaryTrace():
-    mov = np.random.rand(5,4,4); mask = np.zeros((4,4)); mask[2,3]=1; trace1 = mov[:,2,3]
-    roi = corticalmapping.core.ImageAnalysis.ROI(mask);trace2 = roi.get_binary_trace(mov)
-    assert(np.array_equal(trace1,trace2))
-
-def test_WeigthedROI_getWeightedCenter():
-    aa = np.random.rand(5,5); mask = np.zeros((5,5))
-    mask[2,3]=aa[2,3]; mask[1,4]=aa[1,4]; mask[3,4]=aa[3,4]
-    roi = corticalmapping.core.ImageAnalysis.WeightedROI(mask); center = roi.get_weighted_center()
-    assert(center[0] == (2*aa[2,3]+1*aa[1,4]+3*aa[3,4])/(aa[2,3]+aa[1,4]+aa[3,4]))
-
-def test_plot_ROIs():
-    aa = np.zeros((50,50));aa[15:20,30:35] = np.random.rand(5,5)
-    roi1 = corticalmapping.core.ImageAnalysis.ROI(aa)
-    _ = roi1.plot_binary_mask_border(); _ = roi1.plot_binary_mask()
-    roi2 = corticalmapping.core.ImageAnalysis.WeightedROI(aa)
-    _ = roi2.plot_binary_mask_border(); _ = roi2.plot_binary_mask(); _ = roi2.plot_weighted_mask()
-
-def test_WeightedROI_getWeightedCenterInCoordinate():
-    aa = np.zeros((5,5));aa[1:3,2:4] = 0.5
-    roi = corticalmapping.core.ImageAnalysis.WeightedROI(aa)
-    assert(list(roi.get_weighted_center_in_coordinate(range(2, 7), range(1, 6))) == [3.5, 3.5])
 
 def test_SpatialTemporalReceptiveField():
     locations = [[3.0, 4.0], [3.0, 5.0], [2.0, 4.0], [2.0, 5.0],[3.0, 4.0], [3.0, 5.0], [2.0, 4.0], [2.0, 5.0]]
