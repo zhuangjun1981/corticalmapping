@@ -1,5 +1,6 @@
 import h5py
 import numpy as np
+import warnings
 import scipy.ndimage as ni
 import scipy.interpolate as ip
 import matplotlib.pyplot as plt
@@ -297,6 +298,7 @@ class SpatialReceptiveField(ia.WeightedROI):
 
         return len(self.weights) * alt_step * azi_step
 
+
 class ResponseMatrix(object):
     """
     Object to store event triggered single trial traces. Base class for SpatialTemporalReceptiveField and
@@ -326,6 +328,8 @@ class ResponseMatrix(object):
         self.trace_data_unit = str(trace_data_unit)
 
         self.check_integrity()
+        self.sort_conditions(is_ascending=True)
+        self.merge_duplicates()
 
     def check_integrity(self):
 
@@ -381,15 +385,137 @@ class ResponseMatrix(object):
 
         # can add more
 
-    def sort_conditions(self):
-        pass
+    def get_param_names(self):
+        params = self.data.columns.tolist()
+        params.remove('trigger_ts')
+        params.remove('traces')
+        return(params)
+
+    def get_conditions(self):
+        params = self.get_param_names()
+        return self.data[params]
+
+    def sort_conditions(self, is_ascending=True):
+        params = self.get_param_names()
+        self.data.sort_values(by=params, inplace=True, ascending=is_ascending)
+
+    def merge_duplicates(self):
+        params = self.get_param_names()
+        cond_grps = self.data.groupby(by=params)
+        values = []
+        for cond_n, cond_grp in cond_grps:
+            curr_value = []
+            for param in params:
+                curr_value.append(cond_grp.iloc[0][param])
+            curr_value.append(np.concatenate(list(cond_grp['trigger_ts'])))
+            curr_value.append(np.concatenate(list(cond_grp['traces'])))
+
+            values.append(curr_value)
+
+        self.data = DataFrame(values, columns=params + ['trigger_ts', 'traces'])
+
+    def merge(self, response_matrix):
+
+        if len(self.time) != len(response_matrix.time):
+            raise ValueError('the time axis length of input response matrix ({}) does not equal that of current '
+                             'response matrix ({}). Cannot merge.'.format(len(response_matrix.time), len(self.time)))
+        elif not np.array_equal(self.time, response_matrix.time):
+            warnings.warn('the time axises of response matrices are not identical. Merging may not be appropriate.')
+
+        attr_ns = self.__dict__.keys()
+        attr_ns.remove('time')
+        attr_ns.remove('data')
+        attr_ns.sort()
+
+        input_attr_ns = response_matrix.__dict__.keys()
+        input_attr_ns.remove('time')
+        input_attr_ns.remove('data')
+        input_attr_ns.sort()
+
+        if attr_ns != input_attr_ns:
+            print('\nattributes of input response matrix:')
+            print(input_attr_ns)
+            print('\nattributes of current response matrix:')
+            print(attr_ns)
+            warnings.warn('The attributes of input response matrix does not match those of current response matrix. '
+                          'using attributes of current response matrix.')
+
+        if self.get_param_names() != response_matrix.get_param_names():
+            print('\ncondition parameters of input response matrix:')
+            print(response_matrix.get_param_names())
+            print('\ncondition parameters of current response matrix:')
+            print(self.get_param_names())
+
+            raise ValueError('the condition parameters of input response matrix do not match those of current response '
+                             'matrix. Cannot merge.')
+
+        # print(self.data)
+        # print(response_matrix.data)
+
+        self.data = self.data.append(response_matrix.data, ignore_index=True)
+        self.merge_duplicates()
+
+        # print(self.data)
+
+        self.sort_conditions(is_ascending=True)
+
+        # print(self.data)
 
     def to_h5_group(self, h5_grp):
-        pass
+
+        attr_dict = dict(self.__dict__)
+        attr_dict.pop('data')
+
+        for attr_key, attr_value in attr_dict.items():
+            try:
+                h5_grp.attrs[attr_key] = attr_value
+            except Exception as e:
+                warnings.warn('cannot save attribute "{}" to hdf5 group as an attribute.'.format(attr_key))
+                print(e)
+
+        h5_grp.attrs['time_unit'] = 'second'
+        h5_grp.attrs['trace_shape'] = '(trial, time_point)'
+
+        params = self.get_param_names()
+
+        for cond_i, cond in self.data.iterrows():
+            cond_n = 'condition{:04d}'.format(cond_i)
+            trace = h5_grp.create_dataset(cond_n, data=cond['traces'], dtype='f')
+            trace.attrs['trigger_ts_sec'] = cond['trigger_ts']
+            for param in params:
+                trace.attrs[param] = cond[param]
 
     @staticmethod
     def from_h5_group(h5_grp):
-        pass
+
+        params = h5_grp[h5_grp.keys()[0]].attrs.keys()
+        params.remove('trigger_ts_sec')
+
+        value = []
+        for cond_n, cond_dset in h5_grp.items():
+            curr_value = []
+            for param in params:
+                curr_value.append(cond_dset.attrs[param])
+
+            curr_value.append(cond_dset.attrs['trigger_ts_sec'])
+            curr_value.append(cond_dset.value)
+            value.append(curr_value)
+
+        data = DataFrame(data=value, columns=params + ['trigger_ts', 'traces'])
+
+        rm = ResponseMatrix(data=data, time=h5_grp.attrs['time'], trace_data_type=h5_grp.attrs['trace_data_type'],
+                            trace_data_unit=h5_grp.attrs['trace_data_unit'])
+
+        rm_attr_ns = h5_grp.attrs.keys()
+        rm_attr_ns.remove('time')
+        rm_attr_ns.remove('trace_data_type')
+        rm_attr_ns.remove('trace_data_unit')
+        rm_attr_ns.remove('time_unit')
+        rm_attr_ns.remove('trace_shape')
+        for rm_attr_n in rm_attr_ns:
+            setattr(rm, rm_attr_n, h5_grp.attrs[rm_attr_n])
+
+        return rm
 
 
 class ResponseTable(object):
@@ -400,8 +526,8 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
 
     def __init__(self, name='unknown', location_unit='degree', **kwargs):
         super(SpatialTemporalReceptiveField, self).__init__(**kwargs)
-        self.name=name
-        self.location_unit = location_unit
+        self.name = str(name)
+        self.location_unit = str(location_unit)
 
     def check_integrity(self):
 
@@ -418,6 +544,26 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
                         location_unit='degree',
                         trace_data_type='unknow',
                         trace_data_unit='unknow'):
+        """
+        this is an adapter to make the current object sort of compatible with old class:
+        SingleCellAnalysis.SpatialTemporalReceptiveField2
+
+        :param locations: list, tuple or 2-d array of retinotopic locations mapped
+            each element has two float numbers: [altitude, azimuth]
+        :param signs: list, tuple or 1d array of signs for each location
+        :param traces: list of traces for each location
+            list of 2-d array, each row: a single trace, each column: a single time point
+        :param time: time axis for trace
+        :param trigger_ts: list of lists or tuples or 1-d arrays. The outside list should have same length as locations,
+            signs and traces. Each element of the outside list correspond to one probe, and the inside lists save
+            the global trigger timestamps of each trace for that particular probe. This is used for filtering
+            the STRF for global epochs.
+        :param name: str
+        :param location_unit: str
+        :param trace_data_type:  str
+        :param trace_data_unit:  str
+        :return:
+        """
 
         print('\ngenerating spatial temporal receptive field ...')
 
@@ -462,6 +608,37 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
                                              trace_data_unit=trace_data_unit,
                                              name=name,
                                              location_unit=location_unit)
+
+    def add_traces(self, locations, signs, traces, trigger_ts=None, verbose=False):
+        """
+        this is an adapter to make the current object sort of compatible with old class:
+        SingleCellAnalysis.SpatialTemporalReceptiveField2
+
+        :param locations: list, tuple or 2-d array of retinotopic locations mapped
+            each element has two float numbers: [altitude, azimuth]
+        :param signs: list, tuple or 1d array of signs for each location
+        :param traces: list of traces for each location
+            list of 2-d array, each row: a single trace, each column: a single time point
+        :param trigger_ts: list of lists or tuples or 1-d arrays. The outside list should have same length as locations,
+            signs and traces. Each element of the outside list correspond to one probe, and the inside lists save
+            the global trigger timestamps of each trace for that particular probe. This is used for filtering
+            the STRF for global epochs.
+        """
+
+        if verbose:
+            print('adding traces to existing STRF ...')
+
+        strf_to_add = SpatialTemporalReceptiveField.from_components(locations=locations,
+                                                                    signs=signs,
+                                                                    traces=traces,
+                                                                    trigger_ts=trigger_ts,
+                                                                    time=self.time,
+                                                                    name=self.name,
+                                                                    location_unit=self.location_unit,
+                                                                    trace_data_type=self.trace_data_type,
+                                                                    trace_data_unit=self.trace_data_unit)
+
+        self.merge(strf_to_add)
 
 
 class DriftingGratingResponseMatrix(ResponseMatrix):

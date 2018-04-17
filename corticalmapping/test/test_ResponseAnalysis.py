@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from pandas import DataFrame
 import unittest
 import corticalmapping.ResponseAnalysis as ra
 from corticalmapping.ResponseAnalysis import SpatialTemporalReceptiveField as STRF
@@ -28,6 +29,25 @@ class TestResponseAnalysis(unittest.TestCase):
         # print(interpolated_srf.get_weighted_mask().shape)
         assert (interpolated_srf.get_weighted_mask().shape == (20, 20))
 
+
+class TestResponseMatrix(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def test_initiation(self):
+
+        param0 = np.arange(10)
+        param1 = [str(c) for c in np.arange(10, 20)]
+        traces = [np.ones((5, 8)) for _ in range(10)]
+        time = np.arange(8) * 0.001 - 0.003
+
+        data = DataFrame(columns=['param0', 'param1', 'traces'])
+        data['param0'] = param0
+        data['param1'] = param1
+        data['traces'] = traces
+
+        rm = ra.ResponseMatrix(data=data, time=time)
+        assert (rm.data.columns.tolist() == ['param0', 'param1', 'trigger_ts', 'traces'])
 
 
 class TestSpatialTemporalReceptiveField(unittest.TestCase):
@@ -61,19 +81,22 @@ class TestSpatialTemporalReceptiveField(unittest.TestCase):
         time = np.arange(-1, 3).astype(np.float32)
 
         # trigger_ts
-        trigger_ts1 = [[0., 5., 6.], (7., 7.5, 9.), [8.1, 3.2, 4.0]]
+        trigger_ts1 = [[0., 5., 6.], np.array([3.3, 2.5, 7., 7.5, 9.]), [8.1, 3.2, 4.0, 7.4, 20.9, 6.4]]
         trigger_ts2 = None
         trigger_ts3 = np.random.rand(3, 5)
 
-        strf1 = STRF.from_components(locations=locations1, signs=signs1, traces=traces1, trigger_ts=trigger_ts1, time=time)
-        strf2 = STRF.from_components(locations=locations2, signs=signs2, traces=traces2, trigger_ts=trigger_ts2, time=time)
-        strf3 = STRF.from_components(locations=locations3, signs=signs3, traces=traces3, trigger_ts=trigger_ts3, time=time)
+        strf1 = STRF.from_components(locations=locations1, signs=signs1, traces=traces1,
+                                     trigger_ts=trigger_ts1, time=time)
+        strf2 = STRF.from_components(locations=locations2, signs=signs2, traces=traces2,
+                                     trigger_ts=trigger_ts2, time=time)
+        strf3 = STRF.from_components(locations=locations3, signs=signs3, traces=traces3,
+                                     trigger_ts=trigger_ts3, time=time)
 
-        print(strf1.get_probes())
-        print(strf2.get_probes())
-        print(strf3.get_probes())
+        print(strf1.get_conditions())
+        print(strf2.get_conditions())
+        print(strf3.get_conditions())
 
-    def test_merge_duplications(self):
+    def test_merge_duplicates(self):
         locations = [(1.0, 2.), (3., 4.), (5, 6), (3., 4.), (5., 6.)]
         signs = [1., -1., 0., -1., 0]
         traces = [np.random.rand(3, 4),
@@ -85,8 +108,12 @@ class TestSpatialTemporalReceptiveField(unittest.TestCase):
         time = np.arange(-1, 3).astype(np.float32)
 
         strf = STRF.from_components(locations=locations, signs=signs, traces=traces, trigger_ts=trigger_ts, time=time)
-        strf.merge_duplication()
+        strf.merge_duplicates()
         assert(len(strf.data) == 3)
+        assert(len(strf.data.loc[1, 'trigger_ts']) == 15)
+        assert(len(strf.data.loc[2, 'trigger_ts']) == 7)
+
+        strf.check_integrity()
 
     def test_add_traces(self):
         locations = [(1.0, 2.), (3., 4.), (5, 6)]
@@ -105,21 +132,19 @@ class TestSpatialTemporalReceptiveField(unittest.TestCase):
                    [np.array([5, 6, 7, 8])]]
         trigger_ts2 = [np.arange(15, 18), [20.5]]
 
-        strf.add_traces(locations=locations2, signs=signs2, traces=traces2, trigger_ts=trigger_ts2, verbose=True)
-        strf.sort_probes()
+        strf.add_traces(locations=locations2, signs=signs2, traces=traces2, trigger_ts=trigger_ts2, verbose=False)
 
         assert (len(strf.data) == 3)
-        assert (np.array_equal(strf.data.iloc[0]['trigger_ts'], np.array([0.0, 5.0, 6.0], dtype=np.float32)))
+        assert (np.array_equal(strf.data.iloc[0]['trigger_ts'], np.array([0.0, 5.0, 6.0], dtype=np.float64)))
         assert (np.array_equal(strf.data.iloc[1]['trigger_ts'],
-                               np.array([7.0, 7.5, 9.0, 9.8, 10.4, 15., 16., 17.], dtype=np.float32)))
+                               np.array([7.0, 7.5, 9.0, 9.8, 10.4, 15., 16., 17.], dtype=np.float64)))
         assert (np.array_equal(strf.data.iloc[2]['trigger_ts'],
-                               np.array([8.1, 3.2, 4.0, 2.0, 4.0, 5.0, 20.5], dtype=np.float32)))
+                               np.array([8.1, 3.2, 4.0, 2.0, 4.0, 5.0, 20.5], dtype=np.float64)))
 
-        strf.add_traces(locations=locations2, signs=signs2, traces=traces2, trigger_ts=None, verbose=True)
-        strf.sort_probes()
+        strf.add_traces(locations=locations2, signs=signs2, traces=traces2, trigger_ts=None, verbose=False)
 
         assert (len(strf.data) == 3)
-        assert (np.array_equal(strf.data.iloc[0]['trigger_ts'], np.array([0.0, 5.0, 6.0], dtype=np.float32)))
+        assert (np.array_equal(strf.data.iloc[0]['trigger_ts'], np.array([0.0, 5.0, 6.0], dtype=np.float64)))
         assert (len(strf.data.iloc[1]['trigger_ts']) == 11)
         assert (len(strf.data.iloc[2]['trigger_ts']) == 8)
 
@@ -135,6 +160,8 @@ class TestSpatialTemporalReceptiveField(unittest.TestCase):
         strf = STRF.from_components(locations=locations, signs=signs, traces=traces, trigger_ts=trigger_ts, time=time)
 
         import h5py
+        if 'test.hdf5' in os.listdir(curr_folder) and os.path.isfile('test.hdf5'):
+            os.remove('test.hdf5')
         test_f = h5py.File('test.hdf5')
         strf_grp = test_f.create_group('strf')
         strf.to_h5_group(strf_grp)
@@ -142,6 +169,14 @@ class TestSpatialTemporalReceptiveField(unittest.TestCase):
 
         load_f = h5py.File('test.hdf5', 'r')
         strf2 = STRF.from_h5_group(load_f['strf'])
+
+        assert (np.array_equal(strf.data.loc[0, 'trigger_ts'], strf2.data.loc[0, 'trigger_ts']))
+        assert (np.array_equal(strf.data.loc[1, 'trigger_ts'], strf2.data.loc[1, 'trigger_ts']))
+        assert (np.array_equal(strf.data.loc[2, 'trigger_ts'], strf2.data.loc[2, 'trigger_ts']))
+        assert (np.array_equal(strf.data.loc[0, 'traces'], strf2.data.loc[0, 'traces']))
+        assert (np.array_equal(strf.data.loc[1, 'traces'], strf2.data.loc[1, 'traces']))
+        assert (np.array_equal(strf.data.loc[2, 'traces'], strf2.data.loc[2, 'traces']))
+
         '''
         something can be added here to test the strf2 object
         '''
