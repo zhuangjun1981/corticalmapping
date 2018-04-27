@@ -48,13 +48,13 @@ def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
     return allOnsetInd, onsetIndWithLocationSign
 
 
-def plot_2d_receptive_field(mapArray, altPos, aziPos, plot_axis=None, **kwargs):
+def plot_2d_receptive_field(mapArray, alt_pos, azi_pos, plot_axis=None, **kwargs):
     """
     plot a 2-d receptive field in a given axis
 
-    :param mapArray: 2-d array, should be in the same coordinate system as meshgrid(aziPos,altPos)
-    :param altPos: 1-d array, list of sample altitude positions, sorted from high to low
-    :param aziPos: 1-d array, list of sample azimuth position, sorted from low to high
+    :param mapArray: 2-d array, should be in the same coordinate system as meshgrid(azi_pos,alt_pos)
+    :param alt_pos: 1-d array, list of sample altitude positions, sorted from high to low
+    :param azi_pos: 1-d array, list of sample azimuth position, sorted from low to high
     :param plot_axis:
     :param kwargs: input to matplotlib.pyplot.imshow() function
     :return: plot_axis
@@ -65,10 +65,10 @@ def plot_2d_receptive_field(mapArray, altPos, aziPos, plot_axis=None, **kwargs):
         plot_axis = f.add_subplot(111)
 
     fig = plot_axis.imshow(mapArray, **kwargs)
-    plot_axis.set_yticks(np.arange(len(altPos)))
-    plot_axis.set_xticks(np.arange(len(aziPos)))
-    plot_axis.set_yticklabels(altPos.astype(np.int))
-    plot_axis.set_xticklabels(aziPos.astype(np.int))
+    plot_axis.set_yticks(np.arange(len(alt_pos)))
+    plot_axis.set_xticks(np.arange(len(azi_pos)))
+    plot_axis.set_yticklabels(alt_pos.astype(np.int))
+    plot_axis.set_xticklabels(azi_pos.astype(np.int))
     return fig
 
 
@@ -108,14 +108,14 @@ class SpatialReceptiveField(ia.WeightedROI):
     Object for spatial receptive field, a subclass of WeightedROI object
     """
 
-    def __init__(self, mask, altPos, aziPos, sign=None, temporalWindow=None, pixelSizeUnit=None, dataType=None,
+    def __init__(self, mask, alt_pos, azi_pos, sign=None, temporal_window=None, pixel_size_unit=None, data_type=None,
                  thr=None, filter_sigma=None, interpolate_rate=None):
         """
-        subclass of WeightedROI object, because the pixel coordinates are defined by np.meshgrid(aziPos, altPos),
-        the old WeightedROI attribute: pixelSize does not make sense, so set it to be None.
+        subclass of WeightedROI object, because the pixel coordinates are defined by np.meshgrid(azi_pos, alt_pos),
+        the old WeightedROI attribute: pixel_size does not make sense, so set it to be None.
 
         sign: sign of the receptive, stf, 'ON', 'OFF', 'ON_OFF', None if not defined
-        dataType: type of data stored, str, example can be 'df/f', 'zscore', or 'firing_rate' ...
+        data_type: type of data stored, str, example can be 'df/f', 'zscore', or 'firing_rate' ...
 
         thr: None, float, if not applied
         filter_sigma: gaussian filter sigma in pixel, float, None if not applied
@@ -123,10 +123,10 @@ class SpatialReceptiveField(ia.WeightedROI):
 
         the correct way to process RF: gaussian filter first, interpolation second, and thr third
         """
-        super(SpatialReceptiveField, self).__init__(mask, pixelSize=None, pixelSizeUnit=pixelSizeUnit)
-        self.altPos = altPos
-        self.aziPos = aziPos
-        self.dataType = dataType
+        super(SpatialReceptiveField, self).__init__(mask, pixel_size=None, pixel_size_unit=pixel_size_unit)
+        self.alt_pos = alt_pos
+        self.azi_pos = azi_pos
+        self.data_type = data_type
 
         if (sign is None or sign == 'ON' or sign == 'OFF' or sign == 'ON_OFF'):
             self.sign = sign
@@ -136,7 +136,7 @@ class SpatialReceptiveField(ia.WeightedROI):
             self.sign = 'OFF'
         else:
             raise ValueError('sign should be 1, -1, "ON", "OFF", "ON_OFF" or None!')
-        self.temporalWindow = temporalWindow
+        self.temporal_window = temporal_window
         self.thr = thr
         self.filter_sigma = filter_sigma
 
@@ -154,8 +154,8 @@ class SpatialReceptiveField(ia.WeightedROI):
 
         if self.sign is not None:
             name.append(str(self.sign))
-        if self.dataType is not None:
-            name.append(self.dataType)
+        if self.data_type is not None:
+            name.append(self.data_type)
 
         name.append('RF')
 
@@ -194,10 +194,10 @@ class SpatialReceptiveField(ia.WeightedROI):
         else:
             interpolate_rate = self.interpolate_rate
 
-        plot_axis.set_yticks(range(len(self.altPos))[::interpolate_rate])
-        plot_axis.set_xticks(range(len(self.aziPos))[::interpolate_rate])
-        plot_axis.set_yticklabels(self.altPos[::interpolate_rate])
-        plot_axis.set_xticklabels(self.aziPos[::interpolate_rate])
+        plot_axis.set_yticks(range(len(self.alt_pos))[::interpolate_rate])
+        plot_axis.set_xticks(range(len(self.azi_pos))[::interpolate_rate])
+        plot_axis.set_yticklabels(self.alt_pos[::interpolate_rate])
+        plot_axis.set_xticklabels(self.azi_pos[::interpolate_rate])
 
         if is_colorbar:
             plot_axis.get_figure().colorbar(curr_plot)
@@ -231,8 +231,8 @@ class SpatialReceptiveField(ia.WeightedROI):
             if len(contour_levels) == 0:
                 contour_levels = [self.thr]
 
-        X, Y = np.meshgrid(np.arange(len(self.aziPos)),
-                           np.arange(len(self.altPos)))
+        X, Y = np.meshgrid(np.arange(len(self.azi_pos)),
+                           np.arange(len(self.alt_pos)))
 
         if len(self.weights) > 0:
             plot_axis.contour(X, Y, self.get_weighted_mask(), levels=contour_levels, colors=colors, **kwargs)
@@ -247,15 +247,15 @@ class SpatialReceptiveField(ia.WeightedROI):
         plot_axis.set_aspect('equal')
 
         if self.interpolate_rate is not None:
-            plot_axis.set_yticks(range(len(self.altPos))[::self.interpolate_rate])
-            plot_axis.set_xticks(range(len(self.aziPos))[::self.interpolate_rate])
-            plot_axis.set_yticklabels(self.altPos[::self.interpolate_rate])
-            plot_axis.set_xticklabels(self.aziPos[::self.interpolate_rate])
+            plot_axis.set_yticks(range(len(self.alt_pos))[::self.interpolate_rate])
+            plot_axis.set_xticks(range(len(self.azi_pos))[::self.interpolate_rate])
+            plot_axis.set_yticklabels(self.alt_pos[::self.interpolate_rate])
+            plot_axis.set_xticklabels(self.azi_pos[::self.interpolate_rate])
         else:
-            plot_axis.set_yticks(range(len(self.altPos)))
-            plot_axis.set_xticks(range(len(self.aziPos)))
-            plot_axis.set_yticklabels(self.altPos)
-            plot_axis.set_xticklabels(self.aziPos)
+            plot_axis.set_yticks(range(len(self.alt_pos)))
+            plot_axis.set_xticks(range(len(self.azi_pos)))
+            plot_axis.set_yticklabels(self.alt_pos)
+            plot_axis.set_xticklabels(self.azi_pos)
 
         return plot_axis.get_figure()
 
@@ -272,9 +272,9 @@ class SpatialReceptiveField(ia.WeightedROI):
             print 'No ROI found. Threshold too high!'
             cutRF = ia.WeightedROI(np.zeros(self.dimension))
 
-        return SpatialReceptiveField(cutRF.get_weighted_mask(), self.altPos, self.aziPos, sign=self.sign,
-                                     temporalWindow=self.temporalWindow, pixelSizeUnit=self.pixelSizeUnit,
-                                     dataType=self.dataType, thr=thr, filter_sigma=self.filter_sigma,
+        return SpatialReceptiveField(cutRF.get_weighted_mask(), self.alt_pos, self.azi_pos, sign=self.sign,
+                                     temporal_window=self.temporal_window, pixel_size_unit=self.pixel_size_unit,
+                                     data_type=self.data_type, thr=thr, filter_sigma=self.filter_sigma,
                                      interpolate_rate=self.interpolate_rate)
 
     def interpolate(self, ratio, method='cubic', fill_value=0.):
@@ -284,18 +284,18 @@ class SpatialReceptiveField(ia.WeightedROI):
         if ratio <= 1:
             raise ValueError('interpolate_rate should be an integer larger than 1!')
 
-        # altInterpolation = ip.interp1d(np.arange(len(self.altPos)),self.altPos)
-        # aziInterpolation = ip.interp1d(np.arange(len(self.aziPos)),self.aziPos)
-        altStep = np.mean(np.diff(self.altPos))
-        aziStep = np.mean(np.diff(self.aziPos))
-        newAltPos = np.arange(self.altPos[0], self.altPos[-1], altStep / ratio)
-        newAziPos = np.arange(self.aziPos[0], self.aziPos[-1], aziStep / ratio)
+        # altInterpolation = ip.interp1d(np.arange(len(self.alt_pos)),self.alt_pos)
+        # aziInterpolation = ip.interp1d(np.arange(len(self.azi_pos)),self.azi_pos)
+        altStep = np.mean(np.diff(self.alt_pos))
+        aziStep = np.mean(np.diff(self.azi_pos))
+        newAltPos = np.arange(self.alt_pos[0], self.alt_pos[-1], altStep / ratio)
+        newAziPos = np.arange(self.azi_pos[0], self.azi_pos[-1], aziStep / ratio)
         mask = self.get_weighted_mask()
-        mask_ip = ip.interp2d(self.aziPos, self.altPos, mask, kind=method, fill_value=fill_value)
+        mask_ip = ip.interp2d(self.azi_pos, self.alt_pos, mask, kind=method, fill_value=fill_value)
         newMask = mask_ip(newAziPos, newAltPos)
 
-        return SpatialReceptiveField(newMask, newAltPos, newAziPos, sign=self.sign, temporalWindow=self.temporalWindow,
-                                     pixelSizeUnit=self.pixelSizeUnit, dataType=self.dataType, thr=self.thr,
+        return SpatialReceptiveField(newMask, newAltPos, newAziPos, sign=self.sign, temporal_window=self.temporal_window,
+                                     pixel_size_unit=self.pixel_size_unit, data_type=self.data_type, thr=self.thr,
                                      filter_sigma=self.filter_sigma, interpolate_rate=ratio)
 
     def gaussian_filter(self, sigma):
@@ -306,28 +306,28 @@ class SpatialReceptiveField(ia.WeightedROI):
         mask = self.get_weighted_mask()
         mask_f = ni.gaussian_filter(mask, sigma=sigma)
 
-        return SpatialReceptiveField(mask_f, self.altPos, self.aziPos, sign=self.sign,
-                                     temporalWindow=self.temporalWindow, pixelSizeUnit=self.pixelSizeUnit,
-                                     dataType=self.dataType, thr=self.thr, filter_sigma=sigma,
+        return SpatialReceptiveField(mask_f, self.alt_pos, self.azi_pos, sign=self.sign,
+                                     temporal_window=self.temporal_window, pixel_size_unit=self.pixel_size_unit,
+                                     data_type=self.data_type, thr=self.thr, filter_sigma=sigma,
                                      interpolate_rate=self.interpolate_rate)
 
     def get_weighted_rf_center(self):
         """
-        return weighted center of the receptive field in the coordinate system defined by self.altPos and self.aziPos
+        return weighted center of the receptive field in the coordinate system defined by self.alt_pos and self.azi_pos
         """
-        return self.get_weighted_center_in_coordinate(self.altPos, self.aziPos)
+        return self.get_weighted_center_in_coordinate(self.alt_pos, self.azi_pos)
 
     def get_binary_rf_area(self):
         """
-        return the thresholded binary receptive field area in the coordinate system defined by self.altPos and
-        self.aziPos
+        return the thresholded binary receptive field area in the coordinate system defined by self.alt_pos and
+        self.azi_pos
         """
 
         if self.thr is None:
             raise LookupError('To th area, the receptive field should be thresholded!!')
 
-        alt_step = abs(np.mean(np.diff(self.altPos).astype(np.float)))
-        azi_step = abs(np.mean(np.diff(self.aziPos).astype(np.float)))
+        alt_step = abs(np.mean(np.diff(self.alt_pos).astype(np.float)))
+        azi_step = abs(np.mean(np.diff(self.azi_pos).astype(np.float)))
 
         return len(self.weights) * alt_step * azi_step
 
@@ -739,9 +739,9 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
 
         self.merge(strf_to_add)
 
-    def plot_traces(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None, **kwargs):
+    def plot_traces(self, f=None, figSize=(10, 10), yRange=(0, 20), alt_range=None, azi_range=None, **kwargs):
 
-        indexLists, axisLists = self._get_axis_layout(f, figSize, yRange, altRange, aziRange, **kwargs)
+        indexLists, axisLists = self._get_axis_layout(f, figSize, yRange, alt_range, azi_range, **kwargs)
 
         for i, axisList in enumerate(axisLists):
             for j, axis in enumerate(axisList):
@@ -776,19 +776,19 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
 
         return axisLists[0][0].figure
 
-    def _get_axis_layout(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None, **kwargs):
+    def _get_axis_layout(self, f=None, figSize=(10, 10), yRange=(0, 20), alt_range=None, azi_range=None, **kwargs):
 
         locations = np.array(self.get_probes())
 
-        altPositions = np.sort(np.unique(locations[:, 0]))[::-1]
-        if altRange is not None:
-            altPositions = np.array([x for x in altPositions if (x >= altRange[0] and x <= altRange[1])])
+        alt_positions = np.sort(np.unique(locations[:, 0]))[::-1]
+        if alt_range is not None:
+            alt_positions = np.array([x for x in alt_positions if (x >= alt_range[0] and x <= alt_range[1])])
 
-        aziPositions = np.sort(np.unique(locations[:, 1]))
-        if aziRange is not None:
-            aziPositions = np.array([x for x in aziPositions if (x >= aziRange[0] and x <= aziRange[1])])
+        azi_positions = np.sort(np.unique(locations[:, 1]))
+        if azi_range is not None:
+            azi_positions = np.array([x for x in azi_positions if (x >= azi_range[0] and x <= azi_range[1])])
 
-        indexLists = [[[] for aziPosition in aziPositions] for altPosition in altPositions]
+        indexLists = [[[] for azi_position in azi_positions] for alt_position in alt_positions]
 
         if f is None:
             f = plt.figure(figsize=figSize)
@@ -796,17 +796,17 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
         f.suptitle('cell:{}; xrange:[{:6.3f}, {:6.3f}]; yrange: [{:.3f}, {:.3f}]'.
                    format(self.name, self.time[0], self.time[-1], yRange[0], yRange[1]))
 
-        axisLists = pt.tile_axis(f, len(altPositions), len(aziPositions), **kwargs)
+        axisLists = pt.tile_axis(f, len(alt_positions), len(azi_positions), **kwargs)
 
-        for i, altPosition in enumerate(altPositions):
-            for j, aziPosition in enumerate(aziPositions):
-                axisLists[i][j].text(0, yRange[1], str(int(altPosition)) + ';' + str(int(aziPosition)),
+        for i, alt_position in enumerate(alt_positions):
+            for j, azi_position in enumerate(azi_positions):
+                axisLists[i][j].text(0, yRange[1], str(int(alt_position)) + ';' + str(int(azi_position)),
                                      ha='left', va='top', fontsize=10)
                 axisLists[i][j].set_xlim([self.time[0], self.time[-1]])
                 axisLists[i][j].set_ylim(yRange)
 
                 for k, location in enumerate(locations):
-                    if location[0] == altPosition and location[1] == aziPosition:
+                    if location[0] == alt_position and location[1] == azi_position:
                         indexLists[i][j].append(k)
 
         return indexLists, axisLists
@@ -827,9 +827,9 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
             alt = traceItem['altitude']
             azi = traceItem['azimuth']
             sign = traceItem['sign']
-            for j, altPos in enumerate(allAltPos):
-                for k, aziPos in enumerate(allAziPos):
-                    if alt == altPos and azi == aziPos:
+            for j, alt_pos in enumerate(allAltPos):
+                for k, azi_pos in enumerate(allAziPos):
+                    if alt == alt_pos and azi == azi_pos:
 
                         if sign == 1:
                             if indON[j][k] is not None:
@@ -850,14 +850,14 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
 
         return indON, indOFF, allAltPos, allAziPos
 
-    def get_amplitude_map(self, timeWindow=(0, 0.5)):
+    def get_amplitude_map(self, time_window=(0, 0.5)):
         """
         return 2d receptive field map and altitude and azimuth coordinates
-        each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
+        each pixel in the map represent mean amplitute of traces within the window defined by time_window, and the
         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
         """
 
-        windowIndex = np.logical_and(self.time >= timeWindow[0], self.time <= timeWindow[1])
+        windowIndex = np.logical_and(self.time >= time_window[0], self.time <= time_window[1])
 
         indON, indOFF, allAltPos, allAziPos = self._sort_index()
 
@@ -875,34 +875,34 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
 
         return ampON, ampOFF, allAltPos, allAziPos
 
-    def get_amplitude_receptive_field(self, timeWindow=(0, 0.5)):
+    def get_amplitude_receptive_field(self, time_window=(0, 0.5)):
         """
         very similar to get_amplitude_map(), only difference is that, it is returning spatial temporal receptive fields
         instead of 2d matrix
-        each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
+        each pixel in the map represent mean amplitute of traces within the window defined by time_window, and the
         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
         """
 
-        ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
+        ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(time_window)
 
-        ampRFON = SpatialReceptiveField(mask=ampON, altPos=allAltPos, aziPos=allAziPos, sign=1,
-                                        temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                        dataType='amplitude')
-        ampRFOFF = SpatialReceptiveField(mask=ampOFF, altPos=allAltPos, aziPos=allAziPos, sign=-1,
-                                         temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                         dataType='amplitude')
+        ampRFON = SpatialReceptiveField(mask=ampON, alt_pos=allAltPos, azi_pos=allAziPos, sign=1,
+                                        temporal_window=time_window, pixel_size_unit=self.location_unit,
+                                        data_type='amplitude')
+        ampRFOFF = SpatialReceptiveField(mask=ampOFF, alt_pos=allAltPos, azi_pos=allAziPos, sign=-1,
+                                         temporal_window=time_window, pixel_size_unit=self.location_unit,
+                                         data_type='amplitude')
 
         return ampRFON, ampRFOFF
 
-    def get_delta_amplitude_map(self, timeWindow=(0, 0.5)):
+    def get_delta_amplitude_map(self, time_window=(0, 0.5)):
         """
         return 2d receptive field map and altitude and azimuth coordinates
         each pixel in the map represent mean delta amplitute (raw amplitude minus the mean amplitude before trigger
-        onset) of traces within the window defined by timeWindow, and the
+        onset) of traces within the window defined by time_window, and the
         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
         """
 
-        windowIndex = np.logical_and(self.time >= timeWindow[0], self.time <= timeWindow[1])
+        windowIndex = np.logical_and(self.time >= time_window[0], self.time <= time_window[1])
 
         baseline_index = self.time < 0
 
@@ -928,71 +928,71 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
 
         return ampON, ampOFF, allAltPos, allAziPos
 
-    def get_delta_amplitude_receptive_field(self, timeWindow=(0, 0.5)):
+    def get_delta_amplitude_receptive_field(self, time_window=(0, 0.5)):
         """
         very similar to get_delta_amplitude_map(), only difference is that, it is returning SpatialReceptiveFields
         instead of 2d matrix
-        each pixel in the map represent mean delta amplitute of traces within the window defined by timeWindow, and the
+        each pixel in the map represent mean delta amplitute of traces within the window defined by time_window, and the
         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
         """
 
-        ampON, ampOFF, allAltPos, allAziPos = self.get_delta_amplitude_map(timeWindow)
+        ampON, ampOFF, allAltPos, allAziPos = self.get_delta_amplitude_map(time_window)
 
-        ampRFON = SpatialReceptiveField(mask=ampON, altPos=allAltPos, aziPos=allAziPos, sign=1,
-                                        temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                        dataType='delta_amplitude')
-        ampRFOFF = SpatialReceptiveField(mask=ampOFF, altPos=allAltPos, aziPos=allAziPos, sign=-1,
-                                         temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                         dataType='delta_amplitude')
+        ampRFON = SpatialReceptiveField(mask=ampON, alt_pos=allAltPos, azi_pos=allAziPos, sign=1,
+                                        temporal_window=time_window, pixel_size_unit=self.location_unit,
+                                        data_type='delta_amplitude')
+        ampRFOFF = SpatialReceptiveField(mask=ampOFF, alt_pos=allAltPos, azi_pos=allAziPos, sign=-1,
+                                         temporal_window=time_window, pixel_size_unit=self.location_unit,
+                                         data_type='delta_amplitude')
         return ampRFON, ampRFOFF
 
-    def get_zscore_map(self, timeWindow=(0, 0.5)):
+    def get_zscore_map(self, time_window=(0, 0.5)):
         """
         return 2d receptive field and altitude and azimuth coordinates
-        each pixel in the map represent Z score of mean amplitute of traces within the window defined by timeWindow
+        each pixel in the map represent Z score of mean amplitute of traces within the window defined by time_window
         """
 
-        ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
+        ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(time_window)
 
         return ia.zscore(ampON), ia.zscore(ampOFF), allAltPos, allAziPos
 
-    def get_zscore_receptive_field(self, timeWindow=(0, 0.5)):
+    def get_zscore_receptive_field(self, time_window=(0, 0.5)):
         """
         outdated
 
 
         very similar to get_zscore_map(), only difference is that, it is returning spatial temporal receptive fields
         instead of 2d matrix
-        each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
+        each pixel in the map represent mean amplitute of traces within the window defined by time_window, and the
         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
         """
 
-        ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
+        ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(time_window)
 
-        zscoreRFON = SpatialReceptiveField(mask=ia.zscore(ampON), altPos=allAltPos, aziPos=allAziPos, sign='ON',
-                                           temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                           dataType='zscore')
-        zscoreRFOFF = SpatialReceptiveField(mask=ia.zscore(ampOFF), altPos=allAltPos, aziPos=allAziPos, sign='OFF',
-                                            temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                            dataType='zscore')
+        zscoreRFON = SpatialReceptiveField(mask=ia.zscore(ampON), alt_pos=allAltPos, azi_pos=allAziPos, sign='ON',
+                                           temporal_window=time_window, pixel_size_unit=self.location_unit,
+                                           data_type='zscore')
+        zscoreRFOFF = SpatialReceptiveField(mask=ia.zscore(ampOFF), alt_pos=allAltPos, azi_pos=allAziPos, sign='OFF',
+                                            temporal_window=time_window, pixel_size_unit=self.location_unit,
+                                            data_type='zscore')
 
         return zscoreRFON, zscoreRFOFF
 
-    def get_zscore_rois(self, timeWindow=(0, 0.5), zscoreThr=2):
+    def get_zscore_rois(self, time_window=(0, 0.5), zscoreThr=2):
         """
         outdated
 
 
         return ON, OFF and combined receptive field rois in the format of WeightedROI object
 
-        Amplitude for each pixel was calculated as mean dF over F signal trace within the timeWindow
+        Amplitude for each pixel was calculated as mean dF over F signal trace within the time_window
         mask of ON and OFF receptive field was generated by cutting zscore map by zscoreThr
         Tombined mask is the sum of ON and OFF weighted mask
 
         The sampled altitude positions and azimuth positions are also returned. The receptive field space coordinates
         were defined as np.meshgrid(allAziPos, allAltPos)
         """
-        zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(timeWindow)
+        zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(time_window)
         zscoreROION = ia.get_peak_weighted_roi(zscoreON, zscoreThr)
         zscoreROIOFF = ia.get_peak_weighted_roi(zscoreOFF, zscoreThr)
         if zscoreROION is not None and zscoreROIOFF is not None:
@@ -1008,7 +1008,7 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
 
         return zscoreROION, zscoreROIOFF, zscoreROIALL, allAltPos, allAziPos
 
-    def get_zscore_thresholded_receptive_fields(self, timeWindow=(0, 0.3), thr_ratio=0.3, filter_sigma=None,
+    def get_zscore_thresholded_receptive_fields(self, time_window=(0, 0.3), thr_ratio=0.3, filter_sigma=None,
                                                 interpolate_rate=None, absolute_thr=None):
         """
         return ON, OFF and combined receptive fields in the format of SpatialReceptiveField
@@ -1024,13 +1024,13 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
 
         """
 
-        zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(timeWindow)
+        zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(time_window)
 
-        zscoreRFON = SpatialReceptiveField(zscoreON, allAltPos, allAziPos, sign='ON', temporalWindow=timeWindow,
-                                           pixelSizeUnit=self.locationUnit, dataType='zscore')
+        zscoreRFON = SpatialReceptiveField(zscoreON, allAltPos, allAziPos, sign='ON', temporal_window=time_window,
+                                           pixel_size_unit=self.location_unit, data_type='zscore')
 
-        zscoreRFOFF = SpatialReceptiveField(zscoreOFF, allAltPos, allAziPos, sign='OFF', temporalWindow=timeWindow,
-                                            pixelSizeUnit=self.locationUnit, dataType='zscore')
+        zscoreRFOFF = SpatialReceptiveField(zscoreOFF, allAltPos, allAziPos, sign='OFF', temporal_window=time_window,
+                                            pixel_size_unit=self.location_unit, data_type='zscore')
 
         if filter_sigma is not None:
             zscoreRFON = zscoreRFON.gaussian_filter(filter_sigma)
@@ -1051,14 +1051,14 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
         zscoreRFOFF = zscoreRFOFF.threshold(thr)
 
         zscoreRFALL = SpatialReceptiveField(zscoreRFON.get_weighted_mask() + zscoreRFOFF.get_weighted_mask(),
-                                            zscoreRFON.altPos, zscoreRFON.aziPos, sign='ON_OFF',
-                                            temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-                                            dataType='zscore', thr=thr, filter_sigma=filter_sigma,
+                                            zscoreRFON.alt_pos, zscoreRFON.azi_pos, sign='ON_OFF',
+                                            temporal_window=time_window, pixel_size_unit=self.location_unit,
+                                            data_type='zscore', thr=thr, filter_sigma=filter_sigma,
                                             interpolate_rate=interpolate_rate)
 
         return zscoreRFON, zscoreRFOFF, zscoreRFALL
 
-    def get_zscore_roi_centers(self, timeWindow=(0, 0.5), zscoreThr=2):
+    def get_zscore_roi_centers(self, time_window=(0, 0.5), zscoreThr=2):
         """
         outdated
 
@@ -1067,7 +1067,7 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
 
         zscore ROIs was generated by the method get_zscore_rois()
         """
-        zscoreROION, zscoreROIOFF, zscoreROIALL, allAltPos, allAziPos = self.get_zscore_rois(timeWindow, zscoreThr)
+        zscoreROION, zscoreROIOFF, zscoreROIALL, allAltPos, allAziPos = self.get_zscore_rois(time_window, zscoreThr)
         if zscoreROION is not None:
             centerON = zscoreROION.get_weighted_center_in_coordinate(allAltPos, allAziPos)
         else:
@@ -1084,23 +1084,23 @@ class SpatialTemporalReceptiveField(ResponseMatrix):
             centerALL = None
         return centerON, centerOFF, centerALL
 
-    def shrink(self, altRange=None, aziRange=None, is_reset_index=True):
+    def shrink(self, alt_range=None, azi_range=None, is_reset_index=True):
         """
         shrink the current spatial temporal receptive field into the defined altitude and/or azimuth range
         """
 
-        if altRange is None and aziRange is None:
-            raise LookupError, 'At least one of altRange and aziRange should be defined!'
+        if alt_range is None and azi_range is None:
+            raise LookupError, 'At least one of alt_range and azi_range should be defined!'
 
-        if altRange is not None:
-            indAlt = np.logical_and(self.data['altitude'] >= altRange[0],
-                                    self.data['altitude'] <= altRange[1])
+        if alt_range is not None:
+            indAlt = np.logical_and(self.data['altitude'] >= alt_range[0],
+                                    self.data['altitude'] <= alt_range[1])
         else:
             indAlt = np.ones(len(self.data), dtype=np.bool)
 
-        if aziRange is not None:
-            indAzi = np.logical_and(self.data['azimuth'] >= aziRange[0],
-                                    self.data['azimuth'] <= aziRange[1])
+        if azi_range is not None:
+            indAzi = np.logical_and(self.data['azimuth'] >= azi_range[0],
+                                    self.data['azimuth'] <= azi_range[1])
         else:
             indAzi = np.ones(len(self.data), dtype=np.bool)
 

@@ -35,3 +35,18 @@ class TestTimeIntervals(unittest.TestCase):
         # print(tg_arr)
         # print(ti3.get_intervals())
         assert (np.array_equal(ti3.get_intervals(), tg_arr))
+
+    def test_is_contain(self):
+        intervals = [[3., 7.], [13., 26.], [30., 40.], [52.2, 55.5]]
+        ti = TimeIntervals(intervals=intervals)
+
+        assert (~ti.is_contain([1., 2.]))
+        assert (~ti.is_contain([1., 4.]))
+        assert (ti.is_contain([3.5, 4.5]))
+        assert (ti.is_contain([3., 5.]))
+        assert (~ti.is_contain([6., 7.5]))
+        assert (~ti.is_contain([5., 15.]))
+        assert (ti.is_contain([20., 26.]))
+        assert (ti.is_contain([52.2, 54.]))
+        assert (ti.is_contain([30., 36.]))
+        assert (ti.is_contain([15., 21.]))

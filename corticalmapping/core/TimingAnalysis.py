@@ -840,27 +840,27 @@ class TimeIntervals(object):
     @staticmethod
     def check_integraty(intervals):
 
-        intervals = np.array([np.array(d, dtype=np.float64) for d in intervals])
-        intervals = intervals.astype(np.float64)
+        intervals_cp = np.array([np.array(d, dtype=np.float64) for d in intervals])
+        intervals_cp = intervals_cp.astype(np.float64)
 
-        if len(intervals.shape) != 2:
+        if len(intervals_cp.shape) != 2:
             raise ValueError('intervals should be 2d.')
 
-        if intervals.shape[1] != 2:
+        if intervals_cp.shape[1] != 2:
             raise ValueError('intervals.shape[1] should be 2. (start, end) of the interval')
 
-        # for interval_i, interval in enumerate(intervals):
+        # for interval_i, interval in enumerate(intervals_cp):
         #     if interval[1] <= interval[0]:
         #         raise ValueError('the {}th interval: end time ({}) earlier than start time ({})'.
         #                          format(interval_i, interval[1], interval[0]))
 
-        intervals = intervals[intervals[:, 0].argsort()]
+        intervals_cp = intervals_cp[intervals_cp[:, 0].argsort()]
 
-        ts_list = np.concatenate(intervals, axis=0)
+        ts_list = np.concatenate(intervals_cp, axis=0)
         if not check_monotonicity(arr=ts_list, direction='increasing'):
             raise ValueError('The intervals should be incremental in time and should not have overlap within them.')
 
-        return intervals
+        return intervals_cp
 
     def overlap(self, time_intervals):
         """
@@ -911,8 +911,33 @@ class TimeIntervals(object):
         else:
             return None
 
-    def contain(self, time_intervals):
-        pass
+    def is_contain(self, time_interval):
+        """
+        :param time_interval: list or tuple of two floats, representing one single time interval
+        :return: bool, if the input interval is completely contained by self
+        """
+
+        if len(time_interval) != 2:
+            raise ValueError('input "time_interval" should have two and only two elements.')
+
+        if time_interval[0] >= time_interval[1]:
+            raise ValueError('the start of input "time_interval" should be earlier than the end.')
+
+        for interval in self._intervals:
+
+            if interval[0] > time_interval[0]: # current interval starts after input time_interval
+                return False
+            else: # current interval starts before input time_interval
+                if interval[1] < time_interval[0]: # current interval ends before input time_interval
+                    pass
+                elif interval[1] < time_interval[1]: # current interval ends within input time_interval
+                    return False
+                else:
+                    return True # current interval contains input time_interval
+
+        # all intervals in self end before input time_interval
+        # or self._intervals is empty
+        return False
 
     def to_h5_group(self, grp):
         pass
