@@ -361,21 +361,21 @@ def rigid_transform(img, zoom=None, rotation=None, offset=None, outputShape=None
 
     newImg = img.astype(np.float32)
 
-    if zoom:
+    if zoom is not None:
         if len(img.shape) == 2:
             newZoom = (zoom,zoom)
         elif len(img.shape) == 3:
             newZoom = (1,zoom,zoom)
         newImg = ni.zoom(newImg,zoom=newZoom,mode=mode,cval=cval)
 
-    if rotation:
+    if rotation is not None:
         newImg = expand_image(newImg)
         if len(img.shape) == 2:
             newImg = ni.rotate(newImg,angle=rotation,reshape=False,mode=mode,cval=cval)
         elif len(img.shape) == 3:
             newImg = ni.rotate(newImg,angle=rotation,axes=(1,2),reshape=False,mode=mode,cval=cval)
 
-    if offset:
+    if offset is not None:
         if len(img.shape) == 2:
             newImg = ni.shift(newImg,(offset[1],offset[0]),mode=mode,cval=cval)
         if len(img.shape) == 3:

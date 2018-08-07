@@ -21,6 +21,6 @@ def load_mmap(fpath):
     order = fn_parts[fn_parts.index('order') + 1]
 
     mov = np.memmap(filename=fpath, shape=(d1, d2, d4), order=order, dtype=np.float32, mode='r')
-    mov = mov.transpose((2, 1, 0))
+    mov = mov.transpose((2, 0, 1))
 
     return mov
