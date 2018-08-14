@@ -1025,7 +1025,7 @@ def get_area_edges(img,
     else: return edgesThick.astype(np.bool)
 
 
-def z_downsample(img, downSampleRate):
+def z_downsample(img, downSampleRate, is_verbose=True):
     '''
     downsample input image in z direction
     '''
@@ -1037,13 +1037,15 @@ def z_downsample(img, downSampleRate):
     newFrameNum = img.shape[0] //downSampleRate
     newImg = np.empty((newFrameNum,img.shape[1],img.shape[2]),dtype=img.dtype)
 
-    print 'Start downsampling...'
+    if is_verbose:
+        print('Start downsampling...')
     for i in range(newFrameNum):
 #            print (float(i)*100/newFrameNum),'%'
         currChunk = img[i*downSampleRate:(i+1)*downSampleRate,:,:].astype(np.float)
         currFrame = np.mean(currChunk,axis=0)
         newImg[i,:,:]=currFrame.astype(img.dtype)
-    print 'End of downsampling.'
+    if is_verbose:
+        print('End of downsampling.')
     return newImg
 
 
