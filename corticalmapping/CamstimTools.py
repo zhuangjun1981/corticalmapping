@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import corticalmapping.core.FileTools as ft
+import Tkinter, tkFileDialog
 
 def align_visual_display_time(pkl_dict, ts_pd_fall, ts_display_rise, max_mismatch=0.1, verbose=True,
                               refresh_rate=60., allowed_jitter=0.01):
@@ -141,6 +142,80 @@ def get_stim_dict_drifting_grating(input_dict, stim_name):
 
     return stim_dict
 
+def analyze_LSN_movie(arr, alt_lst=None, azi_lst=None):
+    """
+    extract the frame indices of every square in the LSN movie displayed by CamStim
+    :param arr: input 3-d array. frame * y * x
+    :param azi_lst: list of azimuth locations of square center (same size as arr.shape[2])
+    :param alt_lst: list of altitude locations of square center (same size as arr.shape[1])
+
+    :return: probes, list of displayed probes. each entry is a list with 4 items:
+            0: altitude (float)
+            1: azimuth (float)
+            2: sigm (int, -1 or 1)
+            3: local frame index (uint)
+    """
+
+    if not np.issubdtype(arr.dtype, np.uint8):
+        raise ValueError('input array should have dtype as np.uint8')
+
+    if not len(arr.shape) == 3:
+        raise ValueError('input array should be 3-d.')
+
+    if azi_lst is None:
+        azi_lst = range(arr.shape[2])
+    else:
+        if not len(azi_lst) == arr.shape[2]:
+            raise ValueError('the length of azi_lst should match arr.shape[2]')
+
+    if alt_lst is None:
+        alt_lst = range(arr.shape[1])
+    else:
+        if not len(alt_lst) == arr.shape[1]:
+            raise ValueError('the length of alt_lst should match arr.shape[1]')
+
+    probes = []
+
+    for frame_i, frame in enumerate(arr):
+        for alt_i, line in enumerate(frame):
+            for azi_i, probe in enumerate(line):
+
+                if (probe != 0) & (probe != 255):
+                    continue
+                elif probe == 0:
+                    probes.append([float(alt_lst[alt_i]), float(azi_lst[azi_i]), -1, frame_i])
+                else:
+                    probes.append([float(alt_lst[alt_i]), float(azi_lst[azi_i]), 1, frame_i])
+
+    return probes
+
+
+def get_stim_dict_locally_sparse_noise(input_dict, stim_name, movie_path=None):
+
+    if movie_path is None:
+        root = Tkinter.Tk()
+        root.withdraw()
+        movie_path = tkFileDialog.askopenfilename()
+        mov = np.load(movie_path)
+    else:
+        mov = np.load(movie_path)
+
+    print('loaded movie with shape: {}'.format(mov.shape))
+    if mov.shape[1] == 8 and mov.shape[2] == 14:
+        alt_lst = np.arange(8) * 9.3 - (9.3 * 3.5)
+        azi_lst = np.arange(14) * 9.3 - (9.3 * 6.5)
+        probe_size = 9.3
+    else:
+        alt_lst = None
+        azi_lst = None
+        probe_size = 'unknown'
+
+    probes = analyze_LSN_movie(arr=mov, alt_lst=alt_lst, azi_lst=azi_lst)
+    print('\n'.join([str(p) for p in probes]))
+
+
+
+    return {}
 
 def get_stim_dict_list(pkl_path):
     pkl_dict = ft.loadFile(pkl_path)
@@ -177,11 +252,23 @@ def get_stim_dict_list(pkl_path):
                     print(stim['stim_text'])
                     stim_type = None
 
+
+            elif stim_str[0:stim_str.index('(')] == 'ImageStimNumpyuByte':
+
+                if 'locally_sparse_noise' in stim['stim_path']:
+                    stim_type = 'locally_sparse_noise'
+                else:
+                    print('\n\nunknow stimulus type:')
+                    print(stim['stim_path'])
+                    print(stim['stim_text'])
+                    stim_type = None
+
             else:
                 print('\n\nunknow stimulus type:')
                 print(stim['stim_path'])
                 print(stim['stim_text'])
                 stim_type = None
+
         else:
             print('\n\nunknow stimulus type:')
             print(stim['stim_path'])
@@ -193,6 +280,11 @@ def get_stim_dict_list(pkl_path):
             print('\n\nextracting stimulus: ' + stim_name)
             stim_dict = get_stim_dict_drifting_grating(input_dict=stim, stim_name=stim_name)
             stim_dict['sweep_onset_frames'] = stim_dict['sweep_onset_frames'] + start_frame_num
+            stim_dict.update({'stim_type': 'drifting_grating_camstim'})
+        elif stim_type == 'locally_sparse_noise':
+            stim_name = '{:03d}_LocallySparseNoiseCamStim'.format(stim_ind)
+            print('\n\nextracting stimulus: ' + stim_name)
+            stim_dict = get_stim_dict_locally_sparse_noise(input_dict=stim, stim_name=stim_name)
             stim_dict.update({'stim_type': 'drifting_grating_camstim'})
         elif stim_type == 'static_gratings':
             print('\n\nskip static_gratings stimulus. stim index: {}.'.format(stim_ind))
@@ -208,7 +300,7 @@ def get_stim_dict_list(pkl_path):
 
 if __name__ == '__main__':
 
-    pkl_path = '/media/junz/m2ssd/2017-09-25-preprocessing-test/m255_presynapticpop_vol1_bessel_DriftingGratingsTemp.pkl'
+    # pkl_path = '/media/junz/m2ssd/2017-09-25-preprocessing-test/m255_presynapticpop_vol1_bessel_DriftingGratingsTemp.pkl'
 
     # pkl_path = '/media/junz/m2ssd/2017-10-24-camstim-analysis/642817351_338502_20171010_stim.pkl'
     # pkl_path = '/media/junz/m2ssd/2017-10-24-camstim-analysis/642244262_338502_20171006_stim.pkl'
@@ -217,5 +309,8 @@ if __name__ == '__main__':
     # pkl_path = '/media/junz/m2ssd/2017-10-24-camstim-analysis/643543433_338502_20171016_stim.pkl'
     # pkl_path = '/media/junz/m2ssd/2017-10-24-camstim-analysis/643646020_338502_20171017_stim.pkl'
     # pkl_path = '/media/junz/m2ssd/2017-10-24-camstim-analysis/643792098_338502_20171018_stim.pkl'
+
+    pkl_path = '/media/junz/data3/data_soumya/2018-10-23-Soumya-LSN-analysis/1' \
+               '/m255_presynapticpop_vol1_2nd_pass_LocallySparseNoiseTemp.pkl'
 
     stim_dicts = get_stim_dict_list(pkl_path=pkl_path)
