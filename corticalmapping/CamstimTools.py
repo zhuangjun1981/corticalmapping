@@ -139,6 +139,7 @@ def get_stim_dict_drifting_grating(input_dict, stim_name):
                             'To get the real timestamps in seconds, please use these indices to find the timestamps ' \
                             'of displayed frames in "/processing/visual_display/frame_timestamps".'
     stim_dict['description'] = 'This stimulus is extracted from the pkl file saved by camstim software.'
+    stim_dict['total_frame_num'] = input_dict['total_frames']
 
     return stim_dict
 
@@ -210,7 +211,7 @@ def get_stim_dict_locally_sparse_noise(input_dict, stim_name, npy_path=None):
         probe_size = 'unknown'
 
     probes = analyze_LSN_movie(arr=mov, alt_lst=alt_lst, azi_lst=azi_lst)
-    print('\n'.join([str(p) for p in probes]))
+    # print('\n'.join([str(p) for p in probes]))
 
     template_frame_ind = np.array([p[3] for p in probes], dtype=np.uint64)
     local_frame_ind = [input_dict['sweep_frames'][tfi][0] for tfi in template_frame_ind]
@@ -219,9 +220,19 @@ def get_stim_dict_locally_sparse_noise(input_dict, stim_name, npy_path=None):
     stim_dict['stim_name'] = stim_name
     stim_dict['probes'] = np.array([np.array([p[0], p[1], p[2]]) for p in probes], dtype=np.float32)
     stim_dict['template_frame_ind'] = template_frame_ind
-    stim_dict['probe_config'] = 'alt, azi, sign'
+    stim_dict['data_formatting'] = ['alt', 'azi', 'sign']
     stim_dict['probe_frame_num'] = int(input_dict['sweep_length'] * 60.)
     stim_dict['local_frame_ind'] = np.array(local_frame_ind, dtype=np.uint64)
+
+    #meta data
+    stim_dict['stim_text'] = input_dict['stim_text']
+    stim_dict['frame_rate_hz'] = input_dict['fps']
+    stim_dict['source'] = 'camstim'
+    stim_dict['comments'] = 'The timestamps of this stimulus is the display frame index, not the actual time in seconds. ' \
+                      'To get the real timestamps in seconds, please use these indices to find the timestamps ' \
+                      'of displayed frames in "/processing/visual_display/frame_timestamps".'
+    stim_dict['description'] = 'This stimulus is extracted from the pkl file saved by camstim software.'
+    stim_dict['total_frame_num'] = input_dict['total_frames']
 
     return stim_dict
 
@@ -289,17 +300,32 @@ def get_stim_dict_list(pkl_path, lsn_npy_path=None):
             stim_dict = get_stim_dict_drifting_grating(input_dict=stim, stim_name=stim_name)
             stim_dict['sweep_onset_frames'] = stim_dict['sweep_onset_frames'] + start_frame_num
             stim_dict.update({'stim_type': 'drifting_grating_camstim'})
+            start_frame_num = stim_dict['total_frame_num']
         elif stim_type == 'locally_sparse_noise':
             stim_name = '{:03d}_LocallySparseNoiseCamStim'.format(stim_ind)
             print('\n\nextracting stimulus: ' + stim_name)
             stim_dict = get_stim_dict_locally_sparse_noise(input_dict=stim, stim_name=stim_name, npy_path=lsn_npy_path)
-            stim_dict.update({'stim_type': 'drifting_grating_camstim'})
+            stim_dict['global_frame_ind'] = stim_dict['local_frame_ind'] + start_frame_num
+            stim_dict.update({'stim_type': 'locally_sparse_noise_camstim'})
+            start_frame_num = stim_dict['total_frame_num']
         elif stim_type == 'static_gratings':
             print('\n\nskip static_gratings stimulus. stim index: {}.'.format(stim_ind))
-            stim_dict = None
+
+            # needs to fill in
+            stim_dict = {'stim_name': '{:03d}_StaticGratingCamStim'.format(stim_ind),
+                         'stim_type': 'static_grating_camstim',
+                         'total_frame_num': stim['total_frames']}
+
+
+            start_frame_num = stim['total_frame_num']
         else:
             print('\nskip unknow stimstimulus. stim index: {}.'.format(stim_ind))
-            stim_dict = None
+
+            # place holder
+            stim_dict = {'stim_name': '{:03d}_UnknownCamStim'.format(stim_ind),
+                         'stim_type': 'unknow_camstim',
+                         'total_frame_num': stim['total_frames']}
+            start_frame_num = stim['total_frame_num']
 
         stim_dict_lst.append(stim_dict)
 
