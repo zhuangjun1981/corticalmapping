@@ -189,16 +189,15 @@ def analyze_LSN_movie(arr, alt_lst=None, azi_lst=None):
 
     return probes
 
+def get_stim_dict_locally_sparse_noise(input_dict, stim_name, npy_path=None):
 
-def get_stim_dict_locally_sparse_noise(input_dict, stim_name, movie_path=None):
-
-    if movie_path is None:
+    if npy_path is None:
         root = Tkinter.Tk()
         root.withdraw()
         movie_path = tkFileDialog.askopenfilename()
         mov = np.load(movie_path)
     else:
-        mov = np.load(movie_path)
+        mov = np.load(npy_path)
 
     print('loaded movie with shape: {}'.format(mov.shape))
     if mov.shape[1] == 8 and mov.shape[2] == 14:
@@ -213,11 +212,20 @@ def get_stim_dict_locally_sparse_noise(input_dict, stim_name, movie_path=None):
     probes = analyze_LSN_movie(arr=mov, alt_lst=alt_lst, azi_lst=azi_lst)
     print('\n'.join([str(p) for p in probes]))
 
+    template_frame_ind = np.array([p[3] for p in probes], dtype=np.uint64)
+    local_frame_ind = [input_dict['sweep_frames'][tfi][0] for tfi in template_frame_ind]
 
+    stim_dict = {}
+    stim_dict['stim_name'] = stim_name
+    stim_dict['probes'] = np.array([np.array([p[0], p[1], p[2]]) for p in probes], dtype=np.float32)
+    stim_dict['template_frame_ind'] = template_frame_ind
+    stim_dict['probe_config'] = 'alt, azi, sign'
+    stim_dict['probe_frame_num'] = int(input_dict['sweep_length'] * 60.)
+    stim_dict['local_frame_ind'] = np.array(local_frame_ind, dtype=np.uint64)
 
-    return {}
+    return stim_dict
 
-def get_stim_dict_list(pkl_path):
+def get_stim_dict_list(pkl_path, lsn_npy_path=None):
     pkl_dict = ft.loadFile(pkl_path)
     stimuli = pkl_dict['stimuli']
     pre_blank_sec = pkl_dict['pre_blank_sec']
@@ -284,7 +292,7 @@ def get_stim_dict_list(pkl_path):
         elif stim_type == 'locally_sparse_noise':
             stim_name = '{:03d}_LocallySparseNoiseCamStim'.format(stim_ind)
             print('\n\nextracting stimulus: ' + stim_name)
-            stim_dict = get_stim_dict_locally_sparse_noise(input_dict=stim, stim_name=stim_name)
+            stim_dict = get_stim_dict_locally_sparse_noise(input_dict=stim, stim_name=stim_name, npy_path=lsn_npy_path)
             stim_dict.update({'stim_type': 'drifting_grating_camstim'})
         elif stim_type == 'static_gratings':
             print('\n\nskip static_gratings stimulus. stim index: {}.'.format(stim_ind))
@@ -312,5 +320,6 @@ if __name__ == '__main__':
 
     pkl_path = '/media/junz/data3/data_soumya/2018-10-23-Soumya-LSN-analysis/1' \
                '/m255_presynapticpop_vol1_2nd_pass_LocallySparseNoiseTemp.pkl'
-
-    stim_dicts = get_stim_dict_list(pkl_path=pkl_path)
+    lsn_npy_path = '/media/junz/data3/data_soumya/2018-10-23-Soumya-LSN-analysis/sparse_noise_8x14_short.npy'
+    stim_dicts = get_stim_dict_list(pkl_path=pkl_path, lsn_npy_path=lsn_npy_path)
+    print('for debug')
