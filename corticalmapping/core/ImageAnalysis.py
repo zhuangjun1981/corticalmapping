@@ -429,7 +429,7 @@ def rigid_transform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputSha
     if len(img.shape) != 3:
         raise LookupError, 'Input image is not a 3d array!'
 
-    if not outputShape:
+    if outputShape is not None:
         if zoom is not None:
             try:
                 newHeight = int(img.shape[1]*zoom[0])
