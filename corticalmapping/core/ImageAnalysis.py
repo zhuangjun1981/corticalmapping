@@ -429,20 +429,26 @@ def rigid_transform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputSha
     if len(img.shape) != 3:
         raise LookupError, 'Input image is not a 3d array!'
 
-    if outputShape is not None:
-        if zoom is not None:
-            try:
-                newHeight = int(img.shape[1]*zoom[0])
-                newWidth = int(img.shape[2]*zoom[1])
-            except TypeError:
-                newHeight = int(img.shape[1] * zoom)
-                newWidth = int(img.shape[2] * zoom)
-        else:
-            newHeight = img.shape[1]
-            newWidth = img.shape[2]
-    else:
-        newHeight = outputShape[0]
-        newWidth = outputShape[1]
+    # if outputShape is None:
+    #
+    #     if zoom is not None:
+    #         try:
+    #             newHeight = int(img.shape[1] * zoom[0])
+    #             newWidth = int(img.shape[2] * zoom[1])
+    #         except TypeError:
+    #             newHeight = int(img.shape[1] * zoom)
+    #             newWidth = int(img.shape[2] * zoom)
+    #     else:
+    #         newHeight = img.shape[1]
+    #         newWidth = img.shape[2]
+    # else:
+    #     newHeight = outputShape[0]
+    #     newWidth = outputShape[1]
+
+    frame_1 = rigid_transform_cv2_2d(img[0, :, :], zoom=zoom, rotation=rotation, offset=offset, outputShape=outputShape)
+    newHeight = frame_1.shape[0]
+    newWidth = frame_1.shape[1]
+
     newImg = np.empty((img.shape[0],newHeight,newWidth),dtype=img.dtype)
 
     for i in range(img.shape[0]):
