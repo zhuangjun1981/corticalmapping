@@ -711,7 +711,7 @@ def read_sync(f_path, analog_downsample_rate=None, by_label=True, digital_labels
     if digital_labels is not None:
         digital_cns = digital_labels
     elif by_label:
-        digital_cns = [dl for dl in ds.meta_data['line_labels'] if dl]
+        digital_cns = ds.meta_data['line_labels']
     else:
         digital_cns = [dl for dl in ds.meta_data['line_labels'] if dl]
         if len(digital_cns) > 0:
@@ -719,12 +719,14 @@ def read_sync(f_path, analog_downsample_rate=None, by_label=True, digital_labels
                           'digital channels with string labels: {}. All the string labels '
                           'will be lost.'.format(str(digital_cns)))
         digital_cns = range(ds.meta_data['ni_daq']['event_bits'])
+        digital_cns = [str(cn) for cn in digital_cns]
 
     # print(digital_cns)
 
-    for digital_cn in digital_cns:
-        digital_channels[digital_cn] = {'rise': ds.get_rising_edges(line=digital_cn, units='seconds'),
-                                        'fall': ds.get_falling_edges(line=digital_cn, units='seconds')}
+    for digital_i, digital_cn in enumerate(digital_cns):
+        if digital_cn:
+            digital_channels[digital_cn] = {'rise': ds.get_rising_edges(line=digital_i, units='seconds'),
+                                            'fall': ds.get_falling_edges(line=digital_i, units='seconds')}
 
     # read analog channels
     data_f = h5py.File(f_path, 'r')

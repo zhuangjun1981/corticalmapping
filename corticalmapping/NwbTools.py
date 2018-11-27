@@ -1146,12 +1146,30 @@ class RecordedFile(NWB):
                 dgts.set_value(fn, fv)
         dgts.finalize()
 
+    def _add_locally_sparse_noise_stimulation_camstim(self, stim_dict):
+
+        lsnts = self.create_timeseries(ts_type='TimeSeries',
+                                       name=stim_dict['stim_name'],
+                                       modality='stimulus')
+        lsnts.set_time(stim_dict['global_frame_ind'])
+        lsnts.set_data(stim_dict['probes'], unit='', conversion=np.nan, resolution=np.nan)
+        lsnts.set_source(stim_dict['source'])
+        lsnts.set_comments(stim_dict['comments'])
+        lsnts.set_description(stim_dict['description'])
+        for fn, fv in stim_dict.items():
+            if fn not in ['probes', 'global_frame_ind', 'sources', 'comments', 'description']:
+                lsnts.set_value(fn, fv)
+        lsnts.finalize()
+
     def add_visual_stimuli_camstim(self, stim_dict_lst):
 
         for stim_dict in stim_dict_lst:
             if stim_dict['stim_type'] == 'drifting_grating_camstim':
                 print('adding stimulus: {} to nwb.'.format(stim_dict['stim_name']))
                 self._add_drifting_grating_stimulation_camstim(stim_dict=stim_dict)
+            elif stim_dict['stim_type'] == 'locally_sparse_noise_camstim':
+                print('adding stimulus: {} to nwb.'.format(stim_dict['stim_name']))
+                self._add_locally_sparse_noise_stimulation_camstim(stim_dict=stim_dict)
             else:
                 pass
 
