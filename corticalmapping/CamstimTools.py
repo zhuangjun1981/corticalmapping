@@ -183,6 +183,8 @@ def analyze_LSN_movie(arr, alt_lst=None, azi_lst=None, dark=0, bright=255, verbo
 
     for frame_i, frame in enumerate(arr):
         frame_probes = []
+
+        #this can be optimized by using np.where
         for alt_i, line in enumerate(frame):
             for azi_i, probe in enumerate(line):
 
