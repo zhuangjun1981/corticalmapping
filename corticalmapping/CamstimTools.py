@@ -143,18 +143,22 @@ def get_stim_dict_drifting_grating(input_dict, stim_name):
 
     return stim_dict
 
-def analyze_LSN_movie(arr, alt_lst=None, azi_lst=None):
+def analyze_LSN_movie(arr, alt_lst=None, azi_lst=None, dark=0, bright=255, verbose=False):
     """
     extract the frame indices of every square in the LSN movie displayed by CamStim
     :param arr: input 3-d array. frame * y * x
     :param azi_lst: list of azimuth locations of square center (same size as arr.shape[2])
     :param alt_lst: list of altitude locations of square center (same size as arr.shape[1])
+    :param dark: int, the intensity level of dark probe
+    :param bright: int, the intensity level of brigh probe
 
-    :return: probes, list of displayed probes. each entry is a list with 4 items:
-            0: altitude (float)
-            1: azimuth (float)
-            2: sigm (int, -1 or 1)
-            3: local frame index (uint)
+    :return: probes, list of lists of displayed probes for each frame.
+                     length should be the same as number of frames of input arr.
+                     each item is a list of displayed probes for the given frame.
+                     each probe is a list of three numbers:
+                        0: altitude (float)
+                        1: azimuth (float)
+                        2: sign (int, -1 or 1)
     """
 
     if not np.issubdtype(arr.dtype, np.uint8):
@@ -178,15 +182,23 @@ def analyze_LSN_movie(arr, alt_lst=None, azi_lst=None):
     probes = []
 
     for frame_i, frame in enumerate(arr):
+        frame_probes = []
         for alt_i, line in enumerate(frame):
             for azi_i, probe in enumerate(line):
 
-                if (probe != 0) & (probe != 255):
+                if (probe != dark) & (probe != bright):
                     continue
-                elif probe == 0:
-                    probes.append([float(alt_lst[alt_i]), float(azi_lst[azi_i]), -1, frame_i])
+                elif probe == dark:
+                    frame_probes.append([float(alt_lst[alt_i]), float(azi_lst[azi_i]), -1])
                 else:
-                    probes.append([float(alt_lst[alt_i]), float(azi_lst[azi_i]), 1, frame_i])
+                    frame_probes.append([float(alt_lst[alt_i]), float(azi_lst[azi_i]), 1])
+        probes.append(frame_probes)
+
+    if verbose:
+        for f_i, f_p in enumerate(probes):
+            print('frame index: {}'.format(f_i))
+            for p in f_p:
+                print('\talt:{}, azi:{}, sign:{}'.format(p[0], p[1], p[2]))
 
     return probes
 
@@ -210,15 +222,31 @@ def get_stim_dict_locally_sparse_noise(input_dict, stim_name, npy_path=None):
         azi_lst = None
         probe_size = 'unknown'
 
-    probes = analyze_LSN_movie(arr=mov, alt_lst=alt_lst, azi_lst=azi_lst)
-    # print('\n'.join([str(p) for p in probes]))
+    probes = analyze_LSN_movie(arr=mov, alt_lst=alt_lst, azi_lst=azi_lst, verbose=False)
 
-    template_frame_ind = np.array([p[3] for p in probes], dtype=np.uint64)
-    local_frame_ind = [input_dict['sweep_frames'][tfi][0] for tfi in template_frame_ind]
+    runs = input_dict['runs']
+    sweep_frames = input_dict['sweep_frames']
+    '''sweep_frames is a list of tuples, each tuple has two integers, representing start and end
+    visual frame indices for a given template frame'''
+
+    #check runs
+    if len(probes) * runs != len(sweep_frames):
+        raise ValueError('template frame number ({}) x runs ({}) = {} does not match saved displayed'
+                         'frame number ({}).'.format(len(probes), runs, len(probes)*runs, len(sweep_frames)))
+
+    template_frame_ind = range(len(probes)) * runs # sequence of template frame ind displayed
+
+    single_probes = [] # list of probes displayed chronologically
+    local_frame_ind = [] # same length as single probes, local visual frame indices for each single probes
+    for sweep_i, template_i in enumerate(template_frame_ind):
+        curr_probe_onset = sweep_frames[sweep_i][0]
+        for p_f in probes[template_i]:
+            single_probes.append(p_f)
+            local_frame_ind.append(curr_probe_onset)
 
     stim_dict = {}
     stim_dict['stim_name'] = stim_name
-    stim_dict['probes'] = np.array([np.array([p[0], p[1], p[2]]) for p in probes], dtype=np.float32)
+    stim_dict['probes'] = np.array(single_probes, dtype=np.float32)
     stim_dict['template_frame_ind'] = template_frame_ind
     stim_dict['data_formatting'] = ['alt', 'azi', 'sign']
     stim_dict['probe_frame_num'] = int(input_dict['sweep_length'] * 60.)
