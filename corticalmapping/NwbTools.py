@@ -1011,7 +1011,8 @@ class RecordedFile(NWB):
         mc_interf.finalize()
         mc_mod.finalize()
 
-    def add_muliple_dataset_to_motion_correction_module(self, input_parameters, module_name='motion_correction'):
+    def add_muliple_dataset_to_motion_correction_module(self, input_parameters, module_name='motion_correction',
+                                                        temporal_downsample_rate=1):
         """
         add multiple motion corrected datasets into a motion correction module. Designed for adding multiplane
         imaging datasets at once. The motion correction module will contain multiple interfaces each corresponding
@@ -1035,6 +1036,8 @@ class RecordedFile(NWB):
                                  'comments': optional, str, if not existing, it will be set as ''
                                  'source': optional, str, if not existing, it will be set as ''
         :param module_name: str, module name to be created
+        :param temporal_downsample_rate: int, >0, in case the movie was motion corrected before temporal downsample,
+                                         use only a subset of offsets.
         """
 
         mc_mod = self.create_module(module_name)
@@ -1052,13 +1055,18 @@ class RecordedFile(NWB):
 
             orig = self.file_pointer[mov_dict['original_timeseries_path']]
             timestamps = orig['timestamps'].value
+            # print(timestamps.shape)
 
             img_file = h5py.File(mov_dict['corrected_file_path'])
             img_data = img_file[mov_dict['corrected_dataset_path']]
+            # print(img_data.shape)
             if timestamps.shape[0] != img_data.shape[0]:
                 raise ValueError('Number of frames does not equal to the length of timestamps!')
 
-            if mov_dict['xy_translation_offsets'].shape[0] != timestamps.shape[0]:
+            offsets = mov_dict['xy_translation_offsets']
+            offsets = offsets[::temporal_downsample_rate, :]
+            # print(offsets.shape)
+            if offsets.shape[0] != timestamps.shape[0]:
                 raise ValueError('Number of offsets does not equal to the length of timestamps!')
 
             corrected = self.create_timeseries(ts_type='ImageSeries', name='corrected', modality='other')
@@ -1080,10 +1088,10 @@ class RecordedFile(NWB):
                     corrected.set_value(value_n, orig[value_n].value)
 
             xy_translation = self.create_timeseries(ts_type='TimeSeries', name='xy_translation', modality='other')
-            xy_translation.set_data(mov_dict['xy_translation_offsets'], unit='pixel', conversion=np.nan,
+            xy_translation.set_data(offsets, unit='pixel', conversion=np.nan,
                                     resolution=np.nan)
             xy_translation.set_time_as_link(mov_dict['original_timeseries_path'])
-            xy_translation.set_value('num_samples', mov_dict['xy_translation_offsets'].shape[0])
+            xy_translation.set_value('num_samples', offsets.shape[0])
             xy_translation.set_description('Time series of x, y shifts applied to create motion '
                                            'stabilized image series')
             xy_translation.set_value('feature_description', ['x_motion', 'y_motion'])
