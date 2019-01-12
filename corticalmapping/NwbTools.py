@@ -2360,6 +2360,84 @@ class RecordedFile(NWB):
     # ===========================corticalmapping visual stimuli related (non-indexed display)===========================
 
 
+    # ============================================eye tracking related==================================================
+    def add_eyetracking_data(self, ts_path='', pupil_x=None, pupil_y=None, pupil_area=None, module_name='eye_tracking',
+                             unit='unknown', side='leftright_unknown', comments='', description='', source=''):
+        """
+        add eyetrackin data as a module named 'eye_tracking'
+        :param ts_path: str, timestamp path in the nwb file
+        :param pupil_x: 1-d array, horizontal position of pupil center
+        :param pupil_y: 1-d array, vertical position of pupil center
+        :param pupil_area: 1-d array, area of detected pupil
+        :param module_name: str, module name to be created
+        :param unit: str, the unit of pupil_x, pupil_y, the unit of pupil_area should be <unit>^2
+        :param side: str, side of the eye, 'left' or 'right'
+        :param comments: str
+        :param description: str
+        :param source: str
+        :return:
+        """
+
+        if ts_path not in self.file_pointer['acquisition/timeseries'].keys():
+            print('Cannot find field "{}" in "acquisition/timeseries".'.format(ts_path))
+            return
+        else:
+            ts = self.file_pointer['acquisition/timeseries'][ts_path]['timestamps'].value
+
+        ts_num = len(ts)
+        print('number of eyet racking timestamps: {}'.format(ts.shape))
+
+        ts_num_min = ts_num
+
+        if pupil_x is not None:
+            if pupil_x.shape[0] != ts_num:
+                print('length of pupil_x ({}) is different from the number'
+                      ' of timestamps ({}).'.format(pupil_x.shape[0], ts_num))
+                ts_num_min = min([ts_num_min, pupil_x.shape[0]])
+
+        if pupil_y is not None:
+            if pupil_y.shape[0] != ts_num:
+                print('length of pupil_y ({}) is different from the number'
+                      ' of timestamps ({}).'.format(pupil_area.shape[0], ts_num))
+                ts_num_min = min([ts_num_min, pupil_y.shape[0]])
+
+        if pupil_area is not None:
+            if pupil_area.shape[0] != ts_num:
+                print('length of pupil_area ({}) is different from the number'
+                      ' of timestamps ({}).'.format(pupil_area.shape[0], ts_num))
+                ts_num_min = min([ts_num_min, pupil_area.shape[0]])
+
+        ts_to_add = ts[0:ts_num_min]
+
+        pupil_series = self.create_timeseries('TimeSeries', name='eyetracking', modality='other')
+        pupil_series.set_data([], unit='', conversion=np.nan, resolution=np.nan)
+        pupil_series.set_time(ts_to_add)
+
+        if pupil_x is not None:
+            pupil_series.set_value('pupil_x', pupil_x[0:ts_num_min])
+
+        if pupil_y is not None:
+            pupil_series.set_value('pupil_y', pupil_y[0:ts_num_min])
+
+        if pupil_area is not None:
+            pupil_series.set_value('pupil_area', pupil_area[0:ts_num_min])
+
+        pupil_series.set_value('unit', 'pupil_x: {}; pupil_y: {}; pupil_area: {} ^ 2'.format(unit, unit, unit))
+        pupil_series.set_value('side', side)
+        pupil_series.set_comments(comments)
+        pupil_series.set_description(description)
+        pupil_series.set_source(source)
+
+        et_mod = self.create_module('{}_{}'.format(module_name, side))
+        et_interf = et_mod.create_interface("PupilTracking")
+        et_interf.add_timeseries(pupil_series)
+        pupil_series.finalize()
+        et_interf.finalize()
+        et_mod.finalize()
+
+    # ============================================eye tracking related==================================================
+
+
 if __name__ == '__main__':
     # =========================================================================================================
     # tmp_path = r"E:\data\python_temp_folder\test.nwb"
