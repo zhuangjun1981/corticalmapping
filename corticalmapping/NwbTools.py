@@ -1268,6 +1268,10 @@ class RecordedFile(NWB):
 
         pd_ts_vsync = []
         for pd_onset in pd_onsets_seq:
+
+            # if pd_onset['global_frame_ind'] < len(vsync_ts):
+            #     pd_ts_vsync.append(vsync_ts[pd_onset['global_frame_ind']])
+
             pd_ts_vsync.append(vsync_ts[pd_onset['global_frame_ind']])
 
         # calculate display delay as the weighted average of pd_ccg
@@ -1310,6 +1314,13 @@ class RecordedFile(NWB):
                 pd_onset_grp = stim_grp.create_group(pd_onset_n)
                 pd_onset_grp['global_pd_onset_ind'] = pd_onsets_com[stim_n][pd_onset_n]['global_pd_onset_ind']
                 pd_onset_grp['global_frame_ind'] = pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']
+
+                # pd_onset_ts_sec = []
+                # for gfi in pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']:
+                #     if gfi < len(vsync_stim_ts):
+                #         pd_onset_ts_sec.append(vsync_stim_ts[gfi])
+                # pd_onset_grp['pd_onset_ts_sec'] = pd_onset_ts_sec
+
                 pd_onset_grp['pd_onset_ts_sec'] = vsync_stim_ts[pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']]
 
     def get_drifting_grating_response_table_retinotopic_mapping(self, stim_name, time_window=(-1, 2.5)):
@@ -1320,8 +1331,11 @@ class RecordedFile(NWB):
 
             for trig in trigger_ts:
                 trig_ind = ta.find_nearest(arr_ts, trig)
-                curr_sta = arr[:, (trig_ind + frame_start): (trig_ind + frame_end)]
-                sta_arr.append(curr_sta.reshape((curr_sta.shape[0], 1, curr_sta.shape[1])))
+
+                if trig_ind + frame_end < arr.shape[1]:
+                    curr_sta = arr[:, (trig_ind + frame_start): (trig_ind + frame_end)]
+                    # print(curr_sta.shape)
+                    sta_arr.append(curr_sta.reshape((curr_sta.shape[0], 1, curr_sta.shape[1])))
 
             sta_arr = np.concatenate(sta_arr, axis=1)
             return sta_arr
