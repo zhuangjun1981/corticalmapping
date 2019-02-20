@@ -8,6 +8,7 @@ import itertools
 import pandas as pd
 import scipy.stats as stats
 import scipy.ndimage as ni
+import scipy.interpolate as ip
 import matplotlib.pyplot as plt
 import tifffile as tf
 from toolbox.misc import BinarySlicer

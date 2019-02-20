@@ -5,6 +5,7 @@ import core.ImageAnalysis as ia
 import core.FileTools as ft
 import scipy.ndimage as ni
 import scipy.interpolate as ip
+import scipy.stats as stats
 import math
 import h5py
 from pandas import DataFrame
@@ -119,6 +120,57 @@ def merge_binary_rois(roi1, roi2):
     mask3 = np.logical_or(mask1, mask2).astype(np.int8)
 
     return ROI(mask3, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
+
+
+def get_dff(traces, t_axis, response_window, baseline_window):
+    """
+
+    :param traces: 3d array, roi x trial x time points
+    :param t_axis: local timestamps of sta responses
+    :param response_window:
+    :param baseline_window:
+    :return dffs_trial: 3d array, roi x trial x 1, list of dffs for each roi, each_trial
+    :return dffs_mean: 1d array, mean dff of each roi, collapsed across trials before dff calculation
+    """
+
+    baseline_ind = np.logical_and(t_axis > baseline_window[0], t_axis <= baseline_window[1])
+    response_ind = np.logical_and(t_axis > response_window[0], t_axis <= response_window[1])
+
+    baselines = np.mean(traces[:, :, baseline_ind], axis=2, keepdims=True)
+    responses = np.mean(traces[:, :, response_ind], axis=2, keepdims=True)
+
+    dffs_trial = (responses - baselines) /  baselines
+
+    traces_mean = np.mean(traces, axis=1) # roi x time points
+    baselines_mean = np.mean(traces_mean[:, baseline_ind], axis=1)
+    responses_mean = np.mean(traces_mean[:, response_ind], axis=1)
+    dffs_mean = (responses_mean - baselines_mean) / baselines_mean
+
+    return dffs_trial, dffs_mean.squeeze()
+
+
+def get_skewness(trace, ts, filter_length=5.):
+    """
+    calculate skewness of a calcium trace, returns the skewness of input trace and the skewness of the trace after
+    removing slow trend. Because slow drifting trend creates artificial and confounding skewness other than calcium
+    signal.
+
+    :param trace: 1d array
+    :param ts: 1d array, timestamps of the input trace in seconds
+    :param filter_length: float, second, the length to filter input trace to get slow trend
+    :return skew_o: skewness of original input trace
+    :return skew_d: skewness of detrended trace
+    """
+
+    fs = 1. / np.mean(np.diff(ts))
+    sigma = float(filter_length) * fs
+    skew_o = stats.skew(trace)
+
+    trend = ni.gaussian_filter1d(trace, sigma=sigma)
+    trace_d = trace - trend
+    skew_d = stats.skew(trace_d)
+
+    return skew_o, skew_d
 
 
 class SpatialReceptiveField(WeightedROI):
