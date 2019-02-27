@@ -149,6 +149,41 @@ def get_dff(traces, t_axis, response_window, baseline_window):
     return dffs_trial, dffs_mean.squeeze()
 
 
+def get_df(traces, t_axis, response_window, baseline_window):
+    """
+
+    :param traces: 3d array, roi x trial x time points
+    :param t_axis: local timestamps of sta responses
+    :param response_window:
+    :param baseline_window:
+    :return dfs_trial: 3d array, roi x trial x 1, list of dffs for each roi, each_trial
+    :return dfs_mean: 1d array, mean df of each roi
+    """
+
+    baseline_ind = np.logical_and(t_axis > baseline_window[0], t_axis <= baseline_window[1])
+    response_ind = np.logical_and(t_axis > response_window[0], t_axis <= response_window[1])
+
+    baselines = np.mean(traces[:, :, baseline_ind], axis=2, keepdims=True)
+    responses = np.mean(traces[:, :, response_ind], axis=2, keepdims=True)
+
+    dfs_trial = responses - baselines
+
+    dfs_mean = np.mean(dfs_trial, axis=1).squeeze()
+
+    return dfs_trial, dfs_mean
+
+
+def get_df_dff_trace(trace, t_axis, baseline_window):
+
+    baseline_ind = np.logical_and(t_axis > baseline_window[0], t_axis <= baseline_window[1])
+
+    baseline = np.mean(trace[baseline_ind])
+
+    trace_df = trace - baseline
+    trace_dff = trace_df / baseline
+
+    return trace_df, trace_dff
+
 def get_skewness(trace, ts, filter_length=5.):
     """
     calculate skewness of a calcium trace, returns the skewness of input trace and the skewness of the trace after
