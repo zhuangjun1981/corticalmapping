@@ -266,6 +266,7 @@ def get_pos_neg_zscore_maps(strf, pos_window=ANALYSIS_PARAMS['response_window_po
 
     return zscore_on_pos, zscore_off_pos, zscore_on_neg, zscore_off_neg
 
+
 def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
 
     rf_on = (rf_on / vmax)
@@ -281,7 +282,6 @@ def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
     g_channel = np.zeros(rf_on.shape, dtype=np.uint8)
     rf_rgb = np.array([rf_on, g_channel, rf_off]).transpose([1, 2, 0])
     return rf_rgb
-
 
 
 def get_dgc_peak_traces(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_type'],
@@ -632,7 +632,3 @@ if __name__ == '__main__':
     plane_n = 'plane2'
     roi_n = 'roi_0001'
     roi_page_report(nwb_path=nwb_path, plane_n=plane_n, roi_n=roi_n)
-
-
-
-
