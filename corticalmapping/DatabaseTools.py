@@ -1,6 +1,7 @@
 """
 these are the functions that deal with the .nwb database of GCaMP labelled LGN boutons.
 """
+import os
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
@@ -37,8 +38,7 @@ PLOTTING_PARAMS = {
     'traces_line_width': 0.5,
     'ax_rf_pos_coord': [0.01, 0.535, 0.3, 0.24],
     'ax_rf_neg_coord': [0.32, 0.535, 0.3, 0.24],
-    'rf_zscore_range_pos': [-4, 4],
-    'rf_zscore_range_neg': [-4, 4],
+    'rf_zscore_vmax': 4.,
     'ax_peak_traces_pos_coord': [0.01, 0.39, 0.3, 0.17],
     'ax_peak_traces_neg_coord': [0.32, 0.39, 0.3, 0.17],
     'blank_traces_color': '#888888',
@@ -46,6 +46,7 @@ PLOTTING_PARAMS = {
     'peak_traces_neg_color': '#0000ff',
     'single_traces_lw': 0.5,
     'mean_traces_mean_lw': 2.,
+    'ax_text_coord': [0.63, 0.01, 0.36, 0.73]
 
 }
 
@@ -255,17 +256,32 @@ def get_pos_neg_zscore_maps(strf, pos_window=ANALYSIS_PARAMS['response_window_po
     :return zscore_neg: ON-OFF combined (min projection) zscore for negative receptive field
     """
 
-    zscore_ON_pos, zscore_OFF_pos, allAltPos, allAziPos = strf.get_zscore_map(timeWindow=pos_window)
-    zscore_ON_pos[np.isnan(zscore_ON_pos)] = 0.
-    zscore_OFF_pos[np.isnan(zscore_OFF_pos)] = 0.
-    zscore_pos = np.max([zscore_ON_pos, zscore_OFF_pos], axis=0)
+    zscore_on_pos, zscore_off_pos, _, _ = strf.get_zscore_map(timeWindow=pos_window)
+    zscore_on_pos[np.isnan(zscore_on_pos)] = 0.
+    zscore_off_pos[np.isnan(zscore_off_pos)] = 0.
 
-    zscore_ON_neg, zscore_OFF_neg, allAltPos, allAziPos = strf.get_zscore_map(timeWindow=neg_window)
-    zscore_ON_neg[np.isnan(zscore_ON_neg)] = 0.
-    zscore_OFF_neg[np.isnan(zscore_OFF_neg)] = 0.
-    zscore_neg = np.min([zscore_ON_neg, zscore_OFF_neg], axis=0)
+    zscore_on_neg, zscore_off_neg, _, _ = strf.get_zscore_map(timeWindow=neg_window)
+    zscore_on_neg[np.isnan(zscore_on_neg)] = 0.
+    zscore_off_neg[np.isnan(zscore_off_neg)] = 0.
 
-    return zscore_pos, zscore_neg
+    return zscore_on_pos, zscore_off_pos, zscore_on_neg, zscore_off_neg
+
+def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
+
+    rf_on = (rf_on / vmax)
+    rf_on[rf_on < 0] = 0
+    rf_on[rf_on > 1] = 1
+    rf_on = np.array(rf_on * 255, dtype=np.uint8)
+
+    rf_off = (rf_off / vmax)
+    rf_off[rf_off < 0] = 0
+    rf_off[rf_off > 1] = 1
+    rf_off = np.array(rf_off * 255, dtype=np.uint8)
+
+    g_channel = np.zeros(rf_on.shape, dtype=np.uint8)
+    rf_rgb = np.array([rf_on, g_channel, rf_off]).transpose([1, 2, 0])
+    return rf_rgb
+
 
 
 def get_dgc_peak_traces(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_type'],
@@ -397,6 +413,11 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
         rf_img = rf_img_grp['max_projection/data'].value
     # getting roi mask
     roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+    pixel_size = nwb_f['acquisition/timeseries/2p_movie_{}/pixel_size'.format(plane_n)].value * 1000000.
+    roi_area = roi.get_binary_area() * pixel_size[0] * pixel_size[1]
+
+    # get depth
+    depth = nwb_f['processing/rois_and_traces_{}/imaging_depth_micron'.format(plane_n)].value
 
     f = plt.figure(figsize=plot_params['fig_size'], facecolor=plot_params['fig_facecolor'])
     f.subplots_adjust(0, 0, 1, 1)
@@ -410,6 +431,8 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
     # plotting traces
     trace, trace_ts = get_single_trace(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n,
                                        trace_type=params['trace_type'])
+    skew_raw, skew_fil = sca.get_skewness(trace=trace, ts=trace_ts,
+                                          filter_length=ANALYSIS_PARAMS['filter_length_skew_sec'])
     trace_chunk_length = trace.shape[0] // plot_params['traces_panels']
     trace_min = np.min(trace)
 
@@ -442,18 +465,37 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
     if has_strf(nwb_f=nwb_f, plane_n=plane_n):
         strf = get_strf(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
         strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
-        zscore_pos, zscore_neg = get_pos_neg_zscore_maps(strf=strf_dff,
-                                                         pos_window=params['response_window_positive_rf'],
-                                                         neg_window=params['response_window_negative_rf'])
+        zscore_rfs = get_pos_neg_zscore_maps(strf=strf_dff,
+                                             pos_window=params['response_window_positive_rf'],
+                                             neg_window=params['response_window_negative_rf'])
+
+        zscore_on_pos, zscore_off_pos, zscore_on_neg, zscore_off_neg = zscore_rfs
+
         ax_rf_pos = f.add_axes(plot_params['ax_rf_pos_coord'])
-        ax_rf_pos.imshow(zscore_pos, vmin=plot_params['rf_zscore_range_pos'][0],
-                         vmax=plot_params['rf_zscore_range_pos'][1], cmap='RdBu_r', interpolation='nearest')
+
+        # render ON and OFF zscore maps in to red and blue channels
+        zscore_pos = render_rb(rf_on=zscore_on_pos, rf_off=zscore_off_pos, vmax=plot_params['rf_zscore_vmax'])
+        ax_rf_pos.imshow(zscore_pos, interpolation='nearest')
         ax_rf_pos.set_axis_off()
 
         ax_rf_neg = f.add_axes(plot_params['ax_rf_neg_coord'])
-        ax_rf_neg.imshow(zscore_neg, vmin=plot_params['rf_zscore_range_neg'][0],
-                         vmax=plot_params['rf_zscore_range_neg'][1], cmap='RdBu_r', interpolation='nearest')
+        zscore_neg = render_rb(rf_on=-zscore_on_neg, rf_off=-zscore_off_neg, vmax=plot_params['rf_zscore_vmax'])
+        ax_rf_neg.imshow(zscore_neg, interpolation='nearest')
         ax_rf_neg.set_axis_off()
+
+        peak_z_rf_on_pos = np.amax(ni.gaussian_filter(zscore_on_pos,
+                                                      sigma=params['gaussian_filter_sigma_rf']))
+        peak_z_rf_off_pos = np.amax(ni.gaussian_filter(zscore_off_pos,
+                                                       sigma=params['gaussian_filter_sigma_rf']))
+        peak_z_rf_on_neg = -np.amin(ni.gaussian_filter(zscore_on_neg,
+                                                       sigma=params['gaussian_filter_sigma_rf']))
+        peak_z_rf_off_neg = -np.amin(ni.gaussian_filter(zscore_off_neg,
+                                                       sigma=params['gaussian_filter_sigma_rf']))
+    else:
+        peak_z_rf_on_pos = np.nan
+        peak_z_rf_off_pos = np.nan
+        peak_z_rf_on_neg = np.nan
+        peak_z_rf_off_neg = np.nan
 
     # plotting drifting grating peak response
     dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
@@ -540,18 +582,55 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
 
 
 
+    # print text
+    ax_text = f.add_axes(plot_params['ax_text_coord'])
+    ax_text.set_xticks([])
+    ax_text.set_yticks([])
 
+    txt = '\n'
+    txt += 'nwb: {}\n'.format(os.path.split(nwb_path)[1])
+    txt += '\n'
+    txt += 'plane name:        {}\n'.format(plane_n)
+    txt += 'roi name:          {}\n'.format(roi_n)
+    txt += '\n'
+    txt += 'depth (um):        {}\n'.format(depth)
+    txt += 'roi area (um^2):   {:.2f}\n'.format(roi_area)
+    txt += '\n'
+    txt += 'skewness raw:      {:4.2f}\n'.format(skew_raw)
+    txt += 'skewness fil:      {:4.2f}\n'.format(skew_fil)
+    txt += '\n'
+    txt += 'rf_zscore_on_pos:  {:4.2f}\n'.format(peak_z_rf_on_pos)
+    txt += 'rf_zscore_off_pos: {:4.2f}\n'.format(peak_z_rf_off_pos)
+    txt += 'rf_zscore_on_neg:  {:4.2f}\n'.format(peak_z_rf_on_neg)
+    txt += 'rf_zscore_off_neg: {:4.2f}\n'.format(peak_z_rf_off_neg)
+    txt += '\n'
+    txt += 'dgc_ttest_p:       \n'
+    txt += 'dgc_anova_p:       \n'
+    txt += '\n'
+    txt += 'dgc_peak_df_pos:   \n'
+    txt += 'dgc_peak_dff_pos:  \n'
+    txt += 'dgc_peak_df_neg:   \n'
+    txt += 'dgc_peak_dff_neg:  \n'
+    txt += '\n'
+    txt += 'dgc_peak_sf_pos:   \n'
+    txt += 'dgc_peak_tf_pos:   \n'
+    txt += 'dgc_peak_ori_pos:  \n'
+    txt += 'dgc_peak_dir_pos:  \n'
+    txt += '\n'
+    txt += 'dgc_peak_sf_neg:   \n'
+    txt += 'dgc_peak_tf_neg:   \n'
+    txt += 'dgc_peak_ori_neg:  \n'
+    txt += 'dgc_peak_dir_neg:  \n'
 
-
-
+    ax_text.text(0.01, 0.99, txt, horizontalalignment='left', verticalalignment='top', family='monospace')
 
     plt.show()
 
 
 if __name__ == '__main__':
     nwb_path = r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb"
-    plane_n = 'plane0'
-    roi_n = 'roi_0000'
+    plane_n = 'plane2'
+    roi_n = 'roi_0001'
     roi_page_report(nwb_path=nwb_path, plane_n=plane_n, roi_n=roi_n)
 
 
