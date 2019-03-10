@@ -1618,25 +1618,25 @@ class SpatialTemporalReceptiveField(object):
 
         if is_collaps_before_normalize:
 
-            strf_dff = SpatialTemporalReceptiveField2(locations=locations,
-                                                      signs=list(self.data['sign']),
-                                                      traces=dff_traces,
-                                                      trigger_ts=None,
-                                                      time=self.time,
-                                                      name=self.name,
-                                                      locationUnit=self.locationUnit,
-                                                      trace_data_type=self.trace_data_type + '_local_dff')
+            strf_dff = SpatialTemporalReceptiveField(locations=locations,
+                                                     signs=list(self.data['sign']),
+                                                     traces=dff_traces,
+                                                     trigger_ts=None,
+                                                     time=self.time,
+                                                     name=self.name,
+                                                     locationUnit=self.locationUnit,
+                                                     trace_data_type=self.trace_data_type + '_local_dff')
 
         else:
 
-            strf_dff = SpatialTemporalReceptiveField2(locations=locations,
-                                                      signs=list(self.data['sign']),
-                                                      traces=dff_traces,
-                                                      trigger_ts=list(self.data['trigger_ts']),
-                                                      time=self.time,
-                                                      name=self.name,
-                                                      locationUnit=self.locationUnit,
-                                                      trace_data_type=self.trace_data_type + '_local_dff')
+            strf_dff = SpatialTemporalReceptiveField(locations=locations,
+                                                     signs=list(self.data['sign']),
+                                                     traces=dff_traces,
+                                                     trigger_ts=list(self.data['trigger_ts']),
+                                                     time=self.time,
+                                                     name=self.name,
+                                                     locationUnit=self.locationUnit,
+                                                     trace_data_type=self.trace_data_type + '_local_dff')
         return strf_dff
 
     def get_data_range(self):
