@@ -1115,6 +1115,18 @@ class SpatialTemporalReceptiveField(object):
     def get_probes(self):
         return list(np.array([self.data['altitude'], self.data['azimuth'], self.data['sign']]).transpose())
 
+    def set_trigger_ts(self, trigger_ts=None):
+        """
+
+        :param trigger_ts: list of trigger_ts for each probe or None
+        :return:
+        """
+
+        if trigger_ts is None:
+            trigger_ts = [[]] * self.data.shape[0]
+
+        self.data['trigger_ts'] = trigger_ts
+
     def add_traces(self, locations, signs, traces, trigger_ts=None, verbose=False):
 
         """
@@ -1180,7 +1192,8 @@ class SpatialTemporalReceptiveField(object):
             trace.attrs['altitude'] = probe['altitude']
             trace.attrs['azimuth'] = probe['azimuth']
             trace.attrs['sign'] = probe['sign']
-            trace.attrs['trigger_ts_sec'] = probe['trigger_ts']
+            if probe['trigger_ts']:
+                trace.attrs['trigger_ts_sec'] = probe['trigger_ts']
 
     @staticmethod
     def from_h5_group(h5Group):
@@ -1207,13 +1220,14 @@ class SpatialTemporalReceptiveField(object):
             locations.append(np.array([traceItem.attrs['altitude'], traceItem.attrs['azimuth']]))
             signs.append(traceItem.attrs['sign'])
             if 'trigger_ts_sec' in traceItem.attrs:
-                if traceItem.attrs['trigger_ts_sed'] != traceItem.shape[0]:
-                    trigger_ts.append(traceItem.attrs['trigger_ts_sec'])
+                trigger_ts.append(traceItem.attrs['trigger_ts_sec'])
+            else:
+                trigger_ts.append([])
             traces.append(traceItem.value)
 
         # no available or corrupted trigger timestamp info, set it to None
-        if len(trigger_ts) < len(signs):
-            trigger_ts = None
+        # if len(trigger_ts) < len(signs):
+        #     trigger_ts = None
 
         return SpatialTemporalReceptiveField(locations=locations, signs=signs, traces=traces, time=time,
                                              trigger_ts=trigger_ts, name=name, locationUnit=locationUnit,
