@@ -1057,11 +1057,13 @@ class SpatialTemporalReceptiveField(object):
             print('number of probes: {:d}'.format(len(locations)))
 
         if trigger_ts is None:
-            trigger_ts = []
-            for trace in traces:
-                curr_trigger_ts = np.zeros(trace.shape[0], dtype=np.float32)
-                curr_trigger_ts[:] = np.nan
-                trigger_ts.append(curr_trigger_ts)
+            trigger_ts = [[]] * len(traces)
+
+            # trigger_ts = []
+            # for trace in traces:
+            #     curr_trigger_ts = np.zeros(trace.shape[0], dtype=np.float32)
+            #     curr_trigger_ts[:] = np.nan
+            #     trigger_ts.append(curr_trigger_ts)
         else:
             trigger_ts = [np.array(ts, dtype=np.float32) for ts in trigger_ts]
 
@@ -1205,7 +1207,8 @@ class SpatialTemporalReceptiveField(object):
             locations.append(np.array([traceItem.attrs['altitude'], traceItem.attrs['azimuth']]))
             signs.append(traceItem.attrs['sign'])
             if 'trigger_ts_sec' in traceItem.attrs:
-                trigger_ts.append(traceItem.attrs['trigger_ts_sec'])
+                if traceItem.attrs['trigger_ts_sed'] != traceItem.shape[0]:
+                    trigger_ts.append(traceItem.attrs['trigger_ts_sec'])
             traces.append(traceItem.value)
 
         # no available or corrupted trigger timestamp info, set it to None
