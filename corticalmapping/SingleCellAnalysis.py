@@ -1,8 +1,8 @@
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 import core.PlottingTools as pt
 import core.ImageAnalysis as ia
-import core.FileTools as ft
 import scipy.ndimage as ni
 import scipy.interpolate as ip
 import scipy.stats as stats
@@ -11,6 +11,7 @@ import h5py
 from pandas import DataFrame
 from corticalmapping.core.ImageAnalysis import ROI, WeightedROI
 
+warnings.simplefilter('always', RuntimeWarning)
 
 def get_sparse_noise_onset_index(sparseNoiseDisplayLog):
     """
@@ -207,6 +208,61 @@ def get_skewness(trace, ts, filter_length=5.):
     skew_d = stats.skew(trace_d)
 
     return skew_o, skew_d
+
+
+def get_dgc_condition_name(alt, azi, sf, tf, dire, con, rad):
+    return 'alt{:06.1f}_azi{:06.1f}_sf{:04.2f}_tf{:04.1f}_dire{:03d}_con{:04.2f}_rad{:03d}'.format(alt,
+                                                                                                   azi,
+                                                                                                   sf,
+                                                                                                   tf,
+                                                                                                   dire,
+                                                                                                   con,
+                                                                                                   rad)
+
+def get_dgc_condition_params(condi_name):
+    alt = float(condi_name[3:9])
+    azi = float(condi_name[13:19])
+    sf = float(condi_name[22:26])
+    tf = float(condi_name[29:33])
+    dire = int(condi_name[38:41])
+    con = float(condi_name[45:49])
+    rad = int(condi_name[53:56])
+    return alt, azi, sf, tf, dire, con, rad
+
+
+def get_dgc_response_matrix_from_h5(h5_grp, roi_ind, trace_type='sta_f_center_subtracted'):
+
+    sta_ts = h5_grp.attrs['sta_timestamps']
+
+    dgcrt = DataFrame([], columns=['alt', 'azi', 'sf', 'tf', 'dire', 'con', 'rad', 'onset_ts', 'matrix'])
+
+    condi_ns = h5_grp.keys()
+    condi_ns.sort()
+
+    for condi_i, condi_n in enumerate(condi_ns):
+
+        condi_grp = h5_grp[condi_n]
+
+        alt, azi, sf, tf, dire, con, rad = get_dgc_condition_params(condi_name=condi_n)
+
+        if 'global_trigger_timestamps' in condi_grp.attrs:
+            onset_ts = condi_grp.attrs['global_trigger_timestamps']
+        else:
+            onset_ts = []
+
+        matrix = condi_grp[trace_type][roi_ind, :, :]
+
+        dgcrt.loc[condi_i, 'alt'] = alt
+        dgcrt.loc[condi_i, 'azi'] = azi
+        dgcrt.loc[condi_i, 'sf'] = sf
+        dgcrt.loc[condi_i, 'tf'] = tf
+        dgcrt.loc[condi_i, 'dire'] = dire
+        dgcrt.loc[condi_i, 'con'] = con
+        dgcrt.loc[condi_i, 'rad'] = rad
+        dgcrt.loc[condi_i, 'onset_ts'] = onset_ts
+        dgcrt.loc[condi_i, 'matrix'] = matrix
+
+    return DriftingGratingResponseMatrix(sta_ts=sta_ts, trace_type=trace_type, data=dgcrt)
 
 
 class SpatialReceptiveField(WeightedROI):
@@ -1691,16 +1747,190 @@ class SpatialTemporalReceptiveField(object):
         pass
 
 
-class DriftingGratingResponseMatrix():
-    pass
+class DriftingGratingResponseMatrix(DataFrame):
+    """
+    class for response matrix to drifting grating circle
+    contains event triggered traces for all traces of one roi
+
+    subclassed from pandas.DataFrame with more attribute:
+    sta_ts: 1d array, local time stamps for event triggered traces
+    trace_type: str, type of traces
+
+    columns:
+    alt  - altitute of circle center
+    azi  - azimuth of circle center
+    sf   - spatial frequency, cpd
+    tf   - temporal frequency, Hz
+    dire - drifting direction, deg, 0 is to right, increase counter-clockwise
+    con  - contrast, [0, 1]
+    rad  - radius, deg
+    onset_ts - global onset time stamps for each trial
+    matrix - 2d array, trial x time point
+    """
+
+    def __init__(self, sta_ts, trace_type='', *args, **kwargs):
+
+        super(DriftingGratingResponseMatrix, self).__init__(*args, **kwargs)
+
+        self.sta_ts = sta_ts
+        self.trace_type = trace_type
+
+        self.check_integrity()
+
+    def get_condition_name(self, row_index):
+
+        condition_name = get_dgc_condition_name(alt=self.loc[row_index, 'alt'],
+                                                azi=self.loc[row_index, 'azi'],
+                                                sf=self.loc[row_index, 'sf'],
+                                                tf=self.loc[row_index, 'tf'],
+                                                dire=self.loc[row_index, 'dire'],
+                                                con=self.loc[row_index, 'con'],
+                                                rad=self.loc[row_index, 'rad'])
+        return condition_name
+
+    def check_integrity(self):
+
+        if len(self.sta_ts.shape) != 1:
+            raise ValueError('self.sta_ts should be 1d array.')
+
+        sta_ts_len = self.sta_ts.shape[0]
+
+        for row_i, row in self.iterrows():
+
+            if len(row['onset_ts']) == 0:
+                pass
+                # print('condition: {}. No onset timestamps available.'.format(self.get_condition_name(row_i)))
+            else:
+                if (len(row['onset_ts'].shape) != 1):
+                    raise ValueError(
+                        'condition: {}, onset_ts should be 1-d array.'.format(self.get_condition_name(row_i)))
+
+                if row['matrix'].shape[0] != row['onset_ts'].shape[0]:
+                    raise ValueError('condition: {}, mismatched trial number ({}) and onset number ({}).'
+                                     .format(self.get_condition_name(row_i), row['matrix'].shape[0], onset_num))
+
+            if len(row['matrix'].shape) != 2:
+                raise ValueError('condition: {}, onset_ts should be 2-d array.'.format(self.get_condition_name(row_i)))
+
+            if row['matrix'].shape[1] != sta_ts_len:
+                raise ValueError('condition: {}, mismatched trace length ({}) and sta ts length ({}).'
+                                 .format(self.get_condition_name(row_i), row['matrix'].shape[1], sta_ts_len))
+
+    def get_df_response_matrix(self, baseline_win=(-0.5, 0.)):
+        """
+        return df response matrix
+
+        :param baseline_win:
+        :return:
+        """
+
+        baseline_ind = np.logical_and(self.sta_ts > baseline_win[0], self.sta_ts <= baseline_win[1])
+
+        dgcrt_df = self.copy()
+
+        for row_i, row in self.iterrows():
+            curr_baseline = np.mean(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
+            dgcrt_df.loc[row_i, 'matrix'] = row['matrix'] - curr_baseline
+
+        return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_df'.format(self.trace_type),
+                                             data=dgcrt_df)
+
+    def get_zscor_response_matrix(self, baseline_win=(-0.5, 0.)):
+        """
+
+        return zscore response matrix, zscore is calculated as (trace - baseline_mean) / baseline_std
+
+        :param baseline_win:
+        :return:
+        """
+
+        baseline_ind = np.logical_and(self.sta_ts > baseline_win[0], self.sta_ts <= baseline_win[1])
+
+        dgcrt_zscore = self.copy()
+
+        for row_i, row in self.iterrows():
+            curr_baseline_mean = np.mean(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
+            curr_baseline_std = np.std(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
+            dgcrt_zscore.loc[row_i, 'matrix'] = (row['matrix'] - curr_baseline_mean) / curr_baseline_std
+
+        return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_zscore'.format(self.trace_type),
+                                             data=dgcrt_zscore)
+
+    def get_dff_response_matrix(self, baseline_win=(-0.5, 0.), bias=0., warning_level=1.):
+        """
+
+        return df over f response matrix
+
+        :param baseline_win:
+        :param bias: float, a number added to all matrices before calculating df over f
+        :param warning_level: float, if the absolute value of the baseline of a given condition and a given trial is
+                              smaller than this value, print a waring
+        :return:
+        """
+
+        baseline_ind = np.logical_and(self.sta_ts > baseline_win[0], self.sta_ts <= baseline_win[1])
+
+        dgcrt_dff = self.copy()
+
+        for row_i, row in self.iterrows():
+            curr_matrix = row['matrix']
+            dff_matrix = np.empty(curr_matrix.shape, dtype=np.float32)
+            for trial_i in range(curr_matrix.shape[0]):
+                curr_trial = curr_matrix[trial_i, :] + bias
+                curr_baseline = np.mean(curr_trial[baseline_ind])
+
+                # print(curr_baseline)
+                if abs(curr_baseline) <= warning_level:
+                    msg = '\ncondition:{}, trial:{}, bias too low: {}'.format(self.get_condition_name(row_i),
+                                                                              trial_i,
+                                                                              curr_baseline)
+                    warnings.warn(msg, RuntimeWarning)
+
+                curr_trial_dff = (curr_trial - curr_baseline) / curr_baseline
+                dff_matrix[trial_i, :] = curr_trial_dff
+
+        return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_dff'.format(self.trace_type),
+                                             data=dgcrt_dff)
+
+    def collapse_trials(self):
+
+        """
+        calculate mean response for each condition across all trials
+
+        :return: DriftingGratingResponseMatrix object
+        """
+
+        dgcrt_collapsed = self.copy()
+
+        for row_i, row in self.iterrows():
+            curr_matrix = row['matrix']
+            dgcrt_collapsed.loc[row_i, 'matrix'] = np.mean(curr_matrix, axis=0, keepdims=True)
+            dgcrt_collapsed.loc[row_i, 'onset_ts'] = []
+
+        return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_collapsed'.format(self.trace_type),
+                                             data=dgcrt_collapsed)
 
 
-class DriftingGratingResponseTable():
+
+    def get_response_table(self, response_win=(0., 1.)):
+        pass
+
+
+class DriftingGratingResponseTable(DataFrame):
     pass
 
 
 if __name__ == '__main__':
     plt.ioff()
+    # =====================================================================
+    f = h5py.File(r"F:\data2\chandelier_cell_project\database\190222_M421761_110.nwb", 'r')
+    dgcrt = get_dgc_response_matrix_from_h5(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
+                                            roi_ind=0,
+                                            trace_type='sta_f_center_subtracted')
+
+    dgcrt_col = dgcrt.collapse_trials()
+    print(dgcrt_col)
+    # =====================================================================
 
     # =====================================================================
     # f = h5py.File(r"E:\data2\2015-07-02-150610-M160809-2P_analysis\cells_test.hdf5")
@@ -1747,20 +1977,20 @@ if __name__ == '__main__':
     # =====================================================================
 
     # =====================================================================
-    dfile = h5py.File(r"G:\2016-08-15-160815-M238599-wf2p-Retinotopy\sparse_noise_2p\cells_refined.hdf5", 'r')
-    strf = SpatialTemporalReceptiveField.from_h5_group(dfile['cell0519']['spatial_temporal_receptive_field'])
-
-    rf_on, rf_off, rf_all = strf.get_zscore_thresholded_receptive_fields(timeWindow=(0., 0.3), thr_ratio=0.4,
-                                                                         filter_sigma=1., interpolate_rate=10,
-                                                                         absolute_thr=0.8)
-
-    peak_amplitude = max([np.amax(rf_on.get_weighted_mask()), np.amax(rf_off.get_weighted_mask())])
-
-    f = plt.figure(figsize=(6, 8))
-    ax = f.add_subplot(111)
-    rf_on.plot_contour(ax, peak_amplitude=peak_amplitude, level_num=10, linewidths=1.5)
-    rf_off.plot_contour(ax, peak_amplitude=peak_amplitude, level_num=10, linewidths=1.5)
-    plt.show()
+    # dfile = h5py.File(r"G:\2016-08-15-160815-M238599-wf2p-Retinotopy\sparse_noise_2p\cells_refined.hdf5", 'r')
+    # strf = SpatialTemporalReceptiveField.from_h5_group(dfile['cell0519']['spatial_temporal_receptive_field'])
+    #
+    # rf_on, rf_off, rf_all = strf.get_zscore_thresholded_receptive_fields(timeWindow=(0., 0.3), thr_ratio=0.4,
+    #                                                                      filter_sigma=1., interpolate_rate=10,
+    #                                                                      absolute_thr=0.8)
+    #
+    # peak_amplitude = max([np.amax(rf_on.get_weighted_mask()), np.amax(rf_off.get_weighted_mask())])
+    #
+    # f = plt.figure(figsize=(6, 8))
+    # ax = f.add_subplot(111)
+    # rf_on.plot_contour(ax, peak_amplitude=peak_amplitude, level_num=10, linewidths=1.5)
+    # rf_off.plot_contour(ax, peak_amplitude=peak_amplitude, level_num=10, linewidths=1.5)
+    # plt.show()
 
     # =====================================================================
 

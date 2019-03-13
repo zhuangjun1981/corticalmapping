@@ -1275,6 +1275,7 @@ class RecordedFile(NWB):
             pd_ts_vsync.append(vsync_ts[pd_onset['global_frame_ind']])
 
         # calculate display delay as the weighted average of pd_ccg
+        print('Total number of detected photodiode onsets: {}'.format(len(pd_ts_pd)))
         print('calculating photodiode cross-correlogram ...')
         pd_ccg = ta.discrete_cross_correlation(pd_ts_vsync, pd_ts_pd, t_range=ccg_t_range, bins=ccg_bins,
                                                isPlot=is_plot)
