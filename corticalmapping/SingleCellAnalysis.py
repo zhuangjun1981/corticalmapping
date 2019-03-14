@@ -1893,6 +1893,22 @@ class DriftingGratingResponseMatrix(DataFrame):
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_dff'.format(self.trace_type),
                                              data=dgcrm_dff)
 
+    def get_condition_trial_responses(self, condi_i, response_win=(0., 1.)):
+        """
+        for a given condition specified by df index: condi_i, return responses for each trial
+        :param condi_i: int
+        :param response_win: list of two floats, time window to calculate responses
+        :return: 1d array, response of each trial for the specified condition
+        """
+
+        response_ind = np.logical_and(self.sta_ts > response_win[0], self.sta_ts <= response_win[1])
+
+        traces = self.loc[condi_i, 'matrix']
+
+        responses = np.mean(traces[:, response_ind], axis=1)
+
+        return responses.squeeze()
+
     def collapse_trials(self):
 
         """
@@ -1910,7 +1926,6 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_collapsed'.format(self.trace_type),
                                              data=dgcrm_collapsed)
-
 
     def get_response_table(self, response_win=(0., 1.)):
 
@@ -1936,6 +1951,24 @@ class DriftingGratingResponseMatrix(DataFrame):
                 dgcrt.loc[row_i, 'resp_stdev'] = np.std(responses) / np.sqrt(len(responses))
 
         return DriftingGratingResponseTable(trace_type=self.trace_type, data=dgcrt)
+
+    def get_anova_stats(self, response_win=(0., 1.)):
+        """
+
+        :param response_win: list of two floats, time window to calculate response
+        :return: F-value, p-value of one-way anova across all conditions
+        """
+
+        responses = []
+
+        for row_i, row in self.iterrows():
+            curr_resp = self.get_condition_trial_responses(condi_i=row_i,
+                                                           response_win=response_win)
+            responses.append(curr_resp)
+
+        responses = tuple(responses)
+
+        return stats.f_oneway(*responses)
 
 
 class DriftingGratingResponseTable(DataFrame):
@@ -1968,14 +2001,54 @@ class DriftingGratingResponseTable(DataFrame):
         self.trace_type = trace_type
 
     @property
-    def peak_condition_ind(self):
+    def blank_condi_ind(self):
+        """
+        if more than one blank conditions found, raise error
+        :return: int, blank condition index. None if no blank condition found
+        """
+        inds = []
+
+        for row_i, row in self.iterrows():
+            if row['sf'] == 0.:
+                inds.append(row_i)
+            if row['tf'] == 0.:
+                inds.append(row_i)
+            if row['con'] == 0.:
+                inds.append(row_i)
+            if row['rad'] == 0.:
+                inds.append(row_i)
+
+        inds = list(set(inds))
+
+        if len(inds) == 0: # no blank condition
+            return None
+        elif len(inds) == 1: # 1 blank condition
+            return inds[0]
+        else:
+            raise LookupError('more than one blank conditions found ({}).'.format(len(inds)))
+
+    @property
+    def peak_condi_ind_pos(self):
         """return the index of the condition with biggest postitive response"""
         return self['resp_mean'].argmax()
 
     @property
-    def peak_condition_negative(self):
+    def peak_condi_ind_neg(self):
         """return the index of the condition with biggest negative response"""
         return self['resp_mean'].argmin()
+
+    @property
+    def peak_response_pos(self):
+        return self.loc[self.peak_condi_ind_pos, 'resp_mean']
+
+    @property
+    def peak_response_neg(self):
+        return self.loc[self.peak_condi_ind_neg, 'resp_mean']
+
+    @property
+    def peak_response_abs(self):
+        return np.max([abs(self.peak_response_pos),
+                       abs(self.peak_response_neg)])
 
 
 if __name__ == '__main__':
