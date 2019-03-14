@@ -1764,7 +1764,7 @@ class DriftingGratingResponseMatrix(DataFrame):
     dire - drifting direction, deg, 0 is to right, increase counter-clockwise
     con  - contrast, [0, 1]
     rad  - radius, deg
-    onset_ts - global onset time stamps for each trial
+    onset_ts - 1d array, global onset time stamps for each trial
     matrix - 2d array, trial x time point
     """
 
@@ -1807,7 +1807,8 @@ class DriftingGratingResponseMatrix(DataFrame):
 
                 if row['matrix'].shape[0] != row['onset_ts'].shape[0]:
                     raise ValueError('condition: {}, mismatched trial number ({}) and onset number ({}).'
-                                     .format(self.get_condition_name(row_i), row['matrix'].shape[0], onset_num))
+                                     .format(self.get_condition_name(row_i), row['matrix'].shape[0],
+                                             row['onset_ts'].shape[0]))
 
             if len(row['matrix'].shape) != 2:
                 raise ValueError('condition: {}, onset_ts should be 2-d array.'.format(self.get_condition_name(row_i)))
@@ -1826,14 +1827,14 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         baseline_ind = np.logical_and(self.sta_ts > baseline_win[0], self.sta_ts <= baseline_win[1])
 
-        dgcrt_df = self.copy()
+        dgcrm_df = self.copy()
 
         for row_i, row in self.iterrows():
             curr_baseline = np.mean(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
-            dgcrt_df.loc[row_i, 'matrix'] = row['matrix'] - curr_baseline
+            dgcrm_df.loc[row_i, 'matrix'] = row['matrix'] - curr_baseline
 
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_df'.format(self.trace_type),
-                                             data=dgcrt_df)
+                                             data=dgcrm_df)
 
     def get_zscor_response_matrix(self, baseline_win=(-0.5, 0.)):
         """
@@ -1846,15 +1847,15 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         baseline_ind = np.logical_and(self.sta_ts > baseline_win[0], self.sta_ts <= baseline_win[1])
 
-        dgcrt_zscore = self.copy()
+        dgcrm_zscore = self.copy()
 
         for row_i, row in self.iterrows():
             curr_baseline_mean = np.mean(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
             curr_baseline_std = np.std(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
-            dgcrt_zscore.loc[row_i, 'matrix'] = (row['matrix'] - curr_baseline_mean) / curr_baseline_std
+            dgcrm_zscore.loc[row_i, 'matrix'] = (row['matrix'] - curr_baseline_mean) / curr_baseline_std
 
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_zscore'.format(self.trace_type),
-                                             data=dgcrt_zscore)
+                                             data=dgcrm_zscore)
 
     def get_dff_response_matrix(self, baseline_win=(-0.5, 0.), bias=0., warning_level=1.):
         """
@@ -1870,7 +1871,7 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         baseline_ind = np.logical_and(self.sta_ts > baseline_win[0], self.sta_ts <= baseline_win[1])
 
-        dgcrt_dff = self.copy()
+        dgcrm_dff = self.copy()
 
         for row_i, row in self.iterrows():
             curr_matrix = row['matrix']
@@ -1890,7 +1891,7 @@ class DriftingGratingResponseMatrix(DataFrame):
                 dff_matrix[trial_i, :] = curr_trial_dff
 
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_dff'.format(self.trace_type),
-                                             data=dgcrt_dff)
+                                             data=dgcrm_dff)
 
     def collapse_trials(self):
 
@@ -1900,36 +1901,94 @@ class DriftingGratingResponseMatrix(DataFrame):
         :return: DriftingGratingResponseMatrix object
         """
 
-        dgcrt_collapsed = self.copy()
+        dgcrm_collapsed = self.copy()
 
         for row_i, row in self.iterrows():
             curr_matrix = row['matrix']
-            dgcrt_collapsed.loc[row_i, 'matrix'] = np.mean(curr_matrix, axis=0, keepdims=True)
-            dgcrt_collapsed.loc[row_i, 'onset_ts'] = []
+            dgcrm_collapsed.loc[row_i, 'matrix'] = np.mean(curr_matrix, axis=0, keepdims=True)
+            dgcrm_collapsed.loc[row_i, 'onset_ts'] = []
 
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_collapsed'.format(self.trace_type),
-                                             data=dgcrt_collapsed)
-
+                                             data=dgcrm_collapsed)
 
 
     def get_response_table(self, response_win=(0., 1.)):
-        pass
+
+        response_ind = np.logical_and(self.sta_ts > response_win[0], self.sta_ts <= response_win[1])
+
+        dgcrt = self.loc[:, ['alt', 'azi', 'sf', 'tf', 'dire', 'con', 'rad']]
+        dgcrt['resp_mean'] = np.nan
+        dgcrt['resp_max'] = np.nan
+        dgcrt['resp_min'] = np.nan
+        dgcrt['resp_std'] = np.nan
+        dgcrt['resp_stdev'] = np.nan
+
+        for row_i, row in self.iterrows():
+
+            responses = np.mean(row['matrix'][:, response_ind], axis=1)
+
+            dgcrt.loc[row_i, 'resp_mean'] = np.mean(responses)
+            dgcrt.loc[row_i, 'resp_max'] = np.max(responses)
+            dgcrt.loc[row_i, 'resp_min'] = np.min(responses)
+
+            if len(responses) > 1:
+                dgcrt.loc[row_i, 'resp_std'] = np.std(responses)
+                dgcrt.loc[row_i, 'resp_stdev'] = np.std(responses) / np.sqrt(len(responses))
+
+        return DriftingGratingResponseTable(trace_type=self.trace_type, data=dgcrt)
 
 
 class DriftingGratingResponseTable(DataFrame):
-    pass
+    """
+    class for response table to drifting grating circle
+    contains responses to all conditions of one roi
+
+    subclassed from pandas.DataFrame with more attribute:
+    trace_type: str, type of traces
+
+    columns:
+    alt  - float, altitute of circle center
+    azi  - float, azimuth of circle center
+    sf   - float, spatial frequency, cpd
+    tf   - float, temporal frequency, Hz
+    dire - int, drifting direction, deg, 0 is to right, increase counter-clockwise
+    con  - float, contrast, [0, 1]
+    rad  - float, radius, deg
+    resp_mean - float, mean response to the condition
+    resp_max - float, max response to the condition
+    resp_min - float, min response to the condition
+    resp_std - float, standard deviation across trials
+    resp_stdev - float, standard error of mean across trials
+    """
+
+    def __init__(self, trace_type='', *args, **kwargs):
+
+        super(DriftingGratingResponseTable, self).__init__(*args, **kwargs)
+
+        self.trace_type = trace_type
+
+    @property
+    def peak_condition_ind(self):
+        """return the index of the condition with biggest postitive response"""
+        return self['resp_mean'].argmax()
+
+    @property
+    def peak_condition_negative(self):
+        """return the index of the condition with biggest negative response"""
+        return self['resp_mean'].argmin()
 
 
 if __name__ == '__main__':
     plt.ioff()
     # =====================================================================
     f = h5py.File(r"F:\data2\chandelier_cell_project\database\190222_M421761_110.nwb", 'r')
-    dgcrt = get_dgc_response_matrix_from_h5(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
+    dgcrm = get_dgc_response_matrix_from_h5(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
                                             roi_ind=0,
                                             trace_type='sta_f_center_subtracted')
 
-    dgcrt_col = dgcrt.collapse_trials()
-    print(dgcrt_col)
+    dgcrm_zscore = dgcrm.get_zscor_response_matrix(baseline_win=[-0.5, 0])
+    dgcrt_zscore = dgcrm_zscore.get_response_table(response_win=[0., 1.])
+    print(dgcrt_zscore['resp_mean'])
     # =====================================================================
 
     # =====================================================================
