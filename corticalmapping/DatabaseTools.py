@@ -47,7 +47,12 @@ PLOTTING_PARAMS = {
     'peak_traces_neg_color': '#0000ff',
     'single_traces_lw': 0.5,
     'mean_traces_lw': 2.,
-    'ax_text_coord': [0.63, 0.01, 0.36, 0.73]
+    'ax_text_coord': [0.63, 0.01, 0.36, 0.73],
+    'ax_sftf_pos_coord': [0.01, 0.2, 0.3, 0.18],
+    'ax_sftf_neg_coord': [0.32, 0.2, 0.3, 0.18],
+    'sftf_cmap': 'RdBu_r',
+    'sftf_vmax': 4,
+    'sftf_vmin': -4,
 
 }
 
@@ -350,27 +355,26 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
         dgc_pos_peak_z = dgcrt_z.peak_response_pos
         dgc_neg_peak_z = dgcrt_z.peak_response_neg
 
-
-        # plotting traces
-        condi_ind_blank = dgcrt_df.blank_condi_ind
-        condi_ind_pos = dgcrt_df.peak_condi_ind_pos
-        condi_ind_neg = dgcrt_df.peak_condi_ind_neg
-
+        # select response table for plotting
         if params['dgc_response_type_for_plot'] == 'df':
             dgcrm_plot = dgcrm.get_df_response_matrix(baseline_win=params['baseline_window_dgc'])
+            dgcrt_plot = dgcrt_df
         elif params['dgc_response_type_for_plot'] == 'dff':
-                dgcrm_plot = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'],
-                                                           bias=add_to_trace)
+            dgcrm_plot = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'],
+                                                       bias=add_to_trace)
+            dgcrt_plot = dgcrt_dff
         elif params['dgc_response_type_for_plot'] == 'zscore':
             dgcrm_plot = dgcrm.get_zscore_response_matrix(baseline_win=params['baseline_window_dgc'])
+            dgcrt_plot = dgcrt_z
         else:
             raise LookupError("Do not understand 'dgc_response_type_for_plot': {}. Should be "
                               "'df', 'dff' or 'zscore'.".format(params['dgc_response_type_for_plot']))
 
 
-        traces_blank = dgcrm_plot.loc[condi_ind_blank, 'matrix']
-        traces_pos = dgcrm_plot.loc[condi_ind_pos, 'matrix']
-        traces_neg = dgcrm_plot.loc[condi_ind_neg, 'matrix']
+        # plot peak condition traces
+        traces_blank = dgcrm_plot.loc[dgcrt_plot.blank_condi_ind, 'matrix']
+        traces_pos = dgcrm_plot.loc[dgcrt_plot.peak_condi_ind_pos, 'matrix']
+        traces_neg = dgcrm_plot.loc[dgcrt_plot.peak_condi_ind_neg, 'matrix']
         trace_plot_max = np.max(np.array([traces_blank, traces_pos, traces_neg]).flat)
         trace_plot_min = np.min(np.array([traces_blank, traces_pos, traces_neg]).flat)
 
@@ -378,6 +382,8 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
         ax_peak_traces_pos.axhline(y=0, linestyle='--', color='#000000', lw=2)
         ax_peak_traces_pos.axvline(x=0, linestyle='--', color='#000000', lw=2)
         ax_peak_traces_pos.axvline(x=block_dur, linestyle='--', color='#000000', lw=2)
+        ax_peak_traces_pos.axvline(x=params['baseline_window_dgc'][0], linestyle='--', color='#888888', lw=2)
+        ax_peak_traces_pos.axvline(x=params['baseline_window_dgc'][1], linestyle='--', color='#888888', lw=2)
         ax_peak_traces_pos.axvline(x=params['response_window_dgc'][0], linestyle='--', color='#ff00ff', lw=2)
         ax_peak_traces_pos.axvline(x=params['response_window_dgc'][1], linestyle='--', color='#ff00ff', lw=2)
         ax_peak_traces_pos.set_xticks([])
@@ -386,6 +392,8 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
         ax_peak_traces_neg.axhline(y=0, linestyle='--', color='#000000', lw=2)
         ax_peak_traces_neg.axvline(x=0, linestyle='--', color='#000000', lw=2)
         ax_peak_traces_neg.axvline(x=block_dur, linestyle='--', color='#000000', lw=2)
+        ax_peak_traces_neg.axvline(x=params['baseline_window_dgc'][0], linestyle='--', color='#888888', lw=2)
+        ax_peak_traces_neg.axvline(x=params['baseline_window_dgc'][1], linestyle='--', color='#888888', lw=2)
         ax_peak_traces_neg.axvline(x=params['response_window_dgc'][0], linestyle='--', color='#ff00ff', lw=2)
         ax_peak_traces_neg.axvline(x=params['response_window_dgc'][1], linestyle='--', color='#ff00ff', lw=2)
         ax_peak_traces_neg.set_xticks([])
@@ -424,6 +432,27 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
         ax_peak_traces_pos.set_ylim([trace_plot_min, trace_plot_max])
         ax_peak_traces_neg.set_ylim([trace_plot_min, trace_plot_max])
 
+        # plot sf-tf matrix
+        sftf_pos, sfs_pos, tfs_pos = dgcrt_plot.get_sf_tf_matrix(response_dir='pos')
+        sftf_neg, sfs_neg, tfs_neg = dgcrt_plot.get_sf_tf_matrix(response_dir='neg')
+
+        ax_sftf_pos = f.add_axes(plot_params['ax_sftf_pos_coord'])
+        ax_sftf_pos.imshow(sftf_pos, cmap=plot_params['sftf_cmap'], vmax=plot_params['sftf_vmax'],
+                           vmin=plot_params['sftf_vmin'], interpolation='nearest')
+        ax_sftf_pos.set_yticks(range(len(sfs_pos)))
+        ax_sftf_pos.set_yticklabels(sfs_pos)
+        ax_sftf_pos.set_xticks(range(len(tfs_pos)))
+        ax_sftf_pos.set_xticklabels(tfs_pos)
+        ax_sftf_pos.tick_params(length=0)
+
+        ax_sftf_neg = f.add_axes(plot_params['ax_sftf_neg_coord'])
+        ax_sftf_neg.imshow(sftf_neg, cmap=plot_params['sftf_cmap'], vmax=plot_params['sftf_vmax'],
+                           vmin=plot_params['sftf_vmin'], interpolation='nearest')
+        ax_sftf_neg.set_yticks(range(len(sfs_neg)))
+        ax_sftf_neg.set_yticklabels(sfs_neg)
+        ax_sftf_neg.set_xticks(range(len(tfs_neg)))
+        ax_sftf_neg.set_xticklabels(tfs_neg)
+        ax_sftf_neg.tick_params(length=0)
     else:
         dgc_p_anova_df = np.nan
         dgc_pos_p_ttest_df = np.nan
@@ -491,5 +520,5 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
 if __name__ == '__main__':
     nwb_path = r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb"
     plane_n = 'plane0'
-    roi_n = 'roi_0031'
+    roi_n = 'roi_0001'
     roi_page_report(nwb_path=nwb_path, plane_n=plane_n, roi_n=roi_n)

@@ -1236,6 +1236,9 @@ class DriftingGratingResponseMatrix(DataFrame):
         if len(self.sta_ts.shape) != 1:
             raise ValueError('self.sta_ts should be 1d array.')
 
+        if self.duplicated(subset=['alt', 'azi', 'sf', 'tf', 'dire', 'con', 'rad']).any():
+            raise ValueError('there is duplicated conditions.')
+
         sta_ts_len = self.sta_ts.shape[0]
 
         for row_i, row in self.iterrows():
@@ -1743,6 +1746,50 @@ class DriftingGratingResponseTable(DataFrame):
         return np.max([abs(self.peak_response_pos),
                        abs(self.peak_response_neg)])
 
+    def get_sf_tf_matrix(self, response_dir='pos'):
+        """
+        2d array of sf/tf responses, rows: sf; cols: tf, other conditions are at peak in positive or negative direction
+        :param response_dir: 'pos' or 'neg', response type to select peak condition
+        :return responses: 2d array of 'resp_mean'
+        :return sf_lst: 1d array, sf conditions
+        :return tf_lst: 1d array, tf conditions
+        """
+
+        if response_dir == 'pos':
+            ind_p = self.peak_condi_ind_pos
+        elif response_dir == 'neg':
+            ind_p = self.peak_condi_ind_neg
+        else:
+            raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
+
+        alt_p = self.loc[ind_p, 'alt']
+        azi_p = self.loc[ind_p, 'azi']
+        dire_p = self.loc[ind_p, 'dire']
+        con_p = self.loc[ind_p, 'con']
+        rad_p = self.loc[ind_p, 'rad']
+
+        df_sub = self.loc[(self['alt'] == alt_p) & (self['azi'] == azi_p) & (self['dire'] == dire_p) &
+                          (self['con'] == con_p) & (self['rad'] == rad_p)]
+
+        sfs = list(df_sub['sf'].unique())
+        sfs.sort()
+        tfs = list(df_sub['tf'].unique())
+        tfs.sort()
+
+        resps = np.zeros((len(sfs), len(tfs)))
+        resps[:] = np.nan
+
+        for sf_i, sf in enumerate(sfs):
+            for tf_i, tf in enumerate(tfs):
+
+                curr_condi = df_sub[(df_sub['sf'] == sf) & (df_sub['tf'] == tf)]
+                # print(curr_condi['resp_mean'])
+
+                if not curr_condi.empty:
+                    resps[sf_i, tf_i] = curr_condi['resp_mean']
+
+        return resps, sfs, tfs
+
 
 if __name__ == '__main__':
     plt.ioff()
@@ -1754,7 +1801,12 @@ if __name__ == '__main__':
 
     dgcrm_zscore = dgcrm.get_zscore_response_matrix(baseline_win=[-0.5, 0])
     dgcrt_zscore = dgcrm_zscore.get_response_table(response_win=[0., 1.])
-    print(dgcrt_zscore['resp_mean'])
+    # print(dgcrt_zscore['resp_mean'])
+
+    sftf, sfs, tfs = dgcrt_zscore.get_sf_tf_matrix()
+    print(sftf)
+
+
     # =====================================================================
 
     # =====================================================================
