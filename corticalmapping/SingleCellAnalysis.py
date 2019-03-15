@@ -219,6 +219,7 @@ def get_dgc_condition_name(alt, azi, sf, tf, dire, con, rad):
                                                                                                    con,
                                                                                                    rad)
 
+
 def get_dgc_condition_params(condi_name):
     alt = float(condi_name[3:9])
     azi = float(condi_name[13:19])
@@ -1836,7 +1837,7 @@ class DriftingGratingResponseMatrix(DataFrame):
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_df'.format(self.trace_type),
                                              data=dgcrm_df)
 
-    def get_zscor_response_matrix(self, baseline_win=(-0.5, 0.)):
+    def get_zscore_response_matrix(self, baseline_win=(-0.5, 0.)):
         """
 
         return zscore response matrix, zscore is calculated as (trace - baseline_mean) / baseline_std
@@ -1851,7 +1852,7 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         for row_i, row in self.iterrows():
             curr_baseline_mean = np.mean(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
-            curr_baseline_std = np.std(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
+            curr_baseline_std = np.std(row['matrix'][:, baseline_ind].flat)
             dgcrm_zscore.loc[row_i, 'matrix'] = (row['matrix'] - curr_baseline_mean) / curr_baseline_std
 
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_zscore'.format(self.trace_type),
@@ -1874,21 +1875,23 @@ class DriftingGratingResponseMatrix(DataFrame):
         dgcrm_dff = self.copy()
 
         for row_i, row in self.iterrows():
-            curr_matrix = row['matrix']
+            curr_matrix = row['matrix'] + bias
             dff_matrix = np.empty(curr_matrix.shape, dtype=np.float32)
             for trial_i in range(curr_matrix.shape[0]):
-                curr_trial = curr_matrix[trial_i, :] + bias
+                curr_trial = curr_matrix[trial_i, :]
                 curr_baseline = np.mean(curr_trial[baseline_ind])
 
                 # print(curr_baseline)
-                if abs(curr_baseline) <= warning_level:
-                    msg = '\ncondition:{}, trial:{}, bias too low: {}'.format(self.get_condition_name(row_i),
-                                                                              trial_i,
-                                                                              curr_baseline)
+                if curr_baseline <= warning_level:
+                    msg = '\ncondition:{}, trial:{}, baseline too low: {}'.format(self.get_condition_name(row_i),
+                                                                                  trial_i,
+                                                                                  curr_baseline)
                     warnings.warn(msg, RuntimeWarning)
 
                 curr_trial_dff = (curr_trial - curr_baseline) / curr_baseline
                 dff_matrix[trial_i, :] = curr_trial_dff
+
+            dgcrm_dff.loc[row_i, 'matrix'] = dff_matrix
 
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_dff'.format(self.trace_type),
                                              data=dgcrm_dff)
@@ -1952,23 +1955,239 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         return DriftingGratingResponseTable(trace_type=self.trace_type, data=dgcrt)
 
-    def get_anova_stats(self, response_win=(0., 1.)):
+    # def get_anova_stats(self, response_win=(0., 1.)):
+    #     """
+    #
+    #     :param response_win: list of two floats, time window to calculate response
+    #     :return: F-value, p-value of one-way anova across all conditions
+    #     """
+    #
+    #     responses = []
+    #
+    #     for row_i, row in self.iterrows():
+    #         curr_resp = self.get_condition_trial_responses(condi_i=row_i,
+    #                                                        response_win=response_win)
+    #         responses.append(curr_resp)
+    #
+    #     responses = tuple(responses)
+    #
+    #     return stats.f_oneway(*responses)
+
+    def get_df_response_table(self, baseline_win=(-0.5, 0.), response_win=(0., 1.)):
+        """
+        this is suppose to give the most robust measurement of df response table.
+
+        for each condition:
+        1. mean_baseline is calculated by averaging across all trials and all data points in the baseline_win
+        2. mean_response is calculated by averaging across all trials and all data points in the response_win
+        3. df for every condition is defined by (mean_response - mean_baseline) and response table is generated
+
+        # separate operation
+        4. for each trial of each condition, df is calculated by (mean_response - mean_baseline)
+        5. one-way anova is performed from these trial responses
+        6. peak positive condition and peak negative condition is selected from previously generated response table
+        7. ttest is performed for these two conditions against blank trial responses
+
+
+        :param baseline_win:
+        :param response_win:
+        :return df_response_table:
+        :return p_anova:
+        :return p_ttest_pos:
+        :return p_ttest_neg:
         """
 
-        :param response_win: list of two floats, time window to calculate response
-        :return: F-value, p-value of one-way anova across all conditions
-        """
+        baseline_ind = np.logical_and(self.sta_ts > baseline_win[0], self.sta_ts <= baseline_win[1])
+        response_ind = np.logical_and(self.sta_ts > response_win[0], self.sta_ts <= response_win[1])
 
-        responses = []
+        dgcrt = self.loc[:, ['alt', 'azi', 'sf', 'tf', 'dire', 'con', 'rad']]
+        dgcrt['resp_mean'] = np.nan
+        dgcrt['resp_max'] = np.nan
+        dgcrt['resp_min'] = np.nan
+        dgcrt['resp_std'] = np.nan
+        dgcrt['resp_stdev'] = np.nan
+
+        trial_responses = []
 
         for row_i, row in self.iterrows():
-            curr_resp = self.get_condition_trial_responses(condi_i=row_i,
-                                                           response_win=response_win)
-            responses.append(curr_resp)
+            curr_matrix = row['matrix']
+            baseline_mean = np.mean(curr_matrix[:, baseline_ind].astype(np.float64).flat)
+            response_mean = np.mean(curr_matrix[:, response_ind].astype(np.float64).flat)
+            dgcrt.loc[row_i, 'resp_mean'] = response_mean - baseline_mean
 
-        responses = tuple(responses)
+            baseline_trial = np.mean(curr_matrix[:, baseline_ind].astype(np.float64), axis=1)
+            response_trial = np.mean(curr_matrix[:, response_ind].astype(np.float64), axis=1)
+            curr_trial_responses = response_trial - baseline_trial
+            trial_responses.append(curr_trial_responses)
 
-        return stats.f_oneway(*responses)
+            dgcrt.loc[row_i, 'resp_max'] = np.max(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_min'] = np.min(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_std'] = np.std(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_stdev'] = np.std(curr_trial_responses) / np.sqrt(len(curr_trial_responses))
+
+        _, p_anova = stats.f_oneway(*trial_responses)
+
+        df_response_table = DriftingGratingResponseTable(data=dgcrt, trace_type='{}_df'.format(self.trace_type))
+        responses_blank = trial_responses[df_response_table.blank_condi_ind]
+        responses_peak_pos = trial_responses[df_response_table.peak_condi_ind_pos]
+        responses_peak_neg = trial_responses[df_response_table.peak_condi_ind_neg]
+
+        _, p_ttest_pos = stats.ttest_rel(responses_blank, responses_peak_pos)
+        _, p_ttest_neg = stats.ttest_rel(responses_blank, responses_peak_neg)
+
+        return df_response_table, p_anova, p_ttest_pos, p_ttest_neg
+
+    def get_dff_response_table(self, baseline_win=(-0.5, 0.), response_win=(0., 1.), bias=0, warning_level=1.):
+        """
+        this is suppose to give the most robust measurement of df/f response table.
+
+        for each condition:
+        1. mean_baseline is calculated by averaging across all trials and all data points in the baseline_win
+        2. mean_response is calculated by averaging across all trials and all data points in the response_win
+        3. df/f for each condition is defined by
+            (mean_response - mean_baseline) / mean_baseline and response table is generated
+
+        # separate operation
+        4. for each trial of each condition, df is calculated by (mean_response - mean_baseline) / mean_baseline
+        5. one-way anova is performed from these trial responses
+        6. peak positive condition and peak negative condition is selected from previously generated response table
+        7. ttest is performed for these two conditions against blank trial responses
+
+
+        :param baseline_win:
+        :param response_win:
+        :param bias: float, a constant added to all matrices
+        :param warning_level: float, warning level of low baseline
+        :return dff_response_table:
+        :return p_anova:
+        :return p_ttest_pos:
+        :return p_ttest_neg:
+        """
+
+        baseline_ind = np.logical_and(self.sta_ts > baseline_win[0], self.sta_ts <= baseline_win[1])
+        response_ind = np.logical_and(self.sta_ts > response_win[0], self.sta_ts <= response_win[1])
+
+        dgcrt = self.loc[:, ['alt', 'azi', 'sf', 'tf', 'dire', 'con', 'rad']]
+        dgcrt['resp_mean'] = np.nan
+        dgcrt['resp_max'] = np.nan
+        dgcrt['resp_min'] = np.nan
+        dgcrt['resp_std'] = np.nan
+        dgcrt['resp_stdev'] = np.nan
+
+        trial_responses = []
+
+        for row_i, row in self.iterrows():
+            curr_matrix = row['matrix'] + bias
+            baseline_mean = np.mean(curr_matrix[:, baseline_ind].astype(np.float64).flat)
+            response_mean = np.mean(curr_matrix[:, response_ind].astype(np.float64).flat)
+            dgcrt.loc[row_i, 'resp_mean'] = (response_mean - baseline_mean) / baseline_mean
+
+            if baseline_mean <= warning_level:
+                msg = '\ncondition:{}, mean baseline too low: {}'.format(self.get_condition_name(row_i), baseline_mean)
+                warnings.warn(msg, RuntimeWarning)
+
+
+            baseline_trial = np.mean(curr_matrix[:, baseline_ind].astype(np.float64), axis=1)
+            response_trial = np.mean(curr_matrix[:, response_ind].astype(np.float64), axis=1)
+            curr_trial_responses = (response_trial - baseline_trial) / baseline_trial
+
+            if np.min(baseline_trial) <= warning_level:
+                msg = '\ncondition:{}, trial baseline too low: {}'.format(self.get_condition_name(row_i), baseline_trial)
+                warnings.warn(msg, RuntimeWarning)
+
+
+            trial_responses.append(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_max'] = np.max(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_min'] = np.min(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_std'] = np.std(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_stdev'] = np.std(curr_trial_responses) / np.sqrt(len(curr_trial_responses))
+
+        _, p_anova = stats.f_oneway(*trial_responses)
+
+        dff_response_table = DriftingGratingResponseTable(data=dgcrt, trace_type='{}_df'.format(self.trace_type))
+        responses_blank = trial_responses[dff_response_table.blank_condi_ind]
+        responses_peak_pos = trial_responses[dff_response_table.peak_condi_ind_pos]
+        responses_peak_neg = trial_responses[dff_response_table.peak_condi_ind_neg]
+
+        _, p_ttest_pos = stats.ttest_rel(responses_blank, responses_peak_pos)
+        _, p_ttest_neg = stats.ttest_rel(responses_blank, responses_peak_neg)
+
+        return dff_response_table, p_anova, p_ttest_pos, p_ttest_neg
+
+    def get_zscore_response_table(self, baseline_win=(-0.5, 0.), response_win=(0., 1.)):
+        """
+        this is suppose to give the most robust measurement of zscore response table.
+
+        for each condition:
+        1. mean_baseline is calculated by averaging across all trials and all data points in the baseline_win
+        2. mean_response is calculated by averaging across all trials and all data points in the response_win
+        3. mean_standard_deviation is calculated as following:
+            i.   the baseline of each trial is normalized with zero mean
+            ii.  normalized baselines are concatenated to a 1d array
+            iii. mean_standard_deviation is calculated from the concatenated baseline
+        4. zscore for each condition is defined by
+            (mean_response - mean_baseline) / mean_standard_deviation and response table is generated
+
+        # separate operation
+        4. for each trial of each condition, zscore is calculated by (mean_response - mean_baseline) / mean_standard_deviation
+        5. one-way anova is performed from these trial responses
+        6. peak positive condition and peak negative condition is selected from previously generated response table
+        7. ttest is performed for these two conditions against blank trial responses
+
+
+        :param baseline_win:
+        :param response_win:
+        :return zscore_response_table:
+        :return p_anova:
+        :return p_ttest_pos:
+        :return p_ttest_neg:
+        """
+
+        baseline_ind = np.logical_and(self.sta_ts > baseline_win[0], self.sta_ts <= baseline_win[1])
+        response_ind = np.logical_and(self.sta_ts > response_win[0], self.sta_ts <= response_win[1])
+
+        dgcrt = self.loc[:, ['alt', 'azi', 'sf', 'tf', 'dire', 'con', 'rad']]
+        dgcrt['resp_mean'] = np.nan
+        dgcrt['resp_max'] = np.nan
+        dgcrt['resp_min'] = np.nan
+        dgcrt['resp_std'] = np.nan
+        dgcrt['resp_stdev'] = np.nan
+
+        trial_responses = []
+
+        for row_i, row in self.iterrows():
+            curr_matrix = row['matrix']
+
+            baseline = curr_matrix[:, baseline_ind].astype(np.float64)
+            baseline_trial = np.mean(baseline, axis=1, keepdims=True)
+            baseline_norm = baseline - baseline_trial
+            std_mean = np.std(baseline_norm.flat)
+            baseline_mean = np.mean(baseline_trial.flat)
+            response_mean = np.mean(curr_matrix[:, response_ind].astype(np.float64).flat)
+            dgcrt.loc[row_i, 'resp_mean'] = (response_mean - baseline_mean) / std_mean
+
+            baseline_trial = np.mean(curr_matrix[:, baseline_ind].astype(np.float64), axis=1)
+            # std_trial = np.std(curr_matrix[:, baseline_ind].astype(np.float64), axis=1)
+            response_trial = np.mean(curr_matrix[:, response_ind].astype(np.float64), axis=1)
+            curr_trial_responses = (response_trial - baseline_trial) / std_mean
+
+            trial_responses.append(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_max'] = np.max(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_min'] = np.min(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_std'] = np.std(curr_trial_responses)
+            dgcrt.loc[row_i, 'resp_stdev'] = np.std(curr_trial_responses) / np.sqrt(len(curr_trial_responses))
+
+        _, p_anova = stats.f_oneway(*trial_responses)
+
+        zscore_response_table = DriftingGratingResponseTable(data=dgcrt, trace_type='{}_df'.format(self.trace_type))
+        responses_blank = trial_responses[zscore_response_table.blank_condi_ind]
+        responses_peak_pos = trial_responses[zscore_response_table.peak_condi_ind_pos]
+        responses_peak_neg = trial_responses[zscore_response_table.peak_condi_ind_neg]
+
+        _, p_ttest_pos = stats.ttest_rel(responses_blank, responses_peak_pos)
+        _, p_ttest_neg = stats.ttest_rel(responses_blank, responses_peak_neg)
+
+        return zscore_response_table, p_anova, p_ttest_pos, p_ttest_neg
 
 
 class DriftingGratingResponseTable(DataFrame):
@@ -2059,7 +2278,7 @@ if __name__ == '__main__':
                                             roi_ind=0,
                                             trace_type='sta_f_center_subtracted')
 
-    dgcrm_zscore = dgcrm.get_zscor_response_matrix(baseline_win=[-0.5, 0])
+    dgcrm_zscore = dgcrm.get_zscore_response_matrix(baseline_win=[-0.5, 0])
     dgcrt_zscore = dgcrm_zscore.get_response_table(response_win=[0., 1.])
     print(dgcrt_zscore['resp_mean'])
     # =====================================================================

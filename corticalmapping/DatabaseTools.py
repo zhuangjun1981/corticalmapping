@@ -21,7 +21,8 @@ ANALYSIS_PARAMS = {
     'gaussian_filter_sigma_rf': 1., # float, filtering sigma for z-score receptive fields
     'interpolate_rate_rf': 10., # float, interpolate rate of filtered z-score maps
     'response_window_dgc': [0., 1.], # list of two floats, temporal window for getting response value for drifting grating
-    'baseline_window_dgc': [-0.5, 0.] # list of two floats, temporal window for getting baseline value for drifting grating
+    'baseline_window_dgc': [-0.5, 0.], # list of two floats, temporal window for getting baseline value for drifting grating
+    'dgc_response_type_for_plot': 'zscore', # str, 'df', 'dff', or 'zscore'
                    }
 
 PLOTTING_PARAMS = {
@@ -45,7 +46,7 @@ PLOTTING_PARAMS = {
     'peak_traces_pos_color': '#ff0000',
     'peak_traces_neg_color': '#0000ff',
     'single_traces_lw': 0.5,
-    'mean_traces_mean_lw': 2.,
+    'mean_traces_lw': 2.,
     'ax_text_coord': [0.63, 0.01, 0.36, 0.73]
 
 }
@@ -209,110 +210,111 @@ def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
     return rf_rgb
 
 
-def get_dgc_peak_traces(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_type'],
-                        response_window=ANALYSIS_PARAMS['response_window_dgc'],
-                        baseline_window=ANALYSIS_PARAMS['baseline_window_dgc']):
-    """
-    find peak conditions based on averaged delta f (not df/f)
 
-    :param nwb_f:
-    :param plane_n:
-    :param roi_n:
-    :param trace_type:
-    :param response_window:
-    :param baseline_window:
-    :return peak_cond_n_pos:
-    :return peak_cond_n_neg:
-    :return peak_traces_pos:
-    :return peak_traces_neg:
-    :return ts: timestamps
-    """
-
-    dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
-
-    if dgcrt_grp_key:
-        dgcrt_grp = nwb_f['analysis'][dgcrt_grp_key][plane_n]
-
-        ts = dgcrt_grp.attrs['sta_timestamps']
-        baseline_ind = np.logical_and(ts > baseline_window[0], ts <= baseline_window[1])
-        response_ind = np.logical_and(ts > response_window[0], ts <= response_window[1])
-
-        # remove blank condition
-        cond_ns = [k for k in dgcrt_grp.keys() if 'tf00.0' not in k]
-        cond_ns.sort()
-
-        peak_cond_n_pos = None
-        peak_cond_n_neg = None
-        peak_traces_pos = None
-        peak_traces_neg = None
-        max_df = None
-        min_df = None
-
-        roi_i = int(roi_n[-4:])
-
-        for cond_n in cond_ns:
-            curr_traces = dgcrt_grp[cond_n]['sta_' + trace_type][roi_i, :, :]
-            curr_trace_mean = np.mean(curr_traces, axis=0)
-            curr_baseline = np.mean(curr_trace_mean[baseline_ind])
-            curr_response = np.mean(curr_trace_mean[response_ind])
-            curr_df = curr_response - curr_baseline
-
-            if max_df is None:
-                max_df = curr_df
-                peak_cond_n_pos = cond_n
-                peak_traces_pos = curr_traces
-            else:
-                if curr_df > max_df:
-                    max_df = curr_df
-                    peak_cond_n_pos = cond_n
-                    peak_traces_pos = curr_traces
-
-            if min_df is None:
-                min_df = curr_df
-                peak_cond_n_neg = cond_n
-                peak_traces_neg = curr_traces
-            else:
-                if curr_df < min_df:
-                    min_df = curr_df
-                    peak_cond_n_neg = cond_n
-                    peak_traces_neg = curr_traces
-
-        return peak_cond_n_pos, peak_cond_n_neg, peak_traces_pos, peak_traces_neg, ts
-
-    else:
-        print('the nwb file contains no response table to drifting grating.')
-
-
-def get_dgc_blank_traces(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_type']):
-    """
-
-    :param nwb_f:
-    :param plane_n:
-    :param roi_n:
-    :return:
-    """
-
-    roi_i = int(roi_n[-4:])
-
-    dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
-
-    if dgcrt_grp_key:
-        dgcrt_grp = nwb_f['analysis'][dgcrt_grp_key][plane_n]
-
-        ts = dgcrt_grp.attrs['sta_timestamps']
-
-        cond_n = [k for k in dgcrt_grp.keys() if 'sf0.00_tf00.0_dire000_con0.00_rad000' in k]
-        if len(cond_n) == 0:
-            print('no blank trial found.')
-            return None, ts
-        elif len(cond_n) == 1:
-            cond_n = cond_n[0]
-            blank_traces = dgcrt_grp[cond_n]['sta_' + trace_type][roi_i, :, :]
-            return blank_traces, ts
-        else:
-            raise LookupError('more than one blank trials found. Combine them all.')
-    else:
-        print('the nwb file contains no response table to drifting grating.')
+# def get_dgc_peak_traces(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_type'],
+#                         response_window=ANALYSIS_PARAMS['response_window_dgc'],
+#                         baseline_window=ANALYSIS_PARAMS['baseline_window_dgc']):
+#     """
+#     find peak conditions based on averaged delta f (not df/f)
+#
+#     :param nwb_f:
+#     :param plane_n:
+#     :param roi_n:
+#     :param trace_type:
+#     :param response_window:
+#     :param baseline_window:
+#     :return peak_cond_n_pos:
+#     :return peak_cond_n_neg:
+#     :return peak_traces_pos:
+#     :return peak_traces_neg:
+#     :return ts: timestamps
+#     """
+#
+#     dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
+#
+#     if dgcrt_grp_key:
+#         dgcrt_grp = nwb_f['analysis'][dgcrt_grp_key][plane_n]
+#
+#         ts = dgcrt_grp.attrs['sta_timestamps']
+#         baseline_ind = np.logical_and(ts > baseline_window[0], ts <= baseline_window[1])
+#         response_ind = np.logical_and(ts > response_window[0], ts <= response_window[1])
+#
+#         # remove blank condition
+#         cond_ns = [k for k in dgcrt_grp.keys() if 'tf00.0' not in k]
+#         cond_ns.sort()
+#
+#         peak_cond_n_pos = None
+#         peak_cond_n_neg = None
+#         peak_traces_pos = None
+#         peak_traces_neg = None
+#         max_df = None
+#         min_df = None
+#
+#         roi_i = int(roi_n[-4:])
+#
+#         for cond_n in cond_ns:
+#             curr_traces = dgcrt_grp[cond_n]['sta_' + trace_type][roi_i, :, :]
+#             curr_trace_mean = np.mean(curr_traces, axis=0)
+#             curr_baseline = np.mean(curr_trace_mean[baseline_ind])
+#             curr_response = np.mean(curr_trace_mean[response_ind])
+#             curr_df = curr_response - curr_baseline
+#
+#             if max_df is None:
+#                 max_df = curr_df
+#                 peak_cond_n_pos = cond_n
+#                 peak_traces_pos = curr_traces
+#             else:
+#                 if curr_df > max_df:
+#                     max_df = curr_df
+#                     peak_cond_n_pos = cond_n
+#                     peak_traces_pos = curr_traces
+#
+#             if min_df is None:
+#                 min_df = curr_df
+#                 peak_cond_n_neg = cond_n
+#                 peak_traces_neg = curr_traces
+#             else:
+#                 if curr_df < min_df:
+#                     min_df = curr_df
+#                     peak_cond_n_neg = cond_n
+#                     peak_traces_neg = curr_traces
+#
+#         return peak_cond_n_pos, peak_cond_n_neg, peak_traces_pos, peak_traces_neg, ts
+#
+#     else:
+#         print('the nwb file contains no response table to drifting grating.')
+#
+#
+# def get_dgc_blank_traces(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_type']):
+#     """
+#
+#     :param nwb_f:
+#     :param plane_n:
+#     :param roi_n:
+#     :return:
+#     """
+#
+#     roi_i = int(roi_n[-4:])
+#
+#     dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
+#
+#     if dgcrt_grp_key:
+#         dgcrt_grp = nwb_f['analysis'][dgcrt_grp_key][plane_n]
+#
+#         ts = dgcrt_grp.attrs['sta_timestamps']
+#
+#         cond_n = [k for k in dgcrt_grp.keys() if 'sf0.00_tf00.0_dire000_con0.00_rad000' in k]
+#         if len(cond_n) == 0:
+#             print('no blank trial found.')
+#             return None, ts
+#         elif len(cond_n) == 1:
+#             cond_n = cond_n[0]
+#             blank_traces = dgcrt_grp[cond_n]['sta_' + trace_type][roi_i, :, :]
+#             return blank_traces, ts
+#         else:
+#             raise LookupError('more than one blank trials found. Combine them all.')
+#     else:
+#         print('the nwb file contains no response table to drifting grating.')
 
 
 def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
@@ -327,6 +329,7 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
     """
 
     nwb_f = h5py.File(nwb_path, 'r')
+    roi_ind = int(roi_n[-4:])
 
     # plotting roi
     # get background image
@@ -429,83 +432,123 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
         block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(dgcrt_grp_key[15:])].value
         # print('block duration: {}'.format(block_dur))
 
-        # dgcrt_grp = nwb_f['analysis'][dgcrt_grp_key]
+        dgcrm_grp = nwb_f['analysis/{}/{}'.format(dgcrt_grp_key, plane_n)]
+        dgcrm = sca.get_dgc_response_matrix_from_h5(h5_grp=dgcrm_grp, roi_ind=roi_ind)
 
-        _ = get_dgc_peak_traces(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n, trace_type=ANALYSIS_PARAMS['trace_type'],
-                                response_window=ANALYSIS_PARAMS['response_window_dgc'],
-                                baseline_window=ANALYSIS_PARAMS['baseline_window_dgc'])
-        peak_cond_n_pos, peak_cond_n_neg, peak_traces_pos, peak_traces_neg, ts_dgc = _
+        # get df statistics
+        _ = dgcrm.get_df_response_table(baseline_win=params['baseline_window_dgc'],
+                                        response_win=params['response_window_dgc'])
+        dgcrt_df, dgc_p_anova_df, dgc_pos_p_ttest_df, dgc_neg_p_ttest_df = _
+        dgc_pos_peak_df = dgcrt_df.peak_response_pos
+        dgc_neg_peak_df = dgcrt_df.peak_response_neg
 
-        blank_traces, _ = get_dgc_blank_traces(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n,
-                                               trace_type=ANALYSIS_PARAMS['trace_type'])
+        # get dff statics
+        _ = dgcrm.get_dff_response_table(baseline_win=params['baseline_window_dgc'],
+                                         response_win=params['response_window_dgc'],
+                                         bias=add_to_trace)
+        dgcrt_dff, dgc_p_anova_dff, dgc_pos_p_ttest_dff, dgc_neg_p_ttest_dff = _
+        dgc_pos_peak_dff = dgcrt_dff.peak_response_pos
+        dgc_neg_peak_dff = dgcrt_dff.peak_response_neg
 
-        ax_peak_traces_pos = f.add_axes(PLOTTING_PARAMS['ax_peak_traces_pos_coord'])
+        # get zscore statistics
+        _ = dgcrm.get_zscore_response_table(baseline_win=params['baseline_window_dgc'],
+                                            response_win=params['response_window_dgc'])
+        dgcrt_z, dgc_p_anova_z, dgc_pos_p_ttest_z, dgc_neg_p_ttest_z = _
+        dgc_pos_peak_z = dgcrt_z.peak_response_pos
+        dgc_neg_peak_z = dgcrt_z.peak_response_neg
+
+
+        # plotting traces
+        condi_ind_blank = dgcrt_df.blank_condi_ind
+        condi_ind_pos = dgcrt_df.peak_condi_ind_pos
+        condi_ind_neg = dgcrt_df.peak_condi_ind_neg
+
+        if params['dgc_response_type_for_plot'] == 'df':
+            dgcrm_plot = dgcrm.get_df_response_matrix(baseline_win=params['baseline_window_dgc'])
+        elif params['dgc_response_type_for_plot'] == 'dff':
+                dgcrm_plot = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'],
+                                                           bias=add_to_trace)
+        elif params['dgc_response_type_for_plot'] == 'zscore':
+            dgcrm_plot = dgcrm.get_zscore_response_matrix(baseline_win=params['baseline_window_dgc'])
+        else:
+            raise LookupError("Do not understand 'dgc_response_type_for_plot': {}. Should be "
+                              "'df', 'dff' or 'zscore'.".format(params['dgc_response_type_for_plot']))
+
+
+        traces_blank = dgcrm_plot.loc[condi_ind_blank, 'matrix']
+        traces_pos = dgcrm_plot.loc[condi_ind_pos, 'matrix']
+        traces_neg = dgcrm_plot.loc[condi_ind_neg, 'matrix']
+        trace_plot_max = np.max(np.array([traces_blank, traces_pos, traces_neg]).flat)
+        trace_plot_min = np.min(np.array([traces_blank, traces_pos, traces_neg]).flat)
+
+        ax_peak_traces_pos = f.add_axes(plot_params['ax_peak_traces_pos_coord'])
         ax_peak_traces_pos.axhline(y=0, linestyle='--', color='#000000', lw=2)
         ax_peak_traces_pos.axvline(x=0, linestyle='--', color='#000000', lw=2)
         ax_peak_traces_pos.axvline(x=block_dur, linestyle='--', color='#000000', lw=2)
-        ax_peak_traces_pos.axvline(x=ANALYSIS_PARAMS['response_window_dgc'][0], linestyle='--', color='#ff00ff', lw=2)
-        ax_peak_traces_pos.axvline(x=ANALYSIS_PARAMS['response_window_dgc'][1], linestyle='--', color='#ff00ff', lw=2)
+        ax_peak_traces_pos.axvline(x=params['response_window_dgc'][0], linestyle='--', color='#ff00ff', lw=2)
+        ax_peak_traces_pos.axvline(x=params['response_window_dgc'][1], linestyle='--', color='#ff00ff', lw=2)
         ax_peak_traces_pos.set_xticks([])
         ax_peak_traces_pos.set_yticks([])
-        ax_peak_traces_neg = f.add_axes(PLOTTING_PARAMS['ax_peak_traces_neg_coord'])
+        ax_peak_traces_neg = f.add_axes(plot_params['ax_peak_traces_neg_coord'])
         ax_peak_traces_neg.axhline(y=0, linestyle='--', color='#000000', lw=2)
         ax_peak_traces_neg.axvline(x=0, linestyle='--', color='#000000', lw=2)
         ax_peak_traces_neg.axvline(x=block_dur, linestyle='--', color='#000000', lw=2)
-        ax_peak_traces_neg.axvline(x=ANALYSIS_PARAMS['response_window_dgc'][0], linestyle='--', color='#ff00ff', lw=2)
-        ax_peak_traces_neg.axvline(x=ANALYSIS_PARAMS['response_window_dgc'][1], linestyle='--', color='#ff00ff', lw=2)
+        ax_peak_traces_neg.axvline(x=params['response_window_dgc'][0], linestyle='--', color='#ff00ff', lw=2)
+        ax_peak_traces_neg.axvline(x=params['response_window_dgc'][1], linestyle='--', color='#ff00ff', lw=2)
         ax_peak_traces_neg.set_xticks([])
         ax_peak_traces_neg.set_yticks([])
 
-
         # plot blank traces
-        for t in blank_traces:
-            trace_df, trace_dff = sca.get_df_dff_trace(trace=t, t_axis=ts_dgc,
-                                                       baseline_window=ANALYSIS_PARAMS['baseline_window_dgc'])
-            ax_peak_traces_pos.plot(ts_dgc, trace_dff, color=PLOTTING_PARAMS['blank_traces_color'],
-                                    lw=PLOTTING_PARAMS['single_traces_lw'])
-            ax_peak_traces_neg.plot(ts_dgc, trace_dff, color=PLOTTING_PARAMS['blank_traces_color'],
-                                    lw=PLOTTING_PARAMS['single_traces_lw'])
+        for t in traces_blank:
+            ax_peak_traces_pos.plot(dgcrm_plot.sta_ts, t, color=plot_params['blank_traces_color'],
+                                    lw=plot_params['single_traces_lw'])
+            ax_peak_traces_neg.plot(dgcrm_plot.sta_ts, t, color=plot_params['blank_traces_color'],
+                                    lw=plot_params['single_traces_lw'])
 
-        blank_mean_df, blank_mean_dff = sca.get_df_dff_trace(trace=np.mean(blank_traces, axis=0),
-                                                             t_axis=ts_dgc,
-                                                             baseline_window=ANALYSIS_PARAMS['baseline_window_dgc'])
-        ax_peak_traces_pos.plot(ts_dgc, blank_mean_dff, color=PLOTTING_PARAMS['blank_traces_color'],
-                                lw=PLOTTING_PARAMS['mean_traces_mean_lw'])
-        ax_peak_traces_neg.plot(ts_dgc, blank_mean_dff, color=PLOTTING_PARAMS['blank_traces_color'],
-                                lw=PLOTTING_PARAMS['mean_traces_mean_lw'])
+        ax_peak_traces_pos.plot(dgcrm_plot.sta_ts, np.mean(traces_blank, axis=0),
+                                color=plot_params['blank_traces_color'],
+                                lw=plot_params['mean_traces_lw'])
+        ax_peak_traces_neg.plot(dgcrm_plot.sta_ts, np.mean(traces_blank, axis=0),
+                                color=plot_params['blank_traces_color'],
+                                lw=plot_params['mean_traces_lw'])
 
         # plot peak traces for positive response
-        for t in peak_traces_pos:
-            trace_df, trace_dff = sca.get_df_dff_trace(trace=t, t_axis=ts_dgc,
-                                                       baseline_window=ANALYSIS_PARAMS['baseline_window_dgc'])
-            ax_peak_traces_pos.plot(ts_dgc, trace_dff, color=PLOTTING_PARAMS['peak_traces_pos_color'],
-                                    lw=PLOTTING_PARAMS['single_traces_lw'])
-
-        peak_mean_df_pos, peak_mean_dff_pos = sca.get_df_dff_trace(trace=np.mean(peak_traces_pos, axis=0),
-                                                                   t_axis=ts_dgc,
-                                                                   baseline_window=ANALYSIS_PARAMS['baseline_window_dgc'])
-        ax_peak_traces_pos.plot(ts_dgc, peak_mean_dff_pos, color=PLOTTING_PARAMS['peak_traces_pos_color'],
-                                lw=PLOTTING_PARAMS['mean_traces_mean_lw'])
+        for t in traces_pos:
+            ax_peak_traces_pos.plot(dgcrm_plot.sta_ts, t, color=plot_params['peak_traces_pos_color'],
+                                    lw=plot_params['single_traces_lw'])
+        ax_peak_traces_pos.plot(dgcrm_plot.sta_ts, np.mean(traces_pos, axis=0),
+                                color=plot_params['peak_traces_pos_color'],
+                                lw=plot_params['mean_traces_lw'])
 
         # plot peak traces for positive response
-        for t in peak_traces_neg:
-            trace_df, trace_dff = sca.get_df_dff_trace(trace=t, t_axis=ts_dgc,
-                                                       baseline_window=ANALYSIS_PARAMS['baseline_window_dgc'])
-            ax_peak_traces_neg.plot(ts_dgc, trace_dff, color=PLOTTING_PARAMS['peak_traces_neg_color'],
-                                    lw=PLOTTING_PARAMS['single_traces_lw'])
+        for t in traces_neg:
+            ax_peak_traces_neg.plot(dgcrm_plot.sta_ts, t, color=plot_params['peak_traces_neg_color'],
+                                    lw=plot_params['single_traces_lw'])
+        ax_peak_traces_neg.plot(dgcrm_plot.sta_ts, np.mean(traces_neg, axis=0),
+                                color=plot_params['peak_traces_neg_color'],
+                                lw=plot_params['mean_traces_lw'])
 
-        peak_mean_df_neg, peak_mean_dff_neg = sca.get_df_dff_trace(trace=np.mean(peak_traces_neg, axis=0),
-                                                                   t_axis=ts_dgc,
-                                                                   baseline_window=ANALYSIS_PARAMS['baseline_window_dgc'])
-        ax_peak_traces_neg.plot(ts_dgc, peak_mean_dff_neg, color=PLOTTING_PARAMS['peak_traces_neg_color'],
-                                lw=PLOTTING_PARAMS['mean_traces_mean_lw'])
+        ax_peak_traces_pos.set_ylim([trace_plot_min, trace_plot_max])
+        ax_peak_traces_neg.set_ylim([trace_plot_min, trace_plot_max])
 
-        ylim_pos = ax_peak_traces_pos.get_ylim()
-        ylim_neg = ax_peak_traces_neg.get_ylim()
-        ax_peak_traces_pos.set_ylim(min([ylim_pos[0], ylim_neg[0]]), max([ylim_pos[1], ylim_neg[1]]))
-        ax_peak_traces_neg.set_ylim(min([ylim_pos[0], ylim_neg[0]]), max([ylim_pos[1], ylim_neg[1]]))
+    else:
+        dgc_p_anova_df = np.nan
+        dgc_pos_p_ttest_df = np.nan
+        dgc_neg_p_ttest_df = np.nan
+        dgc_pos_peak_df = np.nan
+        dgc_neg_peak_df = np.nan
 
+        dgc_p_anova_dff = np.nan
+        dgc_pos_p_ttest_dff = np.nan
+        dgc_neg_p_ttest_dff = np.nan
+        dgc_pos_peak_dff = np.nan
+        dgc_neg_peak_dff = np.nan
 
+        dgc_p_anova_z = np.nan
+        dgc_pos_p_ttest_z = np.nan
+        dgc_neg_p_ttest_z = np.nan
+        dgc_pos_peak_z = np.nan
+        dgc_neg_peak_z = np.nan
 
     # print text
     ax_text = f.add_axes(plot_params['ax_text_coord'])
@@ -515,37 +558,37 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
     txt = '\n'
     txt += 'nwb: {}\n'.format(os.path.split(nwb_path)[1])
     txt += '\n'
-    txt += 'plane name:        {}\n'.format(plane_n)
-    txt += 'roi name:          {}\n'.format(roi_n)
+    txt += 'plane name:          {}\n'.format(plane_n)
+    txt += 'roi name:            {}\n'.format(roi_n)
     txt += '\n'
-    txt += 'depth (um):        {}\n'.format(depth)
-    txt += 'roi area (um^2):   {:.2f}\n'.format(roi_area)
+    txt += 'depth (um):          {}\n'.format(depth)
+    txt += 'roi area (um^2):     {:.2f}\n'.format(roi_area)
     txt += '\n'
-    txt += 'skewness raw:      {:4.2f}\n'.format(skew_raw)
-    txt += 'skewness fil:      {:4.2f}\n'.format(skew_fil)
+    txt += 'skewness raw:        {:.2f}\n'.format(skew_raw)
+    txt += 'skewness fil:        {:.2f}\n'.format(skew_fil)
     txt += '\n'
-    txt += 'rf_zscore_on_pos:  {:4.2f}\n'.format(peak_z_rf_on_pos)
-    txt += 'rf_zscore_off_pos: {:4.2f}\n'.format(peak_z_rf_off_pos)
-    txt += 'rf_zscore_on_neg:  {:4.2f}\n'.format(peak_z_rf_on_neg)
-    txt += 'rf_zscore_off_neg: {:4.2f}\n'.format(peak_z_rf_off_neg)
+    txt += 'rf_zscore_on_pos:    {:.2f}\n'.format(peak_z_rf_on_pos)
+    txt += 'rf_zscore_off_pos:   {:.2f}\n'.format(peak_z_rf_off_pos)
+    txt += 'rf_zscore_on_neg:    {:.2f}\n'.format(peak_z_rf_on_neg)
+    txt += 'rf_zscore_off_neg:   {:.2f}\n'.format(peak_z_rf_off_neg)
     txt += '\n'
-    txt += 'dgc_ttest_p:       \n'
-    txt += 'dgc_anova_p:       \n'
+    txt += 'dgc_p_anova_df:      {:.2f}\n'.format(dgc_p_anova_df)
+    txt += 'dgc_p_anova_dff:     {:.2f}\n'.format(dgc_p_anova_dff)
+    txt += 'dgc_p_anova_z:       {:.2f}\n'.format(dgc_p_anova_z)
     txt += '\n'
-    txt += 'dgc_peak_df_pos:   \n'
-    txt += 'dgc_peak_dff_pos:  \n'
-    txt += 'dgc_peak_df_neg:   \n'
-    txt += 'dgc_peak_dff_neg:  \n'
+    txt += 'dgc_pos_peak_df:     {:.2f}\n'.format(dgc_pos_peak_df)
+    txt += 'dgc_pos_peak_dff:    {:.2f}\n'.format(dgc_pos_peak_dff)
+    txt += 'dgc_pos_peak_z:      {:.2f}\n'.format(dgc_pos_peak_z)
+    txt += 'dgc_pos_p_ttest_df:  {:.2f}\n'.format(dgc_pos_p_ttest_df)
+    txt += 'dgc_pos_p_ttest_dff: {:.2f}\n'.format(dgc_pos_p_ttest_dff)
+    txt += 'dgc_pos_p_ttest_z:   {:.2f}\n'.format(dgc_pos_p_ttest_z)
     txt += '\n'
-    txt += 'dgc_peak_sf_pos:   \n'
-    txt += 'dgc_peak_tf_pos:   \n'
-    txt += 'dgc_peak_ori_pos:  \n'
-    txt += 'dgc_peak_dir_pos:  \n'
-    txt += '\n'
-    txt += 'dgc_peak_sf_neg:   \n'
-    txt += 'dgc_peak_tf_neg:   \n'
-    txt += 'dgc_peak_ori_neg:  \n'
-    txt += 'dgc_peak_dir_neg:  \n'
+    txt += 'dgc_neg_peak_df:     {:.2f}\n'.format(dgc_neg_peak_df)
+    txt += 'dgc_neg_peak_dff:    {:.2f}\n'.format(dgc_neg_peak_dff)
+    txt += 'dgc_neg_peak_z:      {:.2f}\n'.format(dgc_neg_peak_z)
+    txt += 'dgc_neg_p_ttest_df:  {:.2f}\n'.format(dgc_neg_p_ttest_df)
+    txt += 'dgc_neg_p_ttest_dff: {:.2f}\n'.format(dgc_neg_p_ttest_dff)
+    txt += 'dgc_neg_p_ttest_z:   {:.2f}\n'.format(dgc_neg_p_ttest_z)
 
     ax_text.text(0.01, 0.99, txt, horizontalalignment='left', verticalalignment='top', family='monospace')
 
@@ -554,6 +597,6 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
 
 if __name__ == '__main__':
     nwb_path = r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb"
-    plane_n = 'plane2'
-    roi_n = 'roi_0001'
+    plane_n = 'plane0'
+    roi_n = 'roi_0000'
     roi_page_report(nwb_path=nwb_path, plane_n=plane_n, roi_n=roi_n)
