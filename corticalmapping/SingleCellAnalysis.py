@@ -1716,13 +1716,19 @@ class DriftingGratingResponseTable(DataFrame):
 
     @property
     def peak_condi_ind_pos(self):
-        """return the index of the condition with biggest postitive response"""
-        return self['resp_mean'].argmax()
+        """return the index of the condition with biggest postitive response (exclude the blank condition)"""
+        if self.blank_condi_ind is None:
+            return self['resp_mean'].argmax()
+        else:
+            return self.drop(self.blank_condi_ind)['resp_mean'].idxmax()
 
     @property
     def peak_condi_ind_neg(self):
-        """return the index of the condition with biggest negative response"""
-        return self['resp_mean'].argmin()
+        """return the index of the condition with biggest negative response (exclude the blank condition)"""
+        if self.blank_condi_ind is None:
+            return self['resp_mean'].argmin()
+        else:
+            return self.drop(self.blank_condi_ind)['resp_mean'].idxmin()
 
     @property
     def peak_response_pos(self):
