@@ -266,6 +266,15 @@ def get_dgc_response_matrix_from_h5(h5_grp, roi_ind, trace_type='sta_f_center_su
     return DriftingGratingResponseMatrix(sta_ts=sta_ts, trace_type=trace_type, data=dgcrt)
 
 
+def dire2ori(dire):
+    """
+    convert grating drifting direction to grating orientation, unit: degrees
+    direction: right is 0 degree, increase counterclockwise
+    orientation: horizontal 0 degree, increase counterclockwise
+    """
+    return (dire + 90) % 180
+
+
 class SpatialReceptiveField(WeightedROI):
     """
     Object for spatial receptive field, a subclass of WeightedROI object
@@ -493,573 +502,6 @@ class SpatialReceptiveField(WeightedROI):
         azi_step = abs(np.mean(np.diff(self.aziPos).astype(np.float)))
 
         return len(self.weights) * alt_step * azi_step
-
-
-# class SpatialTemporalReceptiveField(object):
-#     """
-#     class of spatial temporal receptive field represented by traces for each specified retinotopic location
-#     """
-#
-#     def __init__(self, locations, signs, traces, time, name=None, locationUnit='degree', trace_data_type='dF_over_F'):
-#         """
-#         locations: list of retinotopic locations mapped, array([altitude, azimuth])
-#         signs: list of signs for each location
-#         traces: list of traces for each location
-#                 list of 2-d array, each row: a single trace, each column: a single time point
-#         time: time axis for trace
-#         """
-#
-#         # if not (len(locations) == len(signs) == len(traces)):
-#         #     raise ValueError('length of "locations", "signs", "traces" should be the same!')
-#         #
-#         # trace_dur = traces[0].shape[1]
-#         #
-#         # for i, trace in enumerate(traces):
-#         #     if trace.shape[1] != trace_dur:
-#         #         error_msg = "the " + str(i) + "th trace does not have required duration!"
-#         #         raise ValueError(error_msg)
-#         #
-#         # if time.shape[0] != trace_dur:
-#         #     raise ValueError("The number of sample points of each trace does not equal to number of data points in time "
-#         #                      "axis!")
-#
-#         self.time = time
-#         self.name = name
-#         self.locationUnit = locationUnit
-#         self.trace_data_type = trace_data_type
-#         dtype = [('altitude', float), ('azimuth', float), ('sign', int), ('traces', list)]
-#         values = [(location[0], location[1], signs[i], traces[i]) for i, location in enumerate(locations)]
-#         if len(values) == 0:
-#             raise ValueError, 'Can not find input traces!'
-#
-#         self.data = np.array(values, dtype=dtype)
-#         self.sort_data()
-#
-#     def merge_duplication(self):
-#         # todo: merge traces with same retinotopic loacation
-#         pass
-#
-#     def sort_data(self):
-#         self.data = np.sort(self.data, order=['sign', 'altitude', 'azimuth'])
-#
-#     def get_data_type(self):
-#         return self.data.dtype
-#
-#     def get_locations(self):
-#         return list(np.array([self.data['altitude'], self.data['azimuth'], self.data['sign']]).transpose())
-#
-#     def add_traces(self, locations, signs, traces):
-#
-#         """
-#         add traces to existing receptive field
-#         """
-#
-#         if not (len(locations) == len(signs) == len(traces)):
-#             raise ValueError('length of "locations", "signs", "traces" should be the same!')
-#
-#         for i, trace in enumerate(traces):
-#             if trace.shape[1] != self.time.shape[0]:
-#                 error_msg = "The number of sample points of " + str(i) + "th trace does not equal to number of data " \
-#                                                                          "points in time axis!"
-#                 raise ValueError(error_msg)
-#
-#         dtype = [('altitude', float), ('azimuth', float), ('sign', int), ('traces', np.ndarray)]
-#
-#         values = [(location[0], location[1], signs[i], traces[i]) for i, location in enumerate(locations)]
-#         if not values: raise ValueError, 'Can not find input traces!'
-#
-#         locations = [np.array([x[0], x[1], x[2]]) for x in values]
-#
-#         objLocations = self.get_locations()
-#
-#         traceTuplesNeedToBeAdded = []
-#
-#         for i, location in enumerate(locations):
-#             newTraceTuple = values[i]
-#             findSameLocation = False
-#
-#             for j, objLocation in enumerate(objLocations):
-#
-#                 if np.array_equal(location, objLocation):
-#                     findSameLocation = True
-#                     objTraceItem = self.data[j]
-#                     objTraceItem['traces'] = np.vstack((objTraceItem['traces'], newTraceTuple[3]))
-#
-#             if findSameLocation == False:
-#                 traceTuplesNeedToBeAdded.append(tuple(newTraceTuple))
-#
-#         if traceTuplesNeedToBeAdded:
-#             self.data = np.concatenate((self.data, np.array(traceTuplesNeedToBeAdded, dtype=dtype)), axis=0)
-#
-#         self.sort_data()
-#
-#     def to_h5_group(self, h5Group):
-#
-#         h5Group.attrs['time'] = self.time
-#         h5Group.attrs['time_unit'] = 'second'
-#         h5Group.attrs['retinotopic_location_unit'] = self.locationUnit
-#         h5Group.attrs['trace_data_type'] = self.trace_data_type
-#         h5Group.attrs['trace_representation_axis'] = 0
-#         h5Group.attrs['trace_time_point_axis'] = 1
-#         if self.name is not None:
-#             h5Group.attrs['name'] = self.name
-#         else:
-#             h5Group.attrs['name'] = ''
-#
-#         for i in range(len(self.data)):
-#             locationName = 'trace' + ft.int2str(i, 4)
-#             trace = h5Group.create_dataset(locationName, data=self.data[i]['traces'], dtype='f')
-#             trace.attrs['altitude'] = self.data[i]['altitude']
-#             trace.attrs['azimuth'] = self.data[i]['azimuth']
-#             trace.attrs['sign'] = self.data[i]['sign']
-#
-#     def plot_traces(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None,
-#                     is_label_location=True, **kwargs):
-#
-#         indexLists, axisLists = self._get_axis_layout(f=f, figSize=figSize, yRange=yRange, altRange=altRange,
-#                                                       aziRange=aziRange, is_label_location=is_label_location,
-#                                                       **kwargs)
-#
-#         for i, axisList in enumerate(axisLists):
-#             for j, axis in enumerate(axisList):
-#                 indexList = indexLists[i][j]
-#                 axis.set_axis_off()
-#                 axis.set_xticks([])
-#                 axis.set_yticks([])
-#                 for pos in ['top', 'bottom', 'left', 'right']:
-#                     axis.spines[pos].set_linewidth(0.5)
-#                     axis.spines[pos].set_color('#888888')
-#                 axis.plot([0, 0], [yRange[0], yRange[1] * 0.5], '--', color='#888888', lw=0.5)
-#                 axis.plot([self.time[0], self.time[-1]], [0., 0.], color='#888888', lw=0.5)
-#
-#                 for index in indexList:
-#                     traces = self.data[index]['traces']
-#                     traces = [t for t in traces if not math.isnan(t[0])]
-#                     meanTrace = np.mean(np.array(traces, dtype=np.float32), axis=0)
-#
-#                     if self.data[index]['sign'] == 1:
-#                         color = '#ff0000'
-#                     elif self.data[index]['sign'] == -1:
-#                         color = '#0000ff'
-#                     else:
-#                         color = '#000000'
-#
-#                     if len(traces) > 1:
-#                         stdTrace = np.std(np.array(traces, dtype=np.float32), axis=0)
-#                         semTrace = stdTrace / np.sqrt(float(len(traces)))
-#                         axis.fill_between(self.time, meanTrace - semTrace, meanTrace + semTrace, facecolor=color,
-#                                           linewidth=0, alpha=0.5)
-#                     axis.plot(self.time, meanTrace, '-', color=color, lw=1)
-#
-#         return axisLists[0][0].figure
-#
-#     def _get_axis_layout(self, f=None, figSize=(10, 10), yRange=(0, 20), altRange=None, aziRange=None,
-#                          is_label_location=True, **kwargs):
-#
-#         locations = np.array(self.get_locations())
-#
-#         altPositions = np.sort(np.unique(locations[:, 0]))[::-1]
-#         if altRange is not None:
-#             altPositions = np.array([x for x in altPositions if (x >= altRange[0] and x <= altRange[1])])
-#
-#         aziPositions = np.sort(np.unique(locations[:, 1]))
-#         if aziRange is not None:
-#             aziPositions = np.array([x for x in aziPositions if (x >= aziRange[0] and x <= aziRange[1])])
-#
-#         indexLists = [[[] for aziPosition in aziPositions] for altPosition in altPositions]
-#
-#         if f is None:
-#             f = plt.figure(figsize=figSize)
-#
-#         f.suptitle('cell:{}; xrange:[{:6.3f}, {:6.3f}]; yrange: [{:.3f}, {:.3f}]'.
-#                    format(self.name, self.time[0], self.time[-1], yRange[0], yRange[1]))
-#
-#         axisLists = pt.tile_axis(f, len(altPositions), len(aziPositions), **kwargs)
-#
-#         for i, altPosition in enumerate(altPositions):
-#             for j, aziPosition in enumerate(aziPositions):
-#                 if is_label_location:
-#                     axisLists[i][j].text(0, yRange[1], str(int(altPosition)) + ';' + str(int(aziPosition)), ha='left',
-#                                          va='top', fontsize=10)
-#                 axisLists[i][j].set_xlim([self.time[0], self.time[-1]])
-#                 axisLists[i][j].set_ylim(yRange)
-#
-#                 for k, location in enumerate(locations):
-#                     if location[0] == altPosition and location[1] == aziPosition:
-#                         indexLists[i][j].append(k)
-#
-#         return indexLists, axisLists
-#
-#     def get_amplitude_map(self, timeWindow=(0, 0.5)):
-#         """
-#         return 2d receptive field map and altitude and azimuth coordinates
-#         each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
-#         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
-#         """
-#
-#         windowIndex = np.logical_and(self.time >= timeWindow[0], self.time <= timeWindow[1])
-#
-#         indON, indOFF, allAltPos, allAziPos = self._sort_index()
-#
-#         ampON = np.zeros(indON.shape)
-#         ampON[:] = np.nan
-#         ampOFF = ampON.copy()
-#
-#         for i in np.ndindex(indON.shape):
-#             traceIndON = indON[i]
-#             traceIndOFF = indOFF[i]
-#             if traceIndON is not None: ampON[i] = np.mean(np.mean(self.data[traceIndON]['traces'], axis=0)[windowIndex])
-#             if traceIndOFF is not None: ampOFF[i] = np.mean(
-#                 np.mean(self.data[traceIndOFF]['traces'], axis=0)[windowIndex])
-#
-#         return ampON, ampOFF, allAltPos, allAziPos
-#
-#     def get_amplitude_receptive_field(self, timeWindow=(0, 0.5)):
-#         """
-#         very similar to get_amplitude_map(), only difference is that, it is returning spatial temporal receptive fields
-#         instead of 2d matrix
-#         each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
-#         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
-#         """
-#
-#         ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
-#
-#         ampRFON = SpatialReceptiveField(ampON, allAltPos, allAziPos, sign=1, temporalWindow=timeWindow,
-#                                         pixelSizeUnit=self.locationUnit, dataType='amplitude')
-#         ampRFOFF = SpatialReceptiveField(ampOFF, allAltPos, allAziPos, sign=-1, temporalWindow=timeWindow,
-#                                          pixelSizeUnit=self.locationUnit, dataType='amplitude')
-#
-#         return ampRFON, ampRFOFF
-#
-#     def get_delta_amplitude_map(self, timeWindow=(0, 0.5)):
-#         """
-#         return 2d receptive field map and altitude and azimuth coordinates
-#         each pixel in the map represent mean delta amplitute (raw amplitude minus the mean amplitude before trigger
-#         onset) of traces within the window defined by timeWindow, and the
-#         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
-#         """
-#
-#         windowIndex = np.logical_and(self.time >= timeWindow[0], self.time <= timeWindow[1])
-#
-#         baseline_index = self.time < 0
-#
-#         indON, indOFF, allAltPos, allAziPos = self._sort_index()
-#
-#         ampON = np.zeros(indON.shape)
-#         ampON[:] = np.nan
-#         ampOFF = ampON.copy()
-#
-#         for i in np.ndindex(indON.shape):
-#             traceIndON = indON[i]
-#             traceIndOFF = indOFF[i]
-#             if traceIndON is not None:
-#                 curr_trace_ON = np.mean(self.data[traceIndON]['traces'], axis=0)
-#                 curr_baseline_ON = np.mean(curr_trace_ON[baseline_index])
-#                 curr_delta_trace_ON = curr_trace_ON - curr_baseline_ON
-#                 ampON[i] = np.mean(curr_delta_trace_ON[windowIndex])
-#             if traceIndOFF is not None:
-#                 curr_trace_OFF = np.mean(self.data[traceIndOFF]['traces'], axis=0)
-#                 curr_baseline_OFF = np.mean(curr_trace_OFF[baseline_index])
-#                 curr_delta_trace_OFF = curr_trace_OFF - curr_baseline_OFF
-#                 ampOFF[i] = np.mean(curr_delta_trace_OFF[windowIndex])
-#
-#         return ampON, ampOFF, allAltPos, allAziPos
-#
-#     def get_delta_amplitude_receptive_field(self, timeWindow=(0, 0.5)):
-#         """
-#         very similar to get_delta_amplitude_map(), only difference is that, it is returning SpatialReceptiveFields
-#         instead of 2d matrix
-#         each pixel in the map represent mean delta amplitute of traces within the window defined by timeWindow, and the
-#         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
-#         """
-#
-#         ampON, ampOFF, allAltPos, allAziPos = self.get_delta_amplitude_map(timeWindow)
-#
-#         ampRFON = SpatialReceptiveField(ampON, allAltPos, allAziPos, sign=1, temporalWindow=timeWindow,
-#                                         pixelSizeUnit=self.locationUnit, dataType='delta_amplitude')
-#         ampRFOFF = SpatialReceptiveField(ampOFF, allAltPos, allAziPos, sign=-1, temporalWindow=timeWindow,
-#                                          pixelSizeUnit=self.locationUnit, dataType='delta_amplitude')
-#
-#         return ampRFON, ampRFOFF
-#
-#     def get_zscore_map(self, timeWindow=(0, 0.5)):
-#         """
-#         return 2d receptive field and altitude and azimuth coordinates
-#         each pixel in the map represent Z score of mean amplitute of traces within the window defined by timeWindow
-#         """
-#
-#         ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
-#
-#         return ia.zscore(ampON), ia.zscore(ampOFF), allAltPos, allAziPos
-#
-#     def get_zscore_receptive_field(self, timeWindow=(0, 0.5)):
-#         """
-#         outdated
-#
-#
-#         very similar to get_zscore_map(), only difference is that, it is returning spatial temporal receptive fields
-#         instead of 2d matrix
-#         each pixel in the map represent mean amplitute of traces within the window defined by timeWindow, and the
-#         coordinate of each pixel is defined by np.meshgrid(allAziPos, allAltPos)
-#         """
-#
-#         ampON, ampOFF, allAltPos, allAziPos = self.get_amplitude_map(timeWindow)
-#
-#         zscoreRFON = SpatialReceptiveField(ia.zscore(ampON), allAltPos, allAziPos, sign='ON', temporalWindow=timeWindow,
-#                                            pixelSizeUnit=self.locationUnit, dataType='zscore')
-#         zscoreRFOFF = SpatialReceptiveField(ia.zscore(ampOFF), allAltPos, allAziPos, sign='OFF',
-#                                             temporalWindow=timeWindow,
-#                                             pixelSizeUnit=self.locationUnit, dataType='zscore')
-#
-#         return zscoreRFON, zscoreRFOFF
-#
-#     def get_zscore_rois(self, timeWindow=(0, 0.5), zscoreThr=2):
-#         """
-#         outdated
-#
-#
-#         return ON, OFF and combined receptive field rois in the format of WeightedROI object
-#
-#         Amplitude for each pixel was calculated as mean dF over F signal trace within the timeWindow
-#         mask of ON and OFF receptive field was generated by cutting zscore map by zscoreThr
-#         Tombined mask is the sum of ON and OFF weighted mask
-#
-#         The sampled altitude positions and azimuth positions are also returned. The receptive field space coordinates
-#         were defined as np.meshgrid(allAziPos, allAltPos)
-#         """
-#         zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(timeWindow)
-#         zscoreROION = get_peak_weighted_roi(zscoreON, zscoreThr)
-#         zscoreROIOFF = get_peak_weighted_roi(zscoreOFF, zscoreThr)
-#         if zscoreROION is not None and zscoreROIOFF is not None:
-#             zscoreROIALL = WeightedROI(zscoreROION.get_weighted_mask() + zscoreROIOFF.get_weighted_mask())
-#         elif zscoreROION is None and zscoreROIOFF is not None:
-#             print 'No zscore receptive field found for ON channel. Threshold too high.'
-#             zscoreROIALL = zscoreROIOFF
-#         elif zscoreROION is not None and zscoreROIOFF is None:
-#             print 'No zscore receptive field found for OFF channel. Threshold too high.'
-#             zscoreROIALL = zscoreROION
-#         else:
-#             zscoreROIALL = None
-#
-#         return zscoreROION, zscoreROIOFF, zscoreROIALL, allAltPos, allAziPos
-#
-#     def get_zscore_thresholded_receptive_fields(self, timeWindow=(0, 0.3), thr_ratio=0.3, filter_sigma=None,
-#                                                 interpolate_rate=None, absolute_thr=None):
-#         """
-#         return ON, OFF and combined receptive fields in the format of SpatialReceptiveField
-#
-#         both ON and OFF RF mask will be filtered, interpolated as defined by the filter_sigma (in pixels) and
-#         interpolate_ratio respectively.
-#
-#         Then the max value will be defined as maximum of ON RF peak and OFF RF peak. this max value times the thr_ratio
-#         (default 0.3, meaning 30% of the maximum) will be applied as a uniform cutting threshold to get thresholded RF
-#         mask for both ON and OFF RF. If calculated threshold is lower than absolute_thr, then absolute_thr will be used
-#
-#         Combined receptive is the sum of ON and OFF thresholded zscore receptive field
-#
-#         """
-#
-#         zscoreON, zscoreOFF, allAltPos, allAziPos = self.get_zscore_map(timeWindow)
-#
-#         zscoreRFON = SpatialReceptiveField(zscoreON, allAltPos, allAziPos, sign='ON', temporalWindow=timeWindow,
-#                                            pixelSizeUnit=self.locationUnit, dataType='zscore')
-#
-#         zscoreRFOFF = SpatialReceptiveField(zscoreOFF, allAltPos, allAziPos, sign='OFF', temporalWindow=timeWindow,
-#                                             pixelSizeUnit=self.locationUnit, dataType='zscore')
-#
-#         if filter_sigma is not None:
-#             zscoreRFON = zscoreRFON.gaussian_filter(filter_sigma)
-#             zscoreRFOFF = zscoreRFOFF.gaussian_filter(filter_sigma)
-#
-#         if interpolate_rate is not None:
-#             zscoreRFON = zscoreRFON.interpolate(interpolate_rate)
-#             zscoreRFOFF = zscoreRFOFF.interpolate(interpolate_rate)
-#
-#         max_value = max([np.amax(zscoreRFON.get_weighted_mask()), np.amax(zscoreRFOFF.get_weighted_mask())])
-#
-#         thr = max_value * thr_ratio
-#
-#         if absolute_thr is not None:
-#             thr = max([thr, absolute_thr])
-#
-#         zscoreRFON = zscoreRFON.threshold(thr)
-#         zscoreRFOFF = zscoreRFOFF.threshold(thr)
-#
-#         zscoreRFALL = SpatialReceptiveField(zscoreRFON.get_weighted_mask() + zscoreRFOFF.get_weighted_mask(),
-#                                             zscoreRFON.altPos, zscoreRFON.aziPos, sign='ON_OFF',
-#                                             temporalWindow=timeWindow, pixelSizeUnit=self.locationUnit,
-#                                             dataType='zscore', thr=thr, filter_sigma=filter_sigma,
-#                                             interpolate_rate=interpolate_rate)
-#
-#         return zscoreRFON, zscoreRFOFF, zscoreRFALL
-#
-#     def get_zscore_roi_centers(self, timeWindow=(0, 0.5), zscoreThr=2):
-#         """
-#         outdated
-#
-#
-#         return retinotopic location of ON subfield, OFF subfield and combined receptive field
-#
-#         zscore ROIs was generated by the method get_zscore_rois()
-#         """
-#         zscoreROION, zscoreROIOFF, zscoreROIALL, allAltPos, allAziPos = self.get_zscore_rois(timeWindow, zscoreThr)
-#         if zscoreROION is not None:
-#             centerON = zscoreROION.get_weighted_center_in_coordinate(allAltPos, allAziPos)
-#         else:
-#             centerON = None
-#
-#         if zscoreROIOFF is not None:
-#             centerOFF = zscoreROIOFF.get_weighted_center_in_coordinate(allAltPos, allAziPos)
-#         else:
-#             centerOFF = None
-#
-#         if zscoreROIALL is not None:
-#             centerALL = zscoreROIALL.get_weighted_center_in_coordinate(allAltPos, allAziPos)
-#         else:
-#             centerALL = None
-#         return centerON, centerOFF, centerALL
-#
-#     def _sort_index(self):
-#         """
-#         return ON and OFF index matrices for all combination of sampled retinotopic locations along with retinotopic
-#         coordinates, the retinotopic visual space was defined by np.meshgrid(allAziPos, allAltPos)
-#         """
-#
-#         allAltPos = np.array(sorted(list(set(list(self.data['altitude'])))))[::-1]
-#         allAziPos = np.array(sorted(list(set(list(self.data['azimuth'])))))
-#
-#         indON = [[None for azi in allAziPos] for alt in allAltPos];
-#         indOFF = [[None for azi in allAziPos] for alt in allAltPos]
-#
-#         for i, traceItem in enumerate(self.data):
-#             alt = traceItem['altitude'];
-#             azi = traceItem['azimuth'];
-#             sign = traceItem['sign']
-#             for j, altPos in enumerate(allAltPos):
-#                 for k, aziPos in enumerate(allAziPos):
-#                     if alt == altPos and azi == aziPos:
-#                         if sign == 1:
-#                             if indON[j][k] is not None:
-#                                 raise LookupError, 'Duplication of trace items found at location:' + str(
-#                                     [alt, azi]) + '; sign: 1!'
-#                             else:
-#                                 indON[j][k] = i
-#
-#                         if sign == -1:
-#                             if indOFF[j][k] is not None:
-#                                 raise LookupError, 'Duplication of trace items found at location:' + str(
-#                                     [alt, azi]) + '; sign:-1!'
-#                             else:
-#                                 indOFF[j][k] = i
-#
-#         indON = np.array([np.array(x) for x in indON]);
-#         indOFF = np.array([np.array(x) for x in indOFF])
-#
-#         return indON, indOFF, allAltPos, allAziPos
-#
-#     def shrink(self, altRange=None, aziRange=None):
-#         """
-#         shrink the current spatial temporal receptive field into the defined altitude and/or azimuth range
-#         """
-#
-#         if altRange is None and aziRange is None: raise LookupError, 'At least one of altRange and aziRange should be defined!'
-#
-#         if altRange is not None:
-#             indAlt = np.logical_and(self.data['altitude'] >= altRange[0], self.data['altitude'] <= altRange[1])
-#         else:
-#             indAlt = np.ones(len(self.data), dtype=np.bool)
-#         if aziRange is not None:
-#             indAzi = np.logical_and(self.data['azimuth'] >= aziRange[0], self.data['azimuth'] <= aziRange[1])
-#         else:
-#             indAzi = np.ones(len(self.data), dtype=np.bool)
-#         ind = np.logical_and(indAlt, indAzi)
-#         self.data = self.data[ind]
-#
-#     @staticmethod
-#     def from_h5_group(h5Group):
-#         """
-#         load SpatialTemporalReceptiveField object from a hdf5 data group
-#         """
-#
-#         time = h5Group.attrs['time']
-#         # try:
-#         #     name = h5Group.parent.name[1:] + '.' + h5Group.parent.attrs['name']
-#         # except KeyError:
-#         #     name = None
-#         try:
-#             name = h5Group.attrs['name']
-#         except KeyError:
-#             name = None
-#         locationUnit = h5Group.attrs['retinotopic_location_unit']
-#         trace_data_type = h5Group.attrs['trace_data_type']
-#         locations = []
-#         signs = []
-#         traces = []
-#         for key, traceItem in h5Group.iteritems():
-#             locations.append(np.array([traceItem.attrs['altitude'], traceItem.attrs['azimuth']]))
-#             signs.append((traceItem.attrs['sign']))
-#             traces.append(traceItem.value)
-#
-#         return SpatialTemporalReceptiveField(locations, signs, traces, time, name, locationUnit, trace_data_type)
-#
-#     def get_local_dff_strf(self, is_collaps_before_normalize=True, add_to_trace=0.):
-#         """
-#
-#         :param is_collaps_before_normalize: if True, for each location, the traces across multiple trials will be
-#                                             averaged before calculating df/f
-#         :return:
-#         """
-#
-#         bl_inds = self.time <= 0
-#         # print(bl_inds)
-#
-#         dff_traces = []
-#         for roi_ind, roi_row in enumerate(self.data):
-#             curr_traces = np.array(roi_row['traces']) + add_to_trace
-#
-#             if is_collaps_before_normalize:
-#                 curr_traces = np.mean(curr_traces, axis=0, keepdims=True)
-#
-#             curr_bl = np.mean(curr_traces[:, bl_inds], axis=1, keepdims=True)
-#             curr_dff = (curr_traces - curr_bl) / curr_bl
-#
-#             dff_traces.append(list(curr_dff))
-#
-#         locations = zip(self.data['altitude'], self.data['azimuth'])
-#         strf_dff = SpatialTemporalReceptiveField(locations=locations, signs=self.data['sign'], traces=dff_traces,
-#                                                  time=self.time, name=self.name, locationUnit=self.locationUnit,
-#                                                  trace_data_type=self.trace_data_type + '_local_dff')
-#         return strf_dff
-#
-#     def get_data_range(self):
-#
-#         v_min = None
-#         v_max = None
-#
-#         for roi_ind, roi_row in enumerate(self.data):
-#
-#             curr_trace = np.array(roi_row['traces'])
-#
-#             if curr_trace.shape[0] > 1:
-#                 curr_std_trace = np.std(np.array(curr_trace, dtype=np.float32), axis=0, keepdims=True)
-#                 curr_sem_trace = curr_std_trace / np.sqrt(float(len(curr_trace)))
-#                 curr_trace_high = curr_trace + curr_sem_trace
-#                 curr_trace_low = curr_trace - curr_sem_trace
-#             else:
-#                 curr_trace_low = curr_trace
-#                 curr_trace_high = curr_trace
-#
-#             if v_min is None:
-#                 v_min = np.amin(curr_trace_low)
-#             else:
-#                 v_min = min([v_min, np.amin(curr_trace_low)])
-#
-#             if v_max is None:
-#                 v_max = np.max(curr_trace_high)
-#             else:
-#                 v_max = max([v_max, np.amax(curr_trace_high)])
-#
-#         return v_min, v_max
 
 
 class SpatialTemporalReceptiveField(object):
@@ -1831,8 +1273,9 @@ class DriftingGratingResponseMatrix(DataFrame):
         dgcrm_df = self.copy()
 
         for row_i, row in self.iterrows():
-            curr_baseline = np.mean(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
-            dgcrm_df.loc[row_i, 'matrix'] = row['matrix'] - curr_baseline
+            curr_matrix = row['matrix'].astype(np.float64)
+            curr_baseline = np.mean(curr_matrix[:, baseline_ind], axis=1, keepdims=True)
+            dgcrm_df.loc[row_i, 'matrix'] = curr_matrix - curr_baseline
 
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_df'.format(self.trace_type),
                                              data=dgcrm_df)
@@ -1851,9 +1294,10 @@ class DriftingGratingResponseMatrix(DataFrame):
         dgcrm_zscore = self.copy()
 
         for row_i, row in self.iterrows():
-            curr_baseline_mean = np.mean(row['matrix'][:, baseline_ind], axis=1, keepdims=True)
-            curr_baseline_std = np.std(row['matrix'][:, baseline_ind].flat)
-            dgcrm_zscore.loc[row_i, 'matrix'] = (row['matrix'] - curr_baseline_mean) / curr_baseline_std
+            curr_matrix = row['matrix'].astype(np.float64)
+            curr_baseline_mean = np.mean(curr_matrix[:, baseline_ind], axis=1, keepdims=True)
+            curr_baseline_std = np.std(curr_matrix[:, baseline_ind].flat)
+            dgcrm_zscore.loc[row_i, 'matrix'] = (curr_matrix - curr_baseline_mean) / curr_baseline_std
 
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_zscore'.format(self.trace_type),
                                              data=dgcrm_zscore)
@@ -1875,7 +1319,7 @@ class DriftingGratingResponseMatrix(DataFrame):
         dgcrm_dff = self.copy()
 
         for row_i, row in self.iterrows():
-            curr_matrix = row['matrix'] + bias
+            curr_matrix = row['matrix'].astype(np.float64) + bias
             dff_matrix = np.empty(curr_matrix.shape, dtype=np.float32)
             for trial_i in range(curr_matrix.shape[0]):
                 curr_trial = curr_matrix[trial_i, :]
@@ -2218,6 +1662,30 @@ class DriftingGratingResponseTable(DataFrame):
         super(DriftingGratingResponseTable, self).__init__(*args, **kwargs)
 
         self.trace_type = trace_type
+
+    def get_peak_condi_params_pos(self):
+        ind = self.peak_condi_ind_pos
+        return self.loc[ind, ['sf', 'tf', 'dire', 'con', 'rad']]
+
+    @property
+    def sfs(self):
+        return self['sf'].unique()
+
+    @property
+    def tfs(self):
+        return self['tf'].unique()
+
+    @property
+    def dires(self):
+        return self['dire'].unique()
+
+    @property
+    def cons(self):
+        return self['con'].unique()
+
+    @property
+    def rads(self):
+        return self['rad'].unique()
 
     @property
     def blank_condi_ind(self):

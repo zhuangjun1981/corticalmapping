@@ -210,113 +210,6 @@ def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
     return rf_rgb
 
 
-
-# def get_dgc_peak_traces(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_type'],
-#                         response_window=ANALYSIS_PARAMS['response_window_dgc'],
-#                         baseline_window=ANALYSIS_PARAMS['baseline_window_dgc']):
-#     """
-#     find peak conditions based on averaged delta f (not df/f)
-#
-#     :param nwb_f:
-#     :param plane_n:
-#     :param roi_n:
-#     :param trace_type:
-#     :param response_window:
-#     :param baseline_window:
-#     :return peak_cond_n_pos:
-#     :return peak_cond_n_neg:
-#     :return peak_traces_pos:
-#     :return peak_traces_neg:
-#     :return ts: timestamps
-#     """
-#
-#     dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
-#
-#     if dgcrt_grp_key:
-#         dgcrt_grp = nwb_f['analysis'][dgcrt_grp_key][plane_n]
-#
-#         ts = dgcrt_grp.attrs['sta_timestamps']
-#         baseline_ind = np.logical_and(ts > baseline_window[0], ts <= baseline_window[1])
-#         response_ind = np.logical_and(ts > response_window[0], ts <= response_window[1])
-#
-#         # remove blank condition
-#         cond_ns = [k for k in dgcrt_grp.keys() if 'tf00.0' not in k]
-#         cond_ns.sort()
-#
-#         peak_cond_n_pos = None
-#         peak_cond_n_neg = None
-#         peak_traces_pos = None
-#         peak_traces_neg = None
-#         max_df = None
-#         min_df = None
-#
-#         roi_i = int(roi_n[-4:])
-#
-#         for cond_n in cond_ns:
-#             curr_traces = dgcrt_grp[cond_n]['sta_' + trace_type][roi_i, :, :]
-#             curr_trace_mean = np.mean(curr_traces, axis=0)
-#             curr_baseline = np.mean(curr_trace_mean[baseline_ind])
-#             curr_response = np.mean(curr_trace_mean[response_ind])
-#             curr_df = curr_response - curr_baseline
-#
-#             if max_df is None:
-#                 max_df = curr_df
-#                 peak_cond_n_pos = cond_n
-#                 peak_traces_pos = curr_traces
-#             else:
-#                 if curr_df > max_df:
-#                     max_df = curr_df
-#                     peak_cond_n_pos = cond_n
-#                     peak_traces_pos = curr_traces
-#
-#             if min_df is None:
-#                 min_df = curr_df
-#                 peak_cond_n_neg = cond_n
-#                 peak_traces_neg = curr_traces
-#             else:
-#                 if curr_df < min_df:
-#                     min_df = curr_df
-#                     peak_cond_n_neg = cond_n
-#                     peak_traces_neg = curr_traces
-#
-#         return peak_cond_n_pos, peak_cond_n_neg, peak_traces_pos, peak_traces_neg, ts
-#
-#     else:
-#         print('the nwb file contains no response table to drifting grating.')
-#
-#
-# def get_dgc_blank_traces(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_type']):
-#     """
-#
-#     :param nwb_f:
-#     :param plane_n:
-#     :param roi_n:
-#     :return:
-#     """
-#
-#     roi_i = int(roi_n[-4:])
-#
-#     dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
-#
-#     if dgcrt_grp_key:
-#         dgcrt_grp = nwb_f['analysis'][dgcrt_grp_key][plane_n]
-#
-#         ts = dgcrt_grp.attrs['sta_timestamps']
-#
-#         cond_n = [k for k in dgcrt_grp.keys() if 'sf0.00_tf00.0_dire000_con0.00_rad000' in k]
-#         if len(cond_n) == 0:
-#             print('no blank trial found.')
-#             return None, ts
-#         elif len(cond_n) == 1:
-#             cond_n = cond_n[0]
-#             blank_traces = dgcrt_grp[cond_n]['sta_' + trace_type][roi_i, :, :]
-#             return blank_traces, ts
-#         else:
-#             raise LookupError('more than one blank trials found. Combine them all.')
-#     else:
-#         print('the nwb file contains no response table to drifting grating.')
-
-
 def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
     """
     generate a page of description of an roi
@@ -598,5 +491,5 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
 if __name__ == '__main__':
     nwb_path = r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb"
     plane_n = 'plane0'
-    roi_n = 'roi_0000'
+    roi_n = 'roi_0031'
     roi_page_report(nwb_path=nwb_path, plane_n=plane_n, roi_n=roi_n)
