@@ -1748,7 +1748,8 @@ class DriftingGratingResponseTable(DataFrame):
 
     def get_sf_tf_matrix(self, response_dir='pos'):
         """
-        2d array of sf/tf responses, rows: sf; cols: tf, other conditions are at peak in positive or negative direction
+        rerurn 2d array of sf/tf responses, rows: sf; cols: tf, other conditions are at peak in positive or negative
+        direction
         :param response_dir: 'pos' or 'neg', response type to select peak condition
         :return responses: 2d array of 'resp_mean'
         :return sf_lst: 1d array, sf conditions
@@ -1790,6 +1791,54 @@ class DriftingGratingResponseTable(DataFrame):
 
         return resps, sfs, tfs
 
+    def get_dire_array(self, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False):
+        """
+        1d array of direction responses, other conditions are at peak in positive or negative direction, if not
+        specified by is_collapse
+        :param is_collapse_sf: bool,
+        :param is_collapse_tf: bool,
+        :param response_dir: 'pos' or 'neg', response type to select peak condition
+        :return responses: 1d array of 'resp_mean'
+        :return dire_lst: 1d array, dire conditions
+        """
+
+        if response_dir == 'pos':
+            ind_p = self.peak_condi_ind_pos
+        elif response_dir == 'neg':
+            ind_p = self.peak_condi_ind_neg
+        else:
+            raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
+
+        alt_p = self.loc[ind_p, 'alt']
+        azi_p = self.loc[ind_p, 'azi']
+        sf_p = self.loc[ind_p, 'sf']
+        tf_p = self.loc[ind_p, 'tf']
+        con_p = self.loc[ind_p, 'con']
+        rad_p = self.loc[ind_p, 'rad']
+
+        # print('sf_p: {}'.format(sf_p))
+        # print('tf_p: {}'.format(tf_p))
+
+        df_sub = self.loc[(self['alt'] == alt_p) & (self['azi'] == azi_p) & (self['con'] == con_p) &
+                          (self['rad'] == rad_p)]
+
+        df_sub = df_sub[['sf', 'tf', 'dire', 'resp_mean']]
+        # print(df_sub)
+
+        if not is_collapse_sf:
+            df_sub = df_sub.loc[df_sub['sf'] == sf_p][['tf', 'dire', 'resp_mean']]
+        else:
+            df_sub = df_sub.groupby(['tf', 'dire']).mean().reset_index()
+
+        if not is_collapse_tf:
+            df_sub = df_sub.loc[df_sub['tf'] == tf_p][['dire', 'resp_mean']]
+        else:
+            df_sub = df_sub.groupby(['dire']).mean().reset_index()
+
+        # print(df_sub)
+
+        return np.array(df_sub['resp_mean']), list(df_sub['dire'])
+
 
 if __name__ == '__main__':
     plt.ioff()
@@ -1803,9 +1852,13 @@ if __name__ == '__main__':
     dgcrt_zscore = dgcrm_zscore.get_response_table(response_win=[0., 1.])
     # print(dgcrt_zscore['resp_mean'])
 
-    sftf, sfs, tfs = dgcrt_zscore.get_sf_tf_matrix()
-    print(sftf)
+    # sftf, sfs, tfs = dgcrt_zscore.get_sf_tf_matrix()
+    # print(sftf)
+    #
 
+    dire_resp, dire_lst = dgcrt_zscore.get_dire_array(response_dir='pos', is_collapse_sf=True, is_collapse_tf=False)
+    print(dire_resp)
+    print(dire_lst)
 
     # =====================================================================
 

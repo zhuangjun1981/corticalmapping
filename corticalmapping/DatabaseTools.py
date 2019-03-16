@@ -32,7 +32,7 @@ PLOTTING_PARAMS = {
     'rf_img_vmin': 0., # reference image min
     'rf_img_vmax': 0.5, # reference image max
     'roi_border_color': '#ff0000',
-    'roi_border_width': 1,
+    'roi_border_width': 2,
     'field_traces_coord': [0.32, 0.75, 0.67, 0.24], # field coordinates of trace plot
     'traces_panels': 4, # number of panels to plot traces
     'traces_color': '#888888',
@@ -245,6 +245,7 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
     # get depth
     depth = nwb_f['processing/rois_and_traces_{}/imaging_depth_micron'.format(plane_n)].value
 
+    # plot roi mask
     f = plt.figure(figsize=plot_params['fig_size'], facecolor=plot_params['fig_facecolor'])
     f.subplots_adjust(0, 0, 1, 1)
     ax_roi_img = f.add_axes(plot_params['ax_roi_img_coord'])
