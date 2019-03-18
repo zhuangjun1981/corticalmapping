@@ -23,6 +23,8 @@ ANALYSIS_PARAMS = {
     'response_window_dgc': [0., 1.], # list of two floats, temporal window for getting response value for drifting grating
     'baseline_window_dgc': [-0.5, 0.], # list of two floats, temporal window for getting baseline value for drifting grating
     'dgc_response_type_for_plot': 'zscore', # str, 'df', 'dff', or 'zscore'
+    'is_collapse_sf': True, # bool, average across sf or not for direction tuning curve
+    'is_collapse_tf': False, # bool, average across tf or not for direction tuning curve
                    }
 
 PLOTTING_PARAMS = {
@@ -48,11 +50,16 @@ PLOTTING_PARAMS = {
     'single_traces_lw': 0.5,
     'mean_traces_lw': 2.,
     'ax_text_coord': [0.63, 0.01, 0.36, 0.73],
-    'ax_sftf_pos_coord': [0.01, 0.2, 0.3, 0.18],
-    'ax_sftf_neg_coord': [0.32, 0.2, 0.3, 0.18],
+    'ax_sftf_pos_coord': [0.01, 0.21, 0.3, 0.17],
+    'ax_sftf_neg_coord': [0.32, 0.21, 0.3, 0.17],
     'sftf_cmap': 'RdBu_r',
     'sftf_vmax': 4,
     'sftf_vmin': -4,
+    'ax_dire_pos_coord': [0.01, 0.01, 0.28, 0.18],
+    'ax_dire_neg_coord': [0.32, 0.01, 0.28, 0.18],
+    'dire_color_pos': '#ff0000',
+    'dire_color_neg': '#0000ff',
+    'dire_line_width': 2,
 
 }
 
@@ -454,6 +461,37 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
         ax_sftf_neg.set_xticks(range(len(tfs_neg)))
         ax_sftf_neg.set_xticklabels(tfs_neg)
         ax_sftf_neg.tick_params(length=0)
+
+        # plot direction tuning curve
+        dire_tuning_pos = dgcrt_plot.get_dire_tuning(response_dir='pos', is_collapse_sf=params['is_collapse_sf'],
+                                                     is_collapse_tf=params['is_collapse_tf'])
+        dire_tuning_pos = dire_tuning_pos.sort_values(by='dire')
+        dire_tuning_pos = dire_tuning_pos.append(dire_tuning_pos.iloc[0, :])
+        dire_tuning_pos['dire'] = dire_tuning_pos['dire'] * np.pi / 180.
+        r_ticks_pos = [round(max(dire_tuning_pos['resp_mean']) * 10000.) / 10000.]
+        ax_dire_pos = f.add_axes(plot_params['ax_dire_pos_coord'], projection='polar')
+        ax_dire_pos.plot(dire_tuning_pos['dire'], dire_tuning_pos['resp_mean'], '-',
+                         color=plot_params['dire_color_pos'], lw=plot_params['dire_line_width'])
+        ax_dire_pos.set_xticklabels([])
+
+        dire_tuning_neg = dgcrt_plot.get_dire_tuning(response_dir='neg', is_collapse_sf=params['is_collapse_sf'],
+                                                     is_collapse_tf=params['is_collapse_tf'])
+        dire_tuning_neg = dire_tuning_neg.sort_values(by='dire')
+        dire_tuning_neg = dire_tuning_neg.append(dire_tuning_neg.iloc[0, :])
+        dire_tuning_neg['dire'] = dire_tuning_neg['dire'] * np.pi / 180.
+        dire_tuning_neg['resp_mean'] = -dire_tuning_neg['resp_mean']
+        r_ticks_neg = [round(max(dire_tuning_neg['resp_mean']) * 10000.) / 10000.]
+        ax_dire_neg = f.add_axes(plot_params['ax_dire_neg_coord'], projection='polar')
+        ax_dire_neg.plot(dire_tuning_neg['dire'], dire_tuning_neg['resp_mean'], '-',
+                         color=plot_params['dire_color_neg'], lw=plot_params['dire_line_width'])
+        ax_dire_neg.set_xticklabels([])
+
+        rlim = max(r_ticks_pos[0], r_ticks_neg[0])
+        ax_dire_pos.set_rlim([0, rlim])
+        ax_dire_pos.set_rticks([rlim])
+        ax_dire_neg.set_rlim([0, rlim])
+        ax_dire_neg.set_rticks([rlim])
+
     else:
         dgc_p_anova_df = np.nan
         dgc_pos_p_ttest_df = np.nan
@@ -512,6 +550,8 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
     txt += 'dgc_neg_p_ttest_df:  {:.2f}\n'.format(dgc_neg_p_ttest_df)
     txt += 'dgc_neg_p_ttest_dff: {:.2f}\n'.format(dgc_neg_p_ttest_dff)
     txt += 'dgc_neg_p_ttest_z:   {:.2f}\n'.format(dgc_neg_p_ttest_z)
+    txt += '\n'
+    txt += 'response type:       {}\n'.format(params['dgc_response_type_for_plot'])
 
     ax_text.text(0.01, 0.99, txt, horizontalalignment='left', verticalalignment='top', family='monospace')
 

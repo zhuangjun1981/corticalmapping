@@ -1791,15 +1791,14 @@ class DriftingGratingResponseTable(DataFrame):
 
         return resps, sfs, tfs
 
-    def get_dire_array(self, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False):
+    def get_dire_tuning(self, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False):
         """
         1d array of direction responses, other conditions are at peak in positive or negative direction, if not
         specified by is_collapse
         :param is_collapse_sf: bool,
         :param is_collapse_tf: bool,
         :param response_dir: 'pos' or 'neg', response type to select peak condition
-        :return responses: 1d array of 'resp_mean'
-        :return dire_lst: 1d array, dire conditions
+        :return dire_tuning: dataframe with two columns: 'dire', and 'resp'
         """
 
         if response_dir == 'pos':
@@ -1825,19 +1824,19 @@ class DriftingGratingResponseTable(DataFrame):
         df_sub = df_sub[['sf', 'tf', 'dire', 'resp_mean']]
         # print(df_sub)
 
-        if not is_collapse_sf:
-            df_sub = df_sub.loc[df_sub['sf'] == sf_p][['tf', 'dire', 'resp_mean']]
-        else:
+        if is_collapse_sf:
             df_sub = df_sub.groupby(['tf', 'dire']).mean().reset_index()
-
-        if not is_collapse_tf:
-            df_sub = df_sub.loc[df_sub['tf'] == tf_p][['dire', 'resp_mean']]
         else:
+            df_sub = df_sub.loc[df_sub['sf'] == sf_p].drop('sf', axis=1)
+
+        if is_collapse_tf:
             df_sub = df_sub.groupby(['dire']).mean().reset_index()
+        else:
+            df_sub = df_sub.loc[df_sub['tf'] == tf_p].drop('tf', axis=1)
 
         # print(df_sub)
 
-        return np.array(df_sub['resp_mean']), list(df_sub['dire'])
+        return df_sub[['dire', 'resp_mean']]
 
 
 if __name__ == '__main__':
@@ -1856,9 +1855,8 @@ if __name__ == '__main__':
     # print(sftf)
     #
 
-    dire_resp, dire_lst = dgcrt_zscore.get_dire_array(response_dir='pos', is_collapse_sf=True, is_collapse_tf=False)
-    print(dire_resp)
-    print(dire_lst)
+    dire_tuning = dgcrt_zscore.get_dire_tuning(response_dir='pos', is_collapse_sf=False, is_collapse_tf=False)
+    print(dire_tuning)
 
     # =====================================================================
 
