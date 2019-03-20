@@ -468,8 +468,14 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
         dire_tuning_pos = dire_tuning_pos.sort_values(by='dire')
         dire_tuning_pos = dire_tuning_pos.append(dire_tuning_pos.iloc[0, :])
         dire_tuning_pos['dire'] = dire_tuning_pos['dire'] * np.pi / 180.
-        r_ticks_pos = [round(max(dire_tuning_pos['resp_mean']) * 10000.) / 10000.]
+        dire_tuning_pos['resp_mean'][dire_tuning_pos['resp_mean'] < 0.] = 0.
+        r_max_pos = np.ceil(max(dire_tuning_pos['resp_mean'] + dire_tuning_pos['resp_stdev']) * 10000.) / 10000.
         ax_dire_pos = f.add_axes(plot_params['ax_dire_pos_coord'], projection='polar')
+        # ax_dire_pos.plot(dire_tuning_pos['dire'], [0.] * len(dire_tuning_pos), '--k', lw=1)
+        ax_dire_pos.fill_between(x=dire_tuning_pos['dire'],
+                                 y1=dire_tuning_pos['resp_mean'] - dire_tuning_pos['resp_stdev'],
+                                 y2=dire_tuning_pos['resp_mean'] + dire_tuning_pos['resp_stdev'],
+                                 edgecolor='none', facecolor='#888888', alpha=0.5)
         ax_dire_pos.plot(dire_tuning_pos['dire'], dire_tuning_pos['resp_mean'], '-',
                          color=plot_params['dire_color_pos'], lw=plot_params['dire_line_width'])
         ax_dire_pos.set_xticklabels([])
@@ -480,17 +486,26 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
         dire_tuning_neg = dire_tuning_neg.append(dire_tuning_neg.iloc[0, :])
         dire_tuning_neg['dire'] = dire_tuning_neg['dire'] * np.pi / 180.
         dire_tuning_neg['resp_mean'] = -dire_tuning_neg['resp_mean']
-        r_ticks_neg = [round(max(dire_tuning_neg['resp_mean']) * 10000.) / 10000.]
+        dire_tuning_neg['resp_mean'][dire_tuning_neg['resp_mean'] < 0.] = 0.
+        # r_min_neg = np.floor(min(dire_tuning_neg['resp_mean']) * 10000.) / 10000.
+        r_max_neg = np.ceil(max(dire_tuning_neg['resp_mean'] + dire_tuning_neg['resp_stdev']) * 10000.) / 10000.
         ax_dire_neg = f.add_axes(plot_params['ax_dire_neg_coord'], projection='polar')
+        # ax_dire_neg.plot(dire_tuning_neg['dire'], [0.] * len(dire_tuning_neg), '--k', lw=1)
+        ax_dire_neg.fill_between(x=dire_tuning_neg['dire'],
+                                 y1=dire_tuning_neg['resp_mean'] - dire_tuning_neg['resp_stdev'],
+                                 y2=dire_tuning_neg['resp_mean'] + dire_tuning_neg['resp_stdev'],
+                                 edgecolor='none', facecolor='#888888', alpha=0.5)
         ax_dire_neg.plot(dire_tuning_neg['dire'], dire_tuning_neg['resp_mean'], '-',
                          color=plot_params['dire_color_neg'], lw=plot_params['dire_line_width'])
         ax_dire_neg.set_xticklabels([])
 
-        rlim = max(r_ticks_pos[0], r_ticks_neg[0])
-        ax_dire_pos.set_rlim([0, rlim])
-        ax_dire_pos.set_rticks([rlim])
-        ax_dire_neg.set_rlim([0, rlim])
-        ax_dire_neg.set_rticks([rlim])
+        # rmin = min([r_min_pos, r_min_neg, 0.])
+        rmax = max([r_max_pos, r_max_neg])
+
+        ax_dire_pos.set_rlim([0, rmax])
+        ax_dire_pos.set_rticks([rmax])
+        ax_dire_neg.set_rlim([0, rmax])
+        ax_dire_neg.set_rticks([rmax])
 
     else:
         dgc_p_anova_df = np.nan
@@ -555,11 +570,15 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
 
     ax_text.text(0.01, 0.99, txt, horizontalalignment='left', verticalalignment='top', family='monospace')
 
-    plt.show()
+    # plt.show()
+
+    nwb_f.close()
+    return f
 
 
 if __name__ == '__main__':
     nwb_path = r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb"
     plane_n = 'plane0'
-    roi_n = 'roi_0001'
+    roi_n = 'roi_0000'
     roi_page_report(nwb_path=nwb_path, plane_n=plane_n, roi_n=roi_n)
+    plt.show()

@@ -1484,7 +1484,7 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         return df_response_table, p_anova, p_ttest_pos, p_ttest_neg
 
-    def get_dff_response_table(self, baseline_win=(-0.5, 0.), response_win=(0., 1.), bias=0, warning_level=1.):
+    def get_dff_response_table(self, baseline_win=(-0.5, 0.), response_win=(0., 1.), bias=0, warning_level=0.1):
         """
         this is suppose to give the most robust measurement of df/f response table.
 
@@ -1539,7 +1539,8 @@ class DriftingGratingResponseMatrix(DataFrame):
             curr_trial_responses = (response_trial - baseline_trial) / baseline_trial
 
             if np.min(baseline_trial) <= warning_level:
-                msg = '\ncondition:{}, trial baseline too low: {}'.format(self.get_condition_name(row_i), baseline_trial)
+                msg = '\ncondition:{}, trial baseline too low: {}'.format(self.get_condition_name(row_i),
+                                                                          np.min(baseline_trial))
                 warnings.warn(msg, RuntimeWarning)
 
 
@@ -1821,7 +1822,7 @@ class DriftingGratingResponseTable(DataFrame):
         df_sub = self.loc[(self['alt'] == alt_p) & (self['azi'] == azi_p) & (self['con'] == con_p) &
                           (self['rad'] == rad_p)]
 
-        df_sub = df_sub[['sf', 'tf', 'dire', 'resp_mean']]
+        df_sub = df_sub[['sf', 'tf', 'dire', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
         # print(df_sub)
 
         if is_collapse_sf:
@@ -1836,7 +1837,7 @@ class DriftingGratingResponseTable(DataFrame):
 
         # print(df_sub)
 
-        return df_sub[['dire', 'resp_mean']]
+        return df_sub[['dire', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
 
 
 if __name__ == '__main__':
