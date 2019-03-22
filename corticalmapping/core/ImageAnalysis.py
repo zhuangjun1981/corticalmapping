@@ -1581,7 +1581,7 @@ class WeightedROI(ROI):
         weightMask = self.get_weighted_mask()
 
         if np.sum(weightMask.flatten()) == 0:
-            return None
+            return [np.nan, np.nan]
         else:
             xMap, yMap = np.meshgrid(xCor, yCor)
             xCenter = np.sum((xMap*weightMask).flatten())/np.sum(weightMask.flatten())

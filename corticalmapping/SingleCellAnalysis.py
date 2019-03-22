@@ -434,7 +434,7 @@ class SpatialReceptiveField(WeightedROI):
     def threshold(self, thr):
 
         """
-        thr the current receptive field, return a new SpatialReceptiveField object after thresholding
+        threshold the current receptive field, return a new SpatialReceptiveField object after thresholding
         """
 
         if (self.thr is not None) and (thr < self.thr):
@@ -496,7 +496,7 @@ class SpatialReceptiveField(WeightedROI):
         """
 
         if self.thr is None:
-            raise LookupError('To th area, the receptive field should be thresholded!!')
+            raise LookupError('To get the area, the receptive field should be thresholded!!')
 
         alt_step = abs(np.mean(np.diff(self.altPos).astype(np.float)))
         azi_step = abs(np.mean(np.diff(self.aziPos).astype(np.float)))
@@ -1838,6 +1838,28 @@ class DriftingGratingResponseTable(DataFrame):
         # print(df_sub)
 
         return df_sub[['dire', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
+
+    def get_sf_tuning(self, response_dir='pos', is_collapse_dire=False, is_collapse_tf=False):
+        pass
+
+    def get_tf_tuning(self, response_dir='pos', is_collapse_dire=False, is_collapse_sf=False):
+        pass
+
+    @staticmethod
+    def get_dire_tuning_properties(dire_tuning):
+
+        # return OSI, gOSI, DSI, gDSI, peak_dire_raw, peak_dire_vs
+        pass
+
+    @staticmethod
+    def get_tf_tuning_properties(tf_tuning):
+        # return peak_tf_raw, peak_tf_logmean
+        pass
+
+    @staticmethod
+    def get_sf_tuning_properties(sf_tuning):
+        # return peak_sf_raw, peak_sf_logmean
+        pass
 
 
 if __name__ == '__main__':

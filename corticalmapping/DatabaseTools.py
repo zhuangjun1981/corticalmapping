@@ -20,6 +20,8 @@ ANALYSIS_PARAMS = {
     'response_window_negative_rf': [0., 1.], # list of 2 floats, temporal window to get downward calcium response for receptive field
     'gaussian_filter_sigma_rf': 1., # float, filtering sigma for z-score receptive fields
     'interpolate_rate_rf': 10., # float, interpolate rate of filtered z-score maps
+    # 'peak_z_threshold_rf': 1.5, # float, threshold for significant receptive field of z score after filtering.
+    'rf_z_threshold': 0.6, # float, threshold for significant zscore receptive field
     'response_window_dgc': [0., 1.], # list of two floats, temporal window for getting response value for drifting grating
     'baseline_window_dgc': [-0.5, 0.], # list of two floats, temporal window for getting baseline value for drifting grating
     'dgc_response_type_for_plot': 'zscore', # str, 'df', 'dff', or 'zscore'
@@ -79,74 +81,111 @@ def get_dgcrt_grp_key(nwb_f):
         raise LookupError('more than one drifting grating response table found.')
 
 
-def get_peak_z_rf(strf_grp, add_to_trace,
-                  pos_win=ANALYSIS_PARAMS['response_window_positive_rf'],
-                  neg_win=ANALYSIS_PARAMS['response_window_negative_rf'],
-                  filter_sigma=ANALYSIS_PARAMS['gaussian_filter_sigma_rf'],
-                  interpolate_rate=ANALYSIS_PARAMS['interpolate_rate_rf']):
+# def get_peak_z_rf(strf_grp, add_to_trace,
+#                   pos_win=ANALYSIS_PARAMS['response_window_positive_rf'],
+#                   neg_win=ANALYSIS_PARAMS['response_window_negative_rf'],
+#                   filter_sigma=ANALYSIS_PARAMS['gaussian_filter_sigma_rf'],
+#                   interpolate_rate=ANALYSIS_PARAMS['interpolate_rate_rf']):
+#     """
+#     return the maximum z-score from a spatial temporal receptive field
+#
+#     the z-score is from four different z-score maps:
+#     on (bright probe) positive (upward calcium signal)
+#     off (dark probe) positive (upward calcium signal)
+#     on (bright probe) negative (downward calcium signal)
+#     off (dark probe) negative (downward calcium signal)
+#
+#     z-score maps are first 2d gaussian filtered and interpolated and negative z-score for downward calcium signal are
+#     flipped to get the positive value.
+#
+#     :param strf_grp: h5py group containing spatial temporal receptive field
+#     :param add_to_trace: float, a number to add to responses for avoiding negative baseline
+#     :param pos_win: list of 2 floats, temporal window to get upwards calcium response
+#     :param neg_win: list of 2 floats, temporal window to get downward calcium response
+#     :param filter_sigma: float, filtering sigma
+#     :param interpolate_rate: float, interpolate rate of filtered z-score maps
+#     :return peak_z_score: float, the maximum z_score of all four z-score maps
+#     """
+#
+#     strf = sca.SpatialTemporalReceptiveField.from_h5_group(strf_grp)
+#     strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
+#
+#     peak_z = []
+#
+#     zscore_ON_pos, zscore_OFF_pos, allAltPos, allAziPos = strf_dff.get_zscore_map(timeWindow=pos_win)
+#     zscore_ON_pos[np.isnan(zscore_ON_pos)] = 0.
+#     zscore_OFF_pos[np.isnan(zscore_OFF_pos)] = 0.
+#     zscore_ON_neg, zscore_OFF_neg, allAltPos, allAziPos = strf_dff.get_zscore_map(timeWindow=neg_win)
+#     zscore_ON_neg[np.isnan(zscore_ON_neg)] = 0.
+#     zscore_OFF_neg[np.isnan(zscore_OFF_neg)] = 0.
+#     zscore_ON_neg = -zscore_ON_neg
+#     zscore_OFF_neg = -zscore_OFF_neg
+#
+#     altStep = np.mean(np.diff(allAltPos))
+#     aziStep = np.mean(np.diff(allAziPos))
+#     newAltPos = np.arange(allAltPos[0], allAltPos[-1], altStep / float(interpolate_rate))
+#     newAziPos = np.arange(allAziPos[0], allAziPos[-1], aziStep / float(interpolate_rate))
+#
+#     zscore_ON_pos = ni.gaussian_filter(zscore_ON_pos, sigma=filter_sigma)
+#     ip_ON_pos = ip.interp2d(allAziPos, allAltPos, zscore_ON_pos, kind='cubic', fill_value=0.)
+#     zscore_ON_pos = ip_ON_pos(newAziPos, newAltPos)
+#     peak_z.append(np.amax(zscore_ON_pos))
+#
+#     zscore_OFF_pos = ni.gaussian_filter(zscore_OFF_pos, sigma=filter_sigma)
+#     ip_OFF_pos = ip.interp2d(allAziPos, allAltPos, zscore_OFF_pos, kind='cubic', fill_value=0.)
+#     zscore_OFF_pos = ip_OFF_pos(newAziPos, newAltPos)
+#     peak_z.append(np.amax(zscore_OFF_pos))
+#
+#     zscore_ON_neg = ni.gaussian_filter(zscore_ON_neg, sigma=filter_sigma)
+#     ip_ON_neg = ip.interp2d(allAziPos, allAltPos, zscore_ON_neg, kind='cubic', fill_value=0.)
+#     zscore_ON_neg = ip_ON_neg(newAziPos, newAltPos)
+#     peak_z.append(np.amax(zscore_ON_neg))
+#
+#     zscore_OFF_neg = ni.gaussian_filter(zscore_OFF_neg, sigma=filter_sigma)
+#     ip_OFF_neg = ip.interp2d(allAziPos, allAltPos, zscore_OFF_neg, kind='cubic', fill_value=0.)
+#     zscore_OFF_neg = ip_OFF_neg(newAziPos, newAltPos)
+#     peak_z.append(np.amax(zscore_OFF_neg))
+#
+#     peak_z = np.max(peak_z)
+#
+#     return peak_z
+
+
+def get_rf_properties(srf,
+                      polarity,
+                      sigma=ANALYSIS_PARAMS['gaussian_filter_sigma_rf'],
+                      interpolate_rate=ANALYSIS_PARAMS['interpolate_rate_rf'],
+                      z_thr=ANALYSIS_PARAMS['rf_z_threshold']):
     """
-    return the maximum z-score from a spatial temporal receptive field
+    return receptive field properties from a SpatialReceptiveField
 
-    the z-score is from four different z-score maps:
-    on (bright probe) positive (upward calcium signal)
-    off (dark probe) positive (upward calcium signal)
-    on (bright probe) negative (downward calcium signal)
-    off (dark probe) negative (downward calcium signal)
-
-    z-score maps are first 2d gaussian filtered and interpolated and negative z-score for downward calcium signal are
-    flipped to get the positive value.
-
-    :param strf_grp: h5py group containing spatial temporal receptive field
-    :param add_to_trace: float, a number to add to responses for avoiding negative baseline
-    :param pos_win: list of 2 floats, temporal window to get upwards calcium response
-    :param neg_win: list of 2 floats, temporal window to get downward calcium response
-    :param filter_sigma: float, filtering sigma
-    :param interpolate_rate: float, interpolate rate of filtered z-score maps
-    :return peak_z_score: float, the maximum z_score of all four z-score maps
+    :param srf: SingleCellAnalysis.SpatialReceptiveField object
+    :param polarity: str, 'positive' or 'negative', the direction to apply threshold
+    :param probe_size: list of two floats, height and width of square size
+    :param simgma: float, 2d gaussian filter size, in pixel
+    :param interpolate_rate: int, interpolation upsample rate
+    :param peak_z_thr:
+    :return rf_z: peak absolute zscore after filtering and interpolation
+    :return rf_center: list of two floats, (alt, azi) in visual degrees
+    :return rf_area: float, unit: visual degree squares
     """
 
-    strf = sca.SpatialTemporalReceptiveField.from_h5_group(strf_grp)
-    strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
+    srf = srf.gaussian_filter(sigma=sigma)
+    srf = srf.interpolate(ratio=interpolate_rate)
 
-    peak_z = []
+    if polarity == 'positive':
+        rf_z = np.max(srf.weights)
+    elif polarity == 'negative':
+        srf.weight = -srf.weights
+        rf_z = np.max(srf.weights)
+    else:
+        raise LookupError('Do not understand "polarity" ({}), should be "positive" or "negative".'.format(polarity))
 
-    zscore_ON_pos, zscore_OFF_pos, allAltPos, allAziPos = strf_dff.get_zscore_map(timeWindow=pos_win)
-    zscore_ON_pos[np.isnan(zscore_ON_pos)] = 0.
-    zscore_OFF_pos[np.isnan(zscore_OFF_pos)] = 0.
-    zscore_ON_neg, zscore_OFF_neg, allAltPos, allAziPos = strf_dff.get_zscore_map(timeWindow=neg_win)
-    zscore_ON_neg[np.isnan(zscore_ON_neg)] = 0.
-    zscore_OFF_neg[np.isnan(zscore_OFF_neg)] = 0.
-    zscore_ON_neg = -zscore_ON_neg
-    zscore_OFF_neg = -zscore_OFF_neg
+    srf = srf.threshold(thr=z_thr)
+    rf_center = srf.get_weighted_rf_center()
+    rf_area = srf.get_binary_rf_area()
 
-    altStep = np.mean(np.diff(allAltPos))
-    aziStep = np.mean(np.diff(allAziPos))
-    newAltPos = np.arange(allAltPos[0], allAltPos[-1], altStep / float(interpolate_rate))
-    newAziPos = np.arange(allAziPos[0], allAziPos[-1], aziStep / float(interpolate_rate))
-
-    zscore_ON_pos = ni.gaussian_filter(zscore_ON_pos, sigma=filter_sigma)
-    ip_ON_pos = ip.interp2d(allAziPos, allAltPos, zscore_ON_pos, kind='cubic', fill_value=0.)
-    zscore_ON_pos = ip_ON_pos(newAziPos, newAltPos)
-    peak_z.append(np.amax(zscore_ON_pos))
-
-    zscore_OFF_pos = ni.gaussian_filter(zscore_OFF_pos, sigma=filter_sigma)
-    ip_OFF_pos = ip.interp2d(allAziPos, allAltPos, zscore_OFF_pos, kind='cubic', fill_value=0.)
-    zscore_OFF_pos = ip_OFF_pos(newAziPos, newAltPos)
-    peak_z.append(np.amax(zscore_OFF_pos))
-
-    zscore_ON_neg = ni.gaussian_filter(zscore_ON_neg, sigma=filter_sigma)
-    ip_ON_neg = ip.interp2d(allAziPos, allAltPos, zscore_ON_neg, kind='cubic', fill_value=0.)
-    zscore_ON_neg = ip_ON_neg(newAziPos, newAltPos)
-    peak_z.append(np.amax(zscore_ON_neg))
-
-    zscore_OFF_neg = ni.gaussian_filter(zscore_OFF_neg, sigma=filter_sigma)
-    ip_OFF_neg = ip.interp2d(allAziPos, allAltPos, zscore_OFF_neg, kind='cubic', fill_value=0.)
-    zscore_OFF_neg = ip_OFF_neg(newAziPos, newAltPos)
-    peak_z.append(np.amax(zscore_OFF_neg))
-
-    peak_z = np.max(peak_z)
-
-    return peak_z
+    return  rf_z, rf_center, rf_area
 
 
 def get_roi(nwb_f, plane_n, roi_n):
@@ -183,28 +222,6 @@ def get_strf(nwb_f, plane_n, roi_n):
     return strf
 
 
-def get_pos_neg_zscore_maps(strf, pos_window=ANALYSIS_PARAMS['response_window_positive_rf'],
-                            neg_window=ANALYSIS_PARAMS['response_window_negative_rf']):
-    """
-
-    :param strf:
-    :param pos_window:
-    :param neg_window:
-    :return zscore_pos: ON-OFF combined (max projection) zscore for positivie receptive field
-    :return zscore_neg: ON-OFF combined (min projection) zscore for negative receptive field
-    """
-
-    zscore_on_pos, zscore_off_pos, _, _ = strf.get_zscore_map(timeWindow=pos_window)
-    zscore_on_pos[np.isnan(zscore_on_pos)] = 0.
-    zscore_off_pos[np.isnan(zscore_off_pos)] = 0.
-
-    zscore_on_neg, zscore_off_neg, _, _ = strf.get_zscore_map(timeWindow=neg_window)
-    zscore_on_neg[np.isnan(zscore_on_neg)] = 0.
-    zscore_off_neg[np.isnan(zscore_off_neg)] = 0.
-
-    return zscore_on_pos, zscore_off_pos, zscore_on_neg, zscore_off_neg
-
-
 def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
 
     rf_on = (rf_on / vmax)
@@ -222,18 +239,222 @@ def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
     return rf_rgb
 
 
-def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
+def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
+    """
+
+    :param nwbf: h5py.File object
+    :param plane_n:
+    :param roi_n:
+    :return:
+    """
+
+    roi_ind = int(roi_n[-4:])
+
+    roi_properties = {'date': nwb_f['identifier'].value[0:6],
+                      'mouse_id': nwb_f['identifier'].value[7:14],
+                      'plane_n': plane_n,
+                      'roi_n': roi_n,
+                      'depth': nwb_f['processing/rois_and_traces_{}/imaging_depth_micron'.format(plane_n)].value}
+
+    # get roi properties
+    roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+    pixel_size = nwb_f['acquisition/timeseries/2p_movie_{}/pixel_size'.format(plane_n)].value * 1000000.
+    roi_area = roi.get_binary_area() * pixel_size[0] * pixel_size[1]
+    roi_center_row, roi_center_col = roi.get_weighted_center()
+    roi_properties.update({'roi_area': roi_area,
+                           'roi_center_row': roi_center_row,
+                           'roi_center_col': roi_center_col})
+
+    # get skewness
+    trace, trace_ts = get_single_trace(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n,
+                                       trace_type=params['trace_type'])
+    skew_raw, skew_fil = sca.get_skewness(trace=trace, ts=trace_ts,
+                                          filter_length=params['filter_length_skew_sec'])
+    roi_properties.update({'skew_raw': skew_raw,
+                           'skew_fil': skew_fil})
+
+    if np.min(trace) <= 0.:
+        add_to_trace = -np.min(trace) + params['add_to_trace_bias']
+    else:
+        add_to_trace = 0.
+
+    if has_strf(nwb_f=nwb_f, plane_n=plane_n):
+        # get strf properties
+        strf = get_strf(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+        strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
+
+        # positive spatial receptive fields
+        srf_pos_on, srf_pos_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_positive_rf'])
+
+        # ON positive spatial receptive field
+        rf_pos_on_z, rf_pos_on_center, rf_pos_on_area = get_rf_properties(srf= srf_pos_on,
+                                                                          polarity='positive',
+                                                                          sigma=params['gaussian_filter_sigma_rf'],
+                                                                          interpolate_rate=params['interpolate_rate_rf'],
+                                                                          z_thr=params['rf_z_threshold'])
+        roi_properties.update({'rf_pos_on_peak_z': rf_pos_on_z,
+                               'rf_pos_on_area': rf_pos_on_area,
+                               'rf_pos_on_center_alt': rf_pos_on_center[0],
+                               'rf_pos_on_center_azi': rf_pos_on_center[1]})
+
+        # OFF positive spatial receptive field
+        rf_pos_off_z, rf_pos_off_center, rf_pos_off_area = get_rf_properties(srf=srf_pos_off,
+                                                                             polarity='positive',
+                                                                             sigma=params['gaussian_filter_sigma_rf'],
+                                                                             interpolate_rate=params[
+                                                                              'interpolate_rate_rf'],
+                                                                             z_thr=params['rf_z_threshold'])
+        roi_properties.update({'rf_pos_off_peak_z': rf_pos_off_z,
+                               'rf_pos_off_area': rf_pos_off_area,
+                               'rf_pos_off_center_alt': rf_pos_off_center[0],
+                               'rf_pos_off_center_azi': rf_pos_off_center[1]})
+
+
+        # negative spatial receptive fields
+        srf_neg_on, srf_neg_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_negative_rf'])
+
+        # ON negative spatial receptive field
+        rf_neg_on_z, rf_neg_on_center, rf_neg_on_area = get_rf_properties(srf=srf_neg_on,
+                                                                          polarity='negative',
+                                                                          sigma=params['gaussian_filter_sigma_rf'],
+                                                                          interpolate_rate=params[
+                                                                              'interpolate_rate_rf'],
+                                                                          z_thr=params['rf_z_threshold'])
+        roi_properties.update({'rf_neg_on_peak_z': rf_neg_on_z,
+                               'rf_neg_on_area': rf_neg_on_area,
+                               'rf_neg_on_center_alt': rf_neg_on_center[0],
+                               'rf_neg_on_center_azi': rf_neg_on_center[1]})
+
+        # OFF negative spatial receptive field
+        rf_neg_off_z, rf_neg_off_center, rf_neg_off_area = get_rf_properties(srf=srf_pos_off,
+                                                                             polarity='positive',
+                                                                             sigma=params[
+                                                                                 'gaussian_filter_sigma_rf'],
+                                                                             interpolate_rate=params[
+                                                                                 'interpolate_rate_rf'],
+                                                                             z_thr=params['rf_z_threshold'])
+        roi_properties.update({'rf_neg_off_peak_z': rf_neg_off_z,
+                               'rf_neg_off_area': rf_neg_off_area,
+                               'rf_neg_off_center_alt': rf_neg_off_center[0],
+                               'rf_neg_off_center_azi': rf_neg_off_center[1]})
+    else:
+        srf_pos_on = None
+        srf_pos_off = None
+        srf_neg_on = None
+        srf_neg_off = None
+
+        roi_properties.update({'rf_pos_on_peak_z': np.nan,
+                               'rf_pos_on_area': np.nan,
+                               'rf_pos_on_center_alt': np.nan,
+                               'rf_pos_on_center_azi': np.nan,
+                               'rf_pos_off_peak_z': np.nan,
+                               'rf_pos_off_area': np.nan,
+                               'rf_pos_off_center_alt': np.nan,
+                               'rf_pos_off_center_azi': np.nan,
+                               'rf_neg_on_peak_z': np.nan,
+                               'rf_neg_on_area': np.nan,
+                               'rf_neg_on_center_alt': np.nan,
+                               'rf_neg_on_center_azi': np.nan,
+                               'rf_neg_off_peak_z': np.nan,
+                               'rf_neg_off_area': np.nan,
+                               'rf_neg_off_center_alt': np.nan,
+                               'rf_neg_off_center_azi': np.nan
+                               })
+
+
+    # analyze response to drifring grating
+    dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
+    if dgcrt_grp_key:
+
+        block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(dgcrt_grp_key[15:])].value
+        # print('block duration: {}'.format(block_dur))
+        dgcrm = sca.get_dgc_response_matrix_from_h5(h5_grp=nwb_f['analysis/{}/{}'.format(dgcrt_grp_key, plane_n)],
+                                                    roi_ind=roi_ind)
+
+        # get df statistics
+        _ = dgcrm.get_df_response_table(baseline_win=params['baseline_window_dgc'],
+                                        response_win=params['response_window_dgc'])
+        dgcrt_df, dgc_p_anova_df, dgc_pos_p_ttest_df, dgc_neg_p_ttest_df = _
+        roi_properties.update({'dgc_pos_peak_df': dgcrt_df.peak_response_pos,
+                               'dgc_neg_peak_df': dgcrt_df.peak_response_neg,
+                               'dgc_pos_p_ttest_df': dgc_pos_p_ttest_df,
+                               'dgc_neg_p_ttest_df': dgc_neg_p_ttest_df,
+                               'dgc_p_anova_df': dgc_p_anova_df})
+
+        # get dff statics
+        _ = dgcrm.get_dff_response_table(baseline_win=params['baseline_window_dgc'],
+                                         response_win=params['response_window_dgc'],
+                                         bias=add_to_trace)
+        dgcrt_dff, dgc_p_anova_dff, dgc_pos_p_ttest_dff, dgc_neg_p_ttest_dff = _
+        roi_properties.update({'dgc_pos_peak_dff': dgcrt_dff.peak_response_pos,
+                               'dgc_neg_peak_dff': dgcrt_dff.peak_response_neg,
+                               'dgc_pos_p_ttest_dff': dgc_pos_p_ttest_dff,
+                               'dgc_neg_p_ttest_dff': dgc_neg_p_ttest_dff,
+                               'dgc_p_anova_dff': dgc_p_anova_dff})
+
+        # get zscore statistics
+        _ = dgcrm.get_zscore_response_table(baseline_win=params['baseline_window_dgc'],
+                                            response_win=params['response_window_dgc'])
+        dgcrt_z, dgc_p_anova_z, dgc_pos_p_ttest_z, dgc_neg_p_ttest_z = _
+        roi_properties.update({'dgc_pos_peak_z': dgcrt_z.peak_response_pos,
+                               'dgc_neg_peak_z': dgcrt_z.peak_response_neg,
+                               'dgc_pos_p_ttest_z': dgc_pos_p_ttest_z,
+                               'dgc_neg_p_ttest_z': dgc_neg_p_ttest_z,
+                               'dgc_p_anova_z': dgc_p_anova_z})
+
+        # select response table for plotting
+        if params['dgc_response_type_for_plot'] == 'df':
+            dgcrm_plot = dgcrm.get_df_response_matrix(baseline_win=params['baseline_window_dgc'])
+            dgcrt_plot = dgcrt_df
+        elif params['dgc_response_type_for_plot'] == 'dff':
+            dgcrm_plot = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'],
+                                                       bias=add_to_trace)
+            dgcrt_plot = dgcrt_dff
+        elif params['dgc_response_type_for_plot'] == 'zscore':
+            dgcrm_plot = dgcrm.get_zscore_response_matrix(baseline_win=params['baseline_window_dgc'])
+            dgcrt_plot = dgcrt_z
+        else:
+            raise LookupError("Do not understand 'dgc_response_type_for_plot': {}. Should be "
+                              "'df', 'dff' or 'zscore'.".format(params['dgc_response_type_for_plot']))
+
+
+
+    else:
+        dgcrm_plot = None
+        dgcrt_plot = None
+
+        roi_properties.update({'dgc_pos_peak_df': np.nan,
+                               'dgc_neg_peak_df': np.nan,
+                               'dgc_pos_p_ttest_df': np.nan,
+                               'dgc_neg_p_ttest_df': np.nan,
+                               'dgc_p_anova_df': np.nan,
+                               'dgc_pos_peak_dff': np.nan,
+                               'dgc_neg_peak_dff': np.nan,
+                               'dgc_pos_p_ttest_dff': np.nan,
+                               'dgc_neg_p_ttest_dff': np.nan,
+                               'dgc_p_anova_dff': np.nan,
+                               'dgc_pos_peak_z': np.nan,
+                               'dgc_neg_peak_z': np.nan,
+                               'dgc_pos_p_ttest_z': np.nan,
+                               'dgc_neg_p_ttest_z': np.nan,
+                               'dgc_p_anova_z': np.nan,
+                               })
+
+
+    return roi_properties, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_plot, dgcrt_plot
+
+
+def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
     """
     generate a page of description of an roi
 
-    :param nwb_path:
+    :param nwb_f: h5py.File object
     :param plane_n:
     :param roi_n:
     :param params:
     :return:
     """
 
-    nwb_f = h5py.File(nwb_path, 'r')
     roi_ind = int(roi_n[-4:])
 
     # plotting roi
@@ -266,7 +487,7 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
     trace, trace_ts = get_single_trace(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n,
                                        trace_type=params['trace_type'])
     skew_raw, skew_fil = sca.get_skewness(trace=trace, ts=trace_ts,
-                                          filter_length=ANALYSIS_PARAMS['filter_length_skew_sec'])
+                                          filter_length=params['filter_length_skew_sec'])
     trace_chunk_length = trace.shape[0] // plot_params['traces_panels']
     trace_min = np.min(trace)
 
@@ -299,32 +520,28 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
     if has_strf(nwb_f=nwb_f, plane_n=plane_n):
         strf = get_strf(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
         strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
-        zscore_rfs = get_pos_neg_zscore_maps(strf=strf_dff,
-                                             pos_window=params['response_window_positive_rf'],
-                                             neg_window=params['response_window_negative_rf'])
 
-        zscore_on_pos, zscore_off_pos, zscore_on_neg, zscore_off_neg = zscore_rfs
-
+        # plotting positive ON and OFF receptive fields
+        srf_pos_on, srf_pos_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_positive_rf'])
         ax_rf_pos = f.add_axes(plot_params['ax_rf_pos_coord'])
-
-        # render ON and OFF zscore maps in to red and blue channels
-        zscore_pos = render_rb(rf_on=zscore_on_pos, rf_off=zscore_off_pos, vmax=plot_params['rf_zscore_vmax'])
+        zscore_pos = render_rb(rf_on=srf_pos_on.get_weighted_mask(),
+                               rf_off=srf_pos_off.get_weighted_mask(), vmax=plot_params['rf_zscore_vmax'])
         ax_rf_pos.imshow(zscore_pos, interpolation='nearest')
         ax_rf_pos.set_axis_off()
 
+        # plotting negative ON and OFF receptive fields
+        srf_neg_on, srf_neg_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_negative_rf'])
         ax_rf_neg = f.add_axes(plot_params['ax_rf_neg_coord'])
-        zscore_neg = render_rb(rf_on=-zscore_on_neg, rf_off=-zscore_off_neg, vmax=plot_params['rf_zscore_vmax'])
+        zscore_neg = render_rb(rf_on=-srf_neg_on.get_weighted_mask(),
+                               rf_off=-srf_neg_off.get_weighted_mask(), vmax=plot_params['rf_zscore_vmax'])
         ax_rf_neg.imshow(zscore_neg, interpolation='nearest')
         ax_rf_neg.set_axis_off()
 
-        peak_z_rf_on_pos = np.amax(ni.gaussian_filter(zscore_on_pos,
-                                                      sigma=params['gaussian_filter_sigma_rf']))
-        peak_z_rf_off_pos = np.amax(ni.gaussian_filter(zscore_off_pos,
-                                                       sigma=params['gaussian_filter_sigma_rf']))
-        peak_z_rf_on_neg = -np.amin(ni.gaussian_filter(zscore_on_neg,
-                                                       sigma=params['gaussian_filter_sigma_rf']))
-        peak_z_rf_off_neg = -np.amin(ni.gaussian_filter(zscore_off_neg,
-                                                       sigma=params['gaussian_filter_sigma_rf']))
+        peak_z_rf_on_pos = np.max(srf_pos_on.gaussian_filter(sigma=params['gaussian_filter_sigma_rf']).weights)
+        peak_z_rf_off_pos = np.max(srf_pos_off.gaussian_filter(sigma=params['gaussian_filter_sigma_rf']).weights)
+        peak_z_rf_on_neg = -np.min(srf_neg_on.gaussian_filter(sigma=params['gaussian_filter_sigma_rf']).weights)
+        peak_z_rf_off_neg = -np.min(srf_neg_off.gaussian_filter(sigma=params['gaussian_filter_sigma_rf']).weights)
+
     else:
         peak_z_rf_on_pos = np.nan
         peak_z_rf_off_pos = np.nan
@@ -571,14 +788,22 @@ def roi_page_report(nwb_path, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_param
     ax_text.text(0.01, 0.99, txt, horizontalalignment='left', verticalalignment='top', family='monospace')
 
     # plt.show()
-
-    nwb_f.close()
     return f
 
 
 if __name__ == '__main__':
+
     nwb_path = r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb"
     plane_n = 'plane0'
     roi_n = 'roi_0000'
-    roi_page_report(nwb_path=nwb_path, plane_n=plane_n, roi_n=roi_n)
+    nwb_f = h5py.File(nwb_path, 'r')
+    roi_properties, _, _, _, _, _, _ = get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+
+    keys = roi_properties.keys()
+    keys.sort()
+    for key in keys:
+        print('{}: {}'.format(key, roi_properties[key]))
+
+    roi_page_report(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+    nwb_f.close()
     plt.show()
