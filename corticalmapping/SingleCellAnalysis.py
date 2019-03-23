@@ -1425,24 +1425,6 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         return DriftingGratingResponseTable(trace_type=self.trace_type, data=dgcrt)
 
-    # def get_anova_stats(self, response_win=(0., 1.)):
-    #     """
-    #
-    #     :param response_win: list of two floats, time window to calculate response
-    #     :return: F-value, p-value of one-way anova across all conditions
-    #     """
-    #
-    #     responses = []
-    #
-    #     for row_i, row in self.iterrows():
-    #         curr_resp = self.get_condition_trial_responses(condi_i=row_i,
-    #                                                        response_win=response_win)
-    #         responses.append(curr_resp)
-    #
-    #     responses = tuple(responses)
-    #
-    #     return stats.f_oneway(*responses)
-
     def get_df_response_table(self, baseline_win=(-0.5, 0.), response_win=(0., 1.)):
         """
         this is suppose to give the most robust measurement of df response table.
