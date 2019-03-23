@@ -304,10 +304,16 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                                              interpolate_rate=params[
                                                                               'interpolate_rate_rf'],
                                                                              z_thr=params['rf_z_threshold'])
+
+        # on off overlapping
+        rf_pos_lsi = sca.get_local_similarity_index(srf_pos_on.get_weighted_mask(),
+                                                    srf_pos_off.get_weighted_mask())
+
         roi_properties.update({'rf_pos_off_peak_z': rf_pos_off_z,
                                'rf_pos_off_area': rf_pos_off_area,
                                'rf_pos_off_center_alt': rf_pos_off_center[0],
-                               'rf_pos_off_center_azi': rf_pos_off_center[1]})
+                               'rf_pos_off_center_azi': rf_pos_off_center[1],
+                               'rf_pos_lsi': rf_pos_lsi})
 
 
         # negative spatial receptive fields
@@ -333,10 +339,16 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                                              interpolate_rate=params[
                                                                                  'interpolate_rate_rf'],
                                                                              z_thr=params['rf_z_threshold'])
+
+        # on off overlapping
+        rf_neg_lsi = sca.get_local_similarity_index(srf_neg_on.get_weighted_mask(),
+                                                    srf_neg_off.get_weighted_mask())
+
         roi_properties.update({'rf_neg_off_peak_z': rf_neg_off_z,
                                'rf_neg_off_area': rf_neg_off_area,
                                'rf_neg_off_center_alt': rf_neg_off_center[0],
-                               'rf_neg_off_center_azi': rf_neg_off_center[1]})
+                               'rf_neg_off_center_azi': rf_neg_off_center[1],
+                               'rf_neg_lsi': rf_neg_lsi})
     else:
         srf_pos_on = None
         srf_pos_off = None
@@ -351,6 +363,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'rf_pos_off_area': np.nan,
                                'rf_pos_off_center_alt': np.nan,
                                'rf_pos_off_center_azi': np.nan,
+                               'rf_pos_lsi': np.nan,
                                'rf_neg_on_peak_z': np.nan,
                                'rf_neg_on_area': np.nan,
                                'rf_neg_on_center_alt': np.nan,
@@ -358,7 +371,8 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'rf_neg_off_peak_z': np.nan,
                                'rf_neg_off_area': np.nan,
                                'rf_neg_off_center_alt': np.nan,
-                               'rf_neg_off_center_azi': np.nan
+                               'rf_neg_off_center_azi': np.nan,
+                               'rf_neg_lsi': np.nan,
                                })
 
 

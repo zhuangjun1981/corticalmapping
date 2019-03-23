@@ -266,6 +266,29 @@ def get_dgc_response_matrix_from_h5(h5_grp, roi_ind, trace_type='sta_f_center_su
     return DriftingGratingResponseMatrix(sta_ts=sta_ts, trace_type=trace_type, data=dgcrt)
 
 
+def get_local_similarity_index(mask1, mask2):
+    """
+    calculate local similarity index between two receptive field maps
+
+    LSI = sum(mask1 x mask2) / sqrt( sum(mask1 x mask1) * sum(mask2 x mask2))
+
+    DOI: https://doi.org/10.1523/JNEUROSCI.0863-13.2013
+
+    :param mask1: 2d array
+    :param mask2: 2d array
+    :return:
+    """
+
+    if not len(mask1.shape) == len(mask2.shape) == 2:
+        raise ValueError('mask1 and mask2 should both be 2d array with same shape.')
+
+
+    value1 = np.sum((mask1 * mask2).flat)
+    value2 = np.sqrt(np.sum((mask1 * mask1).flat) * np.sum((mask2 * mask2).flat))
+
+    return value1 / value2
+
+
 def dire2ori(dire):
     """
     convert grating drifting direction to grating orientation, unit: degrees
@@ -1794,12 +1817,13 @@ class DriftingGratingResponseTable(DataFrame):
 
     def get_dire_tuning(self, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False):
         """
-        1d array of direction responses, other conditions are at peak in positive or negative direction, if not
+        dataframe of direction responses, other conditions are at peak in positive or negative direction, if not
         specified by is_collapse
         :param is_collapse_sf: bool,
         :param is_collapse_tf: bool,
         :param response_dir: 'pos' or 'neg', response type to select peak condition
-        :return dire_tuning: dataframe with two columns: 'dire', and 'resp'
+        :return dire_tuning: dataframe with two columns: 'dire','resp_mean', 'resp_max', 'resp_min', 'resp_std',
+                             'resp_stdev'
         """
 
         if response_dir == 'pos':
@@ -1839,33 +1863,226 @@ class DriftingGratingResponseTable(DataFrame):
 
         return df_sub[['dire', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
 
-    def get_sf_tuning(self, response_dir='pos', is_collapse_dire=False, is_collapse_tf=False):
-        pass
+    def get_sf_tuning(self, response_dir='pos', is_collapse_tf=False, is_collapse_dire=False):
+        """
+        dataframe of sf responses, other conditions are at peak in positive or negative direction, if not
+        specified by is_collapse
+        :param is_collapse_tf: bool,
+        :param is_collapse_dire: bool,
+        :param response_dir: 'pos' or 'neg', response type to select peak condition
+        :return sf_tuning: dataframe with two columns: 'sf','resp_mean', 'resp_max', 'resp_min', 'resp_std',
+                             'resp_stdev'
+        """
 
-    def get_tf_tuning(self, response_dir='pos', is_collapse_dire=False, is_collapse_sf=False):
-        pass
+        if response_dir == 'pos':
+            ind_p = self.peak_condi_ind_pos
+        elif response_dir == 'neg':
+            ind_p = self.peak_condi_ind_neg
+        else:
+            raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
+
+        alt_p = self.loc[ind_p, 'alt']
+        azi_p = self.loc[ind_p, 'azi']
+        dire_p = self.loc[ind_p, 'dire']
+        tf_p = self.loc[ind_p, 'tf']
+        con_p = self.loc[ind_p, 'con']
+        rad_p = self.loc[ind_p, 'rad']
+
+        df_sub = self.loc[(self['alt'] == alt_p) & (self['azi'] == azi_p) & (self['con'] == con_p) &
+                          (self['rad'] == rad_p)]
+
+        df_sub = df_sub[['sf', 'tf', 'dire', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
+        # print(df_sub)
+
+        if is_collapse_tf:
+            df_sub = df_sub.groupby(['sf', 'dire']).mean().reset_index()
+        else:
+            df_sub = df_sub.loc[df_sub['tf'] == tf_p].drop('tf', axis=1)
+
+        if is_collapse_dire:
+            df_sub = df_sub.groupby(['sf']).mean().reset_index()
+        else:
+            df_sub = df_sub.loc[df_sub['dire'] == dire_p].drop('dire', axis=1)
+
+        # print(df_sub)
+        return df_sub[['sf', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
+
+    def get_tf_tuning(self, response_dir='pos', is_collapse_sf=False, is_collapse_dire=False):
+        """
+        dataframe of tf responses, other conditions are at peak in positive or negative direction, if not
+        specified by is_collapse
+        :param is_collapse_sf: bool,
+        :param is_collapse_dire: bool,
+        :param response_dir: 'pos' or 'neg', response type to select peak condition
+        :return tf_tuning: dataframe with two columns: 'tf','resp_mean', 'resp_max', 'resp_min', 'resp_std',
+                             'resp_stdev'
+        """
+
+        if response_dir == 'pos':
+            ind_p = self.peak_condi_ind_pos
+        elif response_dir == 'neg':
+            ind_p = self.peak_condi_ind_neg
+        else:
+            raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
+
+        alt_p = self.loc[ind_p, 'alt']
+        azi_p = self.loc[ind_p, 'azi']
+        dire_p = self.loc[ind_p, 'dire']
+        sf_p = self.loc[ind_p, 'sf']
+        con_p = self.loc[ind_p, 'con']
+        rad_p = self.loc[ind_p, 'rad']
+
+        df_sub = self.loc[(self['alt'] == alt_p) & (self['azi'] == azi_p) & (self['con'] == con_p) &
+                          (self['rad'] == rad_p)]
+
+        df_sub = df_sub[['sf', 'tf', 'dire', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
+        # print(df_sub)
+
+        if is_collapse_sf:
+            df_sub = df_sub.groupby(['tf', 'dire']).mean().reset_index()
+        else:
+            df_sub = df_sub.loc[df_sub['sf'] == sf_p].drop('sf', axis=1)
+
+        if is_collapse_dire:
+            df_sub = df_sub.groupby(['tf']).mean().reset_index()
+        else:
+            df_sub = df_sub.loc[df_sub['dire'] == dire_p].drop('dire', axis=1)
+
+        # print(df_sub)
+        return df_sub[['tf', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
 
     @staticmethod
-    def get_dire_tuning_properties(dire_tuning):
+    def get_dire_tuning_properties(dire_tuning, response_dir='pos', is_rectify=True):
+        """
 
-        # return OSI, gOSI, DSI, gDSI, peak_dire_raw, peak_dire_vs
-        pass
+        :param dire_tuning:
+        :param response_dir:
+        :param is_rectify:
+        :return OSI:
+        :return DSI:
+        :return gOSI:
+        :return gDSI:
+        :return peak_dire_raw: optimal direction in tested conditions
+        :return peak_dire_vs: optimal direction based on vector sum
+        :return peak_orie_vs: optimal orientation based on vector sum
+        """
+
+        if response_dir == 'pos':
+            pass
+        elif response_dir == 'neg':
+            dire_tuning['resp_mean'] = -dire_tuning['resp_mean']
+        else:
+            raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
+
+        if is_rectify:
+            dire_tuning.loc[dire_tuning['resp_mean'] < 0., 'resp_mean'] = 0.
+
+        dire_tuning['dire'] = dire_tuning['dire'] % 360
+
+        if is_rectify:
+            dire_tuning.loc[dire_tuning['resp_mean'] < 0., 'resp_mean'] = 0.
+
+        if np.max(dire_tuning['resp_mean']) <= 0.:
+            return tuple([np.nan] * 7)
+        else:
+            peak_dire_raw_ind = dire_tuning['resp_mean'].argmax()
+            peak_dire_raw = dire_tuning.loc[peak_dire_raw_ind, 'dire']
+            peak_resp = dire_tuning.loc[peak_dire_raw_ind, 'resp_mean']
+
+            oppo_dire_ind = (dire_tuning['dire'] == ((peak_dire_raw + 180) % 360)).argmax()
+            oppo_resp = dire_tuning.loc[oppo_dire_ind, 'resp_mean']
+
+            othr_dire_ind_1 = (dire_tuning['dire'] == ((peak_dire_raw + 90) % 360)).argmax()
+            othr_resp_1 = dire_tuning.loc[othr_dire_ind_1, 'resp_mean']
+
+            othr_dire_ind_2 = (dire_tuning['dire'] == ((peak_dire_raw - 90) % 360)).argmax()
+            othr_resp_2 = dire_tuning.loc[othr_dire_ind_2, 'resp_mean']
+
+            othr_resp = np.mean([othr_resp_1, othr_resp_2])
+
+            OSI = (peak_resp - othr_resp) / (peak_resp + othr_resp)
+            DSI = (peak_resp - oppo_resp) / (peak_resp + oppo_resp)
+
+            arcs = np.array(list(dire_tuning['dire'] * np.pi / 180))
+            resp = np.array(list(dire_tuning['resp_mean']))
+
+            vector_sum = np.sum(resp * np.exp(1j * arcs)) / np.sum(resp)
+            peak_dire_vs = (np.angle(vector_sum) * 180 / np.pi) % 360
+            gDSI = np.abs(vector_sum)
+
+            vector_sum2 = np.sum(resp * np.exp(1j * 2 *arcs)) / np.sum(resp)
+            peak_orie_vs = dire2ori(np.angle(vector_sum2) * 180 / np.pi)
+            gOSI = np.abs(vector_sum2)
+
+            return OSI, gOSI, DSI, gDSI, peak_dire_raw, peak_dire_vs, peak_orie_vs
 
     @staticmethod
-    def get_tf_tuning_properties(tf_tuning):
-        # return peak_tf_raw, peak_tf_logmean
-        pass
+    def get_tf_tuning_properties(tf_tuning, response_dir='pos', is_rectify=True):
+
+        if response_dir == 'pos':
+            pass
+        elif response_dir == 'neg':
+            tf_tuning['resp_mean'] = -tf_tuning['resp_mean']
+        else:
+            raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
+
+        if is_rectify:
+            tf_tuning.loc[tf_tuning['resp_mean'] < 0., 'resp_mean'] = 0.
+
+        if np.max(tf_tuning['resp_mean']) <= 0.:
+            return tuple([np.nan] * 3)
+        else:
+            peak_tf_raw_ind = tf_tuning['resp_mean'].argmax()
+            peak_tf_raw = tf_tuning.loc[peak_tf_raw_ind, 'tf']
+
+
+            tfs = tf_tuning['tf'].astype(np.float)
+            tfs_log = np.log(tfs) / np.log(2)
+            resp = tf_tuning['resp_mean'].astype(np.float)
+
+            peak_tf_linear = np.sum(tfs * resp) / np.sum(resp)
+
+            peak_tf_log = np.sum(tfs_log * resp) / np.sum(resp)
+            peak_tf_log = 2 ** peak_tf_log
+
+            return peak_tf_raw, peak_tf_linear, peak_tf_log
 
     @staticmethod
-    def get_sf_tuning_properties(sf_tuning):
-        # return peak_sf_raw, peak_sf_logmean
-        pass
+    def get_sf_tuning_properties(sf_tuning, response_dir='pos', is_rectify=True):
+
+        if response_dir == 'pos':
+            pass
+        elif response_dir == 'neg':
+            sf_tuning['resp_mean'] = -sf_tuning['resp_mean']
+        else:
+            raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
+
+        if is_rectify:
+            sf_tuning.loc[sf_tuning['resp_mean'] < 0., 'resp_mean'] = 0.
+
+        if np.max(sf_tuning['resp_mean']) <= 0.:
+            return tuple([np.nan] * 3)
+        else:
+            peak_sf_raw_ind = sf_tuning['resp_mean'].argmax()
+            peak_sf_raw = sf_tuning.loc[peak_sf_raw_ind, 'sf']
+
+
+            sfs = sf_tuning['sf'].astype(np.float)
+            sfs_log = np.log(sfs / 0.01) / np.log(2)
+            resp = sf_tuning['resp_mean'].astype(np.float)
+
+            peak_sf_linear = np.sum(sfs * resp) / np.sum(resp)
+
+            peak_sf_log = np.sum(sfs_log * resp) / np.sum(resp)
+            peak_sf_log = 2 ** peak_sf_log * 0.01
+
+            return peak_sf_raw, peak_sf_linear, peak_sf_log
 
 
 if __name__ == '__main__':
     plt.ioff()
     # =====================================================================
-    f = h5py.File(r"F:\data2\chandelier_cell_project\database\190222_M421761_110.nwb", 'r')
+    f = h5py.File(r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb", 'r')
     dgcrm = get_dgc_response_matrix_from_h5(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
                                             roi_ind=0,
                                             trace_type='sta_f_center_subtracted')
@@ -1880,6 +2097,35 @@ if __name__ == '__main__':
 
     dire_tuning = dgcrt_zscore.get_dire_tuning(response_dir='pos', is_collapse_sf=False, is_collapse_tf=False)
     print(dire_tuning)
+    _ = DriftingGratingResponseTable.get_dire_tuning_properties(dire_tuning=dire_tuning,
+                                                                response_dir='pos',
+                                                                is_rectify=True)
+    OSI, gOSI, DSI, gDSI, peak_dire_raw, peak_dire_vs, peak_orie_vs = _
+    print('\nOSI: {}'.format(OSI))
+    print('gOSI: {}'.format(gOSI))
+    print('DSI: {}'.format(DSI))
+    print('gDSI: {}'.format(gDSI))
+    print('peak_dire_raw: {}'.format(peak_dire_raw))
+    print('peak_dire_vs: {}'.format(peak_dire_vs))
+    print('peak_orie_vs: {}\n'.format(peak_orie_vs))
+
+    sf_tuning = dgcrt_zscore.get_sf_tuning(response_dir='pos', is_collapse_tf=False, is_collapse_dire=False)
+    print(sf_tuning)
+    _ = DriftingGratingResponseTable.get_sf_tuning_properties(sf_tuning=sf_tuning, response_dir='pos',
+                                                              is_rectify=True)
+    peak_sf_raw, peak_sf_linear, peak_sf_log = _
+    print('\npeak_sf_raw: {}'.format(peak_sf_raw))
+    print('peak_sf_linear: {}'.format(peak_sf_linear))
+    print('peak_sf_log: {}\n'.format(peak_sf_log))
+
+    tf_tuning = dgcrt_zscore.get_tf_tuning(response_dir='pos', is_collapse_sf=False, is_collapse_dire=False)
+    print(tf_tuning)
+    _ = DriftingGratingResponseTable.get_tf_tuning_properties(tf_tuning=tf_tuning, response_dir='pos',
+                                                              is_rectify=True)
+    peak_tf_raw, peak_tf_linear, peak_tf_log = _
+    print('\npeak_tf_raw: {}'.format(peak_tf_raw))
+    print('peak_tf_linear: {}'.format(peak_tf_linear))
+    print('peak_tf_log: {}\n'.format(peak_tf_log))
 
     # =====================================================================
 
