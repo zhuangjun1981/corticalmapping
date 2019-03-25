@@ -24,12 +24,14 @@ ANALYSIS_PARAMS = {
     'rf_z_threshold': 0.6, # float, threshold for significant zscore receptive field
     'response_window_dgc': [0., 1.], # list of two floats, temporal window for getting response value for drifting grating
     'baseline_window_dgc': [-0.5, 0.], # list of two floats, temporal window for getting baseline value for drifting grating
-    'dgc_response_type_for_plot': 'zscore', # str, 'df', 'dff', or 'zscore'
-    'is_collapse_sf': True, # bool, average across sf or not for direction tuning curve
-    'is_collapse_tf': False, # bool, average across tf or not for direction tuning curve
+    'is_collapse_sf': True, # bool, average across sf or not for direction/tf tuning curve
+    'is_collapse_tf': False, # bool, average across tf or not for direction/sf tuning curve
+    'is_collapse_dire': False, # bool, average across direction or not for tf/sf tuning curve
+    'is_rectify_dgc_tuning': True, # bool, if True, responses below zero (in defined polarity) will be set as zero
                    }
 
 PLOTTING_PARAMS = {
+    'dgc_response_type_for_plot': 'zscore', # str, 'df', 'dff', or 'zscore'
     'fig_size': (8.5, 11),
     'fig_facecolor': "#ffffff",
     'ax_roi_img_coord': [0.01, 0.75, 0.3, 0.24], # coordinates of roi image
@@ -315,7 +317,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         dgcrm = sca.get_dgc_response_matrix_from_h5(h5_grp=nwb_f['analysis/{}/{}'.format(dgcrt_grp_key, plane_n)],
                                                     roi_ind=roi_ind)
 
-        # get df statistics
+        # get df statistics ============================================================================================
         _ = dgcrm.get_df_response_table(baseline_win=params['baseline_window_dgc'],
                                         response_win=params['response_window_dgc'])
         dgcrt_df, dgc_p_anova_df, dgc_pos_p_ttest_df, dgc_neg_p_ttest_df = _
@@ -325,7 +327,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'dgc_neg_p_ttest_df': dgc_neg_p_ttest_df,
                                'dgc_p_anova_df': dgc_p_anova_df})
 
-        # get dff statics
+        # get dff statics ==============================================================================================
         _ = dgcrm.get_dff_response_table(baseline_win=params['baseline_window_dgc'],
                                          response_win=params['response_window_dgc'],
                                          bias=add_to_trace)
@@ -336,7 +338,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'dgc_neg_p_ttest_dff': dgc_neg_p_ttest_dff,
                                'dgc_p_anova_dff': dgc_p_anova_dff})
 
-        # get zscore statistics
+        # get zscore statistics ========================================================================================
         _ = dgcrm.get_zscore_response_table(baseline_win=params['baseline_window_dgc'],
                                             response_win=params['response_window_dgc'])
         dgcrt_z, dgc_p_anova_z, dgc_pos_p_ttest_z, dgc_neg_p_ttest_z = _
@@ -346,26 +348,240 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'dgc_neg_p_ttest_z': dgc_neg_p_ttest_z,
                                'dgc_p_anova_z': dgc_p_anova_z})
 
-        # select response table for plotting
-        if params['dgc_response_type_for_plot'] == 'df':
-            dgcrm_plot = dgcrm.get_df_response_matrix(baseline_win=params['baseline_window_dgc'])
-            dgcrt_plot = dgcrt_df
-        elif params['dgc_response_type_for_plot'] == 'dff':
-            dgcrm_plot = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'],
-                                                       bias=add_to_trace)
-            dgcrt_plot = dgcrt_dff
-        elif params['dgc_response_type_for_plot'] == 'zscore':
-            dgcrm_plot = dgcrm.get_zscore_response_matrix(baseline_win=params['baseline_window_dgc'])
-            dgcrt_plot = dgcrt_z
-        else:
-            raise LookupError("Do not understand 'dgc_response_type_for_plot': {}. Should be "
-                              "'df', 'dff' or 'zscore'.".format(params['dgc_response_type_for_plot']))
+        # get dgc response matrices ====================================================================================
+        dgcrm_df = dgcrm.get_df_response_matrix(baseline_win=params['baseline_window_dgc'])
+        dgcrm_dff = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'])
+        dgcrm_z = dgcrm.get_zscore_response_matrix(baseline_win=params['baseline_window_dgc'])
 
 
+        # direction/orientation tuning of df responses in positive direction ===========================================
+        dire_tuning_df_pos = dgcrt_df.get_dire_tuning(response_dir='pos',
+                                                      is_collapse_sf=params['is_collapse_sf'],
+                                                      is_collapse_tf=params['is_collapse_tf'])
+        osi_df_pos, gosi_df_pos, dsi_df_pos, gdsi_df_pos, peak_dire_raw_df_pos, peak_dire_vs_df_pos, \
+        peak_orie_vs_df_pos = dgcrt_df.get_dire_tuning_properties(dire_tuning_df_pos,
+                                                                  response_dir='pos',
+                                                                  is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_pos_osi_df': osi_df_pos,
+                               'dgc_pos_gosi_df': gosi_df_pos,
+                               'dgc_pos_dsi_df': dsi_df_pos,
+                               'dgc_pos_gdsi_df': gdsi_df_pos,
+                               'dgc_pos_peak_dire_raw_df': peak_dire_raw_df_pos,
+                               'dgc_pos_peak_dire_vs_df': peak_dire_vs_df_pos,
+                               'dgc_pos_peak_orie_vs_df': peak_orie_vs_df_pos})
+
+
+        # direction/orientation tuning of df responses in negative direction ===========================================
+        dire_tuning_df_neg = dgcrt_df.get_dire_tuning(response_dir='neg',
+                                                      is_collapse_sf=params['is_collapse_sf'],
+                                                      is_collapse_tf=params['is_collapse_tf'])
+        osi_df_neg, gosi_df_neg, dsi_df_neg, gdsi_df_neg, peak_dire_raw_df_neg, peak_dire_vs_df_neg, \
+        peak_orie_vs_df_neg = dgcrt_df.get_dire_tuning_properties(dire_tuning_df_neg,
+                                                                  response_dir='neg',
+                                                                  is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_neg_osi_df': osi_df_neg,
+                               'dgc_neg_gosi_df': gosi_df_neg,
+                               'dgc_neg_dsi_df': dsi_df_neg,
+                               'dgc_neg_gdsi_df': gdsi_df_neg,
+                               'dgc_neg_peak_dire_raw_df': peak_dire_raw_df_neg,
+                               'dgc_neg_peak_dire_vs_df': peak_dire_vs_df_neg,
+                               'dgc_neg_peak_orie_vs_df': peak_orie_vs_df_neg})
+
+
+        # sf tuning of df responses in positive direction ==============================================================
+        sf_tuning_df_pos = dgcrt_df.get_sf_tuning(response_dir='pos', is_collapse_tf=params['is_collapse_tf'],
+                                                  is_collapse_dire=params['is_collapse_dire'])
+        peak_sf_raw_df_pos, peak_sf_linear_df_pos, peak_sf_log_df_pos = \
+            dgcrt_df.get_sf_tuning_properties(sf_tuning_df_pos, response_dir='pos',
+                                              is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_pos_peak_sf_raw_df': peak_sf_raw_df_pos,
+                               'dgc_pos_peak_sf_linear_df': peak_sf_linear_df_pos,
+                               'dgc_pos_peak_sf_log_df': peak_sf_log_df_pos})
+
+
+        # sf tuning of df responses in negative direction ==============================================================
+        sf_tuning_df_neg = dgcrt_df.get_sf_tuning(response_dir='neg', is_collapse_tf=params['is_collapse_tf'],
+                                                  is_collapse_dire=params['is_collapse_dire'])
+        peak_sf_raw_df_neg, peak_sf_linear_df_neg, peak_sf_log_df_neg = \
+            dgcrt_df.get_sf_tuning_properties(sf_tuning_df_neg, response_dir='neg',
+                                              is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_neg_peak_sf_raw_df': peak_sf_raw_df_neg,
+                               'dgc_neg_peak_sf_linear_df': peak_sf_linear_df_neg,
+                               'dgc_neg_peak_sf_log_df': peak_sf_log_df_neg})
+
+
+        # tf tuning of df responses in positive direction ==============================================================
+        tf_tuning_df_pos = dgcrt_df.get_tf_tuning(response_dir='pos', is_collapse_sf=params['is_collapse_sf'],
+                                                  is_collapse_dire=params['is_collapse_dire'])
+        peak_tf_raw_df_pos, peak_tf_linear_df_pos, peak_tf_log_df_pos = \
+            dgcrt_df.get_tf_tuning_properties(tf_tuning_df_pos, response_dir='pos',
+                                              is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_pos_peak_tf_raw_df': peak_tf_raw_df_pos,
+                               'dgc_pos_peak_tf_linear_df': peak_tf_linear_df_pos,
+                               'dgc_pos_peak_tf_log_df': peak_tf_log_df_pos})
+
+
+        # tf tuning of df responses in negative direction ==============================================================
+        tf_tuning_df_neg = dgcrt_df.get_tf_tuning(response_dir='neg', is_collapse_sf=params['is_collapse_sf'],
+                                                  is_collapse_dire=params['is_collapse_dire'])
+        peak_tf_raw_df_neg, peak_tf_linear_df_neg, peak_tf_log_df_neg = \
+            dgcrt_df.get_tf_tuning_properties(tf_tuning_df_neg, response_dir='neg',
+                                              is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_neg_peak_tf_raw_df': peak_tf_raw_df_neg,
+                               'dgc_neg_peak_tf_linear_df': peak_tf_linear_df_neg,
+                               'dgc_neg_peak_tf_log_df': peak_tf_log_df_neg})
+
+        # direction/orientation tuning of dff responses in positive direction ==========================================
+        dire_tuning_dff_pos = dgcrt_dff.get_dire_tuning(response_dir='pos',
+                                                      is_collapse_sf=params['is_collapse_sf'],
+                                                      is_collapse_tf=params['is_collapse_tf'])
+        osi_dff_pos, gosi_dff_pos, dsi_dff_pos, gdsi_dff_pos, peak_dire_raw_dff_pos, peak_dire_vs_dff_pos, \
+        peak_orie_vs_dff_pos = dgcrt_dff.get_dire_tuning_properties(dire_tuning_dff_pos,
+                                                                  response_dir='pos',
+                                                                  is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_pos_osi_dff': osi_dff_pos,
+                               'dgc_pos_gosi_dff': gosi_dff_pos,
+                               'dgc_pos_dsi_dff': dsi_dff_pos,
+                               'dgc_pos_gdsi_dff': gdsi_dff_pos,
+                               'dgc_pos_peak_dire_raw_dff': peak_dire_raw_dff_pos,
+                               'dgc_pos_peak_dire_vs_dff': peak_dire_vs_dff_pos,
+                               'dgc_pos_peak_orie_vs_dff': peak_orie_vs_dff_pos})
+
+        # direction/orientation tuning of dff responses in negative direction ==========================================
+        dire_tuning_dff_neg = dgcrt_dff.get_dire_tuning(response_dir='neg',
+                                                      is_collapse_sf=params['is_collapse_sf'],
+                                                      is_collapse_tf=params['is_collapse_tf'])
+        osi_dff_neg, gosi_dff_neg, dsi_dff_neg, gdsi_dff_neg, peak_dire_raw_dff_neg, peak_dire_vs_dff_neg, \
+        peak_orie_vs_dff_neg = dgcrt_dff.get_dire_tuning_properties(dire_tuning_dff_neg,
+                                                                  response_dir='neg',
+                                                                  is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_neg_osi_dff': osi_dff_neg,
+                               'dgc_neg_gosi_dff': gosi_dff_neg,
+                               'dgc_neg_dsi_dff': dsi_dff_neg,
+                               'dgc_neg_gdsi_dff': gdsi_dff_neg,
+                               'dgc_neg_peak_dire_raw_dff': peak_dire_raw_dff_neg,
+                               'dgc_neg_peak_dire_vs_dff': peak_dire_vs_dff_neg,
+                               'dgc_neg_peak_orie_vs_dff': peak_orie_vs_dff_neg})
+
+        # sf tuning of dff responses in positive direction =============================================================
+        sf_tuning_dff_pos = dgcrt_dff.get_sf_tuning(response_dir='pos', is_collapse_tf=params['is_collapse_tf'],
+                                                  is_collapse_dire=params['is_collapse_dire'])
+        peak_sf_raw_dff_pos, peak_sf_linear_dff_pos, peak_sf_log_dff_pos = \
+            dgcrt_dff.get_sf_tuning_properties(sf_tuning_dff_pos, response_dir='pos',
+                                              is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_pos_peak_sf_raw_dff': peak_sf_raw_dff_pos,
+                               'dgc_pos_peak_sf_linear_dff': peak_sf_linear_dff_pos,
+                               'dgc_pos_peak_sf_log_dff': peak_sf_log_dff_pos})
+
+        # sf tuning of dff responses in negative direction =============================================================
+        sf_tuning_dff_neg = dgcrt_dff.get_sf_tuning(response_dir='neg', is_collapse_tf=params['is_collapse_tf'],
+                                                  is_collapse_dire=params['is_collapse_dire'])
+        peak_sf_raw_dff_neg, peak_sf_linear_dff_neg, peak_sf_log_dff_neg = \
+            dgcrt_dff.get_sf_tuning_properties(sf_tuning_dff_neg, response_dir='neg',
+                                              is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_neg_peak_sf_raw_dff': peak_sf_raw_dff_neg,
+                               'dgc_neg_peak_sf_linear_dff': peak_sf_linear_dff_neg,
+                               'dgc_neg_peak_sf_log_dff': peak_sf_log_dff_neg})
+
+        # tf tuning of dff responses in positive direction =============================================================
+        tf_tuning_dff_pos = dgcrt_dff.get_tf_tuning(response_dir='pos', is_collapse_sf=params['is_collapse_sf'],
+                                                  is_collapse_dire=params['is_collapse_dire'])
+        peak_tf_raw_dff_pos, peak_tf_linear_dff_pos, peak_tf_log_dff_pos = \
+            dgcrt_dff.get_tf_tuning_properties(tf_tuning_dff_pos, response_dir='pos',
+                                              is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_pos_peak_tf_raw_dff': peak_tf_raw_dff_pos,
+                               'dgc_pos_peak_tf_linear_dff': peak_tf_linear_dff_pos,
+                               'dgc_pos_peak_tf_log_dff': peak_tf_log_dff_pos})
+
+        # tf tuning of dff responses in negative direction =============================================================
+        tf_tuning_dff_neg = dgcrt_dff.get_tf_tuning(response_dir='neg', is_collapse_sf=params['is_collapse_sf'],
+                                                  is_collapse_dire=params['is_collapse_dire'])
+        peak_tf_raw_dff_neg, peak_tf_linear_dff_neg, peak_tf_log_dff_neg = \
+            dgcrt_dff.get_tf_tuning_properties(tf_tuning_dff_neg, response_dir='neg',
+                                              is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_neg_peak_tf_raw_dff': peak_tf_raw_dff_neg,
+                               'dgc_neg_peak_tf_linear_dff': peak_tf_linear_dff_neg,
+                               'dgc_neg_peak_tf_log_dff': peak_tf_log_dff_neg})
+
+        # direction/orientation tuning of zscore responses in positive direction =======================================
+        dire_tuning_z_pos = dgcrt_z.get_dire_tuning(response_dir='pos',
+                                                        is_collapse_sf=params['is_collapse_sf'],
+                                                        is_collapse_tf=params['is_collapse_tf'])
+        osi_z_pos, gosi_z_pos, dsi_z_pos, gdsi_z_pos, peak_dire_raw_z_pos, peak_dire_vs_z_pos, \
+        peak_orie_vs_z_pos = dgcrt_z.get_dire_tuning_properties(dire_tuning_z_pos,
+                                                                    response_dir='pos',
+                                                                    is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_pos_osi_z': osi_z_pos,
+                               'dgc_pos_gosi_z': gosi_z_pos,
+                               'dgc_pos_dsi_z': dsi_z_pos,
+                               'dgc_pos_gdsi_z': gdsi_z_pos,
+                               'dgc_pos_peak_dire_raw_z': peak_dire_raw_z_pos,
+                               'dgc_pos_peak_dire_vs_z': peak_dire_vs_z_pos,
+                               'dgc_pos_peak_orie_vs_z': peak_orie_vs_z_pos})
+
+        # direction/orientation tuning of zscore responses in negative direction =======================================
+        dire_tuning_z_neg = dgcrt_z.get_dire_tuning(response_dir='neg',
+                                                        is_collapse_sf=params['is_collapse_sf'],
+                                                        is_collapse_tf=params['is_collapse_tf'])
+        osi_z_neg, gosi_z_neg, dsi_z_neg, gdsi_z_neg, peak_dire_raw_z_neg, peak_dire_vs_z_neg, \
+        peak_orie_vs_z_neg = dgcrt_z.get_dire_tuning_properties(dire_tuning_z_neg,
+                                                                    response_dir='neg',
+                                                                    is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_neg_osi_z': osi_z_neg,
+                               'dgc_neg_gosi_z': gosi_z_neg,
+                               'dgc_neg_dsi_z': dsi_z_neg,
+                               'dgc_neg_gdsi_z': gdsi_z_neg,
+                               'dgc_neg_peak_dire_raw_z': peak_dire_raw_z_neg,
+                               'dgc_neg_peak_dire_vs_z': peak_dire_vs_z_neg,
+                               'dgc_neg_peak_orie_vs_z': peak_orie_vs_z_neg})
+
+        # sf tuning of zscore responses in positive direction ==========================================================
+        sf_tuning_z_pos = dgcrt_z.get_sf_tuning(response_dir='pos', is_collapse_tf=params['is_collapse_tf'],
+                                                    is_collapse_dire=params['is_collapse_dire'])
+        peak_sf_raw_z_pos, peak_sf_linear_z_pos, peak_sf_log_z_pos = \
+            dgcrt_z.get_sf_tuning_properties(sf_tuning_z_pos, response_dir='pos',
+                                               is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_pos_peak_sf_raw_z': peak_sf_raw_z_pos,
+                               'dgc_pos_peak_sf_linear_z': peak_sf_linear_z_pos,
+                               'dgc_pos_peak_sf_log_z': peak_sf_log_z_pos})
+
+        # sf tuning of zscore responses in negative direction ==========================================================
+        sf_tuning_z_neg = dgcrt_z.get_sf_tuning(response_dir='neg', is_collapse_tf=params['is_collapse_tf'],
+                                                    is_collapse_dire=params['is_collapse_dire'])
+        peak_sf_raw_z_neg, peak_sf_linear_z_neg, peak_sf_log_z_neg = \
+            dgcrt_z.get_sf_tuning_properties(sf_tuning_z_neg, response_dir='neg',
+                                               is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_neg_peak_sf_raw_z': peak_sf_raw_z_neg,
+                               'dgc_neg_peak_sf_linear_z': peak_sf_linear_z_neg,
+                               'dgc_neg_peak_sf_log_z': peak_sf_log_z_neg})
+
+        # tf tuning of zscore responses in positive direction ==========================================================
+        tf_tuning_z_pos = dgcrt_z.get_tf_tuning(response_dir='pos', is_collapse_sf=params['is_collapse_sf'],
+                                                    is_collapse_dire=params['is_collapse_dire'])
+        peak_tf_raw_z_pos, peak_tf_linear_z_pos, peak_tf_log_z_pos = \
+            dgcrt_z.get_tf_tuning_properties(tf_tuning_z_pos, response_dir='pos',
+                                               is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_pos_peak_tf_raw_z': peak_tf_raw_z_pos,
+                               'dgc_pos_peak_tf_linear_z': peak_tf_linear_z_pos,
+                               'dgc_pos_peak_tf_log_z': peak_tf_log_z_pos})
+
+        # tf tuning of zscore responses in negative direction ==========================================================
+        tf_tuning_z_neg = dgcrt_z.get_tf_tuning(response_dir='neg', is_collapse_sf=params['is_collapse_sf'],
+                                                    is_collapse_dire=params['is_collapse_dire'])
+        peak_tf_raw_z_neg, peak_tf_linear_z_neg, peak_tf_log_z_neg = \
+            dgcrt_z.get_tf_tuning_properties(tf_tuning_z_neg, response_dir='neg',
+                                               is_rectify=params['is_rectify_dgc_tuning'])
+        roi_properties.update({'dgc_neg_peak_tf_raw_z': peak_tf_raw_z_neg,
+                               'dgc_neg_peak_tf_linear_z': peak_tf_linear_z_neg,
+                               'dgc_neg_peak_tf_log_z': peak_tf_log_z_neg})
 
     else:
-        dgcrm_plot = None
-        dgcrt_plot = None
+        dgcrm_df = None
+        dgcrm_dff = None
+        dgcrm_z = None
+        dgcrt_df = None
+        dgcrt_dff = None
+        dgcrt_z = None
 
         roi_properties.update({'dgc_pos_peak_df': np.nan,
                                'dgc_neg_peak_df': np.nan,
@@ -382,10 +598,89 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'dgc_pos_p_ttest_z': np.nan,
                                'dgc_neg_p_ttest_z': np.nan,
                                'dgc_p_anova_z': np.nan,
+                               'dgc_pos_osi_df': np.nan,
+                               'dgc_pos_gosi_df': np.nan,
+                               'dgc_pos_dsi_df': np.nan,
+                               'dgc_pos_gdsi_df': np.nan,
+                               'dgc_pos_peak_dire_raw_df': np.nan,
+                               'dgc_pos_peak_dire_vs_df': np.nan,
+                               'dgc_pos_peak_orie_vs_df': np.nan,
+                               'dgc_neg_osi_df': np.nan,
+                               'dgc_neg_gosi_df': np.nan,
+                               'dgc_neg_dsi_df': np.nan,
+                               'dgc_neg_gdsi_df': np.nan,
+                               'dgc_neg_peak_dire_raw_df': np.nan,
+                               'dgc_neg_peak_dire_vs_df': np.nan,
+                               'dgc_neg_peak_orie_vs_df': np.nan,
+                               'dgc_pos_peak_sf_raw_df': np.nan,
+                               'dgc_pos_peak_sf_linear_df': np.nan,
+                               'dgc_pos_peak_sf_log_df': np.nan,
+                               'dgc_neg_peak_sf_raw_df': np.nan,
+                               'dgc_neg_peak_sf_linear_df': np.nan,
+                               'dgc_neg_peak_sf_log_df': np.nan,
+                               'dgc_pos_peak_tf_raw_df': np.nan,
+                               'dgc_pos_peak_tf_linear_df': np.nan,
+                               'dgc_pos_peak_tf_log_df': np.nan,
+                               'dgc_neg_peak_tf_raw_df': np.nan,
+                               'dgc_neg_peak_tf_linear_df': np.nan,
+                               'dgc_neg_peak_tf_log_df': np.nan,
+                               'dgc_pos_osi_dff': np.nan,
+                               'dgc_pos_gosi_dff': np.nan,
+                               'dgc_pos_dsi_dff': np.nan,
+                               'dgc_pos_gdsi_dff': np.nan,
+                               'dgc_pos_peak_dire_raw_dff': np.nan,
+                               'dgc_pos_peak_dire_vs_dff': np.nan,
+                               'dgc_pos_peak_orie_vs_dff': np.nan,
+                               'dgc_neg_osi_dff': np.nan,
+                               'dgc_neg_gosi_dff': np.nan,
+                               'dgc_neg_dsi_dff': np.nan,
+                               'dgc_neg_gdsi_dff': np.nan,
+                               'dgc_neg_peak_dire_raw_dff': np.nan,
+                               'dgc_neg_peak_dire_vs_dff': np.nan,
+                               'dgc_neg_peak_orie_vs_dff': np.nan,
+                               'dgc_pos_peak_sf_raw_dff': np.nan,
+                               'dgc_pos_peak_sf_linear_dff': np.nan,
+                               'dgc_pos_peak_sf_log_dff': np.nan,
+                               'dgc_neg_peak_sf_raw_dff': np.nan,
+                               'dgc_neg_peak_sf_linear_dff': np.nan,
+                               'dgc_neg_peak_sf_log_dff': np.nan,
+                               'dgc_pos_peak_tf_raw_dff': np.nan,
+                               'dgc_pos_peak_tf_linear_dff': np.nan,
+                               'dgc_pos_peak_tf_log_dff': np.nan,
+                               'dgc_neg_peak_tf_raw_dff': np.nan,
+                               'dgc_neg_peak_tf_linear_dff': np.nan,
+                               'dgc_neg_peak_tf_log_dff': np.nan,
+                               'dgc_pos_osi_z': np.nan,
+                               'dgc_pos_gosi_z': np.nan,
+                               'dgc_pos_dsi_z': np.nan,
+                               'dgc_pos_gdsi_z': np.nan,
+                               'dgc_pos_peak_dire_raw_z': np.nan,
+                               'dgc_pos_peak_dire_vs_z': np.nan,
+                               'dgc_pos_peak_orie_vs_z': np.nan,
+                               'dgc_neg_osi_z': np.nan,
+                               'dgc_neg_gosi_z': np.nan,
+                               'dgc_neg_dsi_z': np.nan,
+                               'dgc_neg_gdsi_z': np.nan,
+                               'dgc_neg_peak_dire_raw_z': np.nan,
+                               'dgc_neg_peak_dire_vs_z': np.nan,
+                               'dgc_neg_peak_orie_vs_z': np.nan,
+                               'dgc_pos_peak_sf_raw_z': np.nan,
+                               'dgc_pos_peak_sf_linear_z': np.nan,
+                               'dgc_pos_peak_sf_log_z': np.nan,
+                               'dgc_neg_peak_sf_raw_z': np.nan,
+                               'dgc_neg_peak_sf_linear_z': np.nan,
+                               'dgc_neg_peak_sf_log_z': np.nan,
+                               'dgc_pos_peak_tf_raw_z': np.nan,
+                               'dgc_pos_peak_tf_linear_z': np.nan,
+                               'dgc_pos_peak_tf_log_z': np.nan,
+                               'dgc_neg_peak_tf_raw_z': np.nan,
+                               'dgc_neg_peak_tf_linear_z': np.nan,
+                               'dgc_neg_peak_tf_log_z': np.nan,
                                })
 
 
-    return roi_properties, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_plot, dgcrt_plot
+    return roi_properties, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_df, dgcrm_dff, dgcrm_z, \
+           dgcrt_df, dgcrt_dff, dgcrt_z
 
 
 def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
@@ -538,7 +833,6 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
         else:
             raise LookupError("Do not understand 'dgc_response_type_for_plot': {}. Should be "
                               "'df', 'dff' or 'zscore'.".format(params['dgc_response_type_for_plot']))
-
 
         # plot peak condition traces
         traces_blank = dgcrm_plot.loc[dgcrt_plot.blank_condi_ind, 'matrix']
@@ -741,7 +1035,7 @@ if __name__ == '__main__':
     plane_n = 'plane0'
     roi_n = 'roi_0000'
     nwb_f = h5py.File(nwb_path, 'r')
-    roi_properties, _, _, _, _, _, _ = get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+    roi_properties, _, _, _, _, _, _, _, _, _, _, = get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
 
     keys = roi_properties.keys()
     keys.sort()

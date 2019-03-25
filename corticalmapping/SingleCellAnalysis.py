@@ -1938,8 +1938,8 @@ class DriftingGratingResponseTable(DataFrame):
         """
 
         :param dire_tuning:
-        :param response_dir:
-        :param is_rectify:
+        :param response_dir:  str, 'pos' or 'neg
+        :param is_rectify: bool, if True, responses below zero will be set as zero
         :return OSI:
         :return DSI:
         :return gOSI:
@@ -2000,6 +2000,15 @@ class DriftingGratingResponseTable(DataFrame):
 
     @staticmethod
     def get_tf_tuning_properties(tf_tuning, response_dir='pos', is_rectify=True):
+        """
+
+        :param tf_tuning:
+        :param response_dir:  str, 'pos' or 'neg
+        :param is_rectify:  bool, if True, responses below zero will be set as zero
+        :return peak_tf_raw: tf condition (presented) with maxmium response
+        :return peak_tf_linear: average tf conditions weighted by response amplitude
+        :return peak_tf_log: average tf conditions weighted by response amplitude (on log scale)
+        """
 
         if response_dir == 'pos':
             pass
@@ -2031,6 +2040,15 @@ class DriftingGratingResponseTable(DataFrame):
 
     @staticmethod
     def get_sf_tuning_properties(sf_tuning, response_dir='pos', is_rectify=True):
+        """
+
+        :param sf_tuning:
+        :param response_dir: str, 'pos' or 'neg
+        :param is_rectify:  bool, if True, responses below zero will be set as zero
+        :return peak_sf_raw: sf condition (presented) with maxmium response
+        :return peak_sf_linear: average sf conditions weighted by response amplitude
+        :return peak_sf_log: average sf conditions weighted by response amplitude (on log scale)
+        """
 
         if response_dir == 'pos':
             pass
