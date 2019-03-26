@@ -285,7 +285,7 @@ def get_local_similarity_index(mask1, mask2):
     square1 = np.sum((mask1 * mask1).flat)
     square2 = np.sum((mask2 * mask2).flat)
 
-    if square1 == square2 == 0.:
+    if square1 == 0 or square2 == 0.:
         return np.nan
     else:
         value1 = np.sum((mask1 * mask2).flat)
