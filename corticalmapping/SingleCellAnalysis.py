@@ -282,11 +282,15 @@ def get_local_similarity_index(mask1, mask2):
     if not len(mask1.shape) == len(mask2.shape) == 2:
         raise ValueError('mask1 and mask2 should both be 2d array with same shape.')
 
+    square1 = np.sum((mask1 * mask1).flat)
+    square2 = np.sum((mask2 * mask2).flat)
 
-    value1 = np.sum((mask1 * mask2).flat)
-    value2 = np.sqrt(np.sum((mask1 * mask1).flat) * np.sum((mask2 * mask2).flat))
-
-    return value1 / value2
+    if square1 == square2 == 0.:
+        return np.nan
+    else:
+        value1 = np.sum((mask1 * mask2).flat)
+        value2 = np.sqrt(square1 * square2)
+        return value1 / value2
 
 
 def dire2ori(dire):

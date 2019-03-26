@@ -116,8 +116,9 @@ def get_rf_properties(srf,
     srf = srf.threshold(thr=z_thr)
     rf_center = srf.get_weighted_rf_center()
     rf_area = srf.get_binary_rf_area()
+    rf_mask = srf.get_weighted_mask()
 
-    return  rf_z, rf_center, rf_area
+    return  rf_z, rf_center, rf_area, rf_mask
 
 
 def get_roi(nwb_f, plane_n, roi_n):
@@ -219,7 +220,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         srf_pos_on, srf_pos_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_positive_rf'])
 
         # ON positive spatial receptive field
-        rf_pos_on_z, rf_pos_on_center, rf_pos_on_area = get_rf_properties(srf= srf_pos_on,
+        rf_pos_on_z, rf_pos_on_center, rf_pos_on_area, rf_pos_on_mask = get_rf_properties(srf= srf_pos_on,
                                                                           polarity='positive',
                                                                           sigma=params['gaussian_filter_sigma_rf'],
                                                                           interpolate_rate=params['interpolate_rate_rf'],
@@ -230,7 +231,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'rf_pos_on_center_azi': rf_pos_on_center[1]})
 
         # OFF positive spatial receptive field
-        rf_pos_off_z, rf_pos_off_center, rf_pos_off_area = get_rf_properties(srf=srf_pos_off,
+        rf_pos_off_z, rf_pos_off_center, rf_pos_off_area, rf_pos_off_mask = get_rf_properties(srf=srf_pos_off,
                                                                              polarity='positive',
                                                                              sigma=params['gaussian_filter_sigma_rf'],
                                                                              interpolate_rate=params[
@@ -238,8 +239,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                                              z_thr=params['rf_z_threshold'])
 
         # on off overlapping
-        rf_pos_lsi = sca.get_local_similarity_index(srf_pos_on.get_weighted_mask(),
-                                                    srf_pos_off.get_weighted_mask())
+        rf_pos_lsi = sca.get_local_similarity_index(rf_pos_on_mask, rf_pos_off_mask)
 
         roi_properties.update({'rf_pos_off_peak_z': rf_pos_off_z,
                                'rf_pos_off_area': rf_pos_off_area,
@@ -252,7 +252,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         srf_neg_on, srf_neg_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_negative_rf'])
 
         # ON negative spatial receptive field
-        rf_neg_on_z, rf_neg_on_center, rf_neg_on_area = get_rf_properties(srf=srf_neg_on,
+        rf_neg_on_z, rf_neg_on_center, rf_neg_on_area, rf_neg_on_mask = get_rf_properties(srf=srf_neg_on,
                                                                           polarity='negative',
                                                                           sigma=params['gaussian_filter_sigma_rf'],
                                                                           interpolate_rate=params[
@@ -264,7 +264,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'rf_neg_on_center_azi': rf_neg_on_center[1]})
 
         # OFF negative spatial receptive field
-        rf_neg_off_z, rf_neg_off_center, rf_neg_off_area = get_rf_properties(srf=srf_pos_off,
+        rf_neg_off_z, rf_neg_off_center, rf_neg_off_area, rf_neg_off_mask = get_rf_properties(srf=srf_pos_off,
                                                                              polarity='positive',
                                                                              sigma=params[
                                                                                  'gaussian_filter_sigma_rf'],
@@ -273,8 +273,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                                              z_thr=params['rf_z_threshold'])
 
         # on off overlapping
-        rf_neg_lsi = sca.get_local_similarity_index(srf_neg_on.get_weighted_mask(),
-                                                    srf_neg_off.get_weighted_mask())
+        rf_neg_lsi = sca.get_local_similarity_index(srf_neg_on_mask, srf_neg_off_mask)
 
         roi_properties.update({'rf_neg_off_peak_z': rf_neg_off_z,
                                'rf_neg_off_area': rf_neg_off_area,
