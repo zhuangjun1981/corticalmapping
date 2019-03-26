@@ -273,7 +273,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                                              z_thr=params['rf_z_threshold'])
 
         # on off overlapping
-        rf_neg_lsi = sca.get_local_similarity_index(srf_neg_on_mask, srf_neg_off_mask)
+        rf_neg_lsi = sca.get_local_similarity_index(rf_neg_on_mask, rf_neg_off_mask)
 
         roi_properties.update({'rf_neg_off_peak_z': rf_neg_off_z,
                                'rf_neg_off_area': rf_neg_off_area,
