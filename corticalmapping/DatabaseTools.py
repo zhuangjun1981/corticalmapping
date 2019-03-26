@@ -21,7 +21,7 @@ ANALYSIS_PARAMS = {
     'gaussian_filter_sigma_rf': 1., # float, filtering sigma for z-score receptive fields
     'interpolate_rate_rf': 10., # float, interpolate rate of filtered z-score maps
     # 'peak_z_threshold_rf': 1.5, # float, threshold for significant receptive field of z score after filtering.
-    'rf_z_threshold': 0.6, # float, threshold for significant zscore receptive field
+    'rf_z_threshold': 1.6, # float, threshold for significant zscore receptive field
     'response_window_dgc': [0., 1.], # list of two floats, temporal window for getting response value for drifting grating
     'baseline_window_dgc': [-0.5, 0.], # list of two floats, temporal window for getting baseline value for drifting grating
     'is_collapse_sf': True, # bool, average across sf or not for direction/tf tuning curve
