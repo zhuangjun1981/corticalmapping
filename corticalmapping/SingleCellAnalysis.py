@@ -469,7 +469,7 @@ class SpatialReceptiveField(WeightedROI):
             raise ValueError, 'Can not cut a thresholded receptive field with a lower thresold!'
         cutRF = get_peak_weighted_roi(self.get_weighted_mask(), thr)
         if cutRF is None:
-            print 'No ROI found. Threshold too high!'
+            # print 'No ROI found. Threshold too high!'
             cutRF = ia.WeightedROI(np.zeros(self.dimension))
 
         return SpatialReceptiveField(cutRF.get_weighted_mask(), self.altPos, self.aziPos, sign=self.sign,
