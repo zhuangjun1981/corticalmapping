@@ -1328,7 +1328,7 @@ class DriftingGratingResponseMatrix(DataFrame):
         return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type='{}_zscore'.format(self.trace_type),
                                              data=dgcrm_zscore)
 
-    def get_dff_response_matrix(self, baseline_win=(-0.5, 0.), bias=0., warning_level=1.):
+    def get_dff_response_matrix(self, baseline_win=(-0.5, 0.), bias=0., warning_level=0.9):
         """
 
         return df over f response matrix
@@ -1345,7 +1345,8 @@ class DriftingGratingResponseMatrix(DataFrame):
         dgcrm_dff = self.copy()
 
         for row_i, row in self.iterrows():
-            curr_matrix = row['matrix'].astype(np.float64) + bias
+            curr_matrix = row['matrix'].astype(np.float64)
+            curr_matrix = curr_matrix - np.amin(curr_matrix) + bias
             dff_matrix = np.empty(curr_matrix.shape, dtype=np.float32)
             for trial_i in range(curr_matrix.shape[0]):
                 curr_trial = curr_matrix[trial_i, :]

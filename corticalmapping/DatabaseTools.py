@@ -350,7 +350,8 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
 
         # get dgc response matrices ====================================================================================
         dgcrm_df = dgcrm.get_df_response_matrix(baseline_win=params['baseline_window_dgc'])
-        dgcrm_dff = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'])
+        dgcrm_dff = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'],
+                                                  bias=params['add_to_trace_bias'])
         dgcrm_z = dgcrm.get_zscore_response_matrix(baseline_win=params['baseline_window_dgc'])
 
 
