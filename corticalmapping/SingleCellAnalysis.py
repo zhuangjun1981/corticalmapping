@@ -61,7 +61,8 @@ def get_peak_weighted_roi(arr, thr):
     peakCoor = np.array(np.where(arr2 == np.amax(arr2))).transpose()[0]
     peakMask = ia.get_marked_masks(labeled, peakCoor)
     if peakMask is None:
-        'Threshold too high! No ROI found. Returning None'; return None
+        # print('Threshold too high! No ROI found. Returning None'.)
+        return None
     else:
         return WeightedROI(arr2 * peakMask)
 
