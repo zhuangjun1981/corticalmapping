@@ -1400,6 +1400,84 @@ class RecordedFile(NWB):
                                   frame_end=frame_end)
                     curr_grating_grp.create_dataset('sta_' + trace_n, data=sta)
 
+    def get_spatial_temporal_receptive_field_retinotopic_mapping(self, stim_name, time_window=(-0.5, 2.)):
+
+        def get_sta(arr, arr_ts, trigger_ts, frame_start, frame_end):
+
+            sta_arr = []
+
+            for trig in trigger_ts:
+                trig_ind = ta.find_nearest(arr_ts, trig)
+
+                if trig_ind + frame_end < arr.shape[1]:
+                    curr_sta = arr[:, (trig_ind + frame_start): (trig_ind + frame_end)]
+                    # print(curr_sta.shape)
+                    sta_arr.append(curr_sta.reshape((curr_sta.shape[0], 1, curr_sta.shape[1])))
+
+            sta_arr = np.concatenate(sta_arr, axis=1)
+            return sta_arr
+
+        if time_window[0] >= time_window[1]:
+            raise ValueError('time window should be from early time to late time.')
+
+        probe_onsets_path = 'analysis/photodiode_onsets/{}'.format(stim_name)
+        probe_ns = self.file_pointer[probe_onsets_path].keys()
+        probe_ns.sort()
+        # print('\n'.join(probe_ns))
+
+        rois_and_traces_names = self.file_pointer['processing'].keys()
+        rois_and_traces_names = [n for n in rois_and_traces_names if n[0:15] == 'rois_and_traces']
+        rois_and_traces_names.sort()
+        # print('\n'.join(rois_and_traces_paths))
+
+        strf_grp = self.file_pointer['analysis'].create_group('strf_{}'.format(stim_name))
+        for curr_trace_name in rois_and_traces_names:
+
+            print('\nadding strfs for {} ...'.format(curr_trace_name))
+
+            curr_plane_n = curr_trace_name[16:]
+
+            strf_grp_plane = strf_grp.create_group(curr_plane_n)
+
+            # get trace time stamps
+            trace_ts = self.file_pointer['processing/motion_correction/MotionCorrection' \
+                                          '/{}/corrected/timestamps'.format(curr_plane_n)]
+            # get traces
+            traces = {}
+            if 'processing/{}/DfOverF/dff_center'.format(curr_trace_name) in self.file_pointer:
+                traces['global_dff_center'] = self.file_pointer[
+                    'processing/{}/DfOverF/dff_center/data'.format(curr_trace_name)].value
+            if 'processing/{}/Fluorescence'.format(curr_trace_name) in self.file_pointer:
+                f_types = self.file_pointer['processing/{}/Fluorescence'.format(curr_trace_name)].keys()
+                for f_type in f_types:
+                    traces[f_type] = self.file_pointer['processing/{}/Fluorescence/{}/data'
+                        .format(curr_trace_name, f_type)].value
+            # print(traces.keys())
+
+            frame_dur = np.mean(np.diff(trace_ts))
+            frame_start = int(np.floor(time_window[0] / frame_dur))
+            frame_end = int(np.ceil(time_window[1] / frame_dur))
+            t_axis = np.arange(frame_end - frame_start) * frame_dur + time_window[0]
+            strf_grp_plane.attrs['sta_timestamps'] = t_axis
+
+            for probe_i, probe_n in enumerate(probe_ns):
+
+                print('\tprocessing probe {} / {}'.format(probe_i+1, len(probe_ns)))
+
+                onsets_probe_grp = self.file_pointer['{}/{}'.format(probe_onsets_path, probe_n)]
+
+                curr_probe_grp = strf_grp_plane.create_group(probe_n)
+
+                probe_onsets = onsets_probe_grp['pd_onset_ts_sec'].value
+
+                curr_probe_grp['global_trigger_timestamps'] = h5py.SoftLink('/{}/{}/pd_onset_ts_sec'
+                                                                            .format(probe_onsets_path, probe_n))
+                curr_probe_grp.attrs['sta_traces_dimenstion'] = 'roi x trial x timepoint'
+
+                for trace_n, trace in traces.items():
+                    sta = get_sta(arr=trace, arr_ts=trace_ts, trigger_ts=probe_onsets, frame_start=frame_start,
+                                  frame_end=frame_end)
+                    curr_probe_grp.create_dataset('sta_' + trace_n, data=sta)
 
     def _add_stimulus_separator_retinotopic_mapping(self, ss_dict):
 

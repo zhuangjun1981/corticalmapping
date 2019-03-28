@@ -232,8 +232,32 @@ def get_dgc_condition_params(condi_name):
     return alt, azi, sf, tf, dire, con, rad
 
 
-def get_dgc_response_matrix_from_h5(h5_grp, roi_ind, trace_type='sta_f_center_subtracted'):
+def get_strf_from_nwb(h5_grp, roi_ind, trace_type='sta_f_center_subtracted', location_unit='degree'):
 
+    sta_ts = h5_grp.attrs['sta_timestamps']
+
+    probe_ns = h5_grp.keys()
+    probe_ns.sort()
+
+    locations = []
+    signs = []
+    traces = []
+    trigger_ts = []
+
+    for probe_i, probe_n in enumerate(probe_ns):
+
+        locations.append([float(probe_n[3:9]), float(probe_n[13:19])])
+        signs.append(int(probe_n[24:26]))
+
+        traces.append(h5_grp['{}/{}'.format(probe_n, trace_type)][roi_ind, :, :])
+        trigger_ts.append(h5_grp['{}/global_trigger_timestamps'.format(probe_n)].value)
+
+    return SpatialTemporalReceptiveField(locations=locations, signs=signs, traces=traces, time=sta_ts,
+                                         trigger_ts=trigger_ts, name='roi_{:04d}'.format(roi_ind),
+                                         locationUnit=location_unit, trace_data_type=trace_type)
+
+
+def get_dgc_response_matrix_from_nwb(h5_grp, roi_ind, trace_type='sta_f_center_subtracted'):
     sta_ts = h5_grp.attrs['sta_timestamps']
 
     dgcrt = DataFrame([], columns=['alt', 'azi', 'sf', 'tf', 'dire', 'con', 'rad', 'onset_ts', 'matrix'])
@@ -2089,9 +2113,9 @@ if __name__ == '__main__':
     plt.ioff()
     # =====================================================================
     f = h5py.File(r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb", 'r')
-    dgcrm = get_dgc_response_matrix_from_h5(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
-                                            roi_ind=0,
-                                            trace_type='sta_f_center_subtracted')
+    dgcrm = get_dgc_response_matrix_from_nwb(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
+                                             roi_ind=0,
+                                             trace_type='sta_f_center_subtracted')
 
     dgcrm_zscore = dgcrm.get_zscore_response_matrix(baseline_win=[-0.5, 0])
     dgcrt_zscore = dgcrm_zscore.get_response_table(response_win=[0., 1.])

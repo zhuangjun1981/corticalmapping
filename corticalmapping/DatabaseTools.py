@@ -313,8 +313,9 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
 
         block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(dgcrt_grp_key[15:])].value
         # print('block duration: {}'.format(block_dur))
-        dgcrm = sca.get_dgc_response_matrix_from_h5(h5_grp=nwb_f['analysis/{}/{}'.format(dgcrt_grp_key, plane_n)],
-                                                    roi_ind=roi_ind)
+        dgcrm = sca.get_dgc_response_matrix_from_nwb(h5_grp=nwb_f['analysis/{}/{}'.format(dgcrt_grp_key, plane_n)],
+                                                     roi_ind=roi_ind,
+                                                     trace_type=params['trace_type'])
 
         # get df statistics ============================================================================================
         _ = dgcrm.get_df_response_table(baseline_win=params['baseline_window_dgc'],
@@ -795,7 +796,8 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
         # print('block duration: {}'.format(block_dur))
 
         dgcrm_grp = nwb_f['analysis/{}/{}'.format(dgcrt_grp_key, plane_n)]
-        dgcrm = sca.get_dgc_response_matrix_from_h5(h5_grp=dgcrm_grp, roi_ind=roi_ind)
+        dgcrm = sca.get_dgc_response_matrix_from_nwb(h5_grp=dgcrm_grp, roi_ind=roi_ind,
+                                                     trace_type='sta_' + params['trace_type'])
 
         # get df statistics
         _ = dgcrm.get_df_response_table(baseline_win=params['baseline_window_dgc'],
@@ -820,14 +822,14 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
         dgc_neg_peak_z = dgcrt_z.peak_response_neg
 
         # select response table for plotting
-        if params['dgc_response_type_for_plot'] == 'df':
+        if plot_params['dgc_response_type_for_plot'] == 'df':
             dgcrm_plot = dgcrm.get_df_response_matrix(baseline_win=params['baseline_window_dgc'])
             dgcrt_plot = dgcrt_df
-        elif params['dgc_response_type_for_plot'] == 'dff':
+        elif plot_params['dgc_response_type_for_plot'] == 'dff':
             dgcrm_plot = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'],
                                                        bias=add_to_trace)
             dgcrt_plot = dgcrt_dff
-        elif params['dgc_response_type_for_plot'] == 'zscore':
+        elif plot_params['dgc_response_type_for_plot'] == 'zscore':
             dgcrm_plot = dgcrm.get_zscore_response_matrix(baseline_win=params['baseline_window_dgc'])
             dgcrt_plot = dgcrt_z
         else:
@@ -986,8 +988,10 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
     ax_text.set_xticks([])
     ax_text.set_yticks([])
 
+    file_n = os.path.splitext(os.path.split(nwb_f.filename)[1])[0]
+
     txt = '\n'
-    txt += 'nwb: {}\n'.format(os.path.split(nwb_path)[1])
+    txt += 'nwb: {}\n'.format(file_n)
     txt += '\n'
     txt += 'plane name:          {}\n'.format(plane_n)
     txt += 'roi name:            {}\n'.format(roi_n)
@@ -1021,7 +1025,7 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
     txt += 'dgc_neg_p_ttest_dff: {:.2f}\n'.format(dgc_neg_p_ttest_dff)
     txt += 'dgc_neg_p_ttest_z:   {:.2f}\n'.format(dgc_neg_p_ttest_z)
     txt += '\n'
-    txt += 'response type:       {}\n'.format(params['dgc_response_type_for_plot'])
+    txt += 'response type:       {}\n'.format(plot_params['dgc_response_type_for_plot'])
 
     ax_text.text(0.01, 0.99, txt, horizontalalignment='left', verticalalignment='top', family='monospace')
 
