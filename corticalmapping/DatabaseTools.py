@@ -68,11 +68,31 @@ PLOTTING_PARAMS = {
 }
 
 
-def has_strf(nwb_f, plane_n):
-    return 'analysis/STRFs/{}'.format(plane_n) in nwb_f
+def get_strf_grp_key(nwb_f):
+    analysis_grp = nwb_f['analysis']
+    strf_key = [k for k in analysis_grp.keys() if k[0:4] == 'strf' and 'SparseNoise' in k]
+    if len(strf_key) == 0:
+        return None
+    elif len(strf_key) == 1:
+        return strf_key[0]
+    else:
+        raise LookupError('more than one drifting grating response table found.')
 
 
-def get_dgcrt_grp_key(nwb_f):
+def get_strf(nwb_f, plane_n, roi_ind, trace_type):
+    strf_grp = get_strf_grp_key(nwb_f=nwb_f)
+
+    if strf_grp is not None:
+        try:
+            strf = sca.get_strf_from_nwb(h5_grp=strf_grp[plane_n], roi_ind=roi_ind, trace_type=trace_type)
+            return strf
+        except Exception:
+            return None
+    else:
+        return None
+
+
+def get_dgcrm_grp_key(nwb_f):
     analysis_grp = nwb_f['analysis']
     dgcrt_key = [k for k in analysis_grp.keys() if k[0:14] == 'response_table' and 'DriftingGrating' in k]
     if len(dgcrt_key) == 0:
@@ -81,6 +101,22 @@ def get_dgcrt_grp_key(nwb_f):
         return dgcrt_key[0]
     else:
         raise LookupError('more than one drifting grating response table found.')
+
+
+def get_dgcrm(nwb_f, plane_n, roi_ind, trace_type):
+
+    dgcrm_grp = get_dgcrm_grp_key(nwb_f=nwb_f)
+
+    if dgcrm_grp is not None:
+        try:
+            dgcrm = sca.get_dgc_response_matrix_from_nwb(h5_grp=dgcrm_grp[plane_n],
+                                                        roi_ind=roi_ind,
+                                                        trace_type=trace_type)
+            return dgcrm
+        except Exception:
+            return None
+    else:
+        return None
 
 
 def get_rf_properties(srf,
@@ -149,10 +185,7 @@ def get_single_trace(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_ty
     return trace, trace_ts
 
 
-def get_strf(nwb_f, plane_n, roi_n):
-    strf_grp = nwb_f['analysis/STRFs/{}/strf_{}'.format(plane_n, roi_n)]
-    strf = sca.SpatialTemporalReceptiveField.from_h5_group(strf_grp)
-    return strf
+
 
 
 def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
@@ -211,9 +244,9 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
     else:
         add_to_trace = 0.
 
-    if has_strf(nwb_f=nwb_f, plane_n=plane_n):
+    strf = get_strf(nwb_f=nwb_f, plane_n=plane_n, roi_ind=roi_ind, trace_type=params['trace_type'])
+    if strf is not None:
         # get strf properties
-        strf = get_strf(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
         strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
 
         # positive spatial receptive fields
@@ -308,14 +341,11 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
 
 
     # analyze response to drifring grating
-    dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
-    if dgcrt_grp_key:
+    dgcrm = get_dgcrm(nwb_f=nwb_f, plane_n=plane_n, roi_ind=roi_ind, trace_type=params['trace_type'])
+    if dgcrm:
 
-        block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(dgcrt_grp_key[15:])].value
+        # block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(dgcrt_grp_key[15:])].value
         # print('block duration: {}'.format(block_dur))
-        dgcrm = sca.get_dgc_response_matrix_from_nwb(h5_grp=nwb_f['analysis/{}/{}'.format(dgcrt_grp_key, plane_n)],
-                                                     roi_ind=roi_ind,
-                                                     trace_type=params['trace_type'])
 
         # get df statistics ============================================================================================
         _ = dgcrm.get_df_response_table(baseline_win=params['baseline_window_dgc'],
@@ -789,7 +819,7 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
         peak_z_rf_off_neg = np.nan
 
     # plotting drifting grating peak response
-    dgcrt_grp_key = get_dgcrt_grp_key(nwb_f=nwb_f)
+    dgcrt_grp_key = get_dgcrm_grp_key(nwb_f=nwb_f)
     if dgcrt_grp_key:
 
         block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(dgcrt_grp_key[15:])].value
