@@ -80,14 +80,18 @@ def get_strf_grp_key(nwb_f):
 
 
 def get_strf(nwb_f, plane_n, roi_ind, trace_type):
-    strf_grp = get_strf_grp_key(nwb_f=nwb_f)
+    strf_key = get_strf_grp_key(nwb_f=nwb_f)
 
-    if strf_grp is not None:
-        try:
-            strf = sca.get_strf_from_nwb(h5_grp=strf_grp[plane_n], roi_ind=roi_ind, trace_type=trace_type)
-            return strf
-        except Exception:
-            return None
+    if strf_key is not None:
+        strf_grp = nwb_f['analysis/{}/{}'.format(strf_key, plane_n)]
+        strf = sca.get_strf_from_nwb(h5_grp=strf_grp, roi_ind=roi_ind, trace_type=trace_type)
+        return strf
+        # try:
+        #     strf_grp = nwb_f['analysis/{}/{}'.format(strf_key, plane_n)]
+        #     strf = sca.get_strf_from_nwb(h5_grp=strf_grp, roi_ind=roi_ind, trace_type=trace_type)
+        #     return strf
+        # except Exception:
+        #     return None
     else:
         return None
 
@@ -105,15 +109,17 @@ def get_dgcrm_grp_key(nwb_f):
 
 def get_dgcrm(nwb_f, plane_n, roi_ind, trace_type):
 
-    dgcrm_grp = get_dgcrm_grp_key(nwb_f=nwb_f)
+    dgcrm_key = get_dgcrm_grp_key(nwb_f=nwb_f)
 
-    if dgcrm_grp is not None:
+    if dgcrm_key is not None:
         try:
-            dgcrm = sca.get_dgc_response_matrix_from_nwb(h5_grp=dgcrm_grp[plane_n],
-                                                        roi_ind=roi_ind,
-                                                        trace_type=trace_type)
+            dgcrm_grp = nwb_f['analysis/{}/{}'.format(dgcrm_key, plane_n)]
+            dgcrm = sca.get_dgc_response_matrix_from_nwb(h5_grp=dgcrm_grp,
+                                                         roi_ind=roi_ind,
+                                                         trace_type=trace_type)
             return dgcrm
-        except Exception:
+        except Exception as e:
+            # print(e)
             return None
     else:
         return None
@@ -185,9 +191,6 @@ def get_single_trace(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_ty
     return trace, trace_ts
 
 
-
-
-
 def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
 
     rf_on = (rf_on / vmax)
@@ -244,7 +247,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
     else:
         add_to_trace = 0.
 
-    strf = get_strf(nwb_f=nwb_f, plane_n=plane_n, roi_ind=roi_ind, trace_type=params['trace_type'])
+    strf = get_strf(nwb_f=nwb_f, plane_n=plane_n, roi_ind=roi_ind, trace_type='sta_' + params['trace_type'])
     if strf is not None:
         # get strf properties
         strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
@@ -341,10 +344,10 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
 
 
     # analyze response to drifring grating
-    dgcrm = get_dgcrm(nwb_f=nwb_f, plane_n=plane_n, roi_ind=roi_ind, trace_type=params['trace_type'])
-    if dgcrm:
-
-        # block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(dgcrt_grp_key[15:])].value
+    dgcrm = get_dgcrm(nwb_f=nwb_f, plane_n=plane_n, roi_ind=roi_ind, trace_type='sta_' + params['trace_type'])
+    if dgcrm is not None:
+        dgcrm_grp_key = get_dgcrm_grp_key(nwb_f=nwb_f)
+        dgc_block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(dgcrm_grp_key[15:])].value
         # print('block duration: {}'.format(block_dur))
 
         # get df statistics ============================================================================================
@@ -613,6 +616,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         dgcrt_df = None
         dgcrt_dff = None
         dgcrt_z = None
+        dgc_block_dur = None
 
         roi_properties.update({'dgc_pos_peak_df': np.nan,
                                'dgc_neg_peak_df': np.nan,
@@ -710,11 +714,86 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                })
 
 
-    return roi_properties, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_df, dgcrm_dff, dgcrm_z, \
-           dgcrt_df, dgcrt_dff, dgcrt_z
-
+    return roi_properties, roi, trace, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_df, dgcrm_dff, \
+           dgcrm_z, dgcrt_df, dgcrt_dff, dgcrt_z, dgc_block_dur
 
 def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
+    """
+    generate a page of description of an roi
+
+    :param nwb_f: h5py.File object
+    :param plane_n:
+    :param roi_n:
+    :param params:
+    :return:
+    """
+
+    roi_ind = int(roi_n[-4:])
+
+    roi_properties, roi, trace, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_df, dgcrm_dff, \
+    dgcrm_z, dgcrt_df, dgcrt_dff, dgcrt_z, dgc_block_dur = get_everything_from_roi(nwb_f=nwb_f,
+                                                                                   plane_n=plane_n,
+                                                                                   roi_n=roi_n,
+                                                                                   params=params)
+
+    segmentation_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane'.format(plane_n)]
+    rf_img_grp = segmentation_grp['reference_images']
+    if 'mean_projection' in rf_img_grp.keys():
+        rf_img = rf_img_grp['mean_projection/data'].value
+    else:
+        rf_img = rf_img_grp['max_projection/data'].value
+
+    f = plt.figure(figsize=plot_params['fig_size'], facecolor=plot_params['fig_facecolor'])
+
+    # plot roi mask
+    f.subplots_adjust(0, 0, 1, 1)
+    ax_roi_img = f.add_axes(plot_params['ax_roi_img_coord'])
+    ax_roi_img.imshow(ia.array_nor(rf_img), cmap='gray', vmin=plot_params['rf_img_vmin'],
+                      vmax=plot_params['rf_img_vmax'], interpolation='nearest')
+    pt.plot_mask_borders(mask=roi.get_binary_mask(), plotAxis=ax_roi_img, color=plot_params['roi_border_color'],
+                         borderWidth=plot_params['roi_border_width'])
+    ax_roi_img.set_axis_off()
+
+    # plot trace
+    trace_chunk_length = trace.shape[0] // plot_params['traces_panels']
+    trace_max = np.max(trace)
+    trace_min = np.min(trace)
+
+    trace_axis_height = (plot_params['field_traces_coord'][3] - (0.01 * (plot_params['traces_panels'] - 1))) \
+                        / plot_params['traces_panels']
+    for trace_i in range(plot_params['traces_panels']):
+        curr_trace_axis = f.add_axes([
+            plot_params['field_traces_coord'][0],
+            plot_params['field_traces_coord'][1] + trace_i * (0.01 + trace_axis_height),
+            plot_params['field_traces_coord'][2],
+            trace_axis_height
+        ])
+        curr_trace_chunk = trace[trace_i * trace_chunk_length: (trace_i + 1) * trace_chunk_length]
+        curr_trace_axis.plot(curr_trace_chunk, color=plot_params['traces_color'],
+                             lw=plot_params['traces_line_width'])
+        curr_trace_axis.set_xlim([0, trace_chunk_length])
+        curr_trace_axis.set_ylim([trace_min, trace_max])
+        curr_trace_axis.set_axis_off()
+
+    # plot receptive field
+    if srf_pos_on is not None:
+        ax_rf_pos = f.add_axes(plot_params['ax_rf_pos_coord'])
+        zscore_pos = render_rb(rf_on=srf_pos_on.get_weighted_mask(),
+                               rf_off=srf_pos_off.get_weighted_mask(), vmax=plot_params['rf_zscore_vmax'])
+        ax_rf_pos.imshow(zscore_pos, interpolation='nearest')
+        ax_rf_pos.set_axis_off()
+
+        # plotting negative ON and OFF receptive fields
+        ax_rf_neg = f.add_axes(plot_params['ax_rf_neg_coord'])
+        zscore_neg = render_rb(rf_on=-srf_neg_on.get_weighted_mask(),
+                               rf_off=-srf_neg_off.get_weighted_mask(), vmax=plot_params['rf_zscore_vmax'])
+        ax_rf_neg.imshow(zscore_neg, interpolation='nearest')
+        ax_rf_neg.set_axis_off()
+
+    pass
+
+
+def roi_page_report_old(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
     """
     generate a page of description of an roi
 
@@ -1065,11 +1144,13 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
 if __name__ == '__main__':
 
-    nwb_path = r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb"
+    nwb_path = r"F:\data2\chandelier_cell_project\database\nwbs\190326_M441626_110.nwb"
     plane_n = 'plane0'
     roi_n = 'roi_0000'
     nwb_f = h5py.File(nwb_path, 'r')
-    roi_properties, _, _, _, _, _, _, _, _, _, _, = get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+
+    roi_properties, _, _, _, _, _, _, _, _, _, _, _, _, _ = \
+        get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
 
     keys = roi_properties.keys()
     keys.sort()
@@ -1077,5 +1158,6 @@ if __name__ == '__main__':
         print('{}: {}'.format(key, roi_properties[key]))
 
     roi_page_report(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+
     nwb_f.close()
     plt.show()
