@@ -1398,7 +1398,7 @@ class RecordedFile(NWB):
                 for trace_n, trace in traces.items():
                     sta = get_sta(arr=trace, arr_ts=trace_ts, trigger_ts=grating_onsets, frame_start=frame_start,
                                   frame_end=frame_end)
-                    curr_grating_grp.create_dataset('sta_' + trace_n, data=sta)
+                    curr_grating_grp.create_dataset('sta_' + trace_n, data=sta, compression='lzf')
 
     def get_spatial_temporal_receptive_field_retinotopic_mapping(self, stim_name, time_window=(-0.5, 2.)):
 
@@ -1477,7 +1477,7 @@ class RecordedFile(NWB):
                 for trace_n, trace in traces.items():
                     sta = get_sta(arr=trace, arr_ts=trace_ts, trigger_ts=probe_onsets, frame_start=frame_start,
                                   frame_end=frame_end)
-                    curr_probe_grp.create_dataset('sta_' + trace_n, data=sta)
+                    curr_probe_grp.create_dataset('sta_' + trace_n, data=sta, compression='lzf')
 
     def _add_stimulus_separator_retinotopic_mapping(self, ss_dict):
 
