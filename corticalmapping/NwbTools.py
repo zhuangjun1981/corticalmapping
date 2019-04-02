@@ -1400,7 +1400,8 @@ class RecordedFile(NWB):
                                   frame_end=frame_end)
                     curr_grating_grp.create_dataset('sta_' + trace_n, data=sta, compression='lzf')
 
-    def get_spatial_temporal_receptive_field_retinotopic_mapping(self, stim_name, time_window=(-0.5, 2.)):
+    def get_spatial_temporal_receptive_field_retinotopic_mapping(self, stim_name, time_window=(-0.5, 2.),
+                                                                 verbose=True):
 
         def get_sta(arr, arr_ts, trigger_ts, frame_start, frame_end):
 
@@ -1433,7 +1434,8 @@ class RecordedFile(NWB):
         strf_grp = self.file_pointer['analysis'].create_group('strf_{}'.format(stim_name))
         for curr_trace_name in rois_and_traces_names:
 
-            print('\nadding strfs for {} ...'.format(curr_trace_name))
+            if verbose:
+                print('\nadding strfs for {} ...'.format(curr_trace_name))
 
             curr_plane_n = curr_trace_name[16:]
 
@@ -1462,7 +1464,8 @@ class RecordedFile(NWB):
 
             for probe_i, probe_n in enumerate(probe_ns):
 
-                print('\tprocessing probe {} / {}'.format(probe_i+1, len(probe_ns)))
+                if verbose:
+                    print('\tprocessing probe {} / {}'.format(probe_i+1, len(probe_ns)))
 
                 onsets_probe_grp = self.file_pointer['{}/{}'.format(probe_onsets_path, probe_n)]
 
