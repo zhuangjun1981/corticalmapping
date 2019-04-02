@@ -1672,6 +1672,59 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         return zscore_response_table, p_anova, p_ttest_pos, p_ttest_neg
 
+    def plot_traces(self, condi_ind, axis=None, blank_ind=None, block_dur=None, response_window=None,
+                    baseline_window=None, trace_color='#ff0000', block_face_color='#aaaaaa',
+                    response_window_color='#ff00ff', baseline_window_color='#888888', blank_trace_color='#888888',
+                    lw_single=0.5, lw_mean=2.):
+
+        if axis is None:
+            f = plt.figure()
+            axis = f.add_subplot(111)
+
+        if block_dur is not None:
+            axis.axvspan(0., block_dur, color=block_face_color)
+
+        if baseline_window is not None:
+            axis.axvline(x=baseline_window[0], linestyle='--', color=baseline_window_color, lw=2)
+            axis.axvline(x=baseline_window[1], linestyle='--', color=baseline_window_color, lw=2)
+
+        if response_window is not None:
+            axis.axvline(x=response_window[0], linestyle='--', color=response_window_color, lw=2)
+            axis.axvline(x=response_window[1], linestyle='--', color=response_window_color, lw=2)
+
+        ymin = None
+        ymax = None
+
+        if blank_ind is not None:
+            traces_blank = self.loc[blank_ind, 'matrix']
+            for t in traces_blank:
+                axis.plot(self.sta_ts, t, color=blank_trace_color, lw=lw_single)
+
+            axis.plot(self.sta_ts, np.mean(traces_blank, axis=0), color=blank_trace_color, lw=lw_mean)
+
+            ymin = np.amin(traces_blank)
+            ymax = np.amax(traces_blank)
+
+
+        traces = self.loc[condi_ind, 'matrix']
+        for t in traces:
+            axis.plot(self.sta_ts, t, color=trace_color, lw=lw_single)
+
+        if ymin is None:
+            ymin = np.amin(traces)
+        else:
+            ymin = min([ymin, np.amin(traces)])
+
+        if ymax is None:
+            ymax = np.amax(traces)
+        else:
+            ymax = max([ymax, np.amax(traces)])
+
+        axis.plot(self.sta_ts, np.mean(traces, axis=0), color=trace_color, lw=lw_mean)
+        axis.set_xlim([self.sta_ts[0], self.sta_ts[-1]])
+
+        return ymin, ymax
+
 
 class DriftingGratingResponseTable(DataFrame):
     """
@@ -2107,6 +2160,57 @@ class DriftingGratingResponseTable(DataFrame):
             peak_sf_log = 2 ** peak_sf_log * 0.01
 
             return peak_sf_raw, peak_sf_linear, peak_sf_log
+
+    def plot_sf_tf_matrix(self, response_dir='pos', axis=None, cmap='RdBu_r', vmax=4, vmin=-4):
+
+        if axis is None:
+            f = plt.figure()
+            axis = f.add_subplot(111)
+
+        if response_dir == 'pos':
+            sftf, sfs, tfs = self.get_sf_tf_matrix(response_dir='pos')
+        elif response_dir == 'neg':
+            sftf, sfs, tfs = self.get_sf_tf_matrix(response_dir='neg')
+        else:
+            raise ValueError('Do not understand "response_dir" ({}). Should be "pos" or "neg".'.format(response_dir))
+
+        axis.imshow(sftf, cmap=cmap, vmax=vmax, vmin=vmin, interpolation='nearest')
+        axis.set_yticks(range(len(sfs)))
+        axis.set_yticklabels(sfs)
+        axis.set_xticks(range(len(tfs)))
+        axis.set_xticklabels(tfs)
+        axis.tick_params(length=0)
+
+    def plot_dire_tuning(self, axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False,
+                         trace_color='#ff0000', lw=1., is_rectify=True):
+
+        if axis is None:
+            f = plt.figure()
+            axis = f.add_axes([0, 0, 1, 1], projection='polar')
+
+        dire_tuning = self.get_dire_tuning(response_dir=response_dir, is_collapse_sf=is_collapse_sf,
+                                           is_collapse_tf=is_collapse_tf)
+
+        dire_tuning = dire_tuning.sort_values(by='dire')
+        dire_tuning = dire_tuning.append(dire_tuning.iloc[0, :])
+        dire_tuning['dire'] = dire_tuning['dire'] * np.pi / 180.
+
+        if response_dir == 'neg':
+            dire_tuning['resp_mean'] = -dire_tuning['resp_mean']
+
+        if is_rectify:
+            dire_tuning['resp_mean'][dire_tuning['resp_mean'] < 0.] = 0.
+
+        r_max = np.ceil(max(dire_tuning['resp_mean'] + dire_tuning['resp_stdev']) * 10000.) / 10000.
+
+        axis.fill_between(x=dire_tuning['dire'], y1=dire_tuning['resp_mean'] - dire_tuning['resp_stdev'],
+                          y2=dire_tuning['resp_mean'] + dire_tuning['resp_stdev'],
+                          edgecolor='none', facecolor='#cccccc')
+        axis.plot(dire_tuning['dire'], dire_tuning['resp_mean'], '-', color=trace_color, lw=lw)
+
+        axis.set_xticklabels([])
+
+        return r_max
 
 
 if __name__ == '__main__':
