@@ -1685,12 +1685,12 @@ class DriftingGratingResponseMatrix(DataFrame):
             axis.axvspan(0., block_dur, color=block_face_color)
 
         if baseline_window is not None:
-            axis.axvline(x=baseline_window[0], linestyle='--', color=baseline_window_color, lw=2)
-            axis.axvline(x=baseline_window[1], linestyle='--', color=baseline_window_color, lw=2)
+            axis.axvline(x=baseline_window[0], linestyle='--', color=baseline_window_color, lw=1.5)
+            axis.axvline(x=baseline_window[1], linestyle='--', color=baseline_window_color, lw=1.5)
 
         if response_window is not None:
-            axis.axvline(x=response_window[0], linestyle='--', color=response_window_color, lw=2)
-            axis.axvline(x=response_window[1], linestyle='--', color=response_window_color, lw=2)
+            axis.axvline(x=response_window[0], linestyle='--', color=response_window_color, lw=1.5)
+            axis.axvline(x=response_window[1], linestyle='--', color=response_window_color, lw=1.5)
 
         ymin = None
         ymax = None
@@ -2216,50 +2216,47 @@ class DriftingGratingResponseTable(DataFrame):
 if __name__ == '__main__':
     plt.ioff()
     # =====================================================================
-    f = h5py.File(r"F:\data2\chandelier_cell_project\database\190208_M421761_110.nwb", 'r')
+    f = h5py.File(r"F:\data2\chandelier_cell_project\database\nwbs\190326_M441626_110.nwb", 'r')
     dgcrm = get_dgc_response_matrix_from_nwb(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
                                              roi_ind=0,
-                                             trace_type='sta_f_center_subtracted')
+                                             trace_type='sta_f_center_raw')
 
-    dgcrm_zscore = dgcrm.get_zscore_response_matrix(baseline_win=[-0.5, 0])
-    dgcrt_zscore = dgcrm_zscore.get_response_table(response_win=[0., 1.])
-    # print(dgcrt_zscore['resp_mean'])
+    dgcrt_zscore, _, _, _ = dgcrm.get_df_response_table(response_win=[0., 1.], baseline_win=[-0.5, 0.])
 
-    # sftf, sfs, tfs = dgcrt_zscore.get_sf_tf_matrix()
-    # print(sftf)
+    dgcrt_zscore.plot_dire_tuning(axis=None, response_dir='neg', is_collapse_sf=True, is_collapse_tf=False)
+    plt.show()
     #
-
-    dire_tuning = dgcrt_zscore.get_dire_tuning(response_dir='pos', is_collapse_sf=False, is_collapse_tf=False)
-    print(dire_tuning)
-    _ = DriftingGratingResponseTable.get_dire_tuning_properties(dire_tuning=dire_tuning,
-                                                                response_dir='pos',
-                                                                is_rectify=True)
-    OSI, gOSI, DSI, gDSI, peak_dire_raw, peak_dire_vs, peak_orie_vs = _
-    print('\nOSI: {}'.format(OSI))
-    print('gOSI: {}'.format(gOSI))
-    print('DSI: {}'.format(DSI))
-    print('gDSI: {}'.format(gDSI))
-    print('peak_dire_raw: {}'.format(peak_dire_raw))
-    print('peak_dire_vs: {}'.format(peak_dire_vs))
-    print('peak_orie_vs: {}\n'.format(peak_orie_vs))
-
-    sf_tuning = dgcrt_zscore.get_sf_tuning(response_dir='pos', is_collapse_tf=False, is_collapse_dire=False)
-    print(sf_tuning)
-    _ = DriftingGratingResponseTable.get_sf_tuning_properties(sf_tuning=sf_tuning, response_dir='pos',
-                                                              is_rectify=True)
-    peak_sf_raw, peak_sf_linear, peak_sf_log = _
-    print('\npeak_sf_raw: {}'.format(peak_sf_raw))
-    print('peak_sf_linear: {}'.format(peak_sf_linear))
-    print('peak_sf_log: {}\n'.format(peak_sf_log))
-
-    tf_tuning = dgcrt_zscore.get_tf_tuning(response_dir='pos', is_collapse_sf=False, is_collapse_dire=False)
-    print(tf_tuning)
-    _ = DriftingGratingResponseTable.get_tf_tuning_properties(tf_tuning=tf_tuning, response_dir='pos',
-                                                              is_rectify=True)
-    peak_tf_raw, peak_tf_linear, peak_tf_log = _
-    print('\npeak_tf_raw: {}'.format(peak_tf_raw))
-    print('peak_tf_linear: {}'.format(peak_tf_linear))
-    print('peak_tf_log: {}\n'.format(peak_tf_log))
+    # dire_tuning = dgcrt_zscore.get_dire_tuning(response_dir='neg', is_collapse_sf=False, is_collapse_tf=False)
+    # print(dire_tuning)
+    # _ = DriftingGratingResponseTable.get_dire_tuning_properties(dire_tuning=dire_tuning,
+    #                                                             response_dir='pos',
+    #                                                             is_rectify=True)
+    # OSI, gOSI, DSI, gDSI, peak_dire_raw, peak_dire_vs, peak_orie_vs = _
+    # print('\nOSI: {}'.format(OSI))
+    # print('gOSI: {}'.format(gOSI))
+    # print('DSI: {}'.format(DSI))
+    # print('gDSI: {}'.format(gDSI))
+    # print('peak_dire_raw: {}'.format(peak_dire_raw))
+    # print('peak_dire_vs: {}'.format(peak_dire_vs))
+    # print('peak_orie_vs: {}\n'.format(peak_orie_vs))
+    #
+    # sf_tuning = dgcrt_zscore.get_sf_tuning(response_dir='pos', is_collapse_tf=False, is_collapse_dire=False)
+    # print(sf_tuning)
+    # _ = DriftingGratingResponseTable.get_sf_tuning_properties(sf_tuning=sf_tuning, response_dir='pos',
+    #                                                           is_rectify=True)
+    # peak_sf_raw, peak_sf_linear, peak_sf_log = _
+    # print('\npeak_sf_raw: {}'.format(peak_sf_raw))
+    # print('peak_sf_linear: {}'.format(peak_sf_linear))
+    # print('peak_sf_log: {}\n'.format(peak_sf_log))
+    #
+    # tf_tuning = dgcrt_zscore.get_tf_tuning(response_dir='pos', is_collapse_sf=False, is_collapse_dire=False)
+    # print(tf_tuning)
+    # _ = DriftingGratingResponseTable.get_tf_tuning_properties(tf_tuning=tf_tuning, response_dir='pos',
+    #                                                           is_rectify=True)
+    # peak_tf_raw, peak_tf_linear, peak_tf_log = _
+    # print('\npeak_tf_raw: {}'.format(peak_tf_raw))
+    # print('peak_tf_linear: {}'.format(peak_tf_linear))
+    # print('peak_tf_log: {}\n'.format(peak_tf_log))
 
     # =====================================================================
 
