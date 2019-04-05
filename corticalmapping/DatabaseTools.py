@@ -18,7 +18,7 @@ ANALYSIS_PARAMS = {
     'filter_length_skew_sec': 5., # float, second, the length to filter input trace to get slow trend
     'response_window_positive_rf': [0., 0.5], # list of 2 floats, temporal window to get upwards calcium response for receptive field
     'response_window_negative_rf': [0., 1.], # list of 2 floats, temporal window to get downward calcium response for receptive field
-    'gaussian_filter_sigma_rf': 1., # float, filtering sigma for z-score receptive fields
+    'gaussian_filter_sigma_rf': 5., # float, degree, filtering sigma for z-score receptive fields
     'interpolate_rate_rf': 10., # float, interpolate rate of filtered z-score maps
     # 'peak_z_threshold_rf': 1.5, # float, threshold for significant receptive field of z score after filtering.
     'rf_z_threshold': 1.6, # float, threshold for significant zscore receptive field
@@ -264,9 +264,14 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         srf_pos_on, srf_pos_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_positive_rf'])
 
         # ON positive spatial receptive field
+        mean_probe_size = (np.abs(np.mean(np.diff(srf_pos_on.altPos))) +
+                          np.abs(np.mean(np.diff(srf_pos_on.aziPos)))) / 2.
+        # print(mean_probe_size)
+        sigma = params['gaussian_filter_sigma_rf'] / mean_probe_size
+        # print(sigma)
         rf_pos_on_z, rf_pos_on_center, rf_pos_on_area, rf_pos_on_mask = get_rf_properties(srf= srf_pos_on,
                                                                           polarity='positive',
-                                                                          sigma=params['gaussian_filter_sigma_rf'],
+                                                                          sigma=sigma,
                                                                           interpolate_rate=params['interpolate_rate_rf'],
                                                                           z_thr=params['rf_z_threshold'])
         roi_properties.update({'rf_pos_on_peak_z': rf_pos_on_z,
@@ -1005,18 +1010,19 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
 if __name__ == '__main__':
 
-    nwb_path = r"F:\data2\chandelier_cell_project\database\nwbs\190326_M441626_110.nwb"
+    # nwb_path = r"F:\data2\chandelier_cell_project\database\nwbs\190326_M441626_110.nwb"
+    nwb_path = r"F:\data2\rabies_tracing_project\M439939\2019-04-03-2p\190403_M439939_110.nwb"
     plane_n = 'plane0'
     roi_n = 'roi_0000'
     nwb_f = h5py.File(nwb_path, 'r')
 
-    roi_properties, _, _, _, _, _, _, _, _, _, _, _, _, _ = \
-        get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
-
-    keys = roi_properties.keys()
-    keys.sort()
-    for key in keys:
-        print('{}: {}'.format(key, roi_properties[key]))
+    # roi_properties, _, _, _, _, _, _, _, _, _, _, _, _, _ = \
+    #     get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+    #
+    # keys = roi_properties.keys()
+    # keys.sort()
+    # for key in keys:
+    #     print('{}: {}'.format(key, roi_properties[key]))
 
     roi_page_report(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
 
