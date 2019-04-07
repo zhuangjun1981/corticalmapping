@@ -282,7 +282,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         # OFF positive spatial receptive field
         rf_pos_off_z, rf_pos_off_center, rf_pos_off_area, rf_pos_off_mask = get_rf_properties(srf=srf_pos_off,
                                                                              polarity='positive',
-                                                                             sigma=params['gaussian_filter_sigma_rf'],
+                                                                             sigma=sigma,
                                                                              interpolate_rate=params[
                                                                               'interpolate_rate_rf'],
                                                                              z_thr=params['rf_z_threshold'])
@@ -303,7 +303,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         # ON negative spatial receptive field
         rf_neg_on_z, rf_neg_on_center, rf_neg_on_area, rf_neg_on_mask = get_rf_properties(srf=srf_neg_on,
                                                                           polarity='negative',
-                                                                          sigma=params['gaussian_filter_sigma_rf'],
+                                                                          sigma=sigma,
                                                                           interpolate_rate=params[
                                                                               'interpolate_rate_rf'],
                                                                           z_thr=params['rf_z_threshold'])
@@ -315,8 +315,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         # OFF negative spatial receptive field
         rf_neg_off_z, rf_neg_off_center, rf_neg_off_area, rf_neg_off_mask = get_rf_properties(srf=srf_pos_off,
                                                                              polarity='positive',
-                                                                             sigma=params[
-                                                                                 'gaussian_filter_sigma_rf'],
+                                                                             sigma=sigma,
                                                                              interpolate_rate=params[
                                                                                  'interpolate_rate_rf'],
                                                                              z_thr=params['rf_z_threshold'])
