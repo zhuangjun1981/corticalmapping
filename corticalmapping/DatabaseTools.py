@@ -263,12 +263,14 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         # positive spatial receptive fields
         srf_pos_on, srf_pos_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_positive_rf'])
 
-        # ON positive spatial receptive field
+        # get filter sigma in pixels
         mean_probe_size = (np.abs(np.mean(np.diff(srf_pos_on.altPos))) +
                           np.abs(np.mean(np.diff(srf_pos_on.aziPos)))) / 2.
         # print(mean_probe_size)
         sigma = params['gaussian_filter_sigma_rf'] / mean_probe_size
         # print(sigma)
+
+        # ON positive spatial receptive field
         rf_pos_on_z, rf_pos_on_center, rf_pos_on_area, rf_pos_on_mask = get_rf_properties(srf= srf_pos_on,
                                                                           polarity='positive',
                                                                           sigma=sigma,
@@ -313,7 +315,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'rf_neg_on_center_azi': rf_neg_on_center[1]})
 
         # OFF negative spatial receptive field
-        rf_neg_off_z, rf_neg_off_center, rf_neg_off_area, rf_neg_off_mask = get_rf_properties(srf=srf_pos_off,
+        rf_neg_off_z, rf_neg_off_center, rf_neg_off_area, rf_neg_off_mask = get_rf_properties(srf=srf_neg_off,
                                                                              polarity='negative',
                                                                              sigma=sigma,
                                                                              interpolate_rate=params[
