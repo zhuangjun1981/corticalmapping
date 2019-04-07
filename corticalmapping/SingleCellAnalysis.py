@@ -1375,7 +1375,7 @@ class DriftingGratingResponseMatrix(DataFrame):
 
         for row_i, row in self.iterrows():
             curr_matrix = row['matrix'].astype(np.float64)
-            curr_matrix = curr_matrix - np.amin(curr_matrix) + bias
+            curr_matrix = curr_matrix + bias
             dff_matrix = np.empty(curr_matrix.shape, dtype=np.float32)
             for trial_i in range(curr_matrix.shape[0]):
                 curr_trial = curr_matrix[trial_i, :]
