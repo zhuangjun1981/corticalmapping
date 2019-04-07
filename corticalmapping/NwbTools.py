@@ -1459,9 +1459,8 @@ class RecordedFile(NWB):
             frame_dur = np.mean(np.diff(trace_ts))
             frame_start = int(np.floor(time_window[0] / frame_dur))
             frame_end = int(np.ceil(time_window[1] / frame_dur))
-            t_axis = np.arange(frame_end - frame_start) * frame_dur + time_window[0]
-            # adjust t_axis to be aligned with trigger
-            t_axis = t_axis - t_axis[np.argmin(np.abs(t_axis))]
+            t_axis = np.arange(frame_end - frame_start) * frame_dur + (frame_start * frame_dur)
+            # t_axis = np.arange(frame_end - frame_start) * frame_dur + time_window[0]
 
             strf_grp_plane.attrs['sta_timestamps'] = t_axis
 
