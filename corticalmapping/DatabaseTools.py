@@ -258,11 +258,6 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
     strf = get_strf(nwb_f=nwb_f, plane_n=plane_n, roi_ind=roi_ind, trace_type='sta_' + params['trace_type'])
     if strf is not None:
 
-        # adjust t_axis to be aligned with trigger
-        t_axis = strf.time
-        t_axis = t_axis - t_axis[np.argmin(np.abs(t_axis))]
-        strf.time = t_axis
-
         # get strf properties
         strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
 
