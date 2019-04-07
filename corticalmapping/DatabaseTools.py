@@ -14,7 +14,9 @@ import corticalmapping.core.PlottingTools as pt
 
 ANALYSIS_PARAMS = {
     'trace_type': 'f_center_subtracted',
-    'add_to_trace_bias': 1.,
+    'trace_abs_minimum': 1., # float, trace absolute minimum, if the roi trace minimum is lower than this value
+                             # it will be added to with a bias to ensure the absolute minimum is no less than
+                             # this value for robustness of df/f calculation
     'filter_length_skew_sec': 5., # float, second, the length to filter input trace to get slow trend
     'response_window_positive_rf': [0., 0.5], # list of 2 floats, temporal window to get upwards calcium response for receptive field
     'response_window_negative_rf': [0., 1.], # list of 2 floats, temporal window to get downward calcium response for receptive field
@@ -250,8 +252,8 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
     roi_properties.update({'skew_raw': skew_raw,
                            'skew_fil': skew_fil})
 
-    if np.min(trace) <= 0.:
-        add_to_trace = -np.min(trace) + params['add_to_trace_bias']
+    if np.min(trace) < params['trace_abs_minimum']:
+        add_to_trace = -np.min(trace) + params['trace_abs_minimum']
     else:
         add_to_trace = 0.
 
@@ -277,6 +279,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                                           sigma=params['gaussian_filter_sigma_rf'],
                                                                           interpolate_rate=params['interpolate_rate_rf'],
                                                                           z_thr=params['rf_z_threshold'])
+
         roi_properties.update({'rf_pos_on_peak_z': rf_pos_on_z,
                                'rf_pos_on_area': rf_pos_on_area,
                                'rf_pos_on_center_alt': rf_pos_on_center[0],
@@ -399,7 +402,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         # get dgc response matrices ====================================================================================
         dgcrm_df = dgcrm.get_df_response_matrix(baseline_win=params['baseline_window_dgc'])
         dgcrm_dff = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'],
-                                                  bias=params['add_to_trace_bias'])
+                                                  bias=add_to_trace)
         dgcrm_z = dgcrm.get_zscore_response_matrix(baseline_win=params['baseline_window_dgc'])
 
 
