@@ -18,7 +18,7 @@ ANALYSIS_PARAMS = {
     'filter_length_skew_sec': 5., # float, second, the length to filter input trace to get slow trend
     'response_window_positive_rf': [0., 0.5], # list of 2 floats, temporal window to get upwards calcium response for receptive field
     'response_window_negative_rf': [0., 1.], # list of 2 floats, temporal window to get downward calcium response for receptive field
-    'gaussian_filter_sigma_rf': 5., # float, degree, filtering sigma for z-score receptive fields
+    'gaussian_filter_sigma_rf': 1., # float, in pixels, filtering sigma for z-score receptive fields
     'interpolate_rate_rf': 10., # float, interpolate rate of filtered z-score maps
     # 'peak_z_threshold_rf': 1.5, # float, threshold for significant receptive field of z score after filtering.
     'rf_z_threshold': 1.6, # float, threshold for significant zscore receptive field
@@ -257,23 +257,29 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
 
     strf = get_strf(nwb_f=nwb_f, plane_n=plane_n, roi_ind=roi_ind, trace_type='sta_' + params['trace_type'])
     if strf is not None:
+
+        # adjust t_axis to be aligned with trigger
+        t_axis = strf.time
+        t_axis = t_axis - t_axis[np.argmin(np.abs(t_axis))]
+        strf.time = t_axis
+
         # get strf properties
         strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
 
         # positive spatial receptive fields
         srf_pos_on, srf_pos_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_positive_rf'])
 
-        # get filter sigma in pixels
-        mean_probe_size = (np.abs(np.mean(np.diff(srf_pos_on.altPos))) +
-                          np.abs(np.mean(np.diff(srf_pos_on.aziPos)))) / 2.
+        # # get filter sigma in pixels
+        # mean_probe_size = (np.abs(np.mean(np.diff(srf_pos_on.altPos))) +
+        #                   np.abs(np.mean(np.diff(srf_pos_on.aziPos)))) / 2.
         # print(mean_probe_size)
-        sigma = params['gaussian_filter_sigma_rf'] / mean_probe_size
+        # sigma = params['gaussian_filter_sigma_rf'] / mean_probe_size
         # print(sigma)
 
         # ON positive spatial receptive field
         rf_pos_on_z, rf_pos_on_center, rf_pos_on_area, rf_pos_on_mask = get_rf_properties(srf= srf_pos_on,
                                                                           polarity='positive',
-                                                                          sigma=sigma,
+                                                                          sigma=params['gaussian_filter_sigma_rf'],
                                                                           interpolate_rate=params['interpolate_rate_rf'],
                                                                           z_thr=params['rf_z_threshold'])
         roi_properties.update({'rf_pos_on_peak_z': rf_pos_on_z,
@@ -284,7 +290,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         # OFF positive spatial receptive field
         rf_pos_off_z, rf_pos_off_center, rf_pos_off_area, rf_pos_off_mask = get_rf_properties(srf=srf_pos_off,
                                                                              polarity='positive',
-                                                                             sigma=sigma,
+                                                                             sigma=params['gaussian_filter_sigma_rf'],
                                                                              interpolate_rate=params[
                                                                               'interpolate_rate_rf'],
                                                                              z_thr=params['rf_z_threshold'])
@@ -305,7 +311,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         # ON negative spatial receptive field
         rf_neg_on_z, rf_neg_on_center, rf_neg_on_area, rf_neg_on_mask = get_rf_properties(srf=srf_neg_on,
                                                                           polarity='negative',
-                                                                          sigma=sigma,
+                                                                          sigma=params['gaussian_filter_sigma_rf'],
                                                                           interpolate_rate=params[
                                                                               'interpolate_rate_rf'],
                                                                           z_thr=params['rf_z_threshold'])
@@ -317,7 +323,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         # OFF negative spatial receptive field
         rf_neg_off_z, rf_neg_off_center, rf_neg_off_area, rf_neg_off_mask = get_rf_properties(srf=srf_neg_off,
                                                                              polarity='negative',
-                                                                             sigma=sigma,
+                                                                             sigma=params['gaussian_filter_sigma_rf'],
                                                                              interpolate_rate=params[
                                                                                  'interpolate_rate_rf'],
                                                                              z_thr=params['rf_z_threshold'])
