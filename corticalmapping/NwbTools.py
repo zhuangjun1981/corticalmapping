@@ -1381,7 +1381,8 @@ class RecordedFile(NWB):
             frame_dur = np.mean(np.diff(trace_ts))
             frame_start = int(time_window[0] // frame_dur)
             frame_end = int(time_window[1] // frame_dur)
-            t_axis = np.arange(frame_end - frame_start) * frame_dur + time_window[0]
+            # t_axis = np.arange(frame_end - frame_start) * frame_dur + time_window[0]
+            t_axis = np.arange(frame_end - frame_start) * frame_dur + (frame_start * frame_dur)
             res_grp_plane.attrs['sta_timestamps'] = t_axis
 
             for grating_n in grating_ns:

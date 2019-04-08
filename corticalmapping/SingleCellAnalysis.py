@@ -2075,7 +2075,7 @@ class DriftingGratingResponseTable(DataFrame):
             peak_dire_vs = (np.angle(vector_sum) * 180 / np.pi) % 360
             gDSI = np.abs(vector_sum)
 
-            vector_sum2 = np.sum(resp * np.exp(1j * 2 *arcs)) / np.sum(resp)
+            vector_sum2 = np.sum(resp * np.exp(1j * 2 * arcs)) / np.sum(resp)
             peak_orie_vs = dire2ori(np.angle(vector_sum2) * 180 / np.pi)
             gOSI = np.abs(vector_sum2)
 
@@ -2225,12 +2225,12 @@ if __name__ == '__main__':
 
     dgcrt_zscore.plot_dire_tuning(axis=None, response_dir='neg', is_collapse_sf=True, is_collapse_tf=False)
     plt.show()
-    #
-    # dire_tuning = dgcrt_zscore.get_dire_tuning(response_dir='neg', is_collapse_sf=False, is_collapse_tf=False)
-    # print(dire_tuning)
-    # _ = DriftingGratingResponseTable.get_dire_tuning_properties(dire_tuning=dire_tuning,
-    #                                                             response_dir='pos',
-    #                                                             is_rectify=True)
+
+    dire_tuning = dgcrt_zscore.get_dire_tuning(response_dir='neg', is_collapse_sf=False, is_collapse_tf=False)
+    print(dire_tuning)
+    _ = DriftingGratingResponseTable.get_dire_tuning_properties(dire_tuning=dire_tuning,
+                                                                response_dir='pos',
+                                                                is_rectify=True)
     # OSI, gOSI, DSI, gDSI, peak_dire_raw, peak_dire_vs, peak_orie_vs = _
     # print('\nOSI: {}'.format(OSI))
     # print('gOSI: {}'.format(gOSI))
