@@ -2017,19 +2017,38 @@ class DriftingGratingResponseTable(DataFrame):
         return df_sub[['tf', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
 
     @staticmethod
-    def get_dire_tuning_properties(dire_tuning, response_dir='pos', is_rectify=True):
+    def get_dire_tuning_properties(dire_tuning, response_dir='pos', elevation_bias=0.):
         """
+
+        input dire_tuning has two columns: directions in degrees and mean responses to each direction.
+        the responses are treated in 3 different ways
+
+        1. raw, no treatment
+        2. elevated, if minimum is below elevation_bias, the whole curve will be elevated to have minimum
+           response equal to elevation_bias.
+        3. rectified, the response smaller than 0 will be set as zero.
+
+        because gOSI and gDSI calculation is independent of curve base line. so gOSI_raw and gDSI_raw represent
+        gOSI and gDSI in both raw and elevated conditions.
 
         :param dire_tuning:
         :param response_dir:  str, 'pos' or 'neg
-        :param is_rectify: bool, if True, responses below zero will be set as zero
-        :return OSI:
-        :return DSI:
-        :return gOSI:
-        :return gDSI:
+        :param elevation_bias: float, minimum response after elevation.
+        :return OSI_raw:
+        :return DSI_raw:
+        :return gOSI_raw:
+        :return gDSI_raw:
+        :return OSI_ele:
+        :return DSI_ele:
+        :return OSI_rec:
+        :return DSI_red:
+        :return gOSI_rec:
+        :return gDSI_rec
         :return peak_dire_raw: optimal direction in tested conditions
-        :return peak_dire_vs: optimal direction based on vector sum
-        :return peak_orie_vs: optimal orientation based on vector sum
+        :return vs_dire_raw: vector sum of raw direction responses
+        :return vs_dire_rec: vactor sum of rectified direction responses
+        :return vs_orie_raw: vector sum of raw orientation responses
+        :return vs_orie_rec: vactor sum of recified orientation responses
         """
 
         if response_dir == 'pos':
@@ -2039,47 +2058,88 @@ class DriftingGratingResponseTable(DataFrame):
         else:
             raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
 
-        if is_rectify:
-            dire_tuning.loc[dire_tuning['resp_mean'] < 0., 'resp_mean'] = 0.
+        if np.max(dire_tuning['resp_mean']) <= 0.: # no positive response
+                return tuple([np.nan] * 15)
 
-        dire_tuning['dire'] = dire_tuning['dire'] % 360
-
-        if is_rectify:
-            dire_tuning.loc[dire_tuning['resp_mean'] < 0., 'resp_mean'] = 0.
-
-        if np.max(dire_tuning['resp_mean']) <= 0.:
-            return tuple([np.nan] * 7)
         else:
+
+            dire_tuning['dire'] = dire_tuning['dire'] % 360
+            arcs = np.array(list(dire_tuning['dire'] * np.pi / 180))
+
+            if np.min(dire_tuning['resp_mean']) < elevation_bias:
+                dire_tuning['resp_mean_ele'] = dire_tuning['resp_mean'] - np.min(dire_tuning['resp_mean']) + \
+                                               elevation_bias
+            else:
+                dire_tuning['resp_mean_ele'] = dire_tuning['resp_mean']
+
+            dire_tuning['resp_mean_rec'] = dire_tuning['resp_mean']
+            dire_tuning.loc[dire_tuning['resp_mean'] < 0, 'resp_mean_rec'] = 0
+
+
+            # get orientation indices
             peak_dire_raw_ind = dire_tuning['resp_mean'].argmax()
             peak_dire_raw = dire_tuning.loc[peak_dire_raw_ind, 'dire']
-            peak_resp = dire_tuning.loc[peak_dire_raw_ind, 'resp_mean']
-
             oppo_dire_ind = (dire_tuning['dire'] == ((peak_dire_raw + 180) % 360)).argmax()
-            oppo_resp = dire_tuning.loc[oppo_dire_ind, 'resp_mean']
-
             othr_dire_ind_1 = (dire_tuning['dire'] == ((peak_dire_raw + 90) % 360)).argmax()
-            othr_resp_1 = dire_tuning.loc[othr_dire_ind_1, 'resp_mean']
-
             othr_dire_ind_2 = (dire_tuning['dire'] == ((peak_dire_raw - 90) % 360)).argmax()
-            othr_resp_2 = dire_tuning.loc[othr_dire_ind_2, 'resp_mean']
 
-            othr_resp = np.mean([othr_resp_1, othr_resp_2])
+            # get raw os tuning properties
+            peak_resp_raw = dire_tuning.loc[peak_dire_raw_ind, 'resp_mean']
+            oppo_resp_raw = dire_tuning.loc[oppo_dire_ind, 'resp_mean']
+            othr_resp_raw_1 = dire_tuning.loc[othr_dire_ind_1, 'resp_mean']
+            othr_resp_raw_2 = dire_tuning.loc[othr_dire_ind_2, 'resp_mean']
 
-            OSI = (peak_resp - othr_resp) / (peak_resp + othr_resp)
-            DSI = (peak_resp - oppo_resp) / (peak_resp + oppo_resp)
+            # print('aaa, {}, {}, {}, {}'.format(peak_resp_raw, oppo_resp_raw, othr_resp_raw_1, othr_resp_raw_2))
 
-            arcs = np.array(list(dire_tuning['dire'] * np.pi / 180))
-            resp = np.array(list(dire_tuning['resp_mean']))
+            othr_resp_raw = (othr_resp_raw_1 + othr_resp_raw_2) / 2.
 
-            vector_sum = np.sum(resp * np.exp(1j * arcs)) / np.sum(resp)
-            peak_dire_vs = (np.angle(vector_sum) * 180 / np.pi) % 360
-            gDSI = np.abs(vector_sum)
+            # print('othr_resp_raw, {}'.format(othr_resp_raw))
+            # print('bbb, {}'.format(peak_resp_raw - othr_resp_raw))
+            # print('ccc, {}'.format(peak_resp_raw + othr_resp_raw))
 
-            vector_sum2 = np.sum(resp * np.exp(1j * 2 * arcs)) / np.sum(resp)
-            peak_orie_vs = dire2ori(np.angle(vector_sum2) * 180 / np.pi)
-            gOSI = np.abs(vector_sum2)
+            OSI_raw = (peak_resp_raw - othr_resp_raw) / (peak_resp_raw + othr_resp_raw)
+            DSI_raw = (peak_resp_raw - oppo_resp_raw) / (peak_resp_raw + oppo_resp_raw)
 
-            return OSI, gOSI, DSI, gDSI, peak_dire_raw, peak_dire_vs, peak_orie_vs
+            resp_raw = np.array(list(dire_tuning['resp_mean']))
+            vs_raw = np.sum(resp_raw * np.exp(1j * arcs)) / np.sum(resp_raw)
+            vs_dire_raw = (np.angle(vs_raw) * 180 / np.pi) % 360
+            gDSI_raw = np.abs(vs_raw)
+
+            vs2_raw = np.sum(resp_raw * np.exp(1j * 2 * arcs)) / np.sum(resp_raw)
+            vs_orie_raw = dire2ori(np.angle(vs2_raw) * 180 / np.pi)
+            gOSI_raw = np.abs(vs2_raw)
+
+            # get elevated os properties
+            peak_resp_ele = dire_tuning.loc[peak_dire_raw_ind, 'resp_mean_ele']
+            oppo_resp_ele = dire_tuning.loc[oppo_dire_ind, 'resp_mean_ele']
+            othr_resp_ele_1 = dire_tuning.loc[othr_dire_ind_1, 'resp_mean_ele']
+            othr_resp_ele_2 = dire_tuning.loc[othr_dire_ind_2, 'resp_mean_ele']
+
+            othr_resp_ele = (othr_resp_ele_1 + othr_resp_ele_2) / 2.
+            OSI_ele = (peak_resp_ele - othr_resp_ele) / (peak_resp_ele + othr_resp_ele)
+            DSI_ele = (peak_resp_ele - oppo_resp_ele) / (peak_resp_ele + oppo_resp_ele)
+
+            # get rectified os tuning properties
+            peak_resp_rec = dire_tuning.loc[peak_dire_raw_ind, 'resp_mean_rec']
+            oppo_resp_rec = dire_tuning.loc[oppo_dire_ind, 'resp_mean_rec']
+            othr_resp_rec_1 = dire_tuning.loc[othr_dire_ind_1, 'resp_mean_rec']
+            othr_resp_rec_2 = dire_tuning.loc[othr_dire_ind_2, 'resp_mean_rec']
+
+            othr_resp_rec = (othr_resp_rec_1 + othr_resp_rec_2) / 2.
+            OSI_rec = (peak_resp_rec - othr_resp_rec) / (peak_resp_rec + othr_resp_rec)
+            DSI_rec = (peak_resp_rec - oppo_resp_rec) / (peak_resp_rec + oppo_resp_rec)
+
+            resp_rec = np.array(list(dire_tuning['resp_mean_rec']))
+            vs_rec = np.sum(resp_rec * np.exp(1j * arcs)) / np.sum(resp_rec)
+            vs_dire_rec = (np.angle(vs_rec) * 180 / np.pi) % 360
+            gDSI_rec = np.abs(vs_rec)
+
+            vs2_rec = np.sum(resp_rec * np.exp(1j * 2 * arcs)) / np.sum(resp_rec)
+            vs_orie_rec = dire2ori(np.angle(vs2_rec) * 180 / np.pi)
+            gOSI_rec = np.abs(vs2_rec)
+
+            return OSI_raw, DSI_raw, gOSI_raw, gDSI_raw, OSI_ele, DSI_ele, OSI_rec, DSI_rec, \
+                   gOSI_rec, gDSI_rec, peak_dire_raw, vs_dire_raw, vs_dire_rec, vs_orie_raw, vs_orie_rec
 
     @staticmethod
     def get_tf_tuning_properties(tf_tuning, response_dir='pos', is_rectify=True):
@@ -2182,7 +2242,7 @@ class DriftingGratingResponseTable(DataFrame):
         axis.tick_params(length=0)
 
     def plot_dire_tuning(self, axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False,
-                         trace_color='#ff0000', lw=1., is_rectify=True):
+                         trace_color='#ff0000', lw=1.):
 
         if axis is None:
             f = plt.figure()
@@ -2198,17 +2258,25 @@ class DriftingGratingResponseTable(DataFrame):
         if response_dir == 'neg':
             dire_tuning['resp_mean'] = -dire_tuning['resp_mean']
 
-        if is_rectify:
-            dire_tuning['resp_mean'][dire_tuning['resp_mean'] < 0.] = 0.
+        bias = -np.min(dire_tuning['resp_mean'])
+
+        # print('bias: {}'.format(bias))
+
+        resp = dire_tuning['resp_mean'] + bias
 
         r_max = np.ceil(max(dire_tuning['resp_mean'] + dire_tuning['resp_stdev']) * 10000.) / 10000.
 
-        axis.fill_between(x=dire_tuning['dire'], y1=dire_tuning['resp_mean'] - dire_tuning['resp_stdev'],
-                          y2=dire_tuning['resp_mean'] + dire_tuning['resp_stdev'],
+        axis.fill_between(x=dire_tuning['dire'], y1=resp - dire_tuning['resp_stdev'],
+                          y2=resp + dire_tuning['resp_stdev'],
                           edgecolor='none', facecolor='#cccccc')
-        axis.plot(dire_tuning['dire'], dire_tuning['resp_mean'], '-', color=trace_color, lw=lw)
+        axis.plot(dire_tuning['dire'], resp, '-', color=trace_color, lw=lw)
 
         axis.set_xticklabels([])
+        yticks = axis.get_yticks()
+        # print('yticks: {}'.format(yticks))
+        yticklabels = ['{:.2f}'.format(y - bias) for y in yticks]
+        # print('yticklabels: {}'.format(yticklabels))
+        axis.set_yticklabels(yticklabels)
 
         return r_max
 
@@ -2216,29 +2284,39 @@ class DriftingGratingResponseTable(DataFrame):
 if __name__ == '__main__':
     plt.ioff()
     # =====================================================================
-    f = h5py.File(r"F:\data2\chandelier_cell_project\database\nwbs\190326_M441626_110.nwb", 'r')
+    f = h5py.File(r"F:\data2\chandelier_cell_project\M441626\2019-04-03-deepscope\190403_M441626_110.nwb", 'r')
     dgcrm = get_dgc_response_matrix_from_nwb(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
                                              roi_ind=0,
                                              trace_type='sta_f_center_raw')
 
     dgcrt_zscore, _, _, _ = dgcrm.get_df_response_table(response_win=[0., 1.], baseline_win=[-0.5, 0.])
 
-    dgcrt_zscore.plot_dire_tuning(axis=None, response_dir='neg', is_collapse_sf=True, is_collapse_tf=False)
+    dgcrt_zscore.plot_dire_tuning(axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False)
     plt.show()
 
-    dire_tuning = dgcrt_zscore.get_dire_tuning(response_dir='neg', is_collapse_sf=False, is_collapse_tf=False)
+    dire_tuning = dgcrt_zscore.get_dire_tuning(response_dir='pos', is_collapse_sf=True, is_collapse_tf=False)
     print(dire_tuning)
     _ = DriftingGratingResponseTable.get_dire_tuning_properties(dire_tuning=dire_tuning,
                                                                 response_dir='pos',
-                                                                is_rectify=True)
-    # OSI, gOSI, DSI, gDSI, peak_dire_raw, peak_dire_vs, peak_orie_vs = _
-    # print('\nOSI: {}'.format(OSI))
-    # print('gOSI: {}'.format(gOSI))
-    # print('DSI: {}'.format(DSI))
-    # print('gDSI: {}'.format(gDSI))
-    # print('peak_dire_raw: {}'.format(peak_dire_raw))
-    # print('peak_dire_vs: {}'.format(peak_dire_vs))
-    # print('peak_orie_vs: {}\n'.format(peak_orie_vs))
+                                                                elevation_bias=0.)
+    OSI_raw, DSI_raw, gOSI_raw, gDSI_raw, OSI_ele, DSI_ele, OSI_rec, DSI_rec, \
+        gOSI_rec, gDSI_rec, peak_dire_raw, vs_dire_raw, vs_dire_rec, vs_orie_raw, vs_orie_rec = _
+    print('\nOSI_raw: {}'.format(OSI_raw))
+    print('DSI_raw: {}'.format(DSI_raw))
+    print('gOSI_raw: {}'.format(gOSI_raw))
+    print('gDSI_raw: {}'.format(gDSI_raw))
+    print('\nOSI_ele: {}'.format(OSI_ele))
+    print('DSI_ele: {}'.format(DSI_ele))
+    print('\nOSI_rec: {}'.format(OSI_rec))
+    print('DSI_rec: {}'.format(DSI_rec))
+    print('gOSI_rec: {}'.format(gOSI_rec))
+    print('gDSI_rec: {}'.format(gDSI_rec))
+    print('\npeak_dire_raw: {}'.format(peak_dire_raw))
+    print('\nvs_dire_raw: {}'.format(vs_dire_raw))
+    print('vs_orie_raw: {}\n'.format(vs_orie_raw))
+    print('vs_dire_rec: {}'.format(vs_dire_rec))
+    print('vs_orie_rec: {}\n'.format(vs_orie_rec))
+
     #
     # sf_tuning = dgcrt_zscore.get_sf_tuning(response_dir='pos', is_collapse_tf=False, is_collapse_dire=False)
     # print(sf_tuning)
