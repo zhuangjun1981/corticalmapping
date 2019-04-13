@@ -2040,14 +2040,18 @@ class DriftingGratingResponseTable(DataFrame):
         :return gDSI_raw:
         :return OSI_ele:
         :return DSI_ele:
+        :return gOSI_ele:
+        :return gDSI_ele:
         :return OSI_rec:
-        :return DSI_red:
+        :return DSI_rec:
         :return gOSI_rec:
-        :return gDSI_rec
+        :return gDSI_rec:
         :return peak_dire_raw: optimal direction in tested conditions
         :return vs_dire_raw: vector sum of raw direction responses
+        :return vs_dire_ele: vector sum of elevated direction response
         :return vs_dire_rec: vactor sum of rectified direction responses
         :return vs_orie_raw: vector sum of raw orientation responses
+        :return vs_orie_ele: vector sum of elevated orientation response
         :return vs_orie_rec: vactor sum of recified orientation responses
         """
 
@@ -2059,7 +2063,7 @@ class DriftingGratingResponseTable(DataFrame):
             raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
 
         if np.max(dire_tuning['resp_mean']) <= 0.: # no positive response
-                return tuple([np.nan] * 15)
+                return tuple([np.nan] * 19)
 
         else:
 
@@ -2119,6 +2123,15 @@ class DriftingGratingResponseTable(DataFrame):
             OSI_ele = (peak_resp_ele - othr_resp_ele) / (peak_resp_ele + othr_resp_ele)
             DSI_ele = (peak_resp_ele - oppo_resp_ele) / (peak_resp_ele + oppo_resp_ele)
 
+            resp_ele = np.array(list(dire_tuning['resp_mean_ele']))
+            vs_ele = np.sum(resp_ele * np.exp(1j * arcs)) / np.sum(resp_ele)
+            vs_dire_ele = (np.angle(vs_ele) * 180 / np.pi) % 360
+            gDSI_ele = np.abs(vs_ele)
+
+            vs2_ele = np.sum(resp_ele * np.exp(1j * 2 * arcs)) / np.sum(resp_ele)
+            vs_orie_ele = dire2ori(np.angle(vs2_ele) * 180 / np.pi)
+            gOSI_ele = np.abs(vs2_ele)
+
             # get rectified os tuning properties
             peak_resp_rec = dire_tuning.loc[peak_dire_raw_ind, 'resp_mean_rec']
             oppo_resp_rec = dire_tuning.loc[oppo_dire_ind, 'resp_mean_rec']
@@ -2138,8 +2151,9 @@ class DriftingGratingResponseTable(DataFrame):
             vs_orie_rec = dire2ori(np.angle(vs2_rec) * 180 / np.pi)
             gOSI_rec = np.abs(vs2_rec)
 
-            return OSI_raw, DSI_raw, gOSI_raw, gDSI_raw, OSI_ele, DSI_ele, OSI_rec, DSI_rec, \
-                   gOSI_rec, gDSI_rec, peak_dire_raw, vs_dire_raw, vs_dire_rec, vs_orie_raw, vs_orie_rec
+            return OSI_raw, DSI_raw, gOSI_raw, gDSI_raw, OSI_ele, DSI_ele, gOSI_ele, gDSI_ele, OSI_rec, DSI_rec, \
+                   gOSI_rec, gDSI_rec, peak_dire_raw, vs_dire_raw, vs_dire_ele, vs_dire_rec, vs_orie_raw, vs_orie_ele, \
+                   vs_orie_rec
 
     @staticmethod
     def get_tf_tuning_properties(tf_tuning, response_dir='pos', is_rectify=True):
@@ -2149,7 +2163,8 @@ class DriftingGratingResponseTable(DataFrame):
         :param response_dir:  str, 'pos' or 'neg
         :param is_rectify:  bool, if True, responses below zero will be set as zero
         :return peak_tf_raw: tf condition (presented) with maxmium response
-        :return peak_tf_linear: average tf conditions weighted by response amplitude
+        :return weighted_tf_raw: average tf conditions weighted by response
+        :return weighted_tf_log_raw: average tf conditions weighted by response (on log scale)
         :return peak_tf_log: average tf conditions weighted by response amplitude (on log scale)
         """
 
@@ -2299,22 +2314,27 @@ if __name__ == '__main__':
     _ = DriftingGratingResponseTable.get_dire_tuning_properties(dire_tuning=dire_tuning,
                                                                 response_dir='pos',
                                                                 elevation_bias=0.)
-    OSI_raw, DSI_raw, gOSI_raw, gDSI_raw, OSI_ele, DSI_ele, OSI_rec, DSI_rec, \
-        gOSI_rec, gDSI_rec, peak_dire_raw, vs_dire_raw, vs_dire_rec, vs_orie_raw, vs_orie_rec = _
+    OSI_raw, DSI_raw, gOSI_raw, gDSI_raw, OSI_ele, DSI_ele ,gOSI_ele, gDSI_ele, OSI_rec, DSI_rec, \
+        gOSI_rec, gDSI_rec, peak_dire_raw, vs_dire_raw, vs_dire_ele, vs_dire_rec, vs_orie_raw, vs_orie_ele, \
+        vs_orie_rec = _
     print('\nOSI_raw: {}'.format(OSI_raw))
     print('DSI_raw: {}'.format(DSI_raw))
     print('gOSI_raw: {}'.format(gOSI_raw))
     print('gDSI_raw: {}'.format(gDSI_raw))
     print('\nOSI_ele: {}'.format(OSI_ele))
     print('DSI_ele: {}'.format(DSI_ele))
+    print('gOSI_ele: {}'.format(gOSI_ele))
+    print('gDSI_ele: {}'.format(gDSI_ele))
     print('\nOSI_rec: {}'.format(OSI_rec))
     print('DSI_rec: {}'.format(DSI_rec))
     print('gOSI_rec: {}'.format(gOSI_rec))
     print('gDSI_rec: {}'.format(gDSI_rec))
     print('\npeak_dire_raw: {}'.format(peak_dire_raw))
     print('\nvs_dire_raw: {}'.format(vs_dire_raw))
-    print('vs_orie_raw: {}\n'.format(vs_orie_raw))
-    print('vs_dire_rec: {}'.format(vs_dire_rec))
+    print('vs_orie_raw: {}'.format(vs_orie_raw))
+    print('\nvs_dire_ele: {}'.format(vs_dire_ele))
+    print('vs_orie_ele: {}'.format(vs_orie_ele))
+    print('\nvs_dire_rec: {}'.format(vs_dire_rec))
     print('vs_orie_rec: {}\n'.format(vs_orie_rec))
 
     #
