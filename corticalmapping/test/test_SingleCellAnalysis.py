@@ -135,8 +135,90 @@ def test_SpatialReceptiveField_interpolate():
     SRF.interpolate(5)
     assert(SRF.get_weighted_mask().shape == (20, 20))
 
+def test_get_orientation_properties():
+    import pandas as pd
+    dires = np.arange(8) * 45
+    resps = np.ones(8)
+    resps[2] = 2.
+    dire_tuning = pd.DataFrame()
+    dire_tuning['dire'] = dires
+    dire_tuning['resp_mean'] = resps
+    # print(dire_tuning)
+
+    OSI_raw, DSI_raw, gOSI_raw, gDSI_raw, OSI_ele, DSI_ele, gOSI_ele, \
+    gDSI_ele, OSI_rec, DSI_rec, gOSI_rec, gDSI_rec, peak_dire_raw, vs_dire_raw, \
+    vs_dire_ele, vs_dire_rec = sca.DriftingGratingResponseTable.get_dire_tuning_properties(dire_tuning=dire_tuning,
+                                                                              response_dir='pos',
+                                                                              elevation_bias=0.)
+
+    # print('\nOSI_raw: {}'.format(OSI_raw))
+    # print('DSI_raw: {}'.format(DSI_raw))
+    # print('gOSI_raw: {}'.format(gOSI_raw))
+    # print('gDSI_raw: {}'.format(gDSI_raw))
+    # print('\nOSI_ele: {}'.format(OSI_ele))
+    # print('DSI_ele: {}'.format(DSI_ele))
+    # print('gOSI_ele: {}'.format(gOSI_ele))
+    # print('gDSI_ele: {}'.format(gDSI_ele))
+    # print('\nOSI_rec: {}'.format(OSI_rec))
+    # print('DSI_rec: {}'.format(DSI_rec))
+    # print('gOSI_rec: {}'.format(gOSI_rec))
+    # print('gDSI_rec: {}'.format(gDSI_rec))
+    # print('\npeak_dire_raw: {}'.format(peak_dire_raw))
+    # print('\nvs_dire_raw: {}'.format(vs_dire_raw))
+    # print('vs_orie_raw: {}'.format(vs_orie_raw))
+    # print('\nvs_dire_ele: {}'.format(vs_dire_ele))
+
+    assert (OSI_raw == OSI_ele == OSI_rec == 1. / 3.)
+    assert (DSI_raw == DSI_ele == DSI_rec == 1. / 3.)
+
+    assert (gOSI_raw == gOSI_ele == gOSI_rec == 1. / 9.)
+    assert (gDSI_raw == gDSI_ele == gDSI_rec == 1. / 9.)
+
+    assert (peak_dire_raw == int(vs_dire_raw) == int(vs_dire_ele) == int(vs_dire_rec) == 90)
+
+    dire_tuning.loc[6, 'resp_mean'] = -1.
+    # print(dire_tuning)
+
+    OSI_raw, DSI_raw, gOSI_raw, gDSI_raw, OSI_ele, DSI_ele, gOSI_ele, \
+    gDSI_ele, OSI_rec, DSI_rec, gOSI_rec, gDSI_rec, peak_dire_raw, vs_dire_raw, \
+    vs_dire_ele, vs_dire_rec = sca.DriftingGratingResponseTable.get_dire_tuning_properties(dire_tuning=dire_tuning,
+                                                                                           response_dir='pos',
+                                                                                           elevation_bias=0.)
+
+    # print('\nOSI_raw: {}'.format(OSI_raw))
+    # print('DSI_raw: {}'.format(DSI_raw))
+    # print('gOSI_raw: {}'.format(gOSI_raw))
+    # print('gDSI_raw: {}'.format(gDSI_raw))
+    # print('\nOSI_ele: {}'.format(OSI_ele))
+    # print('DSI_ele: {}'.format(DSI_ele))
+    # print('gOSI_ele: {}'.format(gOSI_ele))
+    # print('gDSI_ele: {}'.format(gDSI_ele))
+    # print('\nOSI_rec: {}'.format(OSI_rec))
+    # print('DSI_rec: {}'.format(DSI_rec))
+    # print('gOSI_rec: {}'.format(gOSI_rec))
+    # print('gDSI_rec: {}'.format(gDSI_rec))
+    # print('\npeak_dire_raw: {}'.format(peak_dire_raw))
+    # print('\nvs_dire_raw: {}'.format(vs_dire_raw))
+    # print('\nvs_dire_ele: {}'.format(vs_dire_ele))
+    # print('\nvs_dire_rec: {}'.format(vs_dire_rec))
+
+    assert (OSI_raw == OSI_rec == 1. / 3.)
+    assert (DSI_raw == 3.0)
+    assert (DSI_ele == DSI_rec == 1.0)
+    assert (OSI_ele == 0.2)
+    assert (gOSI_raw < (1. / 7. + 1E-7))
+    assert (gOSI_raw > (1. / 7. - 1E-7))
+    assert (gDSI_raw == 3. / 7.)
+    assert (gOSI_ele < (1. / 15. + 1E-7))
+    assert (gOSI_ele > (1. / 15. - 1E-7))
+    assert (gDSI_ele == 3. / 15.)
+    assert (gOSI_rec == 0.)
+    assert (gDSI_rec == 2. / 8.)
+
+    assert (peak_dire_raw == int(vs_dire_raw) == int(vs_dire_ele) == int(vs_dire_rec) == 90)
+
 plt.show()
 
 if __name__ == '__main__':
-    test_SpatialTemporalReceptiveField_getAmpLitudeMap()
+    test_get_orientation_properties()
 
