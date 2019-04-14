@@ -2166,31 +2166,55 @@ class DriftingGratingResponseTable(DataFrame):
         :return weighted_tf_log_rec:
         """
 
-        # todo: finish this.
+        tf_tuning_2 = tf_tuning.copy()
 
         if response_dir == 'pos':
             pass
         elif response_dir == 'neg':
-            tf_tuning['resp_mean'] = -tf_tuning['resp_mean']
+            tf_tuning_2['resp_mean'] = -tf_tuning_2['resp_mean']
         else:
             raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
 
-        if np.max(tf_tuning['resp_mean']) <= 0.:
+        if np.max(tf_tuning_2['resp_mean']) <= 0.:
             return tuple([np.nan] * 7)
         else:
-            peak_tf_raw_ind = tf_tuning['resp_mean'].argmax()
-            peak_tf_raw = tf_tuning.loc[peak_tf_raw_ind, 'tf']
 
-            tfs = tf_tuning['tf'].astype(np.float)
+            if np.min(tf_tuning_2['resp_mean']) < elevation_bias:
+                tf_tuning_2['resp_mean_ele'] = tf_tuning_2['resp_mean'] -np.min(tf_tuning_2['resp_mean']) \
+                                               + elevation_bias
+            else:
+                tf_tuning_2['resp_mean_ele'] = tf_tuning_2['resp_mean']
+
+            tf_tuning_2['resp_mean_rec'] = tf_tuning_2['resp_mean']
+            tf_tuning_2.loc[tf_tuning_2['resp_mean'] < 0, 'resp_mean_rec'] = 0.
+
+            peak_tf_raw_ind = tf_tuning_2['resp_mean'].argmax()
+            peak_tf_raw = tf_tuning_2.loc[peak_tf_raw_ind, 'tf']
+
+
+            tfs = tf_tuning_2['tf'].astype(np.float)
             tfs_log = np.log(tfs) / np.log(2)
-            resp = tf_tuning['resp_mean'].astype(np.float)
 
-            peak_tf_linear = np.sum(tfs * resp) / np.sum(resp)
+            # get raw weight tuning
+            resp_raw = tf_tuning_2['resp_mean'].astype(np.float)
+            weighted_tf_raw = np.sum(tfs * resp_raw) / np.sum(resp_raw)
+            weighted_tf_log_raw = np.sum(tfs_log * resp_raw) / np.sum(resp_raw)
+            weighted_tf_log_raw = 2 ** weighted_tf_log_raw
 
-            peak_tf_log = np.sum(tfs_log * resp) / np.sum(resp)
-            peak_tf_log = 2 ** peak_tf_log
+            # get elevated weight tuning
+            resp_ele = tf_tuning_2['resp_mean_ele'].astype(np.float)
+            weighted_tf_ele = np.sum(tfs * resp_ele) / np.sum(resp_ele)
+            weighted_tf_log_ele = np.sum(tfs_log * resp_ele) / np.sum(resp_ele)
+            weighted_tf_log_ele = 2 ** weighted_tf_log_ele
 
-            return peak_tf_raw, peak_tf_linear, peak_tf_log
+            # get rectified weight tuning
+            resp_rec = tf_tuning_2['resp_mean_rec'].astype(np.float)
+            weighted_tf_rec = np.sum(tfs * resp_rec) / np.sum(resp_rec)
+            weighted_tf_log_rec = np.sum(tfs_log * resp_rec) / np.sum(resp_rec)
+            weighted_tf_log_rec = 2 ** weighted_tf_log_rec
+
+            return peak_tf_raw, weighted_tf_raw, weighted_tf_log_raw, weighted_tf_ele, weighted_tf_log_ele, \
+                   weighted_tf_rec, weighted_tf_log_rec
 
     @staticmethod
     def get_sf_tuning_properties(sf_tuning, response_dir='pos', is_rectify=True):
