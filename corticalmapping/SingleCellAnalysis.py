@@ -2217,45 +2217,108 @@ class DriftingGratingResponseTable(DataFrame):
                    weighted_tf_rec, weighted_tf_log_rec
 
     @staticmethod
-    def get_sf_tuning_properties(sf_tuning, response_dir='pos', is_rectify=True):
-        """
-        :param sf_tuning:
-        :param response_dir: str, 'pos' or 'neg
-        :param is_rectify:  bool, if True, responses below zero will be set as zero
-        :return peak_sf_raw: sf condition (presented) with maxmium response
-        :return peak_sf_linear: average sf conditions weighted by response amplitude
-        :return peak_sf_log: average sf conditions weighted by response amplitude (on log scale)
+    def get_sf_tuning_properties(sf_tuning, response_dir='pos', elevation_bias=0.):
         """
 
-        # todo: finish this.
+        :param sf_tuning:
+        :param response_dir:  str, 'pos' or 'neg
+        :param elevation_bias: float, minimum response after elevation.
+        :return peak_sf_raw: sf condition (presented) with maxmium response
+        :return weighted_sf_raw: average sf conditions weighted by response
+        :return weighted_sf_log_raw: average sf conditions weighted by response (on log scale)
+        :return weighted_sf_ele:
+        :return weighted_sf_log_ele:
+        :return weighted_sf_rec:
+        :return weighted_sf_log_rec:
+        """
+
+        sf_tuning_2 = sf_tuning.copy()
 
         if response_dir == 'pos':
             pass
         elif response_dir == 'neg':
-            sf_tuning['resp_mean'] = -sf_tuning['resp_mean']
+            sf_tuning_2['resp_mean'] = -sf_tuning_2['resp_mean']
         else:
             raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
 
-        if is_rectify:
-            sf_tuning.loc[sf_tuning['resp_mean'] < 0., 'resp_mean'] = 0.
-
-        if np.max(sf_tuning['resp_mean']) <= 0.:
-            return tuple([np.nan] * 3)
+        if np.max(sf_tuning_2['resp_mean']) <= 0.:
+            return tuple([np.nan] * 7)
         else:
-            peak_sf_raw_ind = sf_tuning['resp_mean'].argmax()
-            peak_sf_raw = sf_tuning.loc[peak_sf_raw_ind, 'sf']
 
+            if np.min(sf_tuning_2['resp_mean']) < elevation_bias:
+                sf_tuning_2['resp_mean_ele'] = sf_tuning_2['resp_mean'] - np.min(sf_tuning_2['resp_mean']) \
+                                               + elevation_bias
+            else:
+                sf_tuning_2['resp_mean_ele'] = sf_tuning_2['resp_mean']
 
-            sfs = sf_tuning['sf'].astype(np.float)
-            sfs_log = np.log(sfs / 0.01) / np.log(2)
-            resp = sf_tuning['resp_mean'].astype(np.float)
+            sf_tuning_2['resp_mean_rec'] = sf_tuning_2['resp_mean']
+            sf_tuning_2.loc[sf_tuning_2['resp_mean'] < 0, 'resp_mean_rec'] = 0.
 
-            peak_sf_linear = np.sum(sfs * resp) / np.sum(resp)
+            peak_sf_raw_ind = sf_tuning_2['resp_mean'].argmax()
+            peak_sf_raw = sf_tuning_2.loc[peak_sf_raw_ind, 'sf']
 
-            peak_sf_log = np.sum(sfs_log * resp) / np.sum(resp)
-            peak_sf_log = 2 ** peak_sf_log * 0.01
+            sfs = sf_tuning_2['sf'].astype(np.float)
+            sfs_log = np.log(sfs) / np.log(2)
 
-            return peak_sf_raw, peak_sf_linear, peak_sf_log
+            # get raw weight tuning
+            resp_raw = sf_tuning_2['resp_mean'].astype(np.float)
+            weighted_sf_raw = np.sum(sfs * resp_raw) / np.sum(resp_raw)
+            weighted_sf_log_raw = np.sum(sfs_log * resp_raw) / np.sum(resp_raw)
+            weighted_sf_log_raw = 2 ** weighted_sf_log_raw
+
+            # get elevated weight tuning
+            resp_ele = sf_tuning_2['resp_mean_ele'].astype(np.float)
+            weighted_sf_ele = np.sum(sfs * resp_ele) / np.sum(resp_ele)
+            weighted_sf_log_ele = np.sum(sfs_log * resp_ele) / np.sum(resp_ele)
+            weighted_sf_log_ele = 2 ** weighted_sf_log_ele
+
+            # get rectified weight tuning
+            resp_rec = sf_tuning_2['resp_mean_rec'].astype(np.float)
+            weighted_sf_rec = np.sum(sfs * resp_rec) / np.sum(resp_rec)
+            weighted_sf_log_rec = np.sum(sfs_log * resp_rec) / np.sum(resp_rec)
+            weighted_sf_log_rec = 2 ** weighted_sf_log_rec
+
+            return peak_sf_raw, weighted_sf_raw, weighted_sf_log_raw, weighted_sf_ele, weighted_sf_log_ele, \
+                   weighted_sf_rec, weighted_sf_log_rec
+
+    # @staticmethod
+    # def get_sf_tuning_properties_old(sf_tuning, response_dir='pos', is_rectify=True):
+    #     """
+    #     :param sf_tuning:
+    #     :param response_dir: str, 'pos' or 'neg
+    #     :param is_rectify:  bool, if True, responses below zero will be set as zero
+    #     :return peak_sf_raw: sf condition (presented) with maxmium response
+    #     :return peak_sf_linear: average sf conditions weighted by response amplitude
+    #     :return peak_sf_log: average sf conditions weighted by response amplitude (on log scale)
+    #     """
+    #
+    #     if response_dir == 'pos':
+    #         pass
+    #     elif response_dir == 'neg':
+    #         sf_tuning['resp_mean'] = -sf_tuning['resp_mean']
+    #     else:
+    #         raise LookupError('Do not understand response_dir ({}). Should be "pos" or "neg"'.format(response_dir))
+    #
+    #     if is_rectify:
+    #         sf_tuning.loc[sf_tuning['resp_mean'] < 0., 'resp_mean'] = 0.
+    #
+    #     if np.max(sf_tuning['resp_mean']) <= 0.:
+    #         return tuple([np.nan] * 3)
+    #     else:
+    #         peak_sf_raw_ind = sf_tuning['resp_mean'].argmax()
+    #         peak_sf_raw = sf_tuning.loc[peak_sf_raw_ind, 'sf']
+    #
+    #
+    #         sfs = sf_tuning['sf'].astype(np.float)
+    #         sfs_log = np.log(sfs / 0.01) / np.log(2)
+    #         resp = sf_tuning['resp_mean'].astype(np.float)
+    #
+    #         peak_sf_linear = np.sum(sfs * resp) / np.sum(resp)
+    #
+    #         peak_sf_log = np.sum(sfs_log * resp) / np.sum(resp)
+    #         peak_sf_log = 2 ** peak_sf_log * 0.01
+    #
+    #         return peak_sf_raw, peak_sf_linear, peak_sf_log
 
     def plot_sf_tf_matrix(self, response_dir='pos', axis=None, cmap='RdBu_r', vmax=4, vmin=-4):
 
