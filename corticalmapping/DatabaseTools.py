@@ -978,9 +978,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'dgc_neg_weighted_tf_log_ele_z': np.nan,
                                'dgc_neg_weighted_tf_rec_z': np.nan,
                                'dgc_neg_weighted_tf_log_rec_z': np.nan,
-
                                })
-
 
     return roi_properties, roi, trace, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_df, dgcrm_dff, \
            dgcrm_z, dgcrt_df, dgcrt_dff, dgcrt_z, dgc_block_dur

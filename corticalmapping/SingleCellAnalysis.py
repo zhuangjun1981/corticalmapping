@@ -2420,7 +2420,8 @@ if __name__ == '__main__':
 
     dgcrt_zscore, _, _, _ = dgcrm.get_df_response_table(response_win=[0., 1.], baseline_win=[-0.5, 0.])
 
-    dgcrt_zscore.plot_dire_tuning(axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False)
+    dgcrt_zscore.plot_dire_tuning(axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False,
+                                  postprocess='elevate')
     plt.show()
 
     dire_tuning = dgcrt_zscore.get_dire_tuning(response_dir='pos', is_collapse_sf=True, is_collapse_tf=False)
@@ -2448,24 +2449,36 @@ if __name__ == '__main__':
     print('\nvs_dire_ele: {}'.format(vs_dire_ele))
     print('\nvs_dire_rec: {}'.format(vs_dire_rec))
 
-    #
-    # sf_tuning = dgcrt_zscore.get_sf_tuning(response_dir='pos', is_collapse_tf=False, is_collapse_dire=False)
-    # print(sf_tuning)
-    # _ = DriftingGratingResponseTable.get_sf_tuning_properties(sf_tuning=sf_tuning, response_dir='pos',
-    #                                                           is_rectify=True)
-    # peak_sf_raw, peak_sf_linear, peak_sf_log = _
-    # print('\npeak_sf_raw: {}'.format(peak_sf_raw))
-    # print('peak_sf_linear: {}'.format(peak_sf_linear))
-    # print('peak_sf_log: {}\n'.format(peak_sf_log))
-    #
-    # tf_tuning = dgcrt_zscore.get_tf_tuning(response_dir='pos', is_collapse_sf=False, is_collapse_dire=False)
-    # print(tf_tuning)
-    # _ = DriftingGratingResponseTable.get_tf_tuning_properties(tf_tuning=tf_tuning, response_dir='pos',
-    #                                                           is_rectify=True)
-    # peak_tf_raw, peak_tf_linear, peak_tf_log = _
-    # print('\npeak_tf_raw: {}'.format(peak_tf_raw))
-    # print('peak_tf_linear: {}'.format(peak_tf_linear))
-    # print('peak_tf_log: {}\n'.format(peak_tf_log))
+
+    sf_tuning = dgcrt_zscore.get_sf_tuning(response_dir='pos', is_collapse_tf=False, is_collapse_dire=False)
+    print
+    print(sf_tuning)
+    _ = DriftingGratingResponseTable.get_sf_tuning_properties(sf_tuning=sf_tuning, response_dir='pos',
+                                                              elevation_bias=0.)
+    peak_sf_raw, weighted_sf_raw, weighted_sf_log_raw, weighted_sf_ele, weighted_sf_log_ele, \
+    weighted_sf_rec, weighted_sf_log_rec = _
+    print('\npeak_sf_raw: {}'.format(peak_sf_raw))
+    print('weighted_sf_raw: {}'.format(weighted_sf_raw))
+    print('weighted_sf_log_raw: {}'.format(weighted_sf_log_raw))
+    print('weighted_sf_ele: {}'.format(weighted_sf_ele))
+    print('weighted_sf_log_ele: {}'.format(weighted_sf_log_ele))
+    print('weighted_sf_rec: {}'.format(weighted_sf_rec))
+    print('weighted_sf_log_rec: {}'.format(weighted_sf_log_rec))
+
+    tf_tuning = dgcrt_zscore.get_tf_tuning(response_dir='pos', is_collapse_sf=False, is_collapse_dire=False)
+    print
+    print(tf_tuning)
+    _ = DriftingGratingResponseTable.get_tf_tuning_properties(tf_tuning=tf_tuning, response_dir='pos',
+                                                              elevation_bias=0.)
+    peak_tf_raw, weighted_tf_raw, weighted_tf_log_raw, weighted_tf_ele, weighted_tf_log_ele, \
+    weighted_tf_rec, weighted_tf_log_rec = _
+    print('\npeak_tf_raw: {}'.format(peak_tf_raw))
+    print('weighted_tf_raw: {}'.format(weighted_tf_raw))
+    print('weighted_tf_log_raw: {}'.format(weighted_tf_log_raw))
+    print('weighted_tf_ele: {}'.format(weighted_tf_ele))
+    print('weighted_tf_log_ele: {}'.format(weighted_tf_log_ele))
+    print('weighted_tf_rec: {}'.format(weighted_tf_rec))
+    print('weighted_tf_log_rec: {}'.format(weighted_tf_log_rec))
 
     # =====================================================================
 
@@ -2531,4 +2544,4 @@ if __name__ == '__main__':
 
     # =====================================================================
 
-    print 'for debug...'
+    print '\nfor debug...'
