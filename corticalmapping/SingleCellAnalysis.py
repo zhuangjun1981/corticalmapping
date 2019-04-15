@@ -1926,7 +1926,7 @@ class DriftingGratingResponseTable(DataFrame):
 
         # print(df_sub)
 
-        return df_sub[['dire', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
+        return df_sub[['dire', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']].copy()
 
     def get_sf_tuning(self, response_dir='pos', is_collapse_tf=False, is_collapse_dire=False):
         """
@@ -1970,7 +1970,7 @@ class DriftingGratingResponseTable(DataFrame):
             df_sub = df_sub.loc[df_sub['dire'] == dire_p].drop('dire', axis=1)
 
         # print(df_sub)
-        return df_sub[['sf', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
+        return df_sub[['sf', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']].copy()
 
     def get_tf_tuning(self, response_dir='pos', is_collapse_sf=False, is_collapse_dire=False):
         """
@@ -2014,7 +2014,7 @@ class DriftingGratingResponseTable(DataFrame):
             df_sub = df_sub.loc[df_sub['dire'] == dire_p].drop('dire', axis=1)
 
         # print(df_sub)
-        return df_sub[['tf', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']]
+        return df_sub[['tf', 'resp_mean', 'resp_max', 'resp_min', 'resp_std', 'resp_stdev']].copy()
 
     @staticmethod
     def get_dire_tuning_properties(dire_tuning, response_dir='pos', elevation_bias=0.):
@@ -2341,7 +2341,22 @@ class DriftingGratingResponseTable(DataFrame):
         axis.tick_params(length=0)
 
     def plot_dire_tuning(self, axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False,
-                         trace_color='#ff0000', lw=1.):
+                         trace_color='#ff0000', lw=1., postprocess='raw'):
+        """
+
+        :param axis:
+        :param response_dir:
+        :param is_collapse_sf:
+        :param is_collapse_tf:
+        :param trace_color:
+        :param lw:
+        :param postprocess: str, 'raw', 'elevate' or 'rectify'
+                            'raw': plot raw response
+                            'elevate': if there is response below zero, how curve will be elevated so the minimum
+                                       is zero
+                            'rectify': if there is response below zero, those responses will be set as zero.
+        :return:
+        """
 
         if axis is None:
             f = plt.figure()
@@ -2357,11 +2372,26 @@ class DriftingGratingResponseTable(DataFrame):
         if response_dir == 'neg':
             dire_tuning['resp_mean'] = -dire_tuning['resp_mean']
 
-        bias = -np.min(dire_tuning['resp_mean'])
+        # bias = -np.min(dire_tuning['resp_mean'])
+        #
+        # # print('bias: {}'.format(bias))
+        #
+        # resp = dire_tuning['resp_mean'] + bias
 
-        # print('bias: {}'.format(bias))
+        resp = dire_tuning['resp_mean']
+        bias = 0.
 
-        resp = dire_tuning['resp_mean'] + bias
+        if postprocess == 'raw':
+            pass
+        elif postprocess == 'elevate':
+            if np.min(resp) < 0.:
+                resp = resp - np.min(resp)
+                bias = -np.min(resp)
+        elif postprocess == 'rectify':
+            resp[resp < 0] = 0
+        else:
+            raise LookupError('do not understand "postprocess": ({}). should be "raw", '
+                              '"elevate" or "rectify".'.format(postprocess))
 
         r_max = np.ceil(max(dire_tuning['resp_mean'] + dire_tuning['resp_stdev']) * 10000.) / 10000.
 
