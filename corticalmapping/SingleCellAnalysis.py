@@ -2191,7 +2191,6 @@ class DriftingGratingResponseTable(DataFrame):
             peak_tf_raw_ind = tf_tuning_2['resp_mean'].argmax()
             peak_tf_raw = tf_tuning_2.loc[peak_tf_raw_ind, 'tf']
 
-
             tfs = tf_tuning_2['tf'].astype(np.float)
             tfs_log = np.log(tfs) / np.log(2)
 
@@ -2413,7 +2412,9 @@ class DriftingGratingResponseTable(DataFrame):
 if __name__ == '__main__':
     plt.ioff()
     # =====================================================================
-    f = h5py.File(r"F:\data2\chandelier_cell_project\M441626\2019-04-03-deepscope\190403_M441626_110.nwb", 'r')
+    # f = h5py.File(r"F:\data2\chandelier_cell_project\M441626\2019-04-03-deepscope\190403_M441626_110.nwb", 'r')
+    # f = h5py.File(r"G:\190410_M439943_110.nwb", 'r')
+    f = h5py.File(r"G:\repacked\190410_M439943_110_repacked.nwb", 'r')
     dgcrm = get_dgc_response_matrix_from_nwb(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
                                              roi_ind=0,
                                              trace_type='sta_f_center_raw')

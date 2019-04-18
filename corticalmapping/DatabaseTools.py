@@ -416,7 +416,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         peak_dire_raw_df_pos, vs_dire_raw_df_pos, vs_dire_ele_df_pos, vs_dire_rec_df_pos\
             = dgcrt_df.get_dire_tuning_properties(dire_tuning_df_pos,
                                                   response_dir='pos',
-                                                  elevation_bas=params['dgc_elevation_bias'])
+                                                  elevation_bias=params['dgc_elevation_bias'])
         roi_properties.update({'dgc_pos_osi_raw_df': osi_df_pos_raw,
                                'dgc_pos_dsi_raw_df': dsi_df_pos_raw,
                                'dgc_pos_gosi_raw_df': gosi_df_pos_raw,
@@ -445,7 +445,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         peak_dire_raw_df_neg, vs_dire_raw_df_neg, vs_dire_ele_df_neg, vs_dire_rec_df_neg \
             = dgcrt_df.get_dire_tuning_properties(dire_tuning_df_neg,
                                                   response_dir='neg',
-                                                  elevation_bas=params['dgc_elevation_bias'])
+                                                  elevation_bias=params['dgc_elevation_bias'])
         roi_properties.update({'dgc_neg_osi_raw_df': osi_df_neg_raw,
                                'dgc_neg_dsi_raw_df': dsi_df_neg_raw,
                                'dgc_neg_gosi_raw_df': gosi_df_neg_raw,
@@ -540,7 +540,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         peak_dire_raw_dff_pos, vs_dire_raw_dff_pos, vs_dire_ele_dff_pos, vs_dire_rec_dff_pos \
             = dgcrt_dff.get_dire_tuning_properties(dire_tuning_dff_pos,
                                                   response_dir='pos',
-                                                  elevation_bas=params['dgc_elevation_bias'])
+                                                  elevation_bias=params['dgc_elevation_bias'])
         roi_properties.update({'dgc_pos_osi_raw_dff': osi_dff_pos_raw,
                                'dgc_pos_dsi_raw_dff': dsi_dff_pos_raw,
                                'dgc_pos_gosi_raw_dff': gosi_dff_pos_raw,
@@ -568,7 +568,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         peak_dire_raw_dff_neg, vs_dire_raw_dff_neg, vs_dire_ele_dff_neg, vs_dire_rec_dff_neg \
             = dgcrt_dff.get_dire_tuning_properties(dire_tuning_dff_neg,
                                                   response_dir='neg',
-                                                  elevation_bas=params['dgc_elevation_bias'])
+                                                  elevation_bias=params['dgc_elevation_bias'])
         roi_properties.update({'dgc_neg_osi_raw_dff': osi_dff_neg_raw,
                                'dgc_neg_dsi_raw_dff': dsi_dff_neg_raw,
                                'dgc_neg_gosi_raw_dff': gosi_dff_neg_raw,
@@ -661,7 +661,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         peak_dire_raw_z_pos, vs_dire_raw_z_pos, vs_dire_ele_z_pos, vs_dire_rec_z_pos \
             = dgcrt_z.get_dire_tuning_properties(dire_tuning_z_pos,
                                                   response_dir='pos',
-                                                  elevation_bas=params['dgc_elevation_bias'])
+                                                  elevation_bias=params['dgc_elevation_bias'])
         roi_properties.update({'dgc_pos_osi_raw_z': osi_z_pos_raw,
                                'dgc_pos_dsi_raw_z': dsi_z_pos_raw,
                                'dgc_pos_gosi_raw_z': gosi_z_pos_raw,
@@ -689,7 +689,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         peak_dire_raw_z_neg, vs_dire_raw_z_neg, vs_dire_ele_z_neg, vs_dire_rec_z_neg \
             = dgcrt_z.get_dire_tuning_properties(dire_tuning_z_neg,
                                                   response_dir='neg',
-                                                  elevation_bas=params['dgc_elevation_bias'])
+                                                  elevation_bias=params['dgc_elevation_bias'])
         roi_properties.update({'dgc_neg_osi_raw_z': osi_z_neg_raw,
                                'dgc_neg_dsi_raw_z': dsi_z_neg_raw,
                                'dgc_neg_gosi_raw_z': gosi_z_neg_raw,
@@ -1263,21 +1263,22 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
 if __name__ == '__main__':
 
-    # nwb_path = r"F:\data2\chandelier_cell_project\database\nwbs\190326_M441626_110.nwb"
-    nwb_path = r"F:\data2\rabies_tracing_project\M439939\2019-04-03-2p\190403_M439939_110.nwb"
+    # nwb_path = r"F:\data2\chandelier_cell_project\M441626\2019-03-26-deepscope\190326_M441626_110.nwb"
+    nwb_path = r"G:\repacked\190326_M441626_110_repacked.nwb"
+    # nwb_path = r"F:\data2\rabies_tracing_project\M439939\2019-04-03-2p\190403_M439939_110.nwb"
     plane_n = 'plane0'
     roi_n = 'roi_0000'
     nwb_f = h5py.File(nwb_path, 'r')
 
-    # roi_properties, _, _, _, _, _, _, _, _, _, _, _, _, _ = \
-    #     get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+    roi_properties, _, _, _, _, _, _, _, _, _, _, _, _, _ = \
+        get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+
+    keys = roi_properties.keys()
+    keys.sort()
+    for key in keys:
+        print('{}: {}'.format(key, roi_properties[key]))
+
+    # roi_page_report(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
     #
-    # keys = roi_properties.keys()
-    # keys.sort()
-    # for key in keys:
-    #     print('{}: {}'.format(key, roi_properties[key]))
-
-    roi_page_report(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
-
-    nwb_f.close()
-    plt.show()
+    # nwb_f.close()
+    # plt.show()
