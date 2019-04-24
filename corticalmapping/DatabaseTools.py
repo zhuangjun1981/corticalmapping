@@ -59,7 +59,7 @@ PLOTTING_PARAMS = {
     'single_traces_lw': 0.5,
     'mean_traces_lw': 2.,
     'dgc_postprocess': 'elevate',
-    'ax_text_coord': [0.63, 0.01, 0.36, 0.73],
+    'ax_text_coord': [0.63, 0.005, 0.36, 0.74],
     'ax_sftf_pos_coord': [0.01, 0.21, 0.3, 0.17],
     'ax_sftf_neg_coord': [0.32, 0.21, 0.3, 0.17],
     'sftf_cmap': 'RdBu_r',
@@ -1159,7 +1159,7 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
     file_n = os.path.splitext(os.path.split(nwb_f.filename)[1])[0]
 
-    txt = 'nwb: {}\n'.format(file_n)
+    txt = '{}\n'.format(file_n)
     txt += '\n'
     txt += 'plane name:          {}\n'.format(plane_n)
     txt += 'roi name:            {}\n'.format(roi_n)
@@ -1176,17 +1176,8 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
     rf_pos_peak_z = max([roi_properties['rf_pos_on_peak_z'],
                          roi_properties['rf_pos_off_peak_z']])
-
-    txt += 'rf_pos_peak_z:       {:.2f}\n'.format(rf_pos_peak_z)
-    txt += 'rf_pos_lsi:          {:.2f}\n'.format(roi_properties['rf_pos_lsi'])
-    # txt += '\n'
-
     rf_neg_peak_z = max([roi_properties['rf_neg_on_peak_z'],
                          roi_properties['rf_neg_off_peak_z']])
-
-    txt += 'rf_neg_peak_z:       {:.2f}\n'.format(rf_neg_peak_z)
-    txt += 'rf_neg_lsi:          {:.2f}\n'.format(roi_properties['rf_neg_lsi'])
-    # txt += '\n'
 
     if plot_params['response_type_for_plot'] == 'df':
         surfix1 = 'df'
@@ -1210,36 +1201,41 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
     txt += 'dgc_p_anova:         {:.2f}\n'.format(roi_properties['dgc_p_anova_{}'.format(surfix1)])
     txt += '\n'
-    txt += 'dgc_pos_p_ttest:         {:.2f}\n'.format(roi_properties['dgc_pos_p_ttest_{}'.format(surfix1)])
-    txt += 'dgc_pos_peak_resp:       {:.2f}\n'.format(roi_properties['dgc_pos_peak_{}'.format(surfix1)])
-    txt += 'dgc_pos_OSI:             {:.2f}\n'.format(roi_properties['dgc_pos_osi_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_pos_gOSI:            {:.2f}\n'.format(roi_properties['dgc_pos_gosi_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_pos_DSI:             {:.2f}\n'.format(roi_properties['dgc_pos_dsi_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_pos_gDSI:            {:.2f}\n'.format(roi_properties['dgc_pos_gdsi_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_pos_vs_dire:         {:.2f}\n'.format(roi_properties['dgc_pos_vs_dire_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_pos_weighted_sf:     {:.2f}\n'.format(roi_properties['dgc_pos_weighted_sf'
+    txt += 'positive response:\n'
+    txt += 'rf_peak_z:           {:.2f}\n'.format(rf_pos_peak_z)
+    txt += 'rf_lsi:              {:.2f}\n'.format(roi_properties['rf_pos_lsi'])
+    txt += 'dgc_p_ttest:         {:.2f}\n'.format(roi_properties['dgc_pos_p_ttest_{}'.format(surfix1)])
+    txt += 'dgc_peak_resp:       {:.2f}\n'.format(roi_properties['dgc_pos_peak_{}'.format(surfix1)])
+    txt += 'dgc_OSI:             {:.2f}\n'.format(roi_properties['dgc_pos_osi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_gOSI:            {:.2f}\n'.format(roi_properties['dgc_pos_gosi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_DSI:             {:.2f}\n'.format(roi_properties['dgc_pos_dsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_gDSI:            {:.2f}\n'.format(roi_properties['dgc_pos_gdsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_vs_dire:         {:.2f}\n'.format(roi_properties['dgc_pos_vs_dire_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_sf:     {:.2f}\n'.format(roi_properties['dgc_pos_weighted_sf'
                                                                      '_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_pos_weighted_sf_log: {:.2f}\n'.format(roi_properties['dgc_pos_weighted_sf_log'
+    txt += 'dgc_weighted_sf_log: {:.2f}\n'.format(roi_properties['dgc_pos_weighted_sf_log'
                                                                      '_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_pos_weighted_tf:     {:.2f}\n'.format(roi_properties['dgc_pos_weighted_tf'
+    txt += 'dgc_weighted_tf:     {:.2f}\n'.format(roi_properties['dgc_pos_weighted_tf'
                                                                      '_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_pos_weighted_tf_log: {:.2f}\n'.format(roi_properties['dgc_pos_weighted_tf_log'
+    txt += 'dgc_weighted_tf_log: {:.2f}\n'.format(roi_properties['dgc_pos_weighted_tf_log'
                                                                      '_{}_{}'.format(surfix2, surfix1)])
-    txt += '\n'
-    txt += 'dgc_neg_p_ttest:         {:.2f}\n'.format(roi_properties['dgc_neg_p_ttest_{}'.format(surfix1)])
-    txt += 'dgc_neg_peak_resp:       {:.2f}\n'.format(roi_properties['dgc_neg_peak_{}'.format(surfix1)])
-    txt += 'dgc_neg_OSI:             {:.2f}\n'.format(roi_properties['dgc_neg_osi_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_neg_gOSI:            {:.2f}\n'.format(roi_properties['dgc_neg_gosi_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_neg_DSI:             {:.2f}\n'.format(roi_properties['dgc_neg_dsi_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_neg_gDSI:            {:.2f}\n'.format(roi_properties['dgc_neg_gdsi_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_neg_vs_dire:         {:.2f}\n'.format(roi_properties['dgc_neg_vs_dire_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_neg_weighted_sf:     {:.2f}\n'.format(roi_properties['dgc_neg_weighted_sf'
+    txt += '\nnegative response:\n'
+    txt += 'rf_peak_z:           {:.2f}\n'.format(rf_neg_peak_z)
+    txt += 'rf_lsi:              {:.2f}\n'.format(roi_properties['rf_neg_lsi'])
+    txt += 'dgc_p_ttest:         {:.2f}\n'.format(roi_properties['dgc_neg_p_ttest_{}'.format(surfix1)])
+    txt += 'dgc_peak_resp:       {:.2f}\n'.format(roi_properties['dgc_neg_peak_{}'.format(surfix1)])
+    txt += 'dgc_OSI:             {:.2f}\n'.format(roi_properties['dgc_neg_osi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_gOSI:            {:.2f}\n'.format(roi_properties['dgc_neg_gosi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_DSI:             {:.2f}\n'.format(roi_properties['dgc_neg_dsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_gDSI:            {:.2f}\n'.format(roi_properties['dgc_neg_gdsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_vs_dire:         {:.2f}\n'.format(roi_properties['dgc_neg_vs_dire_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_sf:     {:.2f}\n'.format(roi_properties['dgc_neg_weighted_sf'
                                                                      '_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_neg_weighted_sf_log: {:.2f}\n'.format(roi_properties['dgc_neg_weighted_sf_log'
+    txt += 'dgc_weighted_sf_log: {:.2f}\n'.format(roi_properties['dgc_neg_weighted_sf_log'
                                                                      '_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_neg_weighted_tf:     {:.2f}\n'.format(roi_properties['dgc_neg_weighted_tf'
+    txt += 'dgc_weighted_tf:     {:.2f}\n'.format(roi_properties['dgc_neg_weighted_tf'
                                                                      '_{}_{}'.format(surfix2, surfix1)])
-    txt += 'dgc_neg_weighted_tf_log: {:.2f}\n'.format(roi_properties['dgc_neg_weighted_tf_log'
+    txt += 'dgc_weighted_tf_log: {:.2f}\n'.format(roi_properties['dgc_neg_weighted_tf_log'
                                                                      '_{}_{}'.format(surfix2, surfix1)])
 
     ax_text.text(0.01, 0.99, txt, horizontalalignment='left', verticalalignment='top', family='monospace')
