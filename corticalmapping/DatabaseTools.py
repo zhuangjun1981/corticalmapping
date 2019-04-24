@@ -1159,101 +1159,88 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
     file_n = os.path.splitext(os.path.split(nwb_f.filename)[1])[0]
 
-    txt = '\n'
-    txt += 'nwb: {}\n'.format(file_n)
+    txt = 'nwb: {}\n'.format(file_n)
     txt += '\n'
     txt += 'plane name:          {}\n'.format(plane_n)
     txt += 'roi name:            {}\n'.format(roi_n)
-    txt += '\n'
     txt += 'depth (um):          {}\n'.format(roi_properties['depth'])
     txt += 'roi area (um^2):     {:.2f}\n'.format(roi_properties['roi_area'])
-    txt += '\n'
+    # txt += '\n'
     txt += 'trace type:{:>19}\n'.format(params['trace_type'])
     txt += 'response type:{:>14}\n'.format(plot_params['response_type_for_plot'])
+    txt += 'dgc postprocess:{:>13}\n'.format(plot_params['dgc_postprocess'])
     txt += '\n'
     txt += 'skewness raw:        {:.2f}\n'.format(roi_properties['skew_raw'])
     txt += 'skewness fil:        {:.2f}\n'.format(roi_properties['skew_fil'])
-    txt += '\n'
+    # txt += '\n'
 
     rf_pos_peak_z = max([roi_properties['rf_pos_on_peak_z'],
                          roi_properties['rf_pos_off_peak_z']])
 
     txt += 'rf_pos_peak_z:       {:.2f}\n'.format(rf_pos_peak_z)
     txt += 'rf_pos_lsi:          {:.2f}\n'.format(roi_properties['rf_pos_lsi'])
-    txt += '\n'
+    # txt += '\n'
 
     rf_neg_peak_z = max([roi_properties['rf_neg_on_peak_z'],
                          roi_properties['rf_neg_off_peak_z']])
 
     txt += 'rf_neg_peak_z:       {:.2f}\n'.format(rf_neg_peak_z)
     txt += 'rf_neg_lsi:          {:.2f}\n'.format(roi_properties['rf_neg_lsi'])
-    txt += '\n'
+    # txt += '\n'
 
     if plot_params['response_type_for_plot'] == 'df':
-        txt += 'dgc_p_anova:         {:.2f}\n'.format(roi_properties['dgc_p_anova_df'])
-        txt += '\n'
-        txt += 'dgc_pos_p_ttest:     {:.2f}\n'.format(roi_properties['dgc_pos_p_ttest_df'])
-        txt += 'dgc_pos_peak_resp:   {:.2f}\n'.format(roi_properties['dgc_pos_peak_df'])
-        txt += 'dgc_pos_OSI:         {:.2f}\n'.format(roi_properties['dgc_pos_osi_df'])
-        txt += 'dgc_pos_gOSI:        {:.2f}\n'.format(roi_properties['dgc_pos_gosi_df'])
-        txt += 'dgc_pos_DSI:         {:.2f}\n'.format(roi_properties['dgc_pos_dsi_df'])
-        txt += 'dgc_pos_gDSI:        {:.2f}\n'.format(roi_properties['dgc_pos_gdsi_df'])
-        txt += 'dgc_pos_peak_sf:     {:.2f}\n'.format(roi_properties['dgc_pos_peak_sf_log_df'])
-        txt += 'dgc_pos_peak_tf:     {:.2f}\n'.format(roi_properties['dgc_pos_peak_tf_log_df'])
-        txt += '\n'
-        txt += 'dgc_neg_p_ttest:     {:.2f}\n'.format(roi_properties['dgc_neg_p_ttest_df'])
-        txt += 'dgc_neg_peak_resp:   {:.2f}\n'.format(roi_properties['dgc_neg_peak_df'])
-        txt += 'dgc_neg_OSI:         {:.2f}\n'.format(roi_properties['dgc_neg_osi_df'])
-        txt += 'dgc_neg_gOSI:        {:.2f}\n'.format(roi_properties['dgc_neg_gosi_df'])
-        txt += 'dgc_neg_DSI:         {:.2f}\n'.format(roi_properties['dgc_neg_dsi_df'])
-        txt += 'dgc_neg_gDSI:        {:.2f}\n'.format(roi_properties['dgc_neg_gdsi_df'])
-        txt += 'dgc_neg_peak_sf:     {:.2f}\n'.format(roi_properties['dgc_neg_peak_sf_log_df'])
-        txt += 'dgc_neg_peak_tf:     {:.2f}\n'.format(roi_properties['dgc_neg_peak_tf_log_df'])
-
+        surfix1 = 'df'
     elif plot_params['response_type_for_plot'] == 'dff':
-        txt += 'dgc_p_anova:         {:.2f}\n'.format(roi_properties['dgc_p_anova_dff'])
-        txt += '\n'
-        txt += 'dgc_pos_p_ttest:     {:.2f}\n'.format(roi_properties['dgc_pos_p_ttest_dff'])
-        txt += 'dgc_pos_peak_resp:   {:.2f}\n'.format(roi_properties['dgc_pos_peak_dff'])
-        txt += 'dgc_pos_OSI:         {:.2f}\n'.format(roi_properties['dgc_pos_osi_dff'])
-        txt += 'dgc_pos_gOSI:        {:.2f}\n'.format(roi_properties['dgc_pos_gosi_dff'])
-        txt += 'dgc_pos_DSI:         {:.2f}\n'.format(roi_properties['dgc_pos_dsi_dff'])
-        txt += 'dgc_pos_gDSI:        {:.2f}\n'.format(roi_properties['dgc_pos_gdsi_dff'])
-        txt += 'dgc_pos_peak_sf:     {:.2f}\n'.format(roi_properties['dgc_pos_peak_sf_log_dff'])
-        txt += 'dgc_pos_peak_tf:     {:.2f}\n'.format(roi_properties['dgc_pos_peak_tf_log_dff'])
-        txt += '\n'
-        txt += 'dgc_neg_p_ttest:     {:.2f}\n'.format(roi_properties['dgc_neg_p_ttest_dff'])
-        txt += 'dgc_neg_peak_resp:   {:.2f}\n'.format(roi_properties['dgc_neg_peak_dff'])
-        txt += 'dgc_neg_OSI:         {:.2f}\n'.format(roi_properties['dgc_neg_osi_dff'])
-        txt += 'dgc_neg_gOSI:        {:.2f}\n'.format(roi_properties['dgc_neg_gosi_dff'])
-        txt += 'dgc_neg_DSI:         {:.2f}\n'.format(roi_properties['dgc_neg_dsi_dff'])
-        txt += 'dgc_neg_gDSI:        {:.2f}\n'.format(roi_properties['dgc_neg_gdsi_dff'])
-        txt += 'dgc_neg_peak_sf:     {:.2f}\n'.format(roi_properties['dgc_neg_peak_sf_log_dff'])
-        txt += 'dgc_neg_peak_tf:     {:.2f}\n'.format(roi_properties['dgc_neg_peak_tf_log_dff'])
-
+        surfix1 = 'dff'
     elif plot_params['response_type_for_plot'] == 'zscore':
-        txt += 'dgc_p_anova:         {:.2f}\n'.format(roi_properties['dgc_p_anova_z'])
-        txt += '\n'
-        txt += 'dgc_pos_p_ttest:     {:.2f}\n'.format(roi_properties['dgc_pos_p_ttest_z'])
-        txt += 'dgc_pos_peak_resp:   {:.2f}\n'.format(roi_properties['dgc_pos_peak_z'])
-        txt += 'dgc_pos_OSI:         {:.2f}\n'.format(roi_properties['dgc_pos_osi_z'])
-        txt += 'dgc_pos_gOSI:        {:.2f}\n'.format(roi_properties['dgc_pos_gosi_z'])
-        txt += 'dgc_pos_DSI:         {:.2f}\n'.format(roi_properties['dgc_pos_dsi_z'])
-        txt += 'dgc_pos_gDSI:        {:.2f}\n'.format(roi_properties['dgc_pos_gdsi_z'])
-        txt += 'dgc_pos_peak_sf:     {:.2f}\n'.format(roi_properties['dgc_pos_peak_sf_log_z'])
-        txt += 'dgc_pos_peak_tf:     {:.2f}\n'.format(roi_properties['dgc_pos_peak_tf_log_z'])
-        txt += '\n'
-        txt += 'dgc_neg_p_ttest:     {:.2f}\n'.format(roi_properties['dgc_neg_p_ttest_z'])
-        txt += 'dgc_neg_peak_resp:   {:.2f}\n'.format(roi_properties['dgc_neg_peak_z'])
-        txt += 'dgc_neg_OSI:         {:.2f}\n'.format(roi_properties['dgc_neg_osi_z'])
-        txt += 'dgc_neg_gOSI:        {:.2f}\n'.format(roi_properties['dgc_neg_gosi_z'])
-        txt += 'dgc_neg_DSI:         {:.2f}\n'.format(roi_properties['dgc_neg_dsi_z'])
-        txt += 'dgc_neg_gDSI:        {:.2f}\n'.format(roi_properties['dgc_neg_gdsi_z'])
-        txt += 'dgc_neg_peak_sf:     {:.2f}\n'.format(roi_properties['dgc_neg_peak_sf_log_z'])
-        txt += 'dgc_neg_peak_tf:     {:.2f}\n'.format(roi_properties['dgc_neg_peak_tf_log_z'])
+        surfix1 = 'z'
     else:
-        raise LookupError("Do not understand 'response_type_for_plot': {}. Should be "
-                          "'df', 'dff' or 'zscore'.".format(params['response_type_for_plot']))
+        raise LookupError("Do not ',understand 'response_type_for_plot': {}. Should be "
+                          "'df 'dff' or 'zscore'.".format(plot_params['response_type_for_plot']))
+
+    if plot_params['dgc_postprocess'] == 'raw':
+        surfix2 = 'raw'
+    elif plot_params['dgc_postprocess'] == 'elevate':
+        surfix2 = 'ele'
+    elif plot_params['dgc_postprocess'] == 'rectify':
+        surfix2 = 'rec'
+    else:
+        raise LookupError("Do not ',understand 'response_type_for_plot': {}. Should be "
+                          "'raw', 'elevate' or 'rectify'.".format(plot_params['dgc_postprocess']))
+
+    txt += 'dgc_p_anova:         {:.2f}\n'.format(roi_properties['dgc_p_anova_{}'.format(surfix1)])
+    txt += '\n'
+    txt += 'dgc_pos_p_ttest:         {:.2f}\n'.format(roi_properties['dgc_pos_p_ttest_{}'.format(surfix1)])
+    txt += 'dgc_pos_peak_resp:       {:.2f}\n'.format(roi_properties['dgc_pos_peak_{}'.format(surfix1)])
+    txt += 'dgc_pos_OSI:             {:.2f}\n'.format(roi_properties['dgc_pos_osi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_pos_gOSI:            {:.2f}\n'.format(roi_properties['dgc_pos_gosi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_pos_DSI:             {:.2f}\n'.format(roi_properties['dgc_pos_dsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_pos_gDSI:            {:.2f}\n'.format(roi_properties['dgc_pos_gdsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_pos_vs_dire:         {:.2f}\n'.format(roi_properties['dgc_pos_vs_dire_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_pos_weighted_sf:     {:.2f}\n'.format(roi_properties['dgc_pos_weighted_sf'
+                                                                     '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_pos_weighted_sf_log: {:.2f}\n'.format(roi_properties['dgc_pos_weighted_sf_log'
+                                                                     '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_pos_weighted_tf:     {:.2f}\n'.format(roi_properties['dgc_pos_weighted_tf'
+                                                                     '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_pos_weighted_tf_log: {:.2f}\n'.format(roi_properties['dgc_pos_weighted_tf_log'
+                                                                     '_{}_{}'.format(surfix2, surfix1)])
+    txt += '\n'
+    txt += 'dgc_neg_p_ttest:         {:.2f}\n'.format(roi_properties['dgc_neg_p_ttest_{}'.format(surfix1)])
+    txt += 'dgc_neg_peak_resp:       {:.2f}\n'.format(roi_properties['dgc_neg_peak_{}'.format(surfix1)])
+    txt += 'dgc_neg_OSI:             {:.2f}\n'.format(roi_properties['dgc_neg_osi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_neg_gOSI:            {:.2f}\n'.format(roi_properties['dgc_neg_gosi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_neg_DSI:             {:.2f}\n'.format(roi_properties['dgc_neg_dsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_neg_gDSI:            {:.2f}\n'.format(roi_properties['dgc_neg_gdsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_neg_vs_dire:         {:.2f}\n'.format(roi_properties['dgc_neg_vs_dire_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_neg_weighted_sf:     {:.2f}\n'.format(roi_properties['dgc_neg_weighted_sf'
+                                                                     '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_neg_weighted_sf_log: {:.2f}\n'.format(roi_properties['dgc_neg_weighted_sf_log'
+                                                                     '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_neg_weighted_tf:     {:.2f}\n'.format(roi_properties['dgc_neg_weighted_tf'
+                                                                     '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_neg_weighted_tf_log: {:.2f}\n'.format(roi_properties['dgc_neg_weighted_tf_log'
+                                                                     '_{}_{}'.format(surfix2, surfix1)])
 
     ax_text.text(0.01, 0.99, txt, horizontalalignment='left', verticalalignment='top', family='monospace')
 
@@ -1264,7 +1251,7 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 if __name__ == '__main__':
 
     # nwb_path = r"F:\data2\chandelier_cell_project\M441626\2019-03-26-deepscope\190326_M441626_110.nwb"
-    nwb_path = r"G:\repacked\190326_M441626_110_repacked.nwb"
+    nwb_path = r"G:\repacked\190326_M439939_110_repacked.nwb"
     # nwb_path = r"F:\data2\rabies_tracing_project\M439939\2019-04-03-2p\190403_M439939_110.nwb"
     plane_n = 'plane0'
     roi_n = 'roi_0000'
@@ -1278,7 +1265,7 @@ if __name__ == '__main__':
     for key in keys:
         print('{}: {}'.format(key, roi_properties[key]))
 
-    # roi_page_report(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
-    #
-    # nwb_f.close()
-    # plt.show()
+    roi_page_report(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+
+    nwb_f.close()
+    plt.show()

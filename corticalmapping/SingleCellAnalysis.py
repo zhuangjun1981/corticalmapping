@@ -2392,7 +2392,7 @@ class DriftingGratingResponseTable(DataFrame):
             raise LookupError('do not understand "postprocess": ({}). should be "raw", '
                               '"elevate" or "rectify".'.format(postprocess))
 
-        r_max = np.ceil(max(dire_tuning['resp_mean'] + dire_tuning['resp_stdev']) * 10000.) / 10000.
+        r_max = np.ceil(max(resp + dire_tuning['resp_stdev']) * 10000.) / 10000.
 
         axis.fill_between(x=dire_tuning['dire'], y1=resp - dire_tuning['resp_stdev'],
                           y2=resp + dire_tuning['resp_stdev'],
@@ -2414,8 +2414,9 @@ if __name__ == '__main__':
     # =====================================================================
     # f = h5py.File(r"F:\data2\chandelier_cell_project\M441626\2019-04-03-deepscope\190403_M441626_110.nwb", 'r')
     # f = h5py.File(r"G:\190410_M439943_110.nwb", 'r')
-    f = h5py.File(r"G:\repacked\190410_M439943_110_repacked.nwb", 'r')
-    dgcrm = get_dgc_response_matrix_from_nwb(f['analysis/response_table_003_DriftingGratingCircleRetinotopicMapping/plane0'],
+    # f = h5py.File(r"G:\repacked\190410_M439943_110_repacked.nwb", 'r')
+    f = h5py.File(r"G:\repacked\180323_M360495_110_repacked.nwb", 'r')
+    dgcrm = get_dgc_response_matrix_from_nwb(f['analysis/response_table_001_DriftingGratingCircleRetinotopicMapping/plane0'],
                                              roi_ind=0,
                                              trace_type='sta_f_center_raw')
 
