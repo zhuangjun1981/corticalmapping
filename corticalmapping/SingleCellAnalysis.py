@@ -2193,11 +2193,14 @@ class DriftingGratingResponseTable(DataFrame):
 
             tfs = tf_tuning_2['tf'].astype(np.float)
             tfs_log = np.log(tfs) / np.log(2)
+            # print('aaa, {}'.format(tfs_log))
 
             # get raw weight tuning
             resp_raw = tf_tuning_2['resp_mean'].astype(np.float)
             weighted_tf_raw = np.sum(tfs * resp_raw) / np.sum(resp_raw)
             weighted_tf_log_raw = np.sum(tfs_log * resp_raw) / np.sum(resp_raw)
+            # print('bbb, {}'.format(weighted_tf_log_raw))
+            # print('ccc, {}'.format(resp_raw))
             weighted_tf_log_raw = 2 ** weighted_tf_log_raw
 
             # get elevated weight tuning
