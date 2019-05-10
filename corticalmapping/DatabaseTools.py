@@ -309,7 +309,8 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         rf_pos_onoff_new = sca.SpatialReceptiveField(mask=rf_pos_on_mask + rf_pos_off_mask,
                                                      altPos=rf_pos_on_new.altPos,
                                                      aziPos=rf_pos_on_new.aziPos,
-                                                     sign='ONOFF')
+                                                     sign='ON_OFF',
+                                                     thr=params['rf_z_threshold'])
         rf_pos_onoff_peak_z = np.max(rf_pos_onoff_new.weights)
         rf_pos_onoff_area = rf_pos_onoff_new.get_binary_rf_area()
         rf_pos_onoff_center = rf_pos_onoff_new.get_weighted_rf_center()
@@ -357,7 +358,8 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         rf_neg_onoff_new = sca.SpatialReceptiveField(mask=rf_neg_on_mask + rf_neg_off_mask,
                                                      altPos=rf_neg_on_new.altPos,
                                                      aziPos=rf_neg_on_new.aziPos,
-                                                     sign='ONOFF')
+                                                     sign='ON_OFF',
+                                                     thr=params['rf_z_threshold'])
         rf_neg_onoff_z = np.max(rf_neg_onoff_new.weights)
         rf_neg_onoff_area = rf_neg_onoff_new.get_binary_rf_area()
         rf_neg_onoff_center = rf_neg_onoff_new.get_weighted_rf_center()
