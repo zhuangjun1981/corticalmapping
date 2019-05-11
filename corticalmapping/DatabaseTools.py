@@ -160,7 +160,7 @@ def get_rf_properties(srf,
     if polarity == 'positive':
         rf_z = np.max(srf_new.weights)
     elif polarity == 'negative':
-        srf.weight = -srf_new.weights
+        srf_new.weights = -srf_new.weights
         rf_z = np.max(srf_new.weights)
     else:
         raise LookupError('Do not understand "polarity" ({}), should be "positive" or "negative".'.format(polarity))
@@ -311,11 +311,14 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                      aziPos=rf_pos_on_new.aziPos,
                                                      sign='ON_OFF',
                                                      thr=params['rf_z_threshold'])
-        rf_pos_onoff_peak_z = np.max(rf_pos_onoff_new.weights)
+        if len(rf_pos_onoff_new.weights) == 0:
+            rf_pos_onoff_z = np.nan
+        else:
+            rf_pos_onoff_z = np.max(rf_pos_onoff_new.weights)
         rf_pos_onoff_area = rf_pos_onoff_new.get_binary_rf_area()
         rf_pos_onoff_center = rf_pos_onoff_new.get_weighted_rf_center()
         roi_properties.update({'rf_pos_lsi': rf_pos_lsi,
-                               'rf_pos_onoff_peak_z':rf_pos_onoff_peak_z,
+                               'rf_pos_onoff_peak_z':rf_pos_onoff_z,
                                'rf_pos_onoff_area': rf_pos_onoff_area,
                                'rf_pos_onoff_center_alt': rf_pos_onoff_center[0],
                                'rf_pos_onoff_center_azi': rf_pos_onoff_center[1]})
@@ -360,7 +363,10 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                      aziPos=rf_neg_on_new.aziPos,
                                                      sign='ON_OFF',
                                                      thr=params['rf_z_threshold'])
-        rf_neg_onoff_z = np.max(rf_neg_onoff_new.weights)
+        if len(rf_neg_onoff_new.weights) == 0:
+            rf_neg_onoff_z = np.nan
+        else:
+            rf_neg_onoff_z = np.max(rf_neg_onoff_new.weights)
         rf_neg_onoff_area = rf_neg_onoff_new.get_binary_rf_area()
         rf_neg_onoff_center = rf_neg_onoff_new.get_weighted_rf_center()
         roi_properties.update({'rf_neg_onoff_peak_z': rf_neg_onoff_z,
