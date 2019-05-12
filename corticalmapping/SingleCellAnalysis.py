@@ -1304,7 +1304,7 @@ class DriftingGratingResponseMatrix(DataFrame):
                         'condition: {}, onset_ts should be 1-d array.'.format(self.get_condition_name(row_i)))
 
                 if row['matrix'].shape[0] != row['onset_ts'].shape[0]:
-                    raise ValueError('condition: {}, mismatched trial number ({}) and onset number ({}).'
+                    print('condition: {}, mismatched trial number ({}) and onset number ({}).'
                                      .format(self.get_condition_name(row_i), row['matrix'].shape[0],
                                              row['onset_ts'].shape[0]))
 
@@ -1514,8 +1514,10 @@ class DriftingGratingResponseMatrix(DataFrame):
         responses_peak_pos = trial_responses[df_response_table.peak_condi_ind_pos]
         responses_peak_neg = trial_responses[df_response_table.peak_condi_ind_neg]
 
-        _, p_ttest_pos = stats.ttest_rel(responses_blank, responses_peak_pos)
-        _, p_ttest_neg = stats.ttest_rel(responses_blank, responses_peak_neg)
+        n_min_pos = np.min([len(responses_blank), len(responses_peak_pos)])
+        _, p_ttest_pos = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_pos[0:n_min_pos])
+        n_min_neg = np.min([len(responses_blank), len(responses_peak_neg)])
+        _, p_ttest_neg = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_neg[0:n_min_neg])
 
         return df_response_table, p_anova, p_ttest_pos, p_ttest_neg
 
@@ -1592,8 +1594,10 @@ class DriftingGratingResponseMatrix(DataFrame):
         responses_peak_pos = trial_responses[dff_response_table.peak_condi_ind_pos]
         responses_peak_neg = trial_responses[dff_response_table.peak_condi_ind_neg]
 
-        _, p_ttest_pos = stats.ttest_rel(responses_blank, responses_peak_pos)
-        _, p_ttest_neg = stats.ttest_rel(responses_blank, responses_peak_neg)
+        n_min_pos = np.min([len(responses_blank), len(responses_peak_pos)])
+        _, p_ttest_pos = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_pos[0:n_min_pos])
+        n_min_neg = np.min([len(responses_blank), len(responses_peak_neg)])
+        _, p_ttest_neg = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_neg[0:n_min_neg])
 
         return dff_response_table, p_anova, p_ttest_pos, p_ttest_neg
 
@@ -1667,8 +1671,10 @@ class DriftingGratingResponseMatrix(DataFrame):
         responses_peak_pos = trial_responses[zscore_response_table.peak_condi_ind_pos]
         responses_peak_neg = trial_responses[zscore_response_table.peak_condi_ind_neg]
 
-        _, p_ttest_pos = stats.ttest_rel(responses_blank, responses_peak_pos)
-        _, p_ttest_neg = stats.ttest_rel(responses_blank, responses_peak_neg)
+        n_min_pos = np.min([len(responses_blank), len(responses_peak_pos)])
+        _, p_ttest_pos = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_pos[0:n_min_pos])
+        n_min_neg = np.min([len(responses_blank), len(responses_peak_neg)])
+        _, p_ttest_neg = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_neg[0:n_min_neg])
 
         return zscore_response_table, p_anova, p_ttest_pos, p_ttest_neg
 

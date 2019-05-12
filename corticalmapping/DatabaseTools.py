@@ -1295,8 +1295,9 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 if __name__ == '__main__':
 
     # nwb_path = r"F:\data2\chandelier_cell_project\M441626\2019-03-26-deepscope\190326_M441626_110.nwb"
-    nwb_path = r"G:\repacked\190326_M439939_110_repacked.nwb"
+    # nwb_path = r"G:\repacked\190326_M439939_110_repacked.nwb"
     # nwb_path = r"F:\data2\rabies_tracing_project\M439939\2019-04-03-2p\190403_M439939_110.nwb"
+    nwb_path = r"/media/nc-ophys/Jun/bulk_LGN_database/nwbs/190508_M439939_110_repacked.nwb"
     plane_n = 'plane0'
     roi_n = 'roi_0000'
     nwb_f = h5py.File(nwb_path, 'r')
