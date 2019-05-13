@@ -306,7 +306,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         rf_pos_off_mask = rf_pos_off_new.get_weighted_mask()
         rf_pos_lsi = sca.get_local_similarity_index(rf_pos_on_mask, rf_pos_off_mask)
 
-        rf_pos_onoff_new = sca.SpatialReceptiveField(mask=rf_pos_on_mask + rf_pos_off_mask,
+        rf_pos_onoff_new = sca.SpatialReceptiveField(mask=np.max([rf_pos_on_mask, rf_pos_off_mask], axis=0),
                                                      altPos=rf_pos_on_new.altPos,
                                                      aziPos=rf_pos_on_new.aziPos,
                                                      sign='ON_OFF',
@@ -358,7 +358,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
         rf_neg_off_mask = rf_neg_off_new.get_weighted_mask()
         rf_neg_lsi = sca.get_local_similarity_index(rf_neg_on_mask, rf_neg_off_mask)
 
-        rf_neg_onoff_new = sca.SpatialReceptiveField(mask=rf_neg_on_mask + rf_neg_off_mask,
+        rf_neg_onoff_new = sca.SpatialReceptiveField(mask=np.max([rf_neg_on_mask, rf_neg_off_mask], axis=0),
                                                      altPos=rf_neg_on_new.altPos,
                                                      aziPos=rf_neg_on_new.aziPos,
                                                      sign='ON_OFF',
