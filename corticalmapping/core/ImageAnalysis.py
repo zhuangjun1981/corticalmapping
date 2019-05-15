@@ -1343,6 +1343,76 @@ def get_peak_weighted_roi(arr, thr):
         return WeightedROI(arr2 * peakMask)
 
 
+def pairwise_distance(coords):
+    """
+    giving coordinates of a set of points, return the pairwise distances of all pairs
+    :param coords: 2d array, shape is (n, 2). first column: x coordinates, second column: y coordinates.
+    :return:
+    """
+
+    if len(coords.shape) != 2:
+        raise ValueError("input coordinates should be 2d array.")
+
+    if coords.shape[1] != 2:
+        raise ValueError("input coordinates should have 2 columns.")
+
+    if coords.shape[0] < 2:
+        return np.array([])
+    else:
+        point_num = coords.shape[0]
+        pairs = np.zeros((point_num * (point_num - 1), 4))
+
+        pair_ind = 0
+        for i in range(0, point_num - 1):
+            for j in range(i + 1, point_num):
+                pairs[pair_ind, :] = [coords[i, 0], coords[i, 1], coords[j, 0], coords[j, 1]]
+                pair_ind = pair_ind + 1
+
+        dis = np.sqrt(np.square(pairs[:, 0] - pairs[:, 2]) + np.square(pairs[:, 1], pairs[:, 3]))
+        return dis
+
+def pairwise_magnification(coords1, coords2):
+    """
+    giving two sets of coordinates of a set of points, say receptive field center location and cortical
+    location of a set of rois in field of view
+
+    return the pairwise magnification distance of coords1 over distance of coords2 of all pairs
+
+    :param coords1: 2d array, shape is (n, 2). first column: x coordinates, second column: y coordinates.
+    :param coords2: 2d array, shape is (n, 2). first column: x coordinates, second column: y coordinates.
+                    coords1 one and coords2 should have same shape.
+    :return:
+    """
+
+    if len(coords1.shape) != 2:
+        raise ValueError("input coordinates should be 2d array.")
+
+    if coords1.shape[1] != 2:
+        raise ValueError("input coordinates should have 2 columns.")
+
+    if coords1.shape != coords2.shape:
+        raise ValueError("two input coordinates should have same shape.")
+
+    if coords1.shape[0] < 2:
+        return np.array([])
+    else:
+        point_num = coords1.shape[0]
+        pairs = np.zeros((point_num * (point_num - 1) / 2, 8))
+
+        pair_ind = 0
+        for i in range(0, point_num - 1):
+            for j in range(i + 1, point_num):
+
+                pairs[pair_ind, :] = [coords1[i, 0], coords1[i, 1], coords1[j, 0], coords1[j, 1],
+                                      coords2[i, 0], coords2[i, 1], coords2[j, 0], coords2[j, 1]]
+                pair_ind = pair_ind + 1
+
+        mag = np.sqrt(np.square(pairs[:, 0] - pairs[:, 2]) + np.square(pairs[:, 1], pairs[:, 3])) / \
+              np.sqrt(np.square(pairs[:, 4] - pairs[:, 6]) + np.square(pairs[:, 5], pairs[:, 7]))
+
+        return mag
+
+
 class ROI(object):
     '''
     class of binary ROI
