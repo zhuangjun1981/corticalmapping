@@ -23,7 +23,8 @@ ANALYSIS_PARAMS = {
     'gaussian_filter_sigma_rf': 1., # float, in pixels, filtering sigma for z-score receptive fields
     'interpolate_rate_rf': 10., # float, interpolate rate of filtered z-score maps
     # 'peak_z_threshold_rf': 1.5, # float, threshold for significant receptive field of z score after filtering.
-    'rf_z_threshold': 1.6, # float, threshold for significant zscore receptive field
+    'rf_z_thr_abs': 1.6, # float, absolute threshold for significant zscore receptive field
+    'rf_z_thr_rel': 0.4, # float, relative threshold for significant zscore receptive field
     'response_window_dgc': [0., 1.], # list of two floats, temporal window for getting response value for drifting grating
     'baseline_window_dgc': [-0.5, 0.], # list of two floats, temporal window for getting baseline value for drifting grating
     'is_collapse_sf': True, # bool, average across sf or not for direction/tf tuning curve
@@ -139,7 +140,8 @@ def get_rf_properties(srf,
                       polarity,
                       sigma=ANALYSIS_PARAMS['gaussian_filter_sigma_rf'],
                       interpolate_rate=ANALYSIS_PARAMS['interpolate_rate_rf'],
-                      z_thr=ANALYSIS_PARAMS['rf_z_threshold']):
+                      z_thr_abs=ANALYSIS_PARAMS['rf_z_thr_abs'],
+                      z_thr_rel=ANALYSIS_PARAMS['rf_z_thr_rel']):
     """
     return receptive field properties from a SpatialReceptiveField
 
@@ -165,7 +167,10 @@ def get_rf_properties(srf,
     else:
         raise LookupError('Do not understand "polarity" ({}), should be "positive" or "negative".'.format(polarity))
 
-    srf_new = srf_new.threshold(thr=z_thr)
+    if rf_z > (z_thr_abs / z_thr_rel):
+        srf_new = srf_new.threshold(thr=(rf_z * z_thr_rel))
+    else:
+        srf_new = srf_new.threshold(thr=z_thr_abs)
     # rf_center = srf_new.get_weighted_rf_center()
     # rf_area = srf_new.get_binary_rf_area()
     # rf_mask = srf_new.get_weighted_mask()
@@ -277,7 +282,8 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                        polarity='positive',
                                                        sigma=params['gaussian_filter_sigma_rf'],
                                                        interpolate_rate=params['interpolate_rate_rf'],
-                                                       z_thr=params['rf_z_threshold'])
+                                                       z_thr_abs=params['rf_z_thr_abs'],
+                                                       z_thr_rel=params['rf_z_thr_rel'])
         rf_pos_on_area = rf_pos_on_new.get_binary_rf_area()
         rf_pos_on_center = rf_pos_on_new.get_weighted_rf_center()
 
@@ -291,7 +297,8 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                          polarity='positive',
                                                          sigma=params['gaussian_filter_sigma_rf'],
                                                          interpolate_rate=params['interpolate_rate_rf'],
-                                                         z_thr=params['rf_z_threshold'])
+                                                         z_thr_abs=params['rf_z_thr_abs'],
+                                                         z_thr_rel=params['rf_z_thr_rel'])
 
         rf_pos_off_area = rf_pos_off_new.get_binary_rf_area()
         rf_pos_off_center = rf_pos_off_new.get_weighted_rf_center()
@@ -310,7 +317,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                      altPos=rf_pos_on_new.altPos,
                                                      aziPos=rf_pos_on_new.aziPos,
                                                      sign='ON_OFF',
-                                                     thr=params['rf_z_threshold'])
+                                                     thr=params['rf_z_thr_abs'])
         if len(rf_pos_onoff_new.weights) == 0:
             rf_pos_onoff_z = np.nan
         else:
@@ -332,7 +339,8 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                        polarity='negative',
                                                        sigma=params['gaussian_filter_sigma_rf'],
                                                        interpolate_rate=params['interpolate_rate_rf'],
-                                                       z_thr=params['rf_z_threshold'])
+                                                       z_thr_abs=params['rf_z_thr_abs'],
+                                                       z_thr_rel=params['rf_z_thr_rel'])
         rf_neg_on_area = rf_neg_on_new.get_binary_rf_area()
         rf_neg_on_center = rf_neg_on_new.get_weighted_rf_center()
         roi_properties.update({'rf_neg_on_peak_z': rf_neg_on_z,
@@ -345,7 +353,8 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                          polarity='negative',
                                                          sigma=params['gaussian_filter_sigma_rf'],
                                                          interpolate_rate=params['interpolate_rate_rf'],
-                                                         z_thr=params['rf_z_threshold'])
+                                                         z_thr_abs=params['rf_z_thr_abs'],
+                                                         z_thr_rel=params['rf_z_thr_rel'])
         rf_neg_off_area = rf_neg_off_new.get_binary_rf_area()
         rf_neg_off_center = rf_neg_off_new.get_weighted_rf_center()
         roi_properties.update({'rf_neg_off_peak_z': rf_neg_off_z,
@@ -362,7 +371,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                                      altPos=rf_neg_on_new.altPos,
                                                      aziPos=rf_neg_on_new.aziPos,
                                                      sign='ON_OFF',
-                                                     thr=params['rf_z_threshold'])
+                                                     thr=params['rf_z_thr_abs'])
         if len(rf_neg_onoff_new.weights) == 0:
             rf_neg_onoff_z = np.nan
         else:
