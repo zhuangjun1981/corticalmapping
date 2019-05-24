@@ -222,6 +222,55 @@ def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
     return rf_rgb
 
 
+def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, cmap='viridis', canvas_shape=(512, 512), **kwargs):
+    """
+    plot color coded retinotopy on roi locations
+    :param coords_roi: 2d array with shape (n, 2), row and col of roi location
+    :param coords_rf: 2d array with same shape of coords_roi, alt and azi locations for each roi
+    :param ax_alt: plotting axis for altitude
+    :param ax_azi: plotting axis for azimuth
+    :param cmap: matplotlib color map
+    :param canvas_shape: plotting shape (height, width)
+    :param kwargs: inputs to plotting functions
+    :return:
+    """
+
+    if len(coords_roi.shape) != 2:
+        raise ValueError('input coords_roi should be 2d array.')
+
+    if coords_roi.shape[1] != 2:
+        raise ValueError('input coords_roi should have 2 columns.')
+
+    if coords_roi.shape != coords_rf.shape:
+        raise ValueError('coords_roi and coords_rf should have same shape.')
+
+    alt_ratio = ia.array_nor(coords_rf[:, 0])
+    azi_ratio = ia.array_nor(coords_rf[:, 1])
+
+    xs = coords_roi[:, 1]
+    ys = coords_roi[:, 0]
+
+    ax_alt.set_xlim([0, canvas_shape[1]])
+    ax_alt.set_ylim([0, canvas_shape[0]])
+    ax_alt.set_aspect('equal')
+    ax_alt.invert_yaxis()
+    ax_alt.set_xticks([])
+    ax_alt.set_yticks([])
+
+    ax_azi.set_xlim([0, canvas_shape[1]])
+    ax_azi.set_ylim([0, canvas_shape[0]])
+    ax_azi.set_aspect('equal')
+    ax_azi.invert_yaxis()
+    ax_azi.set_xticks([])
+    ax_azi.set_yticks([])
+
+    for roi_i in range(coords_roi.shape[0]):
+        alt_c = pt.cmap_2_rgb(alt_ratio[roi_i], cmap_string=cmap)
+        ax_alt.scatter([xs[roi_i]], [ys[roi_i]], marker='o', color=alt_c, **kwargs)
+
+        azi_c = pt.cmap_2_rgb(azi_ratio[roi_i], cmap_string=cmap)
+        ax_azi.scatter([xs[roi_i]], [ys[roi_i]], marker='o', color=azi_c, **kwargs)
+
 def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
     """
 
@@ -1306,20 +1355,30 @@ if __name__ == '__main__':
     # nwb_path = r"F:\data2\chandelier_cell_project\M441626\2019-03-26-deepscope\190326_M441626_110.nwb"
     # nwb_path = r"G:\repacked\190326_M439939_110_repacked.nwb"
     # nwb_path = r"F:\data2\rabies_tracing_project\M439939\2019-04-03-2p\190403_M439939_110.nwb"
-    nwb_path = r"/media/nc-ophys/Jun/bulk_LGN_database/nwbs/190508_M439939_110_repacked.nwb"
-    plane_n = 'plane0'
-    roi_n = 'roi_0000'
-    nwb_f = h5py.File(nwb_path, 'r')
+    # nwb_path = r"/media/nc-ophys/Jun/bulk_LGN_database/nwbs/190508_M439939_110_repacked.nwb"
+    # plane_n = 'plane0'
+    # roi_n = 'roi_0000'
+    # nwb_f = h5py.File(nwb_path, 'r')
+    #
+    # roi_properties, _, _, _, _, _, _, _, _, _, _, _, _, _ = \
+    #     get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+    #
+    # keys = roi_properties.keys()
+    # keys.sort()
+    # for key in keys:
+    #     print('{}: {}'.format(key, roi_properties[key]))
+    #
+    # roi_page_report(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+    #
+    # nwb_f.close()
+    # plt.show()
 
-    roi_properties, _, _, _, _, _, _, _, _, _, _, _, _, _ = \
-        get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
-
-    keys = roi_properties.keys()
-    keys.sort()
-    for key in keys:
-        print('{}: {}'.format(key, roi_properties[key]))
-
-    roi_page_report(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
-
-    nwb_f.close()
+    #===================================================================================================
+    coords_roi = np.array([[50, 60], [100, 200], [300, 400]])
+    coords_rf = np.array([[0., 35.], [10., 70.], [0., 70.]])
+    f = plt.figure()
+    ax_alt = f.add_subplot(121)
+    ax_azi = f.add_subplot(122)
+    plot_roi_retinotopy(coords_roi=coords_roi, coords_rf=coords_rf, ax_alt=ax_alt, ax_azi=ax_azi,
+                        cmap='viridis', canvas_shape=(512, 512), edgecolors='#000000', linewidths=0.5)
     plt.show()
