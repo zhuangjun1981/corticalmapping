@@ -50,3 +50,4 @@ plt.show()
 
 if isSave:
     pt.save_figure_without_borders(f, '{}_AreaBorders.pdf'.format(trial.getName()), dpi=300)
+    pt.save_figure_without_borders(f, '{}_AreaBorders.png'.format(trial.getName()), dpi=300)
