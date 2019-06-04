@@ -1217,6 +1217,8 @@ class RecordedFile(NWB):
                 self._add_locally_sparse_noise_retinotopic_mapping(curr_stim_dict)
             elif stim_n[-30:] == 'StaticImagesRetinotopicMapping':
                 self._add_static_images_retinotopic_mapping(curr_stim_dict)
+            elif stim_n[-37:] == 'SinusoidalLuminanceRetinotopicMapping':
+                self._add_sinusoidal_luminance_retinotopic_mapping(curr_stim_dict)
             else:
                 raise ValueError('Do not understand stimulus name: {}.'.format(stim_n))
 
@@ -1831,7 +1833,7 @@ class RecordedFile(NWB):
         stim_name = si_dict['stim_name']
 
         if stim_name[-30:] != 'StaticImagesRetinotopicMapping':
-            raise ValueError('stimulus should be "StaticImagesetinotopicMapping" (StaticImages from '
+            raise ValueError('stimulus should be "StaticImagesRetinotopicMapping" (StaticImages from '
                              'retinotopic_mapping package). ')
 
         # add template
@@ -1874,6 +1876,47 @@ class RecordedFile(NWB):
         stim_ts.set_value('deg_per_pixel_alt', si_dict['deg_per_pixel_alt'])
         stim_ts.finalize()
 
+    def _add_sinusoidal_luminance_retinotopic_mapping(self, sl_dict):
+        stim_name = sl_dict['stim_name']
+
+        if stim_name[-37:] != 'SinusoidalLuminanceRetinotopicMapping':
+            raise ValueError('stimulus should be "SinusoidalLuminanceRetinotopicMapping" (StaticImages from '
+                             'retinotopic_mapping package). ')
+
+        # add template
+        template_ts = self.create_timeseries('TimeSeries', stim_name, 'template')
+        frames_unique = sl_dict['frames_unique']
+        frames_template = []
+        for frame in frames_unique:
+            curr_frame = np.array(frame)
+            curr_frame[curr_frame == None] = np.nan
+            frames_template.append(np.array(curr_frame, dtype=np.float32))
+        frames_template = np.array(frames_template)
+        template_ts.set_data(frames_template, unit='', conversion=np.nan, resolution=np.nan)
+        template_ts.set_value('num_samples', frames_template.shape[0])
+        template_ts.set_source(sl_dict['source'])
+        template_ts.finalize()
+
+        # add stimulus
+        stim_ts = self.create_timeseries('IndexSeries', stim_name, 'stimulus')
+        stim_ts.set_time(sl_dict['timestamps'], dtype='u8')
+        stim_ts.set_data(sl_dict['index_to_display'], unit='frame', conversion=1, resolution=1, dtype='u4')
+        stim_ts.set_value_as_link('indexed_timeseries', '/stimulus/templates/{}'.format(stim_name))
+        stim_ts.set_comments('The "timestamps" of this TimeSeries are indices (64-bit unsigned integer, hacked the '
+                             'original ainwb code) referencing the entire display sequence. It should match hardware '
+                             'vsync TTL (see "/acquisition/timeseries/digital_vsync_stim/rise"). The "data" of this '
+                             'TimeSeries are indices referencing the frames template saved in the "indexed_timeseries" '
+                             'field.')
+        stim_ts.set_description('sinusoidal luminance displayed by retinotopic_mapping package')
+        stim_ts.set_source(sl_dict['source'])
+        for key in ['frame_config', 'stim_name', 'pregap_dur', 'postgap_dur', 'coordinate', 'background']:
+            stim_ts.set_value(key, sl_dict[key])
+        stim_ts.set_value('cycle_num', sl_dict['cycle_num'])
+        stim_ts.set_value('max_level', sl_dict['max_level'])
+        stim_ts.set_value('start_phase', sl_dict['start_phase'])
+        stim_ts.set_value('midgap_dur', sl_dict['midgap_dur'])
+        stim_ts.set_value('frequency', sl_dict['frequency'])
+        stim_ts.finalize()
     # ===========================retinotopic_mapping visual stimuli related (indexed display)===========================
 
 
