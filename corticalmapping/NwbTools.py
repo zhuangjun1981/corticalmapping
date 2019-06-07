@@ -2509,7 +2509,8 @@ class RecordedFile(NWB):
 
     # ============================================eye tracking related==================================================
     def add_eyetracking_data(self, ts_path='', pupil_x=None, pupil_y=None, pupil_area=None, module_name='eye_tracking',
-                             unit='unknown', side='leftright_unknown', comments='', description='', source=''):
+                             unit='unknown', side='leftright_unknown', comments='', description='', source='',
+                             pupil_shape=None, pupil_shape_meta=None):
         """
         add eyetrackin data as a module named 'eye_tracking'
         :param ts_path: str, timestamp path in the nwb file
@@ -2568,6 +2569,12 @@ class RecordedFile(NWB):
 
         if pupil_area is not None:
             pupil_series.set_value('pupil_area', pupil_area[0:ts_num_min])
+
+        if pupil_shape is not None:
+            pupil_series.set_value('pupil_shape', pupil_shape[0:ts_num_min, :])
+
+        if pupil_shape_meta is not None:
+            pupil_series.set_value('pupil_shape_meta', pupil_shape_meta)
 
         pupil_series.set_value('unit', 'pupil_x: {}; pupil_y: {}; pupil_area: {} ^ 2'.format(unit, unit, unit))
         pupil_series.set_value('side', side)

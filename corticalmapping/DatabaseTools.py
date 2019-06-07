@@ -271,6 +271,11 @@ def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, cmap='viridis', c
         azi_c = pt.cmap_2_rgb(azi_ratio[roi_i], cmap_string=cmap)
         ax_azi.scatter([xs[roi_i]], [ys[roi_i]], marker='o', color=azi_c, **kwargs)
 
+
+def get_pupil_area(nwb_f, module_name, ell_thr=0.5, median_win=3.):
+    pass
+
+
 def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
     """
 
