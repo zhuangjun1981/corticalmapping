@@ -11,6 +11,7 @@ import scipy.interpolate as ip
 import corticalmapping.SingleCellAnalysis as sca
 import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.PlottingTools as pt
+import corticalmapping.core.DataAnalysis as da
 
 ANALYSIS_PARAMS = {
     'trace_type': 'f_center_subtracted',
@@ -72,6 +73,17 @@ PLOTTING_PARAMS = {
     'dire_color_neg': '#0000ff',
     'dire_line_width': 2,
 }
+
+
+def get_plane_ns(nwb_f):
+    keys = [k[-6:] for k in nwb_f['processing'].keys() if 'rois_and_traces_' in k]
+    return keys
+
+
+def get_roi_ns(nwb_f, plane_n):
+    roi_lst = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane/roi_list'.format(plane_n)].value
+    roi_ns = [r for r in roi_lst if r[0:4] == 'roi_']
+    return roi_ns
 
 
 def get_strf_grp_key(nwb_f):
@@ -273,7 +285,33 @@ def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, cmap='viridis', c
 
 
 def get_pupil_area(nwb_f, module_name, ell_thr=0.5, median_win=3.):
-    pass
+
+    pupil_shape = nwb_f['processing/{}/PupilTracking/eyetracking/pupil_shape'.format(module_name)].value
+    pupil_ts = nwb_f['processing/{}/PupilTracking/eyetracking/timestamps'.format(module_name)].value
+
+    fs = 1. / np.mean(np.diff(pupil_ts))
+    # print(fs)
+
+    pupil_area = da.get_pupil_area(pupil_shapes=pupil_shape, fs=fs, ell_thr=ell_thr, median_win=median_win)
+    return pupil_area, pupil_ts
+
+
+def get_running_speed(nwb_f, disk_radius=8., fs_final=30., speed_thr_pos=100., speed_thr_neg=-20.,
+                      gauss_sig=1.):
+
+    ref = nwb_f['acquisition/timeseries/analog_running_ref/data'].value
+    sig = nwb_f['acquisition/timeseries/analog_running_sig/data'].value
+    starting_time = nwb_f['acquisition/timeseries/analog_running_ref/starting_time'].value
+    ts_rate = nwb_f['acquisition/timeseries/analog_running_ref/starting_time'].attrs['rate']
+    num_sample = nwb_f['acquisition/timeseries/analog_running_ref/num_samples'].value
+
+    ts = starting_time + np.arange(num_sample) / ts_rate
+
+    speed, speed_ts = da.get_running_speed(sig=sig, ts=ts, ref=ref, disk_radius=disk_radius, fs_final=fs_final,
+                                           speed_thr_pos=speed_thr_pos, speed_thr_neg=speed_thr_neg,
+                                           gauss_sig=gauss_sig)
+
+    return speed, speed_ts
 
 
 def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
@@ -1357,6 +1395,19 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
 if __name__ == '__main__':
 
+    # ===================================================================================================
+    nwb_path = r"F:\data2\chandelier_cell_project\M455115\2019-06-06-deepscope\190606_M455115_110.nwb"
+    nwb_f = h5py.File(nwb_path, 'r')
+    pupil_area, pupil_ts = get_pupil_area(nwb_f=nwb_f,
+                                          module_name='eye_tracking_right',
+                                          ell_thr=0.5,
+                                          median_win=3.)
+    plt.figure(figsize=(20, 5))
+    plt.plot(pupil_ts, pupil_area)
+    plt.show()
+    # ===================================================================================================
+
+    # ===================================================================================================
     # nwb_path = r"F:\data2\chandelier_cell_project\M441626\2019-03-26-deepscope\190326_M441626_110.nwb"
     # nwb_path = r"G:\repacked\190326_M439939_110_repacked.nwb"
     # nwb_path = r"F:\data2\rabies_tracing_project\M439939\2019-04-03-2p\190403_M439939_110.nwb"
@@ -1377,13 +1428,15 @@ if __name__ == '__main__':
     #
     # nwb_f.close()
     # plt.show()
+    # ===================================================================================================
 
     #===================================================================================================
-    coords_roi = np.array([[50, 60], [100, 200], [300, 400]])
-    coords_rf = np.array([[0., 35.], [10., 70.], [0., 70.]])
-    f = plt.figure()
-    ax_alt = f.add_subplot(121)
-    ax_azi = f.add_subplot(122)
-    plot_roi_retinotopy(coords_roi=coords_roi, coords_rf=coords_rf, ax_alt=ax_alt, ax_azi=ax_azi,
-                        cmap='viridis', canvas_shape=(512, 512), edgecolors='#000000', linewidths=0.5)
-    plt.show()
+    # coords_roi = np.array([[50, 60], [100, 200], [300, 400]])
+    # coords_rf = np.array([[0., 35.], [10., 70.], [0., 70.]])
+    # f = plt.figure()
+    # ax_alt = f.add_subplot(121)
+    # ax_azi = f.add_subplot(122)
+    # plot_roi_retinotopy(coords_roi=coords_roi, coords_rf=coords_rf, ax_alt=ax_alt, ax_azi=ax_azi,
+    #                     cmap='viridis', canvas_shape=(512, 512), edgecolors='#000000', linewidths=0.5)
+    # plt.show()
+    # ===================================================================================================
