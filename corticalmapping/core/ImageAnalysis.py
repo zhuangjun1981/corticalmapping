@@ -1371,6 +1371,7 @@ def pairwise_distance(coords):
         dis = np.sqrt(np.square(pairs[:, 0] - pairs[:, 2]) + np.square(pairs[:, 1], pairs[:, 3]))
         return dis
 
+
 def pairwise_magnification(coords1, coords2):
     """
     giving two sets of coordinates of a set of points, say receptive field center location and cortical
@@ -1411,6 +1412,40 @@ def pairwise_magnification(coords1, coords2):
               np.sqrt(np.square(pairs[:, 4] - pairs[:, 6]) + np.square(pairs[:, 5], pairs[:, 7]))
 
         return mag
+
+
+def get_circularity(mask):
+    """
+    return circularity of the shape marked by the input mask. If the mask label more than one
+    continuous regions, only analyze the first one retuned by scipy.ndimage.label.
+
+    This does not consider holes.
+
+    :param mask: 2d binary array, if not binary, all pixel <= zero will be considered as 0.
+                 all pixels > 0 will be considered as 1.
+    :return: circularity, defined by 4 * pi * area / (perimeter) ^ 2
+    """
+
+    if len(mask.shape) != 2:
+        raise ValueError('input mask should be a 2d array.')
+
+    msk = np.zeros(mask.shape, dtype=np.uint8)
+    msk[mask>0] = 1
+
+    labeled, roi_num = ni.label(msk)
+
+    if roi_num != 1:
+        # raise ValueError('input mask should have only one continuous region labeled. {} found.'.format(roi_num))
+        print('input mask has {} (> 1) continuous regions labeled. only analyze the first one'.format(roi_num))
+
+        msk[:] = 0
+        msk[labeled == 1] = 1
+
+    rows, cols = np.where(msk == 1)
+    perimeter = 2. * (max(rows) - min(rows) + 1.) + 2. * (max(cols) - min(cols) + 1.)
+    area = np.sum(msk.flat)
+
+    return 4 * np.pi * area / (perimeter ** 2)
 
 
 class ROI(object):

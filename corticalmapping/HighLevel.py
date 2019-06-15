@@ -146,27 +146,18 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     :return:
     '''
 
-    # plt.plot(pd[:1000000])
-    # plt.title('pd raw')
-    # plt.show()
+    # plot_r = [2000., 3000.]
     #
-    # plt.plot(pd[20000000:20200000])
-    # plt.title('pd raw')
-    # plt.show()
-    #
-    # plt.plot(pd[-1000000:])
+    # plt.plot(pd[int(plot_r[0]*Fs):int(plot_r[1]*Fs)])
     # plt.title('pd raw')
     # plt.show()
 
     pdDigitized = np.array(pd)
 
-    # plt.plot(pd[1000000:2000000])
-    # plt.show()
-
     pdDigitized[pd < digitizeThr] = 0.
     pdDigitized[pd >= digitizeThr] = 5.
 
-    # plt.plot(pdDigitized[:1000000])
+    # plt.plot(pdDigitized[int(plot_r[0]*Fs):int(plot_r[1]*Fs)])
     # plt.title('pd digitized')
     # plt.show()
 
@@ -175,7 +166,7 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
 
     pdFiltered = ni.filters.gaussian_filter(pdDigitized, filterDataPoint)
 
-    # plt.plot(pdFiltered[:1000000])
+    # plt.plot(pdFiltered[int(plot_r[0]*Fs):int(plot_r[1]*Fs)])
     # plt.title('pd filtered')
     # plt.show()
 
@@ -183,7 +174,7 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     pdFilteredDiff = np.hstack(([0], pdFilteredDiff))
     pdSignal = np.multiply(pdDigitized, pdFilteredDiff)
 
-    # plt.plot(pdSignal[1000000:2000000])
+    # plt.plot(pdSignal[int(plot_r[0]*Fs):int(plot_r[1]*Fs)])
     # plt.title('pd signal')
     # plt.show()
 

@@ -94,3 +94,15 @@ class TestImageAnalysis(unittest.TestCase):
 
         assert (np.array_equal(merged_ROI.get_weighted_mask(), np.arange(1, 18, 2).reshape((3, 3))))
         assert (np.array_equal(merged_ROI2.get_binary_mask(), np.ones((3, 3))))
+
+    def test_get_circularity(self):
+        aa = np.zeros((10, 10))
+        aa[3:5, 3:5] = 1
+        cir1 = ia.get_circularity(aa)
+        # print(cir1)
+        assert(0.7853981633974483 - 1e-15 < cir1 < 0.7853981633974483 + 1e-15)
+
+        aa[3:5, 5] = 1
+        cir2 = ia.get_circularity(aa)
+        # print(cir2)
+        assert (0.7539822368615503 - 1e-15 < cir2 < 0.7539822368615503 + 1e-15)

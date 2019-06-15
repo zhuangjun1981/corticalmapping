@@ -86,6 +86,16 @@ def get_roi_ns(nwb_f, plane_n):
     return roi_ns
 
 
+def get_sampling_rate(nwb_f, ts_name):
+    grp = nwb_f['acquisition/timeseries/{}'.format(ts_name)]
+
+    if 'starting_time' in grp.keys():
+        return grp['starting_time'].attrs['rate']
+    else:
+        ts = grp['timestamps'].value
+        return 1. / np.mean(np.diff(ts))
+
+
 def get_strf_grp_key(nwb_f):
     analysis_grp = nwb_f['analysis']
     strf_key = [k for k in analysis_grp.keys() if k[0:4] == 'strf' and 'SparseNoise' in k]
