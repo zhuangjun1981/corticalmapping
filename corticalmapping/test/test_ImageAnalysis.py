@@ -98,11 +98,13 @@ class TestImageAnalysis(unittest.TestCase):
     def test_get_circularity(self):
         aa = np.zeros((10, 10))
         aa[3:5, 3:5] = 1
-        cir1 = ia.get_circularity(aa)
+        cir1 = ia.get_circularity(aa, is_skimage=False)
         # print(cir1)
         assert(0.7853981633974483 - 1e-15 < cir1 < 0.7853981633974483 + 1e-15)
 
+        print(ia.get_circularity(aa, is_skimage=True))
+
         aa[3:5, 5] = 1
-        cir2 = ia.get_circularity(aa)
+        cir2 = ia.get_circularity(aa, is_skimage=False)
         # print(cir2)
         assert (0.7539822368615503 - 1e-15 < cir2 < 0.7539822368615503 + 1e-15)

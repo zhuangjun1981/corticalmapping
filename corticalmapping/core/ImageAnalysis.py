@@ -8,6 +8,7 @@ from scipy import interpolate
 import scipy.ndimage as ni
 import scipy.stats as stats
 import skimage.morphology as sm
+import skimage.measure as measure
 import FileTools as ft
 import PlottingTools as pt
 import time
@@ -1414,15 +1415,26 @@ def pairwise_magnification(coords1, coords2):
         return mag
 
 
-def get_circularity(mask):
+def get_circularity(mask, is_skimage=True):
     """
     return circularity of the shape marked by the input mask. If the mask label more than one
     continuous regions, only analyze the first one retuned by scipy.ndimage.label.
 
     This does not consider holes.
 
+    there are two ways to estimate perimeter:
+    1. is_skimage=True uses the shape through the center of border pixels. if the labeled region is
+       large and wide in all orientation, the measurement is very precise. But if the labeled region
+       is small or narrow, it underestmates the perimeter thus overestimates the circularity. Sometimes
+       it can be larger than 1.
+
+    2. is_skimage=False uses the outer boundary line of border pixels. This will treat all shapes as
+       rectangle, thus systematically underestimates the circularity. upper bound will be the
+       circularity of square: 0.7853981633974483.
+
     :param mask: 2d binary array, if not binary, all pixel <= zero will be considered as 0.
                  all pixels > 0 will be considered as 1.
+    :param is_skimage: bool. if Ture, use skimage.measure.perimeter to estimate perimeter
     :return: circularity, defined by 4 * pi * area / (perimeter) ^ 2
     """
 
@@ -1434,15 +1446,23 @@ def get_circularity(mask):
 
     labeled, roi_num = ni.label(msk)
 
-    if roi_num != 1:
+    if roi_num > 1: # found more than one labeled regions
         # raise ValueError('input mask should have only one continuous region labeled. {} found.'.format(roi_num))
         print('input mask has {} (> 1) continuous regions labeled. only analyze the first one'.format(roi_num))
 
         msk[:] = 0
         msk[labeled == 1] = 1
+    elif roi_num == 0: # found no labeled region
+        print('Did not find labeled region. Returning None')
+        return None
+    else: # found one labeled region
+        pass
 
-    rows, cols = np.where(msk == 1)
-    perimeter = 2. * (max(rows) - min(rows) + 1.) + 2. * (max(cols) - min(cols) + 1.)
+    if is_skimage:
+        perimeter = measure.perimeter(msk)
+    else:
+        rows, cols = np.where(msk == 1)
+        perimeter = 2. * (max(rows) - min(rows) + 1.) + 2. * (max(cols) - min(cols) + 1.)
     area = np.sum(msk.flat)
 
     return 4 * np.pi * area / (perimeter ** 2)
