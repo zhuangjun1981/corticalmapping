@@ -71,8 +71,16 @@ def array_nor(A):
     normalize a np.array to the scale [0, 1]
     '''
 
-    B=A.astype(np.float)
-    return (B-np.amin(B))/(np.amax(B)-np.amin(B))
+    if np.isnan(A).any():
+        B = A.astype(np.float)
+        maxv = np.nanmax(B.flat)
+        minv = np.nanmin(B.flat)
+    else:
+        B=A.astype(np.float)
+        maxv = np.max(B.flat)
+        minv = np.min(B.flat)
+
+    return (B - minv) / (maxv - minv)
 
 
 def array_nor_median(A):

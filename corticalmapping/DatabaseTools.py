@@ -244,15 +244,19 @@ def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
     return rf_rgb
 
 
-def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, cmap='viridis', canvas_shape=(512, 512), **kwargs):
+def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, alt_range=None, azi_range=None, cmap='viridis',
+                        canvas_shape=(512, 512), nan_color='#cccccc', **kwargs):
     """
     plot color coded retinotopy on roi locations
     :param coords_roi: 2d array with shape (n, 2), row and col of roi location
     :param coords_rf: 2d array with same shape of coords_roi, alt and azi locations for each roi
     :param ax_alt: plotting axis for altitude
     :param ax_azi: plotting axis for azimuth
+    :param alt_range: float, half range of altitute in degrees for deciding color
+    :param azi_range: float, half range of azimuth in degrees for deciding color
     :param cmap: matplotlib color map
     :param canvas_shape: plotting shape (height, width)
+    :param nan_color: color string, for nan data point, if None, do not plot nan data points
     :param kwargs: inputs to plotting functions
     :return:
     """
@@ -266,8 +270,21 @@ def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, cmap='viridis', c
     if coords_roi.shape != coords_rf.shape:
         raise ValueError('coords_roi and coords_rf should have same shape.')
 
-    alt_ratio = ia.array_nor(coords_rf[:, 0])
-    azi_ratio = ia.array_nor(coords_rf[:, 1])
+    if alt_range is None:
+        alt_ratio = ia.array_nor(coords_rf[:, 0])
+    else:
+        alt_median = np.nanmedian(coords_rf[:, 0])
+        alt_min = alt_median - alt_range
+        alt_max = alt_median + alt_range
+        alt_ratio = (coords_rf[:, 0] - alt_min) / (alt_max - alt_min)
+
+    if azi_range is None:
+        azi_ratio = ia.array_nor(coords_rf[:, 1])
+    else:
+        azi_median = np.nanmedian(coords_rf[:, 1])
+        azi_min = azi_median - azi_range
+        azi_max = azi_median + azi_range
+        azi_ratio = (coords_rf[:, 1] - azi_min) / (azi_max - azi_min)
 
     xs = coords_roi[:, 1]
     ys = coords_roi[:, 0]
@@ -287,11 +304,22 @@ def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, cmap='viridis', c
     ax_azi.set_yticks([])
 
     for roi_i in range(coords_roi.shape[0]):
-        alt_c = pt.cmap_2_rgb(alt_ratio[roi_i], cmap_string=cmap)
-        ax_alt.scatter([xs[roi_i]], [ys[roi_i]], marker='o', color=alt_c, **kwargs)
 
-        azi_c = pt.cmap_2_rgb(azi_ratio[roi_i], cmap_string=cmap)
-        ax_azi.scatter([xs[roi_i]], [ys[roi_i]], marker='o', color=azi_c, **kwargs)
+        curr_alt_ratio = alt_ratio[roi_i]
+        if np.isnan(curr_alt_ratio):
+            if nan_color is not None:
+                ax_alt.scatter([xs[roi_i]], [ys[roi_i]], marker='o', color=nan_color, **kwargs)
+        else:
+            alt_c = pt.cmap_2_rgb(curr_alt_ratio, cmap_string=cmap)
+            ax_alt.scatter([xs[roi_i]], [ys[roi_i]], marker='o', color=alt_c, **kwargs)
+
+        curr_azi_ratio = azi_ratio[roi_i]
+        if np.isnan(curr_azi_ratio):
+            if nan_color is not None:
+                ax_azi.scatter([xs[roi_i]], [ys[roi_i]], marker='o', color=nan_color, **kwargs)
+        else:
+            azi_c = pt.cmap_2_rgb(azi_ratio[roi_i], cmap_string=cmap)
+            ax_azi.scatter([xs[roi_i]], [ys[roi_i]], marker='o', color=azi_c, **kwargs)
 
 
 def get_pupil_area(nwb_f, module_name, ell_thr=0.5, median_win=3.):
@@ -322,6 +350,27 @@ def get_running_speed(nwb_f, disk_radius=8., fs_final=30., speed_thr_pos=100., s
                                            gauss_sig=gauss_sig)
 
     return speed, speed_ts
+
+
+def plot_roi_contour_on_background(nwb_f, plane_n, plot_ax, **kwargs):
+    """
+    :param nwb_f:
+    :param plane_n:
+    :param plot_ax:
+    :param kwargs: input variable to corticalmapping.core.PlottingTools.plot_mask_borders
+    :return:
+    """
+
+    seg_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane'.format(plane_n)]
+
+    bg = seg_grp['reference_images/max_projection/data'].value
+    bg = ia.array_nor(bg)
+    plot_ax.imshow(bg, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+
+    roi_ns = [r for r in seg_grp['roi_list'] if r[0:4] == 'roi_']
+    for roi_n in roi_ns:
+        roi_mask = seg_grp[roi_n]['img_mask'].value
+        pt.plot_mask_borders(mask=roi_mask, plotAxis=plot_ax, **kwargs)
 
 
 def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
