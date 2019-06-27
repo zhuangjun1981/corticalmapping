@@ -1788,6 +1788,13 @@ class WeightedROI(ROI):
         weights = h5Group['weights'].value
         mask = np.zeros(dimension, dtype=np.float32)
         mask[tuple(pixels)] = weights
+
+        roi = WeightedROI(mask, pixelSize=pixelSize, pixelSizeUnit=pixelSizeUnit)
+
+        for key in h5Group.keys():
+            if key not in ['pixels', 'weights']:
+                setattr(roi, key, h5Group[key].value)
+
         return WeightedROI(mask, pixelSize=pixelSize, pixelSizeUnit=pixelSizeUnit)
 
 

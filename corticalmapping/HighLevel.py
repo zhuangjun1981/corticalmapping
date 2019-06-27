@@ -1418,7 +1418,116 @@ def get_drifting_grating_response_nwb(nwb_path, plane_ns, grating_onsets_path, t
                 curr_grating_grp.create_dataset('sta_' + trace_n, data=sta)
 
 
+def plot_roi_traces_three_planes(nwb_f, roi0=None, roi1=None, roi2=None, trace_type='f_center_raw'):
+
+    f = plt.figure(figsize=(10, 10))
+
+    ax0_img = f.add_axes([0.04, 0.67, 0.32, 0.32])
+    ax0_img.set_xticks([])
+    ax0_img.set_yticks([])
+    ax0_img.set_ylabel('plane0, {}'.format(roi0), fontsize=15)
+    bg0 = nwb_f['processing/rois_and_traces_plane0/ImageSegmentation/imaging_plane' \
+                '/reference_images/max_projection/data'].value
+    bg0 = ia.array_nor(bg0)
+    ax0_img.imshow(bg0, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+
+    ax0_trace0 = f.add_axes([0.37, 0.88, 0.62, 0.1])
+    ax0_trace0.set_axis_off()
+
+    ax0_trace1 = f.add_axes([0.37, 0.78, 0.62, 0.1])
+    ax0_trace1.set_axis_off()
+
+    ax0_trace2 = f.add_axes([0.37, 0.68, 0.62, 0.1])
+    ax0_trace2.set_axis_off()
+
+    if roi0 is not None:
+        roi0_mask = nwb_f['processing/rois_and_traces_plane0/ImageSegmentation/imaging_plane' \
+                         '/{}/img_mask'.format(roi0)].value
+        pt.plot_mask_borders(mask=roi0_mask, plotAxis=ax0_img, lw=0.5)
+
+        roi0_ind = int(roi0[-4:])
+        roi0_trace = nwb_f['processing/rois_and_traces_plane0/Fluorescence/{}' \
+                          '/data'.format(trace_type)][roi0_ind, :]
+        chunk_len = len(roi0_trace) // 3
+        ax0_trace0.plot(roi0_trace[0:chunk_len])
+        ax0_trace1.plot(roi0_trace[chunk_len:2*chunk_len])
+        ax0_trace2.plot(roi0_trace[2*chunk_len:3*chunk_len])
+
+    ax1_img = f.add_axes([0.04, 0.34, 0.32, 0.32])
+    ax1_img.set_xticks([])
+    ax1_img.set_yticks([])
+    ax1_img.set_ylabel('plane1, {}'.format(roi1), fontsize=15)
+    bg1 = nwb_f['processing/rois_and_traces_plane1/ImageSegmentation/imaging_plane' \
+                '/reference_images/max_projection/data'].value
+    bg1 = ia.array_nor(bg1)
+    ax1_img.imshow(bg1, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+
+    ax1_trace0 = f.add_axes([0.37, 0.55, 0.62, 0.1])
+    ax1_trace0.set_axis_off()
+
+    ax1_trace1 = f.add_axes([0.37, 0.45, 0.62, 0.1])
+    ax1_trace1.set_axis_off()
+
+    ax1_trace2 = f.add_axes([0.37, 0.35, 0.62, 0.1])
+    ax1_trace2.set_axis_off()
+
+    if roi1 is not None:
+        roi1_mask = nwb_f['processing/rois_and_traces_plane1/ImageSegmentation/imaging_plane' \
+                         '/{}/img_mask'.format(roi1)].value
+        pt.plot_mask_borders(mask=roi1_mask, plotAxis=ax1_img, lw=0.5)
+
+        roi1_ind = int(roi1[-4:])
+        roi1_trace = nwb_f['processing/rois_and_traces_plane1/Fluorescence/{}' \
+                           '/data'.format(trace_type)][roi1_ind, :]
+        chunk_len = len(roi1_trace) // 3
+        ax1_trace0.plot(roi1_trace[0:chunk_len])
+        ax1_trace1.plot(roi1_trace[chunk_len:2 * chunk_len])
+        ax1_trace2.plot(roi1_trace[2 * chunk_len:3 * chunk_len])
+
+    ax2_img = f.add_axes([0.04, 0.01, 0.32, 0.32])
+    ax2_img.set_xticks([])
+    ax2_img.set_yticks([])
+    ax2_img.set_ylabel('plane2, {}'.format(roi2), fontsize=15)
+    bg2 = nwb_f['processing/rois_and_traces_plane2/ImageSegmentation/imaging_plane' \
+                '/reference_images/max_projection/data'].value
+    bg2 = ia.array_nor(bg2)
+    ax2_img.imshow(bg2, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+
+    ax2_trace0 = f.add_axes([0.37, 0.22, 0.62, 0.1])
+    ax2_trace0.set_axis_off()
+
+    ax2_trace1 = f.add_axes([0.37, 0.12, 0.62, 0.1])
+    ax2_trace1.set_axis_off()
+
+    ax2_trace2 = f.add_axes([0.37, 0.02, 0.62, 0.1])
+    ax2_trace2.set_axis_off()
+
+    if roi2 is not None:
+        roi2_mask = nwb_f['processing/rois_and_traces_plane2/ImageSegmentation/imaging_plane' \
+                         '/{}/img_mask'.format(roi2)].value
+        pt.plot_mask_borders(mask=roi2_mask, plotAxis=ax2_img, lw=0.5)
+
+        roi2_ind = int(roi2[-4:])
+        roi2_trace = nwb_f['processing/rois_and_traces_plane2/Fluorescence/{}' \
+                           '/data'.format(trace_type)][roi2_ind, :]
+        chunk_len = len(roi2_trace) // 3
+        ax2_trace0.plot(roi2_trace[0:chunk_len])
+        ax2_trace1.plot(roi2_trace[chunk_len:2 * chunk_len])
+        ax2_trace2.plot(roi2_trace[2 * chunk_len:3 * chunk_len])
+
+    # plt.show()
+
+    return f
+
+
 if __name__ == '__main__':
+
+    # ===========================================================================
+    nwb_f = h5py.File(r"Z:\chandelier_cell_project\M447219\2019-06-25-deepscope\190625_M447219_110.nwb", 'r')
+    plot_roi_traces_three_planes(nwb_f=nwb_f, roi0='roi_0000', roi1='roi_0004', roi2='roi_0003')
+    nwb_f.close()
+    # ===========================================================================
+
     # ===========================================================================
     # dateRecorded = '150930'
     # mouseID = '187474'
@@ -1600,12 +1709,14 @@ if __name__ == '__main__':
     # ===========================================================================
 
     # ===========================================================================
-    input_folder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData" \
-                   r"\170404-M302706\2p_movies\for_segmentation\tempdir"
-    c, s = array_to_rois(input_folder=input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), is_plot=True)
-    print c.shape
-    print s.shape
+    # input_folder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData" \
+    #                r"\170404-M302706\2p_movies\for_segmentation\tempdir"
+    # c, s = array_to_rois(input_folder=input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), is_plot=True)
+    # print c.shape
+    # print s.shape
 
     # ===========================================================================
 
     print 'for debug...'
+
+

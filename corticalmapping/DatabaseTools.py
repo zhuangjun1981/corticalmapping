@@ -5,6 +5,7 @@ import os
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
+from numbers import Number
 import scipy.stats as stats
 import scipy.ndimage as ni
 import scipy.interpolate as ip
@@ -73,6 +74,85 @@ PLOTTING_PARAMS = {
     'dire_color_neg': '#0000ff',
     'dire_line_width': 2,
 }
+
+
+def get_roi_triplets(nwb_f, overlap_ratio=0.9):
+    """
+    for deepscope imaging session with 3 planes, get overlapping roi triplets
+    each triplets contain one roi for each plane and they are highly overlapping
+    this is to find cells appear in multiple plane, and the results can be passed
+    to HighLevel.plot_roi_traces_three_planes to plot and decided if they represent
+    same cell.
+    :param nwb_f:
+    :param overlap_ratio:
+    :return: list of triplets (tuple of three strings)
+    """
+
+    roi_grp0 = nwb_f['processing/rois_and_traces_plane0/ImageSegmentation/imaging_plane']
+    roi_lst0 = roi_grp0['roi_list'].value
+    roi_lst0 = [r for r in roi_lst0 if r[0:4] == 'roi_']
+
+    roi_grp1 = nwb_f['processing/rois_and_traces_plane1/ImageSegmentation/imaging_plane']
+    roi_lst1 = roi_grp1['roi_list'].value
+    roi_lst1 = [r for r in roi_lst1 if r[0:4] == 'roi_']
+
+    roi_grp2 = nwb_f['processing/rois_and_traces_plane2/ImageSegmentation/imaging_plane']
+    roi_lst2 = roi_grp2['roi_list'].value
+    roi_lst2 = [r for r in roi_lst2 if r[0:4] == 'roi_']
+
+    triplets = []
+
+    while roi_lst1: # start from middle plane
+
+        curr_roi1_n = roi_lst1.pop(0)
+        curr_triplet = [None, curr_roi1_n, None]
+
+        curr_roi1 = get_roi(nwb_f=nwb_f, plane_n='plane1', roi_n=curr_roi1_n)
+        curr_roi1_area = curr_roi1.get_binary_area()
+
+        for curr_roi0_ind, curr_roi0_n in enumerate(roi_lst0):
+            # look through rois in plane0, pick the one overlaps with curr_roi1
+            curr_roi0 = get_roi(nwb_f=nwb_f, plane_n='plane0', roi_n=curr_roi0_n)
+            curr_roi0_area = curr_roi0.get_binary_area()
+            curr_overlap = curr_roi1.binary_overlap(curr_roi0)
+            if float(curr_overlap) / min([curr_roi1_area, curr_roi0_area]) >= overlap_ratio:
+                curr_triplet[0] = roi_lst0.pop(curr_roi0_ind)
+                break
+
+        for curr_roi2_ind, curr_roi2_n in enumerate(roi_lst2):
+            # look through rois in plane0, pick the one overlaps with curr_roi1
+            curr_roi2 = get_roi(nwb_f=nwb_f, plane_n='plane2', roi_n=curr_roi2_n)
+            curr_roi2_area = curr_roi2.get_binary_area()
+            curr_overlap = curr_roi1.binary_overlap(curr_roi2)
+            if float(curr_overlap) / min([curr_roi1_area, curr_roi2_area]) >= overlap_ratio:
+                curr_triplet[2] = roi_lst2.pop(curr_roi2_ind)
+                break
+
+        print(curr_triplet)
+        triplets.append(tuple(curr_triplet))
+
+    while roi_lst2: # next, more superficial plane
+
+        curr_roi2_n = roi_lst2.pop(0)
+        curr_triplet = [None, None, curr_roi2_n]
+
+        curr_roi2 = get_roi(nwb_f=nwb_f, plane_n='plane2', roi_n=curr_roi2_n)
+        curr_roi2_area = curr_roi2.get_binary_area()
+
+        for curr_roi0_ind, curr_roi0_n in enumerate(roi_lst0):
+            # look through rois in plane0, pick the one overlaps with curr_roi2
+            curr_roi0 = get_roi(nwb_f=nwb_f, plane_n='plane0', roi_n=curr_roi0_n)
+            curr_roi0_area = curr_roi0.get_binary_area()
+            curr_overlap = curr_roi2.binary_overlap(curr_roi0)
+            if float(curr_overlap) / min([curr_roi2_area, curr_roi0_area]) >= overlap_ratio:
+                curr_triplet[0] = roi_lst0.pop(curr_roi0_ind)
+                break
+
+        triplets.append(tuple(curr_triplet))
+
+    triplets = triplets + [(rn, None, None) for rn in roi_lst0] # finally add the rest rois in deep plane
+
+    return triplets
 
 
 def get_plane_ns(nwb_f):
@@ -252,8 +332,11 @@ def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, alt_range=None, a
     :param coords_rf: 2d array with same shape of coords_roi, alt and azi locations for each roi
     :param ax_alt: plotting axis for altitude
     :param ax_azi: plotting axis for azimuth
-    :param alt_range: float, half range of altitute in degrees for deciding color
-    :param azi_range: float, half range of azimuth in degrees for deciding color
+    :param alt_range:
+        if None, the range to decide color is [minimum of altitudes of all rois, maximum of altitude of all rois]
+        if float, the range to decide color is [median altitude - alt_range, median altitude + alt_range]
+        if list of two floats, the range to decide color is [alt_range[0], alt_range[1]]
+    :param azi_range: same as alt_range but for azimuth
     :param cmap: matplotlib color map
     :param canvas_shape: plotting shape (height, width)
     :param nan_color: color string, for nan data point, if None, do not plot nan data points
@@ -272,19 +355,45 @@ def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, alt_range=None, a
 
     if alt_range is None:
         alt_ratio = ia.array_nor(coords_rf[:, 0])
+    elif isinstance(alt_range, Number):
+        if alt_range > 0:
+            alt_median = np.nanmedian(coords_rf[:, 0])
+            alt_min = alt_median - float(alt_range)
+            alt_max = alt_median + float(alt_range)
+            alt_ratio = (coords_rf[:, 0] - alt_min) / (alt_max - alt_min)
+        else:
+            raise ValueError('if "alt_range" is a number, it should be larger than 0.')
+    elif len(alt_range) == 2:
+        if alt_range[0] < alt_range[1]:
+            alt_ratio = (coords_rf[:, 0] - alt_range[0]) / (alt_range[1] - alt_range[0])
+        else:
+            raise ValueError('if "alt_range" is a list or a tuple or a array, the first element should be '
+                             'smaller than the second element.')
     else:
-        alt_median = np.nanmedian(coords_rf[:, 0])
-        alt_min = alt_median - alt_range
-        alt_max = alt_median + alt_range
-        alt_ratio = (coords_rf[:, 0] - alt_min) / (alt_max - alt_min)
+        raise ValueError('Do not understand input "alt_range", should be None or a single positive number or a '
+                         'list or a tuple or a array with two elements with the first element smaller than the '
+                         'second.')
 
     if azi_range is None:
         azi_ratio = ia.array_nor(coords_rf[:, 1])
+    elif isinstance(azi_range, Number):
+        if azi_range > 0:
+            azi_median = np.nanmedian(coords_rf[:, 1])
+            azi_min = azi_median - float(azi_range)
+            azi_max = azi_median + float(azi_range)
+            azi_ratio = (coords_rf[:, 1] - azi_min) / (azi_max - azi_min)
+        else:
+            raise ValueError('if "azi_range" is a number, it should be larger than 0.')
+    elif len(azi_range) == 2:
+        if azi_range[0] < azi_range[1]:
+            azi_ratio = (coords_rf[:, 1] - azi_range[0]) / (azi_range[1] - azi_range[0])
+        else:
+            raise ValueError('if "azi_range" is a list or a tuple or a array, the first element should be '
+                             'smaller than the second element.')
     else:
-        azi_median = np.nanmedian(coords_rf[:, 1])
-        azi_min = azi_median - azi_range
-        azi_max = azi_median + azi_range
-        azi_ratio = (coords_rf[:, 1] - azi_min) / (azi_max - azi_min)
+        raise ValueError('Do not understand input "azi_range", should be None or a single positive number or a '
+                         'list or a tuple or a array with two elements with the first element smaller than the '
+                         'second.')
 
     xs = coords_roi[:, 1]
     ys = coords_roi[:, 0]
@@ -363,9 +472,18 @@ def plot_roi_contour_on_background(nwb_f, plane_n, plot_ax, **kwargs):
 
     seg_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane'.format(plane_n)]
 
-    bg = seg_grp['reference_images/max_projection/data'].value
-    bg = ia.array_nor(bg)
-    plot_ax.imshow(bg, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+    if 'max_projection' in seg_grp['reference_images']:
+        bg = seg_grp['reference_images/max_projection/data'].value
+        bg = ia.array_nor(bg)
+        plot_ax.imshow(bg, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+    elif 'max_projection' in seg_grp['reference_images']:
+        bg = seg_grp['reference_images/mean_projection/data'].value
+        bg = ia.array_nor(bg)
+        plot_ax.imshow(bg, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+    else:
+        print('cannot find reference image, set background to black')
+        # plot_ax.set_facecolor('#000000') # for matplotlib >= v2.0
+        plot_ax.set_axis_bgcolor('#000000') # for matplotlib < v2.0
 
     roi_ns = [r for r in seg_grp['roi_list'] if r[0:4] == 'roi_']
     for roi_n in roi_ns:
@@ -1455,15 +1573,22 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 if __name__ == '__main__':
 
     # ===================================================================================================
-    nwb_path = r"F:\data2\chandelier_cell_project\M455115\2019-06-06-deepscope\190606_M455115_110.nwb"
-    nwb_f = h5py.File(nwb_path, 'r')
-    pupil_area, pupil_ts = get_pupil_area(nwb_f=nwb_f,
-                                          module_name='eye_tracking_right',
-                                          ell_thr=0.5,
-                                          median_win=3.)
-    plt.figure(figsize=(20, 5))
-    plt.plot(pupil_ts, pupil_area)
-    plt.show()
+    nwb_f = h5py.File(r"Z:\chandelier_cell_project\M447219\2019-06-25-deepscope\190625_M447219_110.nwb", 'r')
+    triplets = get_roi_triplets(nwb_f=nwb_f, overlap_ratio=0.9)
+    print('\n'.join([str(t) for t in triplets]))
+    nwb_f.close()
+    # ===================================================================================================
+
+    # ===================================================================================================
+    # nwb_path = r"F:\data2\chandelier_cell_project\M455115\2019-06-06-deepscope\190606_M455115_110.nwb"
+    # nwb_f = h5py.File(nwb_path, 'r')
+    # pupil_area, pupil_ts = get_pupil_area(nwb_f=nwb_f,
+    #                                       module_name='eye_tracking_right',
+    #                                       ell_thr=0.5,
+    #                                       median_win=3.)
+    # plt.figure(figsize=(20, 5))
+    # plt.plot(pupil_ts, pupil_area)
+    # plt.show()
     # ===================================================================================================
 
     # ===================================================================================================
