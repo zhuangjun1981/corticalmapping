@@ -1592,6 +1592,7 @@ class RecordedFile(NWB):
         stim_ts.set_value('center', fc_dict['center'])
         stim_ts.set_value('radius', fc_dict['radius'])
         stim_ts.set_value('flash_frame_num', fc_dict['flash_frame_num'])
+        stim_ts.set_value('midgap_dur', fc_dict['midgap_dur'])
         stim_ts.set_value('iteration', fc_dict['iteration'])
         stim_ts.set_value('color', fc_dict['color'])
         stim_ts.finalize()

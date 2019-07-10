@@ -2349,7 +2349,7 @@ class DriftingGratingResponseTable(DataFrame):
         axis.tick_params(length=0)
 
     def plot_dire_tuning(self, axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False,
-                         trace_color='#ff0000', lw=1., postprocess='raw'):
+                         trace_color='#ff0000', lw=1., postprocess='raw', is_plot_errbar=True, **kwargs):
         """
 
         :param axis:
@@ -2403,10 +2403,12 @@ class DriftingGratingResponseTable(DataFrame):
 
         r_max = np.ceil(max(resp + dire_tuning['resp_stdev']) * 10000.) / 10000.
 
-        axis.fill_between(x=dire_tuning['dire'], y1=resp - dire_tuning['resp_stdev'],
-                          y2=resp + dire_tuning['resp_stdev'],
-                          edgecolor='none', facecolor='#cccccc')
-        axis.plot(dire_tuning['dire'], resp, '-', color=trace_color, lw=lw)
+        if is_plot_errbar:
+            axis.fill_between(x=dire_tuning['dire'], y1=resp - dire_tuning['resp_stdev'],
+                              y2=resp + dire_tuning['resp_stdev'],
+                              edgecolor='none', facecolor='#cccccc')
+
+        axis.plot(dire_tuning['dire'], resp, '-', color=trace_color, lw=lw, **kwargs)
 
         axis.set_xticklabels([])
         yticks = axis.get_yticks()

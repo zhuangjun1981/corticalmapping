@@ -9,6 +9,8 @@ from numbers import Number
 import scipy.stats as stats
 import scipy.ndimage as ni
 import scipy.interpolate as ip
+import scipy.spatial as spatial
+import scipy.cluster as cluster
 import corticalmapping.SingleCellAnalysis as sca
 import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.PlottingTools as pt
@@ -322,6 +324,176 @@ def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
     g_channel = np.zeros(rf_on.shape, dtype=np.uint8)
     rf_rgb = np.array([rf_on, g_channel, rf_off]).transpose([1, 2, 0])
     return rf_rgb
+
+
+def get_UC_ts_indcies(nwb_f, plane_n='plane0'):
+    """
+    return a 1d boolean array, same size as imaging timestamps of the traces in plane_n.
+    These index masks represent the time period of all UniformContrast stimuli.
+
+    :return inds: 1d boolean array.
+    :return has_uc: bool, False: has no UniformContrast stimulus
+                          True: has UniformContrast stimulus
+    """
+
+    ts = nwb_f['processing/rois_and_traces_{}/Fluorescence/f_center_raw/timestamps'.format(plane_n)].value
+    inds = np.zeros(ts.shape, dtype=np.bool)
+
+    stim_ns = [n for n in nwb_f['stimulus/presentation'].keys() if 'UniformContrast' in n]
+
+    if len(stim_ns) == 0:
+        return inds, False
+
+    else:
+        for stim_n in stim_ns:
+
+            stim_dur = nwb_f['stimulus/presentation/{}/duration'.format(stim_n)].value
+
+            pd_grp = nwb_f['analysis/photodiode_onsets/{}'.format(stim_n)]
+            pd_key = pd_grp.keys()[0]
+            stim_onset = pd_grp[pd_key]['pd_onset_ts_sec'][0]
+
+            curr_inds = np.logical_and(ts >= stim_onset, ts <= (stim_onset + stim_dur))
+            inds = np.logical_or(inds, curr_inds)
+
+        return inds, True
+
+
+def get_DGC_spont_ts_indices(nwb_f, plane_n='plane0'):
+    """
+    return a 1d boolean array, same size as imaging timestamps of the traces in plane_n.
+    These index masks represent the time period of blank sweep and second half of intersweep
+    intervals. This representing the "spontaneous" period during DriftingGratingCircle stimuli
+
+    :return inds: 1d boolean array
+    :return has_dgc: bool, False: has no DriftingGratingCircle stimulus
+                           True: has DriftingGratingCircle stimulus
+    """
+
+    ts = nwb_f['processing/rois_and_traces_{}/Fluorescence/f_center_raw/timestamps'.format(plane_n)].value
+    inds = np.zeros(ts.shape, dtype=np.bool)
+
+    stim_ns = [n for n in nwb_f['stimulus/presentation'].keys() if 'DriftingGratingCircle' in n]
+
+    if len(stim_ns) == 0:
+        return inds, False
+
+    else:
+        for stim_n in stim_ns:
+            midgap_dur = nwb_f['stimulus/presentation/{}/midgap_dur'.format(stim_n)].value
+            block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(stim_n)].value
+
+            pd_grp = nwb_f['analysis/photodiode_onsets/{}'.format(stim_n)]
+            pd_keys = pd_grp.keys()
+
+            for pd_key in pd_keys:
+
+                stim_onsets = pd_grp[pd_key]['pd_onset_ts_sec']
+
+                for stim_onset in stim_onsets:
+
+                    if pd_key[-36:] == 'sf0.00_tf00.0_dire000_con0.00_rad000':  # blank sweeps
+
+                        curr_inds = np.logical_and(ts >= (stim_onset - 0.5 * midgap_dur),
+                                                   ts <= (stim_onset + block_dur + midgap_dur))
+                        inds = np.logical_or(inds, curr_inds)
+
+                    else: # other sweeps
+                        curr_inds = np.logical_and(ts >= (stim_onset - 0.5 * midgap_dur), ts <= stim_onset)
+                        inds = np.logical_or(inds, curr_inds)
+
+        return inds, True
+
+def group_boutons(traces, corr_std_thr=1.5, is_show=False):
+    """
+    given traces of a population of boutons, classify them into a tree based on their activity correlations.
+
+    method modified from: Liang et al., Cell, 2018, 173(6):1343
+
+    :param traces: 2d array, row: roi, col: time point
+    :param corr_std_thr: float, used to determine the threshold of correlation coefficients. for each roi, the
+                         coefficients lower than (mean + corr_std_thr * std) will be set zero.
+    :param is_show: bool
+    :return:
+    """
+
+    mat_corr = np.corrcoef(traces, rowvar=True)
+
+    # threshold correlation coefficient matrix
+    mask = np.ones(mat_corr.shape)
+    for row_i, row in enumerate(mat_corr):
+        curr_std = np.std(row)
+        curr_mean = np.mean(row)
+        curr_thr = curr_mean + corr_std_thr * curr_std
+        mask[row_i, :][row < curr_thr] = 0.
+        mask[:, row_i][row < curr_thr] = 0.
+    mat_corr_thr = mat_corr * mask
+
+    # calculated distance matrix based on cosine similarity
+    mat_dis = np.zeros(mat_corr_thr.shape)
+    roi_num = mat_dis.shape[0]
+    # print('total roi number: {}'.format(roi_num))
+    for i in range(roi_num):
+        for j in range(i + 1, roi_num, 1):
+
+            ind = np.ones(roi_num, dtype=np.bool)
+            ind[i] = 0
+            ind[j] = 0
+
+            row_i = mat_corr_thr[i][ind]
+            row_j = mat_corr_thr[j][ind]
+
+            if max(row_i) == 0 or max(row_j) == 0:
+                mat_dis[i, j] = 1
+            else:
+                mat_dis[i, j] = 1 - spatial.distance.cosine(row_i, row_j)
+
+
+    # calculate linkage Z matrix using WPGMA algorithm
+    z_linkage = cluster.hierarchy.linkage(mat_dis, method='weighted')
+    # if is_plot:
+    #     _ = cluster.hierarchy.dendrogram(z_linkage)
+    #     plt.title('dendrogram')
+    #     plt.show()
+
+
+    # reorganize thresholded correlation coefficient matrix
+    clu = cluster.hierarchy.fcluster(z_linkage, t=0, criterion='distance')
+    mat_0 = np.zeros(mat_corr_thr.shape)
+    for l_i, l in enumerate(clu):
+        mat_0[l - 1, :] = mat_corr_thr[l_i, :]
+
+    mat_corr_thr_reorg = np.zeros(mat_0.shape)
+    for l_i, l in enumerate(clu):
+        mat_corr_thr_reorg[:, l - 1] = mat_0[:, l_i]
+
+    # plotting
+    f = plt.figure(figsize=(13, 10))
+
+    ax00 = f.add_subplot(221)
+    f00 = ax00.imshow(mat_corr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
+    ax00.set_title('corr coef matrix')
+    f.colorbar(f00)
+
+    ax01 = f.add_subplot(222)
+    f01 = ax01.imshow(mat_corr_thr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
+    ax01.set_title('thresholded corr coef matrix')
+    f.colorbar(f01)
+
+    ax10 = f.add_subplot(223)
+    f10 = ax10.imshow(mat_dis, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+    ax10.set_title('distance matrix')
+    f.colorbar(f10)
+
+    ax11 = f.add_subplot(224)
+    f11 = ax11.imshow(mat_corr_thr_reorg, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+    ax11.set_title('reorganized thresholded corr coef matrix')
+    f.colorbar(f11)
+
+    if is_show:
+        plt.show()
+
+    return mat_corr, mat_corr_thr, mat_dis, z_linkage, mat_corr_thr_reorg, f
 
 
 def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, alt_range=None, azi_range=None, cmap='viridis',
@@ -1573,10 +1745,21 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 if __name__ == '__main__':
 
     # ===================================================================================================
-    nwb_f = h5py.File(r"Z:\chandelier_cell_project\M447219\2019-06-25-deepscope\190625_M447219_110.nwb", 'r')
-    triplets = get_roi_triplets(nwb_f=nwb_f, overlap_ratio=0.9)
-    print('\n'.join([str(t) for t in triplets]))
-    nwb_f.close()
+    nwb_f = h5py.File(r"G:\bulk_LGN_database\nwbs\190404_M439939_110_repacked.nwb")
+    uc_inds, _ = get_UC_ts_indcies(nwb_f=nwb_f, plane_n='plane0')
+    plt.plot(uc_inds)
+    plt.show()
+
+    dgc_spont_inds, _ = get_DGC_spont_ts_indices(nwb_f=nwb_f, plane_n='plane0')
+    plt.plot(dgc_spont_inds)
+    plt.show()
+    # ===================================================================================================
+
+    # ===================================================================================================
+    # nwb_f = h5py.File(r"Z:\chandelier_cell_project\M447219\2019-06-25-deepscope\190625_M447219_110.nwb", 'r')
+    # triplets = get_roi_triplets(nwb_f=nwb_f, overlap_ratio=0.9)
+    # print('\n'.join([str(t) for t in triplets]))
+    # nwb_f.close()
     # ===================================================================================================
 
     # ===================================================================================================

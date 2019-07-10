@@ -89,7 +89,7 @@ def get_pupil_area(pupil_shapes, fs, ell_thr=0.5, median_win=3.):
 
 
 def get_running_speed(sig, ts, ref=None, disk_radius=8., fs_final=30., speed_thr_pos=100., speed_thr_neg=-20.,
-                      gauss_sig=1.):
+                      gauss_sig=0.02):
     """
     get downsampled and filtered running speed from raw data.
 
