@@ -75,6 +75,7 @@ PLOTTING_PARAMS = {
     'dire_color_pos': '#ff0000',
     'dire_color_neg': '#0000ff',
     'dire_line_width': 2,
+    'dire_negative_handler': 'rectify',
 }
 
 
@@ -404,6 +405,59 @@ def get_DGC_spont_ts_indices(nwb_f, plane_n='plane0'):
 
         return inds, True
 
+
+def get_LSN_ts_indices(nwb_f, plane_n='plane0'):
+    """
+    return a 1d boolean array, same size as imaging timestamps of the traces in plane_n.
+    These index masks represent the time period of all LocallySparseNoise stimuli.
+
+    :return inds: 1d boolean array.
+    :return has_uc: bool, False: has no LocallySparseNoise stimulus
+                          True: has LocallySparseNoise stimulus
+    """
+
+    ts = nwb_f['processing/rois_and_traces_{}/Fluorescence/f_center_raw/timestamps'.format(plane_n)].value
+    inds = np.zeros(ts.shape, dtype=np.bool)
+
+    stim_ns = [n for n in nwb_f['stimulus/presentation'].keys() if 'LocallySparseNoise' in n]
+
+    if len(stim_ns) == 0:
+        return inds, False
+
+    else:
+        for stim_n in stim_ns:
+
+            probe_frame_num = nwb_f['stimulus/presentation/{}/probe_frame_num'.format(stim_n)].value
+            probe_dur = probe_frame_num / 60.
+
+            pd_grp = nwb_f['analysis/photodiode_onsets/{}'.format(stim_n)]
+            pd_keys = pd_grp.keys()
+
+            stim_onset = None
+            stim_offset = None
+
+            for pd_key in pd_keys:
+                curr_onsets = pd_grp[pd_key]['pd_onset_ts_sec'].value
+
+                if stim_onset is None:
+                    stim_onset = np.min(curr_onsets)
+                else:
+                    stim_onset = min([stim_onset, np.min(curr_onsets)])
+
+                if stim_offset is None:
+                    stim_offset = np.max(curr_onsets)
+                else:
+                    stim_offset = max([stim_offset, np.max(curr_onsets)])
+
+            stim_offset = stim_offset + probe_dur
+
+            curr_inds = np.logical_and(ts >= stim_onset, ts <= stim_offset)
+
+            inds = np.logical_or(inds, curr_inds)
+
+        return inds, True
+
+
 def group_boutons(traces, corr_std_thr=1.5, is_show=False):
     """
     given traces of a population of boutons, classify them into a tree based on their activity correlations.
@@ -418,6 +472,7 @@ def group_boutons(traces, corr_std_thr=1.5, is_show=False):
     """
 
     mat_corr = np.corrcoef(traces, rowvar=True)
+    mat_corr[np.isnan(mat_corr)] = 0.
 
     # threshold correlation coefficient matrix
     mask = np.ones(mat_corr.shape)
@@ -1634,14 +1689,16 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
                                                 is_collapse_tf=params['is_collapse_tf'],
                                                 trace_color=plot_params['dire_color_pos'],
                                                 lw=plot_params['dire_line_width'],
-                                                postprocess=plot_params['dgc_postprocess'])
+                                                postprocess=plot_params['dgc_postprocess'],
+                                                negative_handler=plot_params['dire_negative_handler'])
 
         r_max_neg = dgcrt_plot.plot_dire_tuning(response_dir='neg', axis=ax_dire_neg,
                                                 is_collapse_sf=params['is_collapse_sf'],
                                                 is_collapse_tf=params['is_collapse_tf'],
                                                 trace_color=plot_params['dire_color_neg'],
                                                 lw=plot_params['dire_line_width'],
-                                                postprocess=plot_params['dgc_postprocess'])
+                                                postprocess=plot_params['dgc_postprocess'],
+                                                negative_handler=plot_params['dire_negative_handler'])
 
         rmax = max([r_max_pos, r_max_neg])
 

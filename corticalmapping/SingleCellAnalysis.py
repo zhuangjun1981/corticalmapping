@@ -2349,7 +2349,8 @@ class DriftingGratingResponseTable(DataFrame):
         axis.tick_params(length=0)
 
     def plot_dire_tuning(self, axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False,
-                         trace_color='#ff0000', lw=1., postprocess='raw', is_plot_errbar=True, **kwargs):
+                         trace_color='#ff0000', lw=1., postprocess='raw', is_plot_errbar=True,
+                         negative_handler='rectify', **kwargs):
         """
 
         :param axis:
@@ -2408,14 +2409,27 @@ class DriftingGratingResponseTable(DataFrame):
                               y2=resp + dire_tuning['resp_stdev'],
                               edgecolor='none', facecolor='#cccccc')
 
+        if negative_handler == 'rectify':
+            resp[resp < 0] = 0.
+        elif negative_handler == 'elevate':
+            if min(resp) < 0:
+                resp = resp - min(resp)
+        elif negative_handler == 'raw':
+            pass
+        else:
+            raise LookupError('Do not understand input "negative_handler", should be "raw", "rectify" or "elevate".')
+
         axis.plot(dire_tuning['dire'], resp, '-', color=trace_color, lw=lw, **kwargs)
 
         axis.set_xticklabels([])
-        yticks = axis.get_yticks()
-        # print('yticks: {}'.format(yticks))
-        yticklabels = ['{:.2f}'.format(y - bias) for y in yticks]
-        # print('yticklabels: {}'.format(yticklabels))
-        axis.set_yticklabels(yticklabels)
+        ylim = axis.get_ylim()
+        ymax = np.ceil(ylim[1] * 100) / 100
+        axis.set_ylim([0, ymax])
+        axis.set_yticks([ymax])
+        # # print('yticks: {}'.format(yticks))
+        # yticklabels = ['{:.2f}'.format(y - bias) for y in yticks]
+        # # print('yticklabels: {}'.format(yticklabels))
+        # axis.set_yticklabels(yticklabels)
 
         return r_max
 
