@@ -92,6 +92,20 @@ class TestTimingAnalysis(unittest.TestCase):
         assert (len(har) == 4)
         assert (round(1000. * har[1] / har[0]) / 1000. == 2.)
 
+    def test_threshold_to_intervals(self):
+        trace = np.array([2.3, 4.5, 6.7, 5.5, 3.3, 9.2, 4.4, 3.2, 1.0, 0.8, 5.5])
+
+        intvs1 = ta.threshold_to_intervals(trace=trace, thr=5.0, comparison='>=')
+        # print(intvs1)
+        for intv in intvs1:
+            # print(trace[intv[0]: intv[1]])
+            assert(np.min(trace[intv[0]: intv[1]]) >= 5.0)
+
+        intvs2 = ta.threshold_to_intervals(trace=trace, thr=3.0, comparison='<')
+        for intv in intvs2:
+            # print(trace[intv[0]: intv[1]])
+            assert(np.max(trace[intv[0]: intv[1]]) < 3.0)
+
 
 if __name__ == '__main__':
     TestTimingAnalysis.test_get_onset_time_stamps()

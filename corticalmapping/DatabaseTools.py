@@ -75,7 +75,6 @@ PLOTTING_PARAMS = {
     'dire_color_pos': '#ff0000',
     'dire_color_neg': '#0000ff',
     'dire_line_width': 2,
-    'dire_negative_handler': 'rectify',
 }
 
 
@@ -1689,16 +1688,14 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
                                                 is_collapse_tf=params['is_collapse_tf'],
                                                 trace_color=plot_params['dire_color_pos'],
                                                 lw=plot_params['dire_line_width'],
-                                                postprocess=plot_params['dgc_postprocess'],
-                                                negative_handler=plot_params['dire_negative_handler'])
+                                                postprocess=plot_params['dgc_postprocess'])
 
         r_max_neg = dgcrt_plot.plot_dire_tuning(response_dir='neg', axis=ax_dire_neg,
                                                 is_collapse_sf=params['is_collapse_sf'],
                                                 is_collapse_tf=params['is_collapse_tf'],
                                                 trace_color=plot_params['dire_color_neg'],
                                                 lw=plot_params['dire_line_width'],
-                                                postprocess=plot_params['dgc_postprocess'],
-                                                negative_handler=plot_params['dire_negative_handler'])
+                                                postprocess=plot_params['dgc_postprocess'])
 
         rmax = max([r_max_pos, r_max_neg])
 

@@ -784,6 +784,73 @@ def event_triggered_event_trains(event_ts, triggers, t_range=(-1., 2.)):
     return etts, t_range
 
 
+def threshold_to_intervals(trace, thr, comparison='>='):
+    """
+    threshold a 1d trace, return intervals of indices that are above the threshold.
+
+    :param trace: 1d array
+    :param thr: float
+    :param comparison: str, '>', '>=', '<' or '<='
+    :return: list of tuples, each tuple contains two non-negative integers representing
+             the start index and the end index of thresholded intervals. the first int should
+             be smaller than the second int.
+    """
+
+    if len(trace.shape) != 1:
+        raise ValueError("the input 'trace' should be a 1d array.")
+
+    flag = False
+
+    start = []
+    end = []
+
+    for pi, pv in enumerate(trace):
+
+        if comparison == '>=':
+            if pv >= thr and (not flag):
+                start.append(pi)
+                flag = True
+
+            if pv < thr and flag:
+                end.append(pi)
+                flag = False
+
+        elif comparison == '>':
+            if pv > thr and (not flag):
+                start.append(pi)
+                flag = True
+
+            if pv <= thr and flag:
+                end.append(pi)
+                flag = False
+
+        elif comparison == '<=':
+            if pv <= thr and (not flag):
+                start.append(pi)
+                flag = True
+
+            if pv > thr and flag:
+                end.append(pi)
+                flag = False
+
+        elif comparison == '<':
+            if pv < thr and (not flag):
+                start.append(pi)
+                flag = True
+
+            if pv >= thr and flag:
+                end.append(pi)
+                flag = False
+
+        else:
+            raise LookupError('Do not understand input "comparison", should be ">=", ">", "<=", "<".')
+
+    if len(start) - len(end) == 1:
+        end.append(len(trace))
+
+    return zip(start, end)
+
+
 def haramp(trace, periods, ceil_f=4):
     """
     get amplitudes of first couple harmonic components from a time series corresponding to a sinusoidal stimulus.
