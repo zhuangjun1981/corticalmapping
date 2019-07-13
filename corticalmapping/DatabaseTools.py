@@ -15,6 +15,7 @@ import corticalmapping.SingleCellAnalysis as sca
 import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.PlottingTools as pt
 import corticalmapping.core.DataAnalysis as da
+import corticalmapping.core.TimingAnalysis as ta
 
 ANALYSIS_PARAMS = {
     'trace_type': 'f_center_subtracted',
@@ -457,97 +458,97 @@ def get_LSN_ts_indices(nwb_f, plane_n='plane0'):
         return inds, True
 
 
-def group_boutons(traces, corr_std_thr=1.5, is_show=False):
-    """
-    given traces of a population of boutons, classify them into a tree based on their activity correlations.
-
-    method modified from: Liang et al., Cell, 2018, 173(6):1343
-
-    :param traces: 2d array, row: roi, col: time point
-    :param corr_std_thr: float, used to determine the threshold of correlation coefficients. for each roi, the
-                         coefficients lower than (mean + corr_std_thr * std) will be set zero.
-    :param is_show: bool
-    :return:
-    """
-
-    mat_corr = np.corrcoef(traces, rowvar=True)
-    mat_corr[np.isnan(mat_corr)] = 0.
-
-    # threshold correlation coefficient matrix
-    mask = np.ones(mat_corr.shape)
-    for row_i, row in enumerate(mat_corr):
-        curr_std = np.std(row)
-        curr_mean = np.mean(row)
-        curr_thr = curr_mean + corr_std_thr * curr_std
-        mask[row_i, :][row < curr_thr] = 0.
-        mask[:, row_i][row < curr_thr] = 0.
-    mat_corr_thr = mat_corr * mask
-
-    # calculated distance matrix based on cosine similarity
-    mat_dis = np.zeros(mat_corr_thr.shape)
-    roi_num = mat_dis.shape[0]
-    # print('total roi number: {}'.format(roi_num))
-    for i in range(roi_num):
-        for j in range(i + 1, roi_num, 1):
-
-            ind = np.ones(roi_num, dtype=np.bool)
-            ind[i] = 0
-            ind[j] = 0
-
-            row_i = mat_corr_thr[i][ind]
-            row_j = mat_corr_thr[j][ind]
-
-            if max(row_i) == 0 or max(row_j) == 0:
-                mat_dis[i, j] = 1
-            else:
-                mat_dis[i, j] = 1 - spatial.distance.cosine(row_i, row_j)
-
-
-    # calculate linkage Z matrix using WPGMA algorithm
-    z_linkage = cluster.hierarchy.linkage(mat_dis, method='weighted')
-    # if is_plot:
-    #     _ = cluster.hierarchy.dendrogram(z_linkage)
-    #     plt.title('dendrogram')
-    #     plt.show()
-
-
-    # reorganize thresholded correlation coefficient matrix
-    clu = cluster.hierarchy.fcluster(z_linkage, t=0, criterion='distance')
-    mat_0 = np.zeros(mat_corr_thr.shape)
-    for l_i, l in enumerate(clu):
-        mat_0[l - 1, :] = mat_corr_thr[l_i, :]
-
-    mat_corr_thr_reorg = np.zeros(mat_0.shape)
-    for l_i, l in enumerate(clu):
-        mat_corr_thr_reorg[:, l - 1] = mat_0[:, l_i]
-
-    # plotting
-    f = plt.figure(figsize=(13, 10))
-
-    ax00 = f.add_subplot(221)
-    f00 = ax00.imshow(mat_corr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
-    ax00.set_title('corr coef matrix')
-    f.colorbar(f00)
-
-    ax01 = f.add_subplot(222)
-    f01 = ax01.imshow(mat_corr_thr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
-    ax01.set_title('thresholded corr coef matrix')
-    f.colorbar(f01)
-
-    ax10 = f.add_subplot(223)
-    f10 = ax10.imshow(mat_dis, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
-    ax10.set_title('distance matrix')
-    f.colorbar(f10)
-
-    ax11 = f.add_subplot(224)
-    f11 = ax11.imshow(mat_corr_thr_reorg, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
-    ax11.set_title('reorganized thresholded corr coef matrix')
-    f.colorbar(f11)
-
-    if is_show:
-        plt.show()
-
-    return mat_corr, mat_corr_thr, mat_dis, z_linkage, mat_corr_thr_reorg, f
+# def group_boutons(traces, corr_std_thr=1.5, is_show=False):
+#     """
+#     given traces of a population of boutons, classify them into a tree based on their activity correlations.
+#
+#     method modified from: Liang et al., Cell, 2018, 173(6):1343
+#
+#     :param traces: 2d array, row: roi, col: time point
+#     :param corr_std_thr: float, used to determine the threshold of correlation coefficients. for each roi, the
+#                          coefficients lower than (mean + corr_std_thr * std) will be set zero.
+#     :param is_show: bool
+#     :return:
+#     """
+#
+#     mat_corr = np.corrcoef(traces, rowvar=True)
+#     mat_corr[np.isnan(mat_corr)] = 0.
+#
+#     # threshold correlation coefficient matrix
+#     mask = np.ones(mat_corr.shape)
+#     for row_i, row in enumerate(mat_corr):
+#         curr_std = np.std(row)
+#         curr_mean = np.mean(row)
+#         curr_thr = curr_mean + corr_std_thr * curr_std
+#         mask[row_i, :][row < curr_thr] = 0.
+#         mask[:, row_i][row < curr_thr] = 0.
+#     mat_corr_thr = mat_corr * mask
+#
+#     # calculated distance matrix based on cosine similarity
+#     mat_dis = np.zeros(mat_corr_thr.shape)
+#     roi_num = mat_dis.shape[0]
+#     # print('total roi number: {}'.format(roi_num))
+#     for i in range(roi_num):
+#         for j in range(i + 1, roi_num, 1):
+#
+#             ind = np.ones(roi_num, dtype=np.bool)
+#             ind[i] = 0
+#             ind[j] = 0
+#
+#             row_i = mat_corr_thr[i][ind]
+#             row_j = mat_corr_thr[j][ind]
+#
+#             if max(row_i) == 0 or max(row_j) == 0:
+#                 mat_dis[i, j] = 1
+#             else:
+#                 mat_dis[i, j] = 1 - spatial.distance.cosine(row_i, row_j)
+#
+#
+#     # calculate linkage Z matrix using WPGMA algorithm
+#     z_linkage = cluster.hierarchy.linkage(mat_dis, method='weighted')
+#     # if is_plot:
+#     #     _ = cluster.hierarchy.dendrogram(z_linkage)
+#     #     plt.title('dendrogram')
+#     #     plt.show()
+#
+#
+#     # reorganize thresholded correlation coefficient matrix
+#     clu = cluster.hierarchy.fcluster(z_linkage, t=0, criterion='distance')
+#     mat_0 = np.zeros(mat_corr_thr.shape)
+#     for l_i, l in enumerate(clu):
+#         mat_0[l - 1, :] = mat_corr_thr[l_i, :]
+#
+#     mat_corr_thr_reorg = np.zeros(mat_0.shape)
+#     for l_i, l in enumerate(clu):
+#         mat_corr_thr_reorg[:, l - 1] = mat_0[:, l_i]
+#
+#     # plotting
+#     f = plt.figure(figsize=(13, 10))
+#
+#     ax00 = f.add_subplot(221)
+#     f00 = ax00.imshow(mat_corr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
+#     ax00.set_title('corr coef matrix')
+#     f.colorbar(f00)
+#
+#     ax01 = f.add_subplot(222)
+#     f01 = ax01.imshow(mat_corr_thr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
+#     ax01.set_title('thresholded corr coef matrix')
+#     f.colorbar(f01)
+#
+#     ax10 = f.add_subplot(223)
+#     f10 = ax10.imshow(mat_dis, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+#     ax10.set_title('distance matrix')
+#     f.colorbar(f10)
+#
+#     ax11 = f.add_subplot(224)
+#     f11 = ax11.imshow(mat_corr_thr_reorg, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+#     ax11.set_title('reorganized thresholded corr coef matrix')
+#     f.colorbar(f11)
+#
+#     if is_show:
+#         plt.show()
+#
+#     return mat_corr, mat_corr_thr, mat_dis, z_linkage, mat_corr_thr_reorg, f
 
 
 def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, alt_range=None, azi_range=None, cmap='viridis',
@@ -1794,6 +1795,112 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
     # plt.show()
     return f
+
+
+class BoutonClassifier(object):
+
+    def __init___(self, skew_filter_sigma=5., skew_thr=0.6, lowpass_sigma=0.1, detrend_sigma=3.,
+                  event_std_thr=3., peri_event_dur=(-3, 3), corr_len_thr=300., corr_abs_thr=0.5, corr_std_thr=3.,
+                  is_cosine_similarity=False, distance_thr=1.0):
+        """
+        initiate the object. setup a bunch of analysis parameters.
+
+        for detailed the bouton classification method, please see: Liang et al, Cell, 2018, 173:1343
+
+        There are a few simplifications that I found fitted better to my data.
+        1. not necessary to run cosine similarity to get distance matrix.
+        2. not necessary to use x std above mean to threshold correlation coefficient matrix, one absolute value is
+           enough
+        3. the application of distance matrix is somewhat different from the scipy documentation. The documentation
+           says feed y matrix to scipy.cluster.hierarchy.linkage() will generate the corrected linkage. But it is
+           not the clear what
+
+        :param skew_filter_sigma: float, in second, sigma for gaussian filter for skewness
+        :param skew_thr: float, threshold of skewness of filtered trace to pickup responsive traces
+        :param lowpass_sigma: float, in second, sigma for gaussian filter to highpass single trace
+        :param detrend_sigma: float, in second, sigma for gaussian filter to remove slow trend
+        :param event_std_thr: float, how many standard deviation above mean to detect events
+        :param peri_event_dur: list of two floats, in seconds, pre- and post- duration to be included into detected
+                               events
+        :param corr_len_thr: float, in seconds, length threshold to calculate correlation between a pair
+                                       of two traces. if the length is too short (detected events are too few),
+                                       their correlation coefficient will be set to 0.
+        :param corr_abs_thr: float, [0, 1], absolute threshold to treat correlation coefficient matrix
+        :param corr_std_thr: float, how many standard deviation above the mean to threshold correlation
+                                    coefficient matrix for each roi (currently not implemented)
+        :param is_cosine_similarity: bool, if True: use cosine similarity to calculate distance matrix
+                                           if False: use 1 - thresholded correlation coefficient matrix as distance
+                                           matrix
+        :param distance_thr: float, positive, the distance threshold to classify boutons into axons from the linkage
+                             array
+        """
+
+        self.skew_filter_sigma = float(skew_filter_sigma)
+        self.skew_thr = float(skew_thr)
+        self.lowpass_sigma = float(lowpass_sigma)
+        self.detrend_sigma = float(detrend_sigma)
+        self.event_std_thr = float(event_std_thr)
+        self.peri_event_dur = tuple(peri_event_dur)
+        self.corr_len_thr = float(corr_len_thr)
+        self.corr_abs_thr = float(corr_abs_thr)
+        self.corr_std_thr = float(corr_std_thr)
+        self.is_cosine_similarity = bool(is_cosine_similarity)
+        self.distance_thr = float(distance_thr)
+
+    def filter_traces(self, traces, roi_ns, sample_dur):
+
+        if traces.shape[0] != len(roi_ns):
+            raise ValueError('traces.shape[0] ({}) should be the same as len(roi_ns) ({})'.format(traces.shape[0],
+                                                                                                  len(roi_ns)))
+
+        lowpass_sig_pt = self.lowpass_sigma / sample_dur
+        detrend_sig_pt = self.detrend_sigma / sample_dur
+
+        trace_ts = np.arange(traces.shape[1]) * sample_dur
+
+        event_start_pt = int(np.floor(self.peri_event_dur[0] / sample_dur))
+        event_end_pt = int(np.ceil(self.peri_event_dur[1] / sample_dur))
+
+        roi_ns_res = []
+        traces_fil = []
+        event_masks = []
+
+        for trace_i, trace in enumerate(traces):
+            _, skew_fil = sca.get_skewness(trace=trace, ts=trace_ts,
+                                           filter_length=self.skew_filter_sigma)
+
+            if skew_fil >= self.skew_thr:
+
+
+
+                trace_l = ni.gaussian_filter1d(trace, sigma=lowpass_sig_pt) # lowpass
+                trace_d = trace_l - ni.gaussian_filter1d(trace_l, sigma=detrend_sig_pt) # detrend
+
+
+
+                # get event masks
+                event_mask = np.zeros(trace_ts.shape, dtype=np.bool)
+
+                trace_mean = np.mean(trace_d)
+                trace_std = np.std(trace_d)
+                event_intervals = ta.threshold_to_intervals(trace=trace_d,
+                                                            thr=trace_mean + self.event_std_thr * trace_std,
+                                                            comparison='>=')
+
+                for inte in event_intervals:
+                    start_ind = max([0, inte[0] + event_start_pt])
+                    end_ind = min([inte[1] + event_end_pt, traces.shape[1]])
+                    event_mask[start_ind : end_ind] = True
+
+                roi_ns_res.append(roi_ns[trace_i])
+                traces_fil.append(trace_d)
+                event_masks.append(event_mask)
+
+        return traces_fil, roi_ns_res, event_masks
+
+    
+
+
 
 
 if __name__ == '__main__':

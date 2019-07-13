@@ -2349,7 +2349,8 @@ class DriftingGratingResponseTable(DataFrame):
         axis.tick_params(length=0)
 
     def plot_dire_tuning(self, axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False,
-                         trace_color='#ff0000', lw=1., postprocess='raw', is_plot_errbar=True, **kwargs):
+                         trace_color='#ff0000', postprocess='raw', is_plot_errbar=True,
+                         is_normalize=False, **kwargs):
         """
 
         :param axis:
@@ -2357,7 +2358,7 @@ class DriftingGratingResponseTable(DataFrame):
         :param is_collapse_sf:
         :param is_collapse_tf:
         :param trace_color:
-        :param lw:
+        :param is_normalize:
         :param postprocess: str, 'raw', 'elevate' or 'rectify'
                             'raw': plot raw response
                             'elevate': if there is response below zero, how curve will be elevated so the minimum
@@ -2401,14 +2402,18 @@ class DriftingGratingResponseTable(DataFrame):
             raise LookupError('do not understand "postprocess": ({}). should be "raw", '
                               '"elevate" or "rectify".'.format(postprocess))
 
-        r_max = np.ceil(max(resp + dire_tuning['resp_stdev']) * 10000.) / 10000.
+        if is_normalize:
+            if is_plot_errbar:
+                raise ValueError('Cannot plot normalized tuning curve with error bar.')
+            else:
+                resp = resp / np.max(resp)
 
         if is_plot_errbar:
             axis.fill_between(x=dire_tuning['dire'], y1=resp - dire_tuning['resp_stdev'],
                               y2=resp + dire_tuning['resp_stdev'],
                               edgecolor='none', facecolor='#cccccc')
 
-        axis.plot(dire_tuning['dire'], resp, '-', color=trace_color, lw=lw, **kwargs)
+        axis.plot(dire_tuning['dire'], resp, '-', color=trace_color, **kwargs)
 
         axis.set_xticklabels([])
         ylim = axis.get_ylim()
@@ -2416,7 +2421,7 @@ class DriftingGratingResponseTable(DataFrame):
         axis.set_ylim([0, ymax])
         axis.set_yticks([ymax])
 
-        return r_max
+        return ymax
 
 
 if __name__ == '__main__':
