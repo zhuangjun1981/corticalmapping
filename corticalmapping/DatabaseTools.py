@@ -303,6 +303,13 @@ def get_roi(nwb_f, plane_n, roi_n):
     return ia.WeightedROI(mask=mask, pixelSize=pixel_size, pixelSizeUnit=pixel_size_unit)
 
 
+def get_traces(nwb_f, plane_n, trace_type=ANALYSIS_PARAMS['trace_type']):
+
+    traces = nwb_f['processing/rois_and_traces_{}/Fluorescence/{}/data'.format(plane_n, trace_type)].value
+    trace_ts = nwb_f['processing/rois_and_traces_{}/Fluorescence/{}/timestamps'.format(plane_n, trace_type)].value
+    return traces, trace_ts
+
+
 def get_single_trace(nwb_f, plane_n, roi_n, trace_type=ANALYSIS_PARAMS['trace_type']):
     roi_i = int(roi_n[-4:])
     trace = nwb_f['processing/rois_and_traces_{}/Fluorescence/{}/data'.format(plane_n, trace_type)][roi_i, :]
@@ -327,23 +334,23 @@ def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
     return rf_rgb
 
 
-def get_UC_ts_indcies(nwb_f, plane_n='plane0'):
+def get_UC_ts_mask(nwb_f, plane_n='plane0'):
     """
     return a 1d boolean array, same size as imaging timestamps of the traces in plane_n.
     These index masks represent the time period of all UniformContrast stimuli.
 
-    :return inds: 1d boolean array.
+    :return mask: 1d boolean array.
     :return has_uc: bool, False: has no UniformContrast stimulus
                           True: has UniformContrast stimulus
     """
 
     ts = nwb_f['processing/rois_and_traces_{}/Fluorescence/f_center_raw/timestamps'.format(plane_n)].value
-    inds = np.zeros(ts.shape, dtype=np.bool)
+    mask = np.zeros(ts.shape, dtype=np.bool)
 
     stim_ns = [n for n in nwb_f['stimulus/presentation'].keys() if 'UniformContrast' in n]
 
     if len(stim_ns) == 0:
-        return inds, False
+        return mask, False
 
     else:
         for stim_n in stim_ns:
@@ -355,29 +362,29 @@ def get_UC_ts_indcies(nwb_f, plane_n='plane0'):
             stim_onset = pd_grp[pd_key]['pd_onset_ts_sec'][0]
 
             curr_inds = np.logical_and(ts >= stim_onset, ts <= (stim_onset + stim_dur))
-            inds = np.logical_or(inds, curr_inds)
+            mask = np.logical_or(mask, curr_inds)
 
-        return inds, True
+        return mask, True
 
 
-def get_DGC_spont_ts_indices(nwb_f, plane_n='plane0'):
+def get_DGC_spont_ts_mask(nwb_f, plane_n='plane0'):
     """
     return a 1d boolean array, same size as imaging timestamps of the traces in plane_n.
     These index masks represent the time period of blank sweep and second half of intersweep
     intervals. This representing the "spontaneous" period during DriftingGratingCircle stimuli
 
-    :return inds: 1d boolean array
+    :return mask: 1d boolean array
     :return has_dgc: bool, False: has no DriftingGratingCircle stimulus
                            True: has DriftingGratingCircle stimulus
     """
 
     ts = nwb_f['processing/rois_and_traces_{}/Fluorescence/f_center_raw/timestamps'.format(plane_n)].value
-    inds = np.zeros(ts.shape, dtype=np.bool)
+    mask = np.zeros(ts.shape, dtype=np.bool)
 
     stim_ns = [n for n in nwb_f['stimulus/presentation'].keys() if 'DriftingGratingCircle' in n]
 
     if len(stim_ns) == 0:
-        return inds, False
+        return mask, False
 
     else:
         for stim_n in stim_ns:
@@ -397,32 +404,32 @@ def get_DGC_spont_ts_indices(nwb_f, plane_n='plane0'):
 
                         curr_inds = np.logical_and(ts >= (stim_onset - 0.5 * midgap_dur),
                                                    ts <= (stim_onset + block_dur + midgap_dur))
-                        inds = np.logical_or(inds, curr_inds)
+                        mask = np.logical_or(mask, curr_inds)
 
                     else: # other sweeps
                         curr_inds = np.logical_and(ts >= (stim_onset - 0.5 * midgap_dur), ts <= stim_onset)
-                        inds = np.logical_or(inds, curr_inds)
+                        mask = np.logical_or(mask, curr_inds)
 
-        return inds, True
+        return mask, True
 
 
-def get_LSN_ts_indices(nwb_f, plane_n='plane0'):
+def get_LSN_ts_mask(nwb_f, plane_n='plane0'):
     """
     return a 1d boolean array, same size as imaging timestamps of the traces in plane_n.
     These index masks represent the time period of all LocallySparseNoise stimuli.
 
-    :return inds: 1d boolean array.
+    :return mask: 1d boolean array.
     :return has_uc: bool, False: has no LocallySparseNoise stimulus
                           True: has LocallySparseNoise stimulus
     """
 
     ts = nwb_f['processing/rois_and_traces_{}/Fluorescence/f_center_raw/timestamps'.format(plane_n)].value
-    inds = np.zeros(ts.shape, dtype=np.bool)
+    mask = np.zeros(ts.shape, dtype=np.bool)
 
     stim_ns = [n for n in nwb_f['stimulus/presentation'].keys() if 'LocallySparseNoise' in n]
 
     if len(stim_ns) == 0:
-        return inds, False
+        return mask, False
 
     else:
         for stim_n in stim_ns:
@@ -453,9 +460,9 @@ def get_LSN_ts_indices(nwb_f, plane_n='plane0'):
 
             curr_inds = np.logical_and(ts >= stim_onset, ts <= stim_offset)
 
-            inds = np.logical_or(inds, curr_inds)
+            mask = np.logical_or(mask, curr_inds)
 
-        return inds, True
+        return mask, True
 
 
 # def group_boutons(traces, corr_std_thr=1.5, is_show=False):
@@ -1800,8 +1807,9 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 class BoutonClassifier(object):
 
     def __init___(self, skew_filter_sigma=5., skew_thr=0.6, lowpass_sigma=0.1, detrend_sigma=3.,
-                  event_std_thr=3., peri_event_dur=(-3, 3), corr_len_thr=300., corr_abs_thr=0.5, corr_std_thr=3.,
-                  is_cosine_similarity=False, distance_thr=1.0):
+                  event_std_thr=3., peri_event_dur=(-3, 3), corr_len_thr=300., corr_abs_thr=0.5,
+                  corr_std_thr=3., is_cosine_similarity=False, distance_metric='cosine',
+                  linkage_method='weighted', distance_thr=1.0):
         """
         initiate the object. setup a bunch of analysis parameters.
 
@@ -1831,6 +1839,9 @@ class BoutonClassifier(object):
         :param is_cosine_similarity: bool, if True: use cosine similarity to calculate distance matrix
                                            if False: use 1 - thresholded correlation coefficient matrix as distance
                                            matrix
+        :param distance_metric: str, metric for scipy to get distance. "metric" input to scipy.spatial.distance.pdist()
+                                method and scipy.cluster.hierarchy.linkage method.
+        :param linkage_method: str, method argument to the scipy.cluster.hierarchy.linkage() method
         :param distance_thr: float, positive, the distance threshold to classify boutons into axons from the linkage
                              array
         """
@@ -1845,9 +1856,21 @@ class BoutonClassifier(object):
         self.corr_abs_thr = float(corr_abs_thr)
         self.corr_std_thr = float(corr_std_thr)
         self.is_cosine_similarity = bool(is_cosine_similarity)
+        self.distance_metric = str(distance_metric)
+        self.linkage_method = str(linkage_method)
         self.distance_thr = float(distance_thr)
 
     def filter_traces(self, traces, roi_ns, sample_dur):
+        """
+        filter traces by filtered skewness, also detect events for each traces
+        :param traces: n x m array, n: roi numbers, m: time points
+        :param roi_ns: list of strings, length = n, name of all rois
+        :param sample_dur: float, duration of each sample in second.
+        :return traces_res: l x m array, l number of rois that pass the skewness thresold, self.skew_thr
+        :return roi_ns_res: list of strings, length = l, name of these rois
+        :return event_masks: l x m array, dtype: np.bool, event masks for each roi. events are deteced by
+                             larger than trace_mean + self.event_std_thr * trace_std
+        """
 
         if traces.shape[0] != len(roi_ns):
             raise ValueError('traces.shape[0] ({}) should be the same as len(roi_ns) ({})'.format(traces.shape[0],
@@ -1862,7 +1885,7 @@ class BoutonClassifier(object):
         event_end_pt = int(np.ceil(self.peri_event_dur[1] / sample_dur))
 
         roi_ns_res = []
-        traces_fil = []
+        traces_res = []
         event_masks = []
 
         for trace_i, trace in enumerate(traces):
@@ -1871,12 +1894,8 @@ class BoutonClassifier(object):
 
             if skew_fil >= self.skew_thr:
 
-
-
                 trace_l = ni.gaussian_filter1d(trace, sigma=lowpass_sig_pt) # lowpass
                 trace_d = trace_l - ni.gaussian_filter1d(trace_l, sigma=detrend_sig_pt) # detrend
-
-
 
                 # get event masks
                 event_mask = np.zeros(trace_ts.shape, dtype=np.bool)
@@ -1893,25 +1912,276 @@ class BoutonClassifier(object):
                     event_mask[start_ind : end_ind] = True
 
                 roi_ns_res.append(roi_ns[trace_i])
-                traces_fil.append(trace_d)
+                traces_res.append(trace_d)
                 event_masks.append(event_mask)
 
-        return traces_fil, roi_ns_res, event_masks
+        return traces_res, roi_ns_res, event_masks
 
-    
+    def get_correlation_coefficient_matrix(self, traces, event_masks, sample_dur, is_plot=False):
+        """
+        calculate event based correcation coefficient matrix of a set of rois.
+        ideally, the traces and event_masks will be the output of self.filter_traces() method.
 
+        :param traces: l x m array, l: number of rois, m: number of time points
+        :param event_masks: array same size of traces, dtype=np.bool, masks of event for each trace.
+        :param sample_dur:  float, duration of each sample in second.
+        :param is_plot: bool
+        :return mat_corr: l x l array, correlation coefficient matrix
+        """
 
+        roi_num_res = traces.shape[0]
+        mat_corr = np.zeros((roi_num_res, roi_num_res))
+        np.fill_diagonal(mat_corr, 1.)
+
+        for i in range(0, roi_num_res - 1):
+            for j in range(i + 1, roi_num_res):
+                trace_i = traces[i]
+                event_mask_i = event_masks[i]
+
+                trace_j = traces[j]
+                event_mask_j = event_masks[j]
+
+                res_ind_merge = np.logical_or(event_mask_i, event_mask_j)
+                #         print("({}, {}), trace_length: {}".format(i, j, np.sum(res_ind_merge)))
+
+                if np.sum(res_ind_merge) < self.corr_len_thr // sample_dur:
+                    mat_corr[i, j] = 0
+                    mat_corr[j, i] = 0
+                else:
+                    trace_i = trace_i[res_ind_merge]
+                    trace_j = trace_j[res_ind_merge]
+                    coeff = np.corrcoef(np.array([trace_i, trace_j]), rowvar=True)
+                    mat_corr[i, j] = coeff[1, 0]
+                    mat_corr[j, i] = coeff[1, 0]
+
+        if is_plot:
+            f = plt.figure(figsize=(8, 6))
+            ax = f.add_subplot(111)
+            ax.set_title('corr coef matrix')
+            fig = ax.imshow(mat_corr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
+            f.colorbar(fig)
+            plt.show()
+
+        return mat_corr
+
+    def threshold_correlation_coefficient_matrix(self, mat_corr, is_plot=False):
+        """
+        threshold correlation coefficient matrix based on each roi
+
+        for each roi, the corr coeff smaller than min([self.corr_abs_thr, mean + self.corr_std_thr * std])
+        will be set zero
+
+        :param mat_corr:
+        :param is_plot:
+        :return:
+        """
+
+        mask = np.ones(mat_corr.shape)
+
+        for row_i, row in enumerate(mat_corr):
+            curr_std = np.std(row)
+            curr_mean = np.mean(row)
+            curr_thr = min([self.corr_abs_thr, curr_mean + self.corr_std_thr * curr_std])
+
+            mask[row_i, :][row < curr_thr] = 0.
+            mask[:, row_i][row < curr_thr] = 0.
+
+        mat_corr_thr = mat_corr * mask
+
+        if is_plot:
+            f = plt.figure(figsize=(8, 6))
+            ax = f.add_subplot(111)
+            ax.set_title('thresholded corr coef matrix')
+            fig = ax.imshow(mat_corr, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+            f.colorbar(fig)
+            plt.show()
+
+        return mat_corr_thr
+
+    def get_distance_matrix(self, mat_corr, is_plot=False):
+        """
+        calculated the distance matrix from correlation coefficient matrix.
+        if self.is_cosine_similarity is True, use the cosine similarity method described in the paper
+        if self.is_cosine_similarity is False, simply use 1 - corr coeff as distance
+
+        :param mat_corr:
+        :param is_plot:
+        :return:
+        """
+
+        if self.is_cosine_similarity:
+
+            mat_dis = np.zeros(mat_corr.shape)
+            roi_num = mat_dis.shape[0]
+            # print('total roi number: {}'.format(roi_num))
+            for i in range(roi_num):
+                for j in range(i+1, roi_num, 1):
+
+                    ind = np.ones(roi_num, dtype=np.bool)
+                    ind[i] = 0
+                    ind[j] = 0
+
+                    row_i = mat_corr[i][ind]
+                    row_j = mat_corr[j][ind]
+
+                    if max(row_i) == 0 or max(row_j) == 0:
+                        mat_dis[i, j] = 1
+                        mat_dis[j, i] = 1
+                    else:
+                        cos = spatial.distance.cosine(row_i, row_j)
+                        mat_dis[i, j] = 1 - cos
+                        mat_dis[j, i] = 1 - cos
+        else:
+            mat_dis = 1 - mat_corr
+
+        if is_plot:
+            f = plt.figure(figsize=(8, 6))
+            ax = f.add_subplot(111)
+            ax.set_title('distance matrix')
+            fig = ax.imshow(mat_dis, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+            f.colorbar(fig)
+            plt.show()
+
+        return mat_dis
+
+    def hierarchy_clustering(self, mat_dis, is_plot=False, **kwargs):
+        """
+
+        cluster the boutons based on the distance matrix using scipy.cluster.hierarchy.linkage function
+        the "method" argument of this function is defined by self.linkage_method
+
+        :param mat_dis: 2d array, distance matrix
+        :param is_plot: bool
+        :param kwargs: other inputs to scipy.cluster.hierarchy.dendrogram function
+        :return linkage_z: 2d array, the linkage array Z from scipy.cluster.hierarchy.linkage method
+        :return mat_dis_reorg: 2d array, reorganized the distance matrix based on the clustering
+        :return c: float, the cophentic correlation distance of the clustering. Value range: [0, 1].
+                   Better if it is more close to 1.
+        """
+
+        linkage_z = cluster.hierarchy.linkage(mat_dis, method=self.linkage_method, metric=self.distance_metric)
+
+        c = cluster.hierarchy.cophenet(linkage_z, spatial.distance.pdist(mat_dis, metric=self.distance_metric))
+
+        print('Cophentic correlation distance of clustering: {}'.format(c))
+
+        # reorganize distance matrix
+        clu = cluster.hierarchy.fcluster(linkage_z, t=0, criterion='distance')
+        mat_0 = np.zeros(mat_dis.shape)
+
+        for l_i, l in enumerate(clu):
+            mat_0[l - 1, :] = mat_dis[l_i, :]
+
+        mat_dis_reorg = np.zeros(mat_dis.shape)
+        for l_i, l in enumerate(clu):
+            mat_dis_reorg[:, l - 1] = mat_0[:, l_i]
+
+        if is_plot:
+            f_den = plt.figure(figsize=(20, 8))
+            ax_den = f_den.add_subplot(111)
+            _ = cluster.hierarchy.dendrogram(linkage_z, ax=ax_den, **kwargs)
+            ax_den.axhline(y=self.distance_thr)
+
+            f_mat = plt.figure(figsize=(8, 6))
+            ax_mat = f_mat.add_subplot(111)
+            fig = ax_mat.imshow(mat_dis_reorg, cmap='plasma_r', vmin=0, vmax=1, interpolation='nearest')
+            ax_mat.set_title('clustered distance matrix')
+            f_mat.colorbar(fig)
+
+            plt.show()
+
+        return linkage_z, mat_dis_reorg, c
+
+    def get_axon_dict(self, linkage_z, roi_ns):
+        """
+        generate a dictionary of clustered axons.
+
+        :param linkage_z: 2d array, the linkage array genearted by scipy.cluster.hierarchy.linkage method
+        :param roi_ns: list of strings, roi names for the rois used for clustering
+        :return axon_dict: dictionary of axons, each entry is {<axon_name> : list of roi names belong to that axon}
+        :return clu_axon: list of integers, cluster index list generated by scipy.cluster.hierarchy.fcluster method
+        """
+
+        clu_axon = cluster.hierarchy.fcluster(linkage_z, t=self.distance_thr, criterion='distance')
+        clu_axon = np.array(clu_axon)
+        clu_axon = clu_axon - 1 # change to zero based indexing
+
+        axon_num = max(clu_axon) + 1
+
+        roi_ns = np.array(roi_ns)
+
+        # get axon dictionary
+        axon_dict = {}
+        axon_num_multi_roi = 0
+
+        for axon_i in range(axon_num):
+            axon_n = 'axon_{:04d}'.format(axon_i)
+            axon_lst = roi_ns[clu_axon == axon_i]
+            axon_dict.update({axon_n: axon_lst})
+
+            if len(axon_lst) > 1:
+                axon_num_multi_roi += 1
+
+        print('total number of axons: {}; '
+              'number of axons with multiple rois: {}'.format(axon_num, axon_num_multi_roi))
+
+        return axon_dict, clu_axon
+
+    @staticmethod
+    def plot_chunked_traces_with_intervals(traces, event_masks=None, chunk_num=4, fig_obj=None, **kwarg):
+        """
+        plot traces in defined number of chunks. Also mark the defined period indicated by the marked_inds
+
+        :param traces: 2d array, float, each row is a single trace
+        :param event_masks: 2d array, bool, same size as traces, masks of detected events for each roi
+        :param chunk_num: int, number of chunks for plotting
+        :param fig_obj: matplotlib.figure object
+        :param **kwarg: inputs to matplotlib.axes.plot() function
+        """
+
+        if len(traces.shape) == 1:
+            traces = np.array([traces])
+
+        if event_masks is not None and len(event_masks.shape) == 1:
+            event_masks = np.array([event_masks])
+
+        if event_masks is not None and traces.shape != event_masks.shape:
+            raise ValueError(
+                'the shape of input "traces" ({}) and "event_masks" ({}) are not the same.'.format(traces.shape,
+                                                                                                   event_masks.shape))
+
+        if fig_obj is None:
+            fig_obj = plt.figure(figsize=(15, 10))
+
+        colors = pt.random_color(traces.shape[0])
+        len_tot = traces.shape[1]
+        len_chunk = len_tot // chunk_num
+
+        for chunk_i in range(chunk_num):
+            chunk_traces = traces[:, chunk_i * len_chunk: (chunk_i + 1) * len_chunk]
+            chunk_ax = fig_obj.add_subplot(chunk_num, 1, chunk_i + 1)
+            chunk_ax.set_xlim([0, len_chunk])
+
+            for trace_i in range(traces.shape[0]):
+                chunk_ax.plot(chunk_traces[trace_i], color=colors[trace_i], **kwarg)
+
+            if event_masks is not None:
+                chunk_inds = event_masks[:, chunk_i * len_chunk: (chunk_i + 1) * len_chunk]
+                chunk_ind = np.any(chunk_inds, axis=0)
+                chunk_intes = ta.threshold_to_intervals(trace=chunk_ind.astype(np.float32), thr=0.5, comparison='>=')
+                for chunk_int in chunk_intes:
+                    chunk_ax.axvspan(chunk_int[0], chunk_int[1], color='#ff0000', alpha=0.2)
 
 
 if __name__ == '__main__':
 
     # ===================================================================================================
     nwb_f = h5py.File(r"G:\bulk_LGN_database\nwbs\190404_M439939_110_repacked.nwb")
-    uc_inds, _ = get_UC_ts_indcies(nwb_f=nwb_f, plane_n='plane0')
+    uc_inds, _ = get_UC_ts_mask(nwb_f=nwb_f, plane_n='plane0')
     plt.plot(uc_inds)
     plt.show()
 
-    dgc_spont_inds, _ = get_DGC_spont_ts_indices(nwb_f=nwb_f, plane_n='plane0')
+    dgc_spont_inds, _ = get_DGC_spont_ts_mask(nwb_f=nwb_f, plane_n='plane0')
     plt.plot(dgc_spont_inds)
     plt.show()
     # ===================================================================================================
