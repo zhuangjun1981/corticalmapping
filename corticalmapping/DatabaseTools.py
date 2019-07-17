@@ -419,7 +419,7 @@ def get_LSN_ts_mask(nwb_f, plane_n='plane0'):
     These index masks represent the time period of all LocallySparseNoise stimuli.
 
     :return mask: 1d boolean array.
-    :return has_uc: bool, False: has no LocallySparseNoise stimulus
+    :return has_lsn: bool, False: has no LocallySparseNoise stimulus
                           True: has LocallySparseNoise stimulus
     """
 
@@ -1806,10 +1806,10 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
 class BoutonClassifier(object):
 
-    def __init___(self, skew_filter_sigma=5., skew_thr=0.6, lowpass_sigma=0.1, detrend_sigma=3.,
-                  event_std_thr=3., peri_event_dur=(-3, 3), corr_len_thr=300., corr_abs_thr=0.5,
-                  corr_std_thr=3., is_cosine_similarity=False, distance_metric='cosine',
-                  linkage_method='weighted', distance_thr=1.0):
+    def __init__(self, skew_filter_sigma=5., skew_thr=0.6, lowpass_sigma=0.1, detrend_sigma=3.,
+                 event_std_thr=3., peri_event_dur=(-3., 3.), corr_len_thr=300., corr_abs_thr=0.5,
+                 corr_std_thr=3., is_cosine_similarity=False, distance_metric='euclidean',
+                 linkage_method='weighted', distance_thr=1.0):
         """
         initiate the object. setup a bunch of analysis parameters.
 
@@ -1915,7 +1915,7 @@ class BoutonClassifier(object):
                 traces_res.append(trace_d)
                 event_masks.append(event_mask)
 
-        return traces_res, roi_ns_res, event_masks
+        return np.array(traces_res), roi_ns_res, np.array(event_masks)
 
     def get_correlation_coefficient_matrix(self, traces, event_masks, sample_dur, is_plot=False):
         """
@@ -2061,7 +2061,7 @@ class BoutonClassifier(object):
 
         linkage_z = cluster.hierarchy.linkage(mat_dis, method=self.linkage_method, metric=self.distance_metric)
 
-        c = cluster.hierarchy.cophenet(linkage_z, spatial.distance.pdist(mat_dis, metric=self.distance_metric))
+        c, _ = cluster.hierarchy.cophenet(linkage_z, spatial.distance.pdist(mat_dis, metric=self.distance_metric))
 
         print('Cophentic correlation distance of clustering: {}'.format(c))
 
