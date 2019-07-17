@@ -2066,15 +2066,7 @@ class BoutonClassifier(object):
         print('Cophentic correlation distance of clustering: {}'.format(c))
 
         # reorganize distance matrix
-        clu = cluster.hierarchy.fcluster(linkage_z, t=0, criterion='distance')
-        mat_0 = np.zeros(mat_dis.shape)
-
-        for l_i, l in enumerate(clu):
-            mat_0[l - 1, :] = mat_dis[l_i, :]
-
-        mat_dis_reorg = np.zeros(mat_dis.shape)
-        for l_i, l in enumerate(clu):
-            mat_dis_reorg[:, l - 1] = mat_0[:, l_i]
+        mat_dis_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_dis)
 
         if is_plot:
             f_den = plt.figure(figsize=(20, 8))
@@ -2091,6 +2083,35 @@ class BoutonClassifier(object):
             plt.show()
 
         return linkage_z, mat_dis_reorg, c
+
+    @staticmethod
+    def reorganize_matrix_by_cluster(linkage_z, mat):
+        """
+        :param linkage_z:
+        :param mat:
+        :return:
+        """
+
+        if len(mat.shape) != 2:
+            raise ValueError('input "mat" should be a 2d array.')
+
+        if mat.shape[0] != mat.shape[1]:
+            raise ValueError('input "mat" should have same rows as columns.')
+
+        clu = np.array(cluster.hierarchy.fcluster(linkage_z, t=0, criterion='distance'))
+        clu = clu - 1
+
+        mat_0 = np.zeros(mat.shape)
+
+        for l_i, l in enumerate(clu):
+            mat_0[l, :] = mat[l_i, :]
+
+        mat_reorg = np.zeros(mat.shape)
+        for l_i, l in enumerate(clu):
+            mat_reorg[:, l] = mat_0[:, l_i]
+
+        return mat_reorg
+
 
     def get_axon_dict(self, linkage_z, roi_ns):
         """
