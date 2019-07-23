@@ -818,11 +818,12 @@ def plot_multiple_traces(traces, x=None, plot_axis=None, mean_kw=None, is_plot_s
     return plot_axis
 
 
-def plot_dire_distribution(dires, is_arc=False, bins=12,  plot_ax=None, plot_type='bar', **kwargs):
+def plot_dire_distribution(dires, weights=None, is_arc=False, bins=12,  plot_ax=None, plot_type='bar', **kwargs):
     """
     plot the distribution of a list of directions in a nice way.
 
     :param dires: array of float. directions to be plotted.
+    :param weights: array with same size as dires, weights of data
     :param is_arc: bool. If True, dires are in [0, 2*pi] scale, if False, dires are in [0, 360] scale
     :param bins: int, how many bins are there
     :param plot_ax: matplotlib.axes._subplots.PolarAxesSubplot object
@@ -854,7 +855,7 @@ def plot_dire_distribution(dires, is_arc=False, bins=12,  plot_ax=None, plot_typ
             plot_dires[dire_i] = dire - (np.pi * 2)
 
     # print(plot_dires)
-    counts, bin_lst = np.histogram(plot_dires, bins=bins, range=[-bin_width / 2., (np.pi * 2) - (bin_width / 2)])
+    counts, bin_lst = np.histogram(plot_dires, weights=weights, bins=bins, range=[-bin_width / 2., (np.pi * 2) - (bin_width / 2)])
     bin_lst = bin_lst[0:-1] + (bin_width / 2)
 
     if plot_type == 'bar':
@@ -870,7 +871,7 @@ def plot_dire_distribution(dires, is_arc=False, bins=12,  plot_ax=None, plot_typ
 
     plot_ax.set_xticklabels([])
 
-    return plot_ax
+    return plot_ax, counts[:-1], bin_lst[:-1]
 
 
 if __name__ == '__main__':

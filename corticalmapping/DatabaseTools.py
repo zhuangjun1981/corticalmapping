@@ -16,6 +16,7 @@ import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.PlottingTools as pt
 import corticalmapping.core.DataAnalysis as da
 import corticalmapping.core.TimingAnalysis as ta
+from matplotlib.backends.backend_pdf import PdfPages
 
 ANALYSIS_PARAMS = {
     'trace_type': 'f_center_subtracted',
@@ -77,6 +78,18 @@ PLOTTING_PARAMS = {
     'dire_color_neg': '#0000ff',
     'dire_line_width': 2,
 }
+
+
+def get_background_img(nwb_f, plane_n):
+
+    rf_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane/reference_images'.format(plane_n)]
+
+    if 'max_projection' in rf_grp.keys():
+        return rf_grp['max_projection/data'].value
+    elif 'mean_projection' in rf_grp.keys():
+        return rf_grp['mean_projection/data'].value
+    else:
+        return None
 
 
 def get_roi_triplets(nwb_f, overlap_ratio=0.9):
@@ -334,10 +347,13 @@ def render_rb(rf_on, rf_off, vmax=PLOTTING_PARAMS['rf_zscore_vmax']):
     return rf_rgb
 
 
-def get_UC_ts_mask(nwb_f, plane_n='plane0'):
+def get_UC_ts_mask(nwb_f, plane_n='plane0', len_thr=100):
     """
     return a 1d boolean array, same size as imaging timestamps of the traces in plane_n.
     These index masks represent the time period of all UniformContrast stimuli.
+
+    :param len_thr: uint, the threshold of the number of detected time points. If there are
+                    time points less than this number, has_uc will be False
 
     :return mask: 1d boolean array.
     :return has_uc: bool, False: has no UniformContrast stimulus
@@ -364,14 +380,20 @@ def get_UC_ts_mask(nwb_f, plane_n='plane0'):
             curr_inds = np.logical_and(ts >= stim_onset, ts <= (stim_onset + stim_dur))
             mask = np.logical_or(mask, curr_inds)
 
-        return mask, True
+        if np.sum(mask) < len_thr:
+            return mask, False
+        else:
+            return mask, True
 
 
-def get_DGC_spont_ts_mask(nwb_f, plane_n='plane0'):
+def get_DGC_spont_ts_mask(nwb_f, plane_n='plane0', len_thr=100):
     """
     return a 1d boolean array, same size as imaging timestamps of the traces in plane_n.
     These index masks represent the time period of blank sweep and second half of intersweep
     intervals. This representing the "spontaneous" period during DriftingGratingCircle stimuli
+
+    :param len_thr: uint, the threshold of the number of detected time points. If there are
+                    time points less than this number, has_dgc will be False
 
     :return mask: 1d boolean array
     :return has_dgc: bool, False: has no DriftingGratingCircle stimulus
@@ -410,13 +432,19 @@ def get_DGC_spont_ts_mask(nwb_f, plane_n='plane0'):
                         curr_inds = np.logical_and(ts >= (stim_onset - 0.5 * midgap_dur), ts <= stim_onset)
                         mask = np.logical_or(mask, curr_inds)
 
-        return mask, True
+        if np.sum(mask) < len_thr:
+            return mask, False
+        else:
+            return mask, True
 
 
-def get_LSN_ts_mask(nwb_f, plane_n='plane0'):
+def get_LSN_ts_mask(nwb_f, plane_n='plane0', len_thr=100):
     """
     return a 1d boolean array, same size as imaging timestamps of the traces in plane_n.
     These index masks represent the time period of all LocallySparseNoise stimuli.
+
+    :param len_thr: uint, the threshold of the number of detected time points. If there are
+                    time points less than this number, has_lsn will be False
 
     :return mask: 1d boolean array.
     :return has_lsn: bool, False: has no LocallySparseNoise stimulus
@@ -462,7 +490,10 @@ def get_LSN_ts_mask(nwb_f, plane_n='plane0'):
 
             mask = np.logical_or(mask, curr_inds)
 
-        return mask, True
+        if np.sum(mask) < len_thr:
+            return mask, False
+        else:
+            return mask, True
 
 
 # def group_boutons(traces, corr_std_thr=1.5, is_show=False):
@@ -2063,7 +2094,7 @@ class BoutonClassifier(object):
 
         c, _ = cluster.hierarchy.cophenet(linkage_z, spatial.distance.pdist(mat_dis, metric=self.distance_metric))
 
-        print('Cophentic correlation distance of clustering: {}'.format(c))
+        print('\tCophentic correlation distance of clustering: {}'.format(c))
 
         # reorganize distance matrix
         mat_dis_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_dis)
@@ -2112,7 +2143,6 @@ class BoutonClassifier(object):
 
         return mat_reorg
 
-
     def get_axon_dict(self, linkage_z, roi_ns):
         """
         generate a dictionary of clustered axons.
@@ -2143,13 +2173,14 @@ class BoutonClassifier(object):
             if len(axon_lst) > 1:
                 axon_num_multi_roi += 1
 
-        print('total number of axons: {}; '
+        print('\ttotal number of axons: {}; '
               'number of axons with multiple rois: {}'.format(axon_num, axon_num_multi_roi))
 
         return axon_dict, clu_axon
 
     @staticmethod
-    def plot_chunked_traces_with_intervals(traces, event_masks=None, chunk_num=4, fig_obj=None, **kwarg):
+    def plot_chunked_traces_with_intervals(traces, event_masks=None, chunk_num=4, fig_obj=None, colors=None,
+                                           **kwarg):
         """
         plot traces in defined number of chunks. Also mark the defined period indicated by the marked_inds
 
@@ -2192,6 +2223,283 @@ class BoutonClassifier(object):
                 chunk_intes = ta.threshold_to_intervals(trace=chunk_ind.astype(np.float32), thr=0.5, comparison='>=')
                 for chunk_int in chunk_intes:
                     chunk_ax.axvspan(chunk_int[0], chunk_int[1], color='#ff0000', alpha=0.2)
+
+    def process_plane(self, nwb_f, save_folder, plane_n='plane0', trace_type='f_center_subtracted',
+                      trace_window='AllStimuli'):
+        """
+
+        :param nwb_f:
+        :param save_folder:
+        :param plane_n:
+        :param trace_type:
+        :param trace_window:
+        :return:
+        """
+
+        print('\tclustering ...')
+
+        nwb_id = nwb_f['identifier'].value
+        date = nwb_id.split('_')[0]
+        mid = nwb_id.split('_')[1]
+
+        # the timestamp index for spontaneous activity
+        traces, trace_ts = get_traces(nwb_f=nwb_f, plane_n=plane_n, trace_type=trace_type)
+        sample_dur = np.mean(np.diff(trace_ts))
+
+        if trace_window == 'AllStimuli':
+            win_mask = np.ones(trace_ts.shape, dtype=np.bool)
+            has_stim = True
+        elif trace_window == 'UniformContrast':
+            win_mask, has_stim = get_UC_ts_mask(nwb_f=nwb_f, plane_n=plane_n)
+        elif trace_window == 'LocallySparseNoise':
+            win_mask, has_stim = get_LSN_ts_mask(nwb_f=nwb_f, plane_n=plane_n)
+        elif trace_window == 'DriftingGratingSpont':
+            win_mask, has_stim = get_DGC_spont_ts_mask(nwb_f=nwb_f, plane_n=plane_n)
+        else:
+            raise LookupError('do not understand input "trace_window".')
+
+        if not has_stim:
+            print('the nwb file does not contain the specified stimulus: {}. Do nothing.'.format(trace_window))
+            return
+
+        traces_sub = traces[:, win_mask]
+
+        roi_ns = get_roi_ns(nwb_f=nwb_f, plane_n=plane_n)
+
+        traces_res, roi_ns_res, event_masks = self.filter_traces(traces=traces_sub, roi_ns=roi_ns,
+                                                                 sample_dur=sample_dur)
+
+        mat_corr = self.get_correlation_coefficient_matrix(traces=traces_res, event_masks=event_masks,
+                                                           sample_dur=sample_dur, is_plot=False)
+        mat_corr_thr = self.threshold_correlation_coefficient_matrix(mat_corr=mat_corr, is_plot=False)
+        mat_dis = self.get_distance_matrix(mat_corr=mat_corr_thr, is_plot=False)
+        linkage_z, mat_dis_reorg, c = self.hierarchy_clustering(mat_dis=mat_dis, is_plot=False)
+        mat_corr_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_corr)
+        axon_dict, clu_axon = self.get_axon_dict(linkage_z=linkage_z, roi_ns=roi_ns_res)
+
+        axon_ns = axon_dict.keys()
+        axon_ns.sort()
+        roi_num_per_axon = [len(axon_dict[axon_n]) for axon_n in axon_ns]
+        # print(roi_num_per_axon)
+
+        # save data
+        print('\tsaving results ...')
+        save_f = h5py.File(os.path.join(save_folder, '{}_{}_{}_axon_grouping.hdf5'.format(date, mid, plane_n)))
+
+        meta_grp = save_f.create_group('meta')
+        meta_grp.create_dataset('date', data=date)
+        meta_grp.create_dataset('mouse_id', data=mid)
+        meta_grp.create_dataset('plane_n', data=plane_n)
+        meta_grp.create_dataset('trace_type', data=trace_type)
+        meta_grp.create_dataset('trace_window', data=trace_window)
+
+        bc_grp = save_f.create_group('classifier_parameters')
+        for attr_n, attr in self.__dict__.items():
+            bc_grp.create_dataset(attr_n, data=attr)
+
+        save_f.create_dataset('matrix_corr_coef', data=mat_corr)
+        save_f.create_dataset('matrix_corr_coef_thr', data=mat_corr_thr)
+        save_f.create_dataset('matrix_distance', data=mat_dis)
+        save_f.create_dataset('matrix_distance_reorg', data=mat_dis_reorg)
+        save_f.create_dataset('matrix_corr_coef_thr_reorg', data=mat_corr_reorg)
+        save_f.create_dataset('linkage_z', data=linkage_z)
+        save_f.create_dataset('responsive_roi_ns', data=roi_ns_res)
+        save_f.create_dataset('cluset_indices', data=clu_axon)
+        axon_grp = save_f.create_group('axons')
+        for axon_n, roi_lst in axon_dict.items():
+            axon_grp.create_dataset(axon_n, data=roi_lst)
+
+        # adding rois and traces
+        trace_grp = nwb_f['processing/rois_and_traces_{}/Fluorescence'.format(plane_n)]
+        seg_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane'.format(plane_n)]
+
+        axon_lst = []
+        axon_masks = []
+        axon_traces_raw = []
+        axon_traces_sub = []
+
+        for axon_n in axon_ns:
+            roi_lst = axon_dict[axon_n]
+
+            if len(roi_lst) > 1:
+
+                curr_mask = np.zeros((512, 512), dtype=np.float32)
+                curr_trace_raw = None
+                curr_trace_sub = None
+                total_weight = 0.
+
+                for roi_n in roi_lst:
+
+                    roi_i = int(roi_n[-4:])
+                    curr_mask = curr_mask + seg_grp[roi_n]['img_mask'].value
+                    curr_weight = np.sum(seg_grp[roi_n]['pix_mask_weight'])
+                    total_weight = total_weight + curr_weight
+
+                    if curr_trace_raw is None:
+                        curr_trace_raw = trace_grp['f_center_raw/data'][roi_i, :] * curr_weight
+                    else:
+                        curr_trace_raw = curr_trace_raw + trace_grp['f_center_raw/data'][roi_i, :] * curr_weight
+
+                    if curr_trace_sub is None:
+                        curr_trace_sub = trace_grp['f_center_subtracted/data'][roi_i, :] * curr_weight
+                    else:
+                        curr_trace_sub = curr_trace_sub + trace_grp['f_center_subtracted/data'][roi_i, :] * curr_weight
+
+                axon_lst.append(axon_n)
+                axon_masks.append(curr_mask)
+                axon_traces_raw.append(curr_trace_raw / total_weight)
+                axon_traces_sub.append(curr_trace_sub / total_weight)
+
+        rat_grp = save_f.create_group('rois_and_traces')
+        rat_grp.attrs['description'] = 'this group only list axons with more than one rois'
+        rat_grp.create_dataset('axon_list', data=axon_lst)
+        rat_grp.create_dataset('masks_center', data=np.array(axon_masks))
+        rat_grp.create_dataset('traces_center_raw', data=np.array(axon_traces_raw))
+        rat_grp.create_dataset('traces_center_subtracted', data=np.array(axon_traces_sub))
+        save_f.close()
+
+        # plot matrices
+        print('\tplotting results ...')
+        f_mat = plt.figure(figsize=(15, 12))
+        f_mat.suptitle('{}_{}_{}, {}, dis_thr={:.2f}'.format(date,
+                                                             mid,
+                                                             plane_n,
+                                                             trace_window,
+                                                             self.distance_thr))
+
+        ax_corr = f_mat.add_axes([0.02, 0.66, 0.3, 0.3])
+        fig_corr = ax_corr.imshow(mat_corr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
+        f_mat.colorbar(fig_corr)
+        ax_corr.set_ylabel('corr coef')
+        ax_corr.set_xticks([])
+        ax_corr.set_yticks([])
+
+        ax_corr_thr = f_mat.add_axes([0.34, 0.66, 0.3, 0.3])
+        fig_corr_thr = ax_corr_thr.imshow(mat_corr_thr, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+        f_mat.colorbar(fig_corr_thr)
+        ax_corr_thr.set_ylabel('corr coef thr')
+        ax_corr_thr.set_xticks([])
+        ax_corr_thr.set_yticks([])
+
+        ax_dis = f_mat.add_axes([0.66, 0.66, 0.3, 0.3])
+        fig_dis = ax_dis.imshow(mat_dis, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+        f_mat.colorbar(fig_dis)
+        ax_dis.set_ylabel('distance')
+        ax_dis.set_xticks([])
+        ax_dis.set_yticks([])
+
+        ax_mask = f_mat.add_axes([0.02, 0.34, 0.3, 0.3])
+        ax_mask.set_xticks([])
+        ax_mask.set_yticks([])
+        ax_mask.set_ylabel('axons with multiple rois')
+
+        ax_corr_reorg = f_mat.add_axes([0.34, 0.34, 0.3, 0.3])
+        fig_corr_reorg = ax_corr_reorg.imshow(mat_corr_reorg, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+        f_mat.colorbar(fig_corr_reorg)
+        ax_corr_reorg.set_ylabel('corr coef reorg')
+
+        axon_roi_num_cum_sum = np.cumsum(roi_num_per_axon)
+        for axon_i, roi_num in enumerate(roi_num_per_axon):
+            if roi_num > 1:
+                if axon_i == 0:
+                    axon_start = 0
+                else:
+                    axon_start = axon_roi_num_cum_sum[axon_i - 1]
+                axon_end = axon_roi_num_cum_sum[axon_i]
+                axon_corr_mask = np.zeros(mat_corr_reorg.shape, dtype=np.uint8)
+                axon_corr_mask[axon_start: axon_end, axon_start: axon_end] = 1
+                pt.plot_mask_borders(axon_corr_mask, plotAxis=ax_corr_reorg, color='#009900', borderWidth=1)
+        ax_corr_reorg.set_xticks([])
+        ax_corr_reorg.set_yticks([])
+
+        ax_dis_reorg = f_mat.add_axes([0.66, 0.34, 0.3, 0.3])
+        fig_dis_reorg = ax_dis_reorg.imshow(mat_dis_reorg, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
+        f_mat.colorbar(fig_dis_reorg)
+        ax_dis_reorg.set_ylabel('distance reorg')
+        ax_dis_reorg.set_xticks([])
+        ax_dis_reorg.set_yticks([])
+
+        ax_den = f_mat.add_axes([0.02, 0.02, 0.96, 0.3])
+        _ = cluster.hierarchy.dendrogram(linkage_z, ax=ax_den, color_threshold=self.distance_thr)
+        ax_den.axhline(y=self.distance_thr)
+        ax_den.set_title('dendrogram')
+
+        # plot axon traces
+        trace_f = PdfPages(os.path.join(save_folder,
+                                        '{}_{}_{}_{}_axon_traces.pdf'.format(date, mid, plane_n, trace_window)))
+
+        # plot contour image
+        f_contour = plt.figure(figsize=(8, 8))
+        contour_ax = f_contour.add_subplot(111)
+        contour_ax.set_xticks([])
+        contour_ax.set_yticks([])
+        bg_img = get_background_img(nwb_f=nwb_f, plane_n=plane_n)
+        if bg_img is not None:
+            contour_ax.imshow(ia.array_nor(bg_img), vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+        else:
+            contour_ax.imshow(np.zeros(512, 512), vmin=0, vmax=1, cmap='gray', interpolation='nearest')
+        contour_ax.set_title('{}_{}_{}, {}, dis_thr={:.2f}'.format(date, mid, plane_n, trace_window,
+                                                                   self.distance_thr))
+
+        for axon_n in axon_ns:
+
+            roi_lst = axon_dict[axon_n]
+
+            if len(roi_lst) > 1:
+
+                # print('\t{}: {} rois.'.format(axon_n, len(roi_lst)))
+
+                # plot contours
+                curr_color = pt.random_color(1)
+                for roi_n in roi_lst:
+                    curr_roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+                    pt.plot_mask_borders(curr_roi.get_binary_mask(), plotAxis=contour_ax, color=curr_color[0],
+                                         lw=0.5)
+                    pt.plot_mask_borders(curr_roi.get_binary_mask(), plotAxis=ax_mask, color=curr_color[0],
+                                         is_filled=True)
+
+                # plot traces
+                f = plt.figure(figsize=(10, 15), tight_layout=True)
+                axon_int = int(axon_n[-4:])
+
+                # get the mean correlation coefficient for an axon
+                roi_ind_start = int(np.sum(roi_num_per_axon[0: axon_int]))
+                roi_num = len(roi_lst)
+                mean_corr = np.mean(mat_corr_reorg[roi_ind_start: roi_ind_start + roi_num,
+                                    roi_ind_start: roi_ind_start + roi_num].flat)
+
+                mean_dis = np.mean(mat_dis_reorg[roi_ind_start: roi_ind_start + roi_num,
+                                   roi_ind_start: roi_ind_start + roi_num].flat)
+
+                f.suptitle(
+                    '{}: {} rois; mean corr coef: {:4.2f}; mean distance: {:6.4f}'.format(axon_n, len(roi_lst),
+                                                                                          mean_corr,
+                                                                                          mean_dis))
+
+                axon_event_masks = event_masks[clu_axon == axon_int]
+
+                traces_p = []
+                for roi_n in roi_lst:
+                    trace, _ = get_single_trace(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n, trace_type=trace_type)
+                    traces_p.append(trace)
+                traces_p = np.array(traces_p)
+                traces_p = traces_p[:, win_mask]
+
+                self.plot_chunked_traces_with_intervals(traces_p, event_masks=axon_event_masks, chunk_num=10,
+                                                        fig_obj=f, lw=0.5)
+
+                trace_f.savefig(f)
+                plt.close(f)
+
+        f_mat.savefig(os.path.join(save_folder,
+                                   '{}_{}_{}_{}_clustering.pdf'.format(date, mid, plane_n, trace_window)))
+
+        f_contour.savefig(os.path.join(save_folder,
+                                       '{}_{}_{}_{}_axon_contours.pdf'.format(date, mid, plane_n, trace_window)))
+        plt.close(f_mat)
+        plt.close(f_contour)
+        trace_f.close()
+        print('\tfinished.')
 
 
 if __name__ == '__main__':
