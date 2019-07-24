@@ -2179,12 +2179,13 @@ class BoutonClassifier(object):
         return axon_dict, clu_axon
 
     @staticmethod
-    def plot_chunked_traces_with_intervals(traces, event_masks=None, chunk_num=4, fig_obj=None, colors=None,
-                                           **kwarg):
+    def plot_chunked_traces_with_intervals(traces, trace_center=None, event_masks=None, chunk_num=4,
+                                           fig_obj=None, colors=None, **kwarg):
         """
         plot traces in defined number of chunks. Also mark the defined period indicated by the marked_inds
 
         :param traces: 2d array, float, each row is a single trace
+        :param trace_center: 1d array, merged trace to plot, should have same length as traces.shape[1]
         :param event_masks: 2d array, bool, same size as traces, masks of detected events for each roi
         :param chunk_num: int, number of chunks for plotting
         :param fig_obj: matplotlib.figure object
@@ -2205,7 +2206,9 @@ class BoutonClassifier(object):
         if fig_obj is None:
             fig_obj = plt.figure(figsize=(15, 10))
 
-        colors = pt.random_color(traces.shape[0])
+        if colors is None:
+            colors = pt.random_color(traces.shape[0])
+
         len_tot = traces.shape[1]
         len_chunk = len_tot // chunk_num
 
@@ -2216,6 +2219,10 @@ class BoutonClassifier(object):
 
             for trace_i in range(traces.shape[0]):
                 chunk_ax.plot(chunk_traces[trace_i], color=colors[trace_i], **kwarg)
+
+            if trace_center is not None:
+                chunk_trace_c = trace_center[chunk_i * len_chunk: (chunk_i + 1) * len_chunk]
+                chunk_ax.plot(chunk_trace_c, color='#ff0000', lw=1, alpha=1)
 
             if event_masks is not None:
                 chunk_inds = event_masks[:, chunk_i * len_chunk: (chunk_i + 1) * len_chunk]
@@ -2304,7 +2311,7 @@ class BoutonClassifier(object):
         save_f.create_dataset('matrix_corr_coef_thr_reorg', data=mat_corr_reorg)
         save_f.create_dataset('linkage_z', data=linkage_z)
         save_f.create_dataset('responsive_roi_ns', data=roi_ns_res)
-        save_f.create_dataset('cluset_indices', data=clu_axon)
+        save_f.create_dataset('cluster_indices', data=clu_axon)
         axon_grp = save_f.create_group('axons')
         for axon_n, roi_lst in axon_dict.items():
             axon_grp.create_dataset(axon_n, data=roi_lst)
@@ -2350,12 +2357,15 @@ class BoutonClassifier(object):
                 axon_traces_raw.append(curr_trace_raw / total_weight)
                 axon_traces_sub.append(curr_trace_sub / total_weight)
 
+        axon_masks = np.array(axon_masks)
+        axon_traces_raw = np.array(axon_traces_raw)
+        axon_traces_sub = np.array(axon_traces_sub)
         rat_grp = save_f.create_group('rois_and_traces')
         rat_grp.attrs['description'] = 'this group only list axons with more than one rois'
         rat_grp.create_dataset('axon_list', data=axon_lst)
-        rat_grp.create_dataset('masks_center', data=np.array(axon_masks))
-        rat_grp.create_dataset('traces_center_raw', data=np.array(axon_traces_raw))
-        rat_grp.create_dataset('traces_center_subtracted', data=np.array(axon_traces_sub))
+        rat_grp.create_dataset('masks_center', data=axon_masks)
+        rat_grp.create_dataset('traces_center_raw', data=axon_traces_raw)
+        rat_grp.create_dataset('traces_center_subtracted', data=axon_traces_sub)
         save_f.close()
 
         # plot matrices
@@ -2485,8 +2495,21 @@ class BoutonClassifier(object):
                 traces_p = np.array(traces_p)
                 traces_p = traces_p[:, win_mask]
 
-                self.plot_chunked_traces_with_intervals(traces_p, event_masks=axon_event_masks, chunk_num=10,
-                                                        fig_obj=f, lw=0.5)
+                axon_plot_ind = axon_lst.index(axon_n)
+                if trace_type == 'f_center_raw':
+                    trace_center = axon_traces_raw[axon_plot_ind, :]
+                elif trace_type == 'f_center_subtracted':
+                    trace_center = axon_traces_sub[axon_plot_ind, :]
+                else:
+                    raise LookupError("do not under stand 'trace_type' ({}). Should be "
+                                      "'f_center_raw' or 'f_center_subtracted'.".format(trace_type))
+
+                self.plot_chunked_traces_with_intervals(traces_p,
+                                                        trace_center=trace_center,
+                                                        event_masks=axon_event_masks,
+                                                        chunk_num=10,
+                                                        fig_obj=f,
+                                                        lw=0.5)
 
                 trace_f.savefig(f)
                 plt.close(f)
