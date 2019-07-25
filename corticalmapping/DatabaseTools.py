@@ -756,7 +756,7 @@ def plot_roi_contour_on_background(nwb_f, plane_n, plot_ax, **kwargs):
         pt.plot_mask_borders(mask=roi_mask, plotAxis=plot_ax, **kwargs)
 
 
-def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
+def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, verbose=False):
     """
 
     :param nwbf: h5py.File object
@@ -1571,7 +1571,956 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS):
                                'dgc_neg_weighted_tf_log_rec_z': np.nan,
                                })
 
+    if verbose:
+        # max_len_key = max([len(k) for k in roi_properties.keys()])
+        # print max_len_key
+        print('\n'.join(['{:>31}:  {}'.format(k, v) for k, v in roi_properties.items()]))
+
     return roi_properties, roi, trace, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_df, dgcrm_dff, \
+           dgcrm_z, dgcrt_df, dgcrt_dff, dgcrt_z, dgc_block_dur
+
+
+def get_axon_ind_from_clu_f(clu_f, axon_n):
+    """
+    based on the axon name return the index of that axon in the clustering result file for extracting
+    traces, strf and dgcrm
+
+    because the clustering result file only contains traces, strfs, dgcrms for axons with more than
+    one rois. the function will return None for axons not in the clustering result file or axons
+    with only one roi.
+
+    :param clu_f:
+    :param axon_n:
+    :return:
+    """
+
+    if axon_n in clu_f['axons'].keys():
+        roi_lst = clu_f['axons/{}'.format(axon_n)].value
+        if len(roi_lst) == 1:
+            print('\tThere is only one roi in the axon ({}). Returning None.'.format(axon_n))
+            return None
+        else:
+            # print('\tThere are {} rois in the axon ({}).'.format(len(roi_lst), axon_n))
+            axon_ind = list(clu_f['rois_and_traces/axon_list']).index(axon_n)
+            return axon_ind
+    else:
+        print('\taxon ({}) not in the clu_f file. Returning None.'.format(axon_n))
+        return None
+
+
+def get_axon_roi_from_clu_f(clu_f, axon_n):
+
+    axon_ind = get_axon_ind_from_clu_f(clu_f=clu_f, axon_n=axon_n)
+
+    if axon_ind is None:
+        return None
+    else:
+        mask = clu_f['rois_and_traces/masks_center'][axon_ind, :, :]
+        return ia.WeightedROI(mask)
+
+
+def get_axon_trace_from_clu_f(clu_f, axon_n, trace_type):
+
+    axon_ind = get_axon_ind_from_clu_f(clu_f=clu_f, axon_n=axon_n)
+
+    if axon_ind is None:
+        return None
+    else:
+        return clu_f['rois_and_traces/{}'.format(trace_type)][axon_ind, :]
+
+
+def get_axon_strf_from_clu_f(clu_f, plane_n, axon_n, trace_type,
+                             location_unit='degree'):
+
+    strf_grp = [k for k in clu_f.keys() if len(k) > 5 and k[0:5] == 'strf_']
+    if len(strf_grp) == 0:
+        print('\tDid not find strf in "clu_f". Returning None.')
+        return
+    elif len(strf_grp) > 1:
+        raise ValueError('More than one strf groups found in "clu_f".')
+
+    strf_grp = clu_f['{}/{}'.format(strf_grp[0], plane_n)]
+
+    axon_ind = get_axon_ind_from_clu_f(clu_f=clu_f, axon_n=axon_n)
+
+    if axon_ind is None:
+        return None
+    else:
+        strf = sca.get_strf_from_nwb(h5_grp=strf_grp, roi_ind=axon_ind, trace_type=trace_type,
+                                     location_unit=location_unit)
+        strf.name = axon_n
+        return strf
+
+
+def get_axon_dgcrm_from_clu_f(clu_f, plane_n, axon_n, trace_type):
+
+    dgcrm_grp = [k for k in clu_f.keys() if len(k) > 15 and k[0:15] == 'response_table_']
+    if len(dgcrm_grp) == 0:
+        print('\tDid not find dgcrm in "clu_f". Returning None.')
+        return
+    elif len(dgcrm_grp) > 1:
+        raise ValueError('More than one dgcrm groups found in "clu_f".')
+
+    dgcrm_grp = clu_f['{}/{}'.format(dgcrm_grp[0], plane_n)]
+
+    axon_ind = get_axon_ind_from_clu_f(clu_f=clu_f, axon_n=axon_n)
+
+    if axon_ind is None:
+        return None
+    else:
+        dgcrm = sca.get_dgc_response_matrix_from_nwb(h5_grp=dgcrm_grp,
+                                                     roi_ind=axon_ind,
+                                                     trace_type=trace_type)
+        return dgcrm
+
+
+def get_everything_from_axon(nwb_f, clu_f, plane_n, axon_n, params=ANALYSIS_PARAMS, verbose=False):
+    """
+
+    :param nwb_f:
+    :param clu_f:
+    :param roidf:
+    :param plane_n:
+    :param axon_n:
+    :param params:
+    :return:
+    """
+
+    date = nwb_f['identifier'].value[0:6]
+    if clu_f['meta/date'].value != date:
+        raise ValueError('the date ({}) specified in nwb_f does not match the date ({}) specified in '
+                         '"clu_f".'.format(date, clu_f['meta/date'].value))
+
+    mid = nwb_f['identifier'].value[7:14]
+    if clu_f['meta/mouse_id'].value != mid:
+        raise ValueError('the mouse_id ({}) specified in nwb_f does not match the mouse_id ({}) '
+                         'specified in clu_f.'.format(plane_n, clu_f['meta/mouse_id'].value))
+
+    if clu_f['meta/plane_n'].value != plane_n:
+        raise ValueError('the input "plane_n" ({}) does not match the plane_n ({}) specified in '
+                         '"clu_f".'.format(plane_n, clu_f['meta/plane_n'].value))
+
+    roi_lst = clu_f['axons/{}'.format(axon_n)].value
+    if len(roi_lst) == 1:
+        roi_n = roi_lst[0]
+        print('\tThere is only one roi ({}) in the axon ({}).'.format(roi_n, axon_n))
+        return get_everything_from_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n,
+                                       params=params)
+    else:
+        print('\tThere are {} rois in the axon ({}).'.format(len(roi_lst), axon_n))
+
+        axon_properties = {'date': date,
+                           'mouse_id': mid,
+                           'plane_n': plane_n,
+                           'roi_n': axon_n,
+                           'depth': nwb_f['processing/rois_and_traces_{}/imaging_depth_micron'.format(plane_n)].value}
+
+        # get mask properties
+        axon_roi = get_axon_roi_from_clu_f(clu_f=clu_f, axon_n=axon_n)
+        pixel_size = nwb_f['acquisition/timeseries/2p_movie_{}/pixel_size'.format(plane_n)].value * 1000000.
+        roi_area = axon_roi.get_binary_area() * pixel_size[0] * pixel_size[1]
+        roi_center_row, roi_center_col = axon_roi.get_weighted_center()
+        axon_properties.update({'roi_area': roi_area,
+                               'roi_center_row': roi_center_row,
+                               'roi_center_col': roi_center_col})
+
+        #get skewness
+        tt = params['trace_type'].replace('f', 'traces')
+        trace = get_axon_trace_from_clu_f(clu_f=clu_f, axon_n=axon_n, trace_type=tt)
+        trace_ts = nwb_f['processing/rois_and_traces_{}/' \
+                         'Fluorescence/{}/timestamps'.format(plane_n, params['trace_type'])].value
+        skew_raw, skew_fil = sca.get_skewness(trace=trace, ts=trace_ts,
+                                              filter_length=params['filter_length_skew_sec'])
+        axon_properties.update({'skew_raw': skew_raw,
+                               'skew_fil': skew_fil})
+
+        if np.min(trace) < params['trace_abs_minimum']:
+            add_to_trace = -np.min(trace) + params['trace_abs_minimum']
+        else:
+            add_to_trace = 0.
+
+
+        # get strf properties
+        tt = params['trace_type'].replace('f', 'sta_traces')
+        strf = get_axon_strf_from_clu_f(clu_f=clu_f, plane_n=plane_n, axon_n=axon_n,
+                                        trace_type=tt, location_unit='degree')
+
+        if strf is not None:
+
+            # get strf properties
+            strf_dff = strf.get_local_dff_strf(is_collaps_before_normalize=True, add_to_trace=add_to_trace)
+
+            # positive spatial receptive fields
+            srf_pos_on, srf_pos_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_positive_rf'])
+
+            # # get filter sigma in pixels
+            # mean_probe_size = (np.abs(np.mean(np.diff(srf_pos_on.altPos))) +
+            #                   np.abs(np.mean(np.diff(srf_pos_on.aziPos)))) / 2.
+            # print(mean_probe_size)
+            # sigma = params['gaussian_filter_sigma_rf'] / mean_probe_size
+            # print(sigma)
+
+            # ON positive spatial receptive field
+            rf_pos_on_z, rf_pos_on_new = get_rf_properties(srf=srf_pos_on,
+                                                           polarity='positive',
+                                                           sigma=params['gaussian_filter_sigma_rf'],
+                                                           interpolate_rate=params['interpolate_rate_rf'],
+                                                           z_thr_abs=params['rf_z_thr_abs'],
+                                                           z_thr_rel=params['rf_z_thr_rel'])
+            rf_pos_on_area = rf_pos_on_new.get_binary_rf_area()
+            rf_pos_on_center = rf_pos_on_new.get_weighted_rf_center()
+
+            axon_properties.update({'rf_pos_on_peak_z': rf_pos_on_z,
+                                   'rf_pos_on_area': rf_pos_on_area,
+                                   'rf_pos_on_center_alt': rf_pos_on_center[0],
+                                   'rf_pos_on_center_azi': rf_pos_on_center[1]})
+
+            # OFF positive spatial receptive field
+            rf_pos_off_z, rf_pos_off_new = get_rf_properties(srf=srf_pos_off,
+                                                             polarity='positive',
+                                                             sigma=params['gaussian_filter_sigma_rf'],
+                                                             interpolate_rate=params['interpolate_rate_rf'],
+                                                             z_thr_abs=params['rf_z_thr_abs'],
+                                                             z_thr_rel=params['rf_z_thr_rel'])
+
+            rf_pos_off_area = rf_pos_off_new.get_binary_rf_area()
+            rf_pos_off_center = rf_pos_off_new.get_weighted_rf_center()
+
+            axon_properties.update({'rf_pos_off_peak_z': rf_pos_off_z,
+                                   'rf_pos_off_area': rf_pos_off_area,
+                                   'rf_pos_off_center_alt': rf_pos_off_center[0],
+                                   'rf_pos_off_center_azi': rf_pos_off_center[1]})
+
+            # on off overlapping
+            rf_pos_on_mask = rf_pos_on_new.get_weighted_mask()
+            rf_pos_off_mask = rf_pos_off_new.get_weighted_mask()
+            rf_pos_lsi = sca.get_local_similarity_index(rf_pos_on_mask, rf_pos_off_mask)
+
+            rf_pos_onoff_new = sca.SpatialReceptiveField(mask=np.max([rf_pos_on_mask, rf_pos_off_mask], axis=0),
+                                                         altPos=rf_pos_on_new.altPos,
+                                                         aziPos=rf_pos_on_new.aziPos,
+                                                         sign='ON_OFF',
+                                                         thr=params['rf_z_thr_abs'])
+            if len(rf_pos_onoff_new.weights) == 0:
+                rf_pos_onoff_z = np.nan
+            else:
+                rf_pos_onoff_z = np.max(rf_pos_onoff_new.weights)
+            rf_pos_onoff_area = rf_pos_onoff_new.get_binary_rf_area()
+            rf_pos_onoff_center = rf_pos_onoff_new.get_weighted_rf_center()
+            axon_properties.update({'rf_pos_lsi': rf_pos_lsi,
+                                   'rf_pos_onoff_peak_z': rf_pos_onoff_z,
+                                   'rf_pos_onoff_area': rf_pos_onoff_area,
+                                   'rf_pos_onoff_center_alt': rf_pos_onoff_center[0],
+                                   'rf_pos_onoff_center_azi': rf_pos_onoff_center[1]})
+
+            # negative spatial receptive fields
+            srf_neg_on, srf_neg_off = strf_dff.get_zscore_receptive_field(timeWindow=params['response_window_negative_rf'])
+
+            # ON negative spatial receptive field
+            rf_neg_on_z, rf_neg_on_new = get_rf_properties(srf=srf_neg_on,
+                                                           polarity='negative',
+                                                           sigma=params['gaussian_filter_sigma_rf'],
+                                                           interpolate_rate=params['interpolate_rate_rf'],
+                                                           z_thr_abs=params['rf_z_thr_abs'],
+                                                           z_thr_rel=params['rf_z_thr_rel'])
+            rf_neg_on_area = rf_neg_on_new.get_binary_rf_area()
+            rf_neg_on_center = rf_neg_on_new.get_weighted_rf_center()
+            axon_properties.update({'rf_neg_on_peak_z': rf_neg_on_z,
+                                   'rf_neg_on_area': rf_neg_on_area,
+                                   'rf_neg_on_center_alt': rf_neg_on_center[0],
+                                   'rf_neg_on_center_azi': rf_neg_on_center[1]})
+
+            # OFF negative spatial receptive field
+            rf_neg_off_z, rf_neg_off_new = get_rf_properties(srf=srf_neg_off,
+                                                             polarity='negative',
+                                                             sigma=params['gaussian_filter_sigma_rf'],
+                                                             interpolate_rate=params['interpolate_rate_rf'],
+                                                             z_thr_abs=params['rf_z_thr_abs'],
+                                                             z_thr_rel=params['rf_z_thr_rel'])
+            rf_neg_off_area = rf_neg_off_new.get_binary_rf_area()
+            rf_neg_off_center = rf_neg_off_new.get_weighted_rf_center()
+            axon_properties.update({'rf_neg_off_peak_z': rf_neg_off_z,
+                                   'rf_neg_off_area': rf_neg_off_area,
+                                   'rf_neg_off_center_alt': rf_neg_off_center[0],
+                                   'rf_neg_off_center_azi': rf_neg_off_center[1]})
+
+            # on off overlapping
+            rf_neg_on_mask = rf_neg_on_new.get_weighted_mask()
+            rf_neg_off_mask = rf_neg_off_new.get_weighted_mask()
+            rf_neg_lsi = sca.get_local_similarity_index(rf_neg_on_mask, rf_neg_off_mask)
+
+            rf_neg_onoff_new = sca.SpatialReceptiveField(mask=np.max([rf_neg_on_mask, rf_neg_off_mask], axis=0),
+                                                         altPos=rf_neg_on_new.altPos,
+                                                         aziPos=rf_neg_on_new.aziPos,
+                                                         sign='ON_OFF',
+                                                         thr=params['rf_z_thr_abs'])
+            if len(rf_neg_onoff_new.weights) == 0:
+                rf_neg_onoff_z = np.nan
+            else:
+                rf_neg_onoff_z = np.max(rf_neg_onoff_new.weights)
+            rf_neg_onoff_area = rf_neg_onoff_new.get_binary_rf_area()
+            rf_neg_onoff_center = rf_neg_onoff_new.get_weighted_rf_center()
+            axon_properties.update({'rf_neg_onoff_peak_z': rf_neg_onoff_z,
+                                   'rf_neg_onoff_area': rf_neg_onoff_area,
+                                   'rf_neg_onoff_center_alt': rf_neg_onoff_center[0],
+                                   'rf_neg_onoff_center_azi': rf_neg_onoff_center[1],
+                                   'rf_neg_lsi': rf_neg_lsi})
+        else:
+            srf_pos_on = None
+            srf_pos_off = None
+            srf_neg_on = None
+            srf_neg_off = None
+
+            axon_properties.update({'rf_pos_on_peak_z': np.nan,
+                                   'rf_pos_on_area': np.nan,
+                                   'rf_pos_on_center_alt': np.nan,
+                                   'rf_pos_on_center_azi': np.nan,
+                                   'rf_pos_off_peak_z': np.nan,
+                                   'rf_pos_off_area': np.nan,
+                                   'rf_pos_off_center_alt': np.nan,
+                                   'rf_pos_off_center_azi': np.nan,
+                                   'rf_pos_onoff_peak_z': np.nan,
+                                   'rf_pos_onoff_area': np.nan,
+                                   'rf_pos_onoff_center_alt': np.nan,
+                                   'rf_pos_onoff_center_azi': np.nan,
+                                   'rf_pos_lsi': np.nan,
+                                   'rf_neg_on_peak_z': np.nan,
+                                   'rf_neg_on_area': np.nan,
+                                   'rf_neg_on_center_alt': np.nan,
+                                   'rf_neg_on_center_azi': np.nan,
+                                   'rf_neg_off_peak_z': np.nan,
+                                   'rf_neg_off_area': np.nan,
+                                   'rf_neg_off_center_alt': np.nan,
+                                   'rf_neg_off_center_azi': np.nan,
+                                   'rf_neg_onoff_peak_z': np.nan,
+                                   'rf_neg_onoff_area': np.nan,
+                                   'rf_neg_onoff_center_alt': np.nan,
+                                   'rf_neg_onoff_center_azi': np.nan,
+                                   'rf_neg_lsi': np.nan,
+                                   })
+
+        # analyze response to drifring grating
+        tt = params['trace_type'].replace('f', 'sta_traces')
+        dgcrm = get_axon_dgcrm_from_clu_f(clu_f=clu_f, plane_n=plane_n, axon_n=axon_n,
+                                          trace_type=tt)
+
+        if dgcrm is not None:
+            dgcrm_grp_key = get_dgcrm_grp_key(nwb_f=nwb_f)
+            dgc_block_dur = nwb_f['stimulus/presentation/{}/block_dur'.format(dgcrm_grp_key[15:])].value
+            # print('block duration: {}'.format(block_dur))
+
+            # get df statistics ============================================================================================
+            _ = dgcrm.get_df_response_table(baseline_win=params['baseline_window_dgc'],
+                                            response_win=params['response_window_dgc'])
+            dgcrt_df, dgc_p_anova_df, dgc_pos_p_ttest_df, dgc_neg_p_ttest_df = _
+            axon_properties.update({'dgc_pos_peak_df': dgcrt_df.peak_response_pos,
+                                   'dgc_neg_peak_df': dgcrt_df.peak_response_neg,
+                                   'dgc_pos_p_ttest_df': dgc_pos_p_ttest_df,
+                                   'dgc_neg_p_ttest_df': dgc_neg_p_ttest_df,
+                                   'dgc_p_anova_df': dgc_p_anova_df})
+
+            # get dff statics ==============================================================================================
+            _ = dgcrm.get_dff_response_table(baseline_win=params['baseline_window_dgc'],
+                                             response_win=params['response_window_dgc'],
+                                             bias=add_to_trace)
+            dgcrt_dff, dgc_p_anova_dff, dgc_pos_p_ttest_dff, dgc_neg_p_ttest_dff = _
+            axon_properties.update({'dgc_pos_peak_dff': dgcrt_dff.peak_response_pos,
+                                   'dgc_neg_peak_dff': dgcrt_dff.peak_response_neg,
+                                   'dgc_pos_p_ttest_dff': dgc_pos_p_ttest_dff,
+                                   'dgc_neg_p_ttest_dff': dgc_neg_p_ttest_dff,
+                                   'dgc_p_anova_dff': dgc_p_anova_dff})
+
+            # get zscore statistics ========================================================================================
+            _ = dgcrm.get_zscore_response_table(baseline_win=params['baseline_window_dgc'],
+                                                response_win=params['response_window_dgc'])
+            dgcrt_z, dgc_p_anova_z, dgc_pos_p_ttest_z, dgc_neg_p_ttest_z = _
+            axon_properties.update({'dgc_pos_peak_z': dgcrt_z.peak_response_pos,
+                                   'dgc_neg_peak_z': dgcrt_z.peak_response_neg,
+                                   'dgc_pos_p_ttest_z': dgc_pos_p_ttest_z,
+                                   'dgc_neg_p_ttest_z': dgc_neg_p_ttest_z,
+                                   'dgc_p_anova_z': dgc_p_anova_z})
+
+            # get dgc response matrices ====================================================================================
+            dgcrm_df = dgcrm.get_df_response_matrix(baseline_win=params['baseline_window_dgc'])
+            dgcrm_dff = dgcrm.get_dff_response_matrix(baseline_win=params['baseline_window_dgc'],
+                                                      bias=add_to_trace)
+            dgcrm_z = dgcrm.get_zscore_response_matrix(baseline_win=params['baseline_window_dgc'])
+
+            # direction/orientation tuning of df responses in positive direction ===========================================
+            dire_tuning_df_pos = dgcrt_df.get_dire_tuning(response_dir='pos',
+                                                          is_collapse_sf=params['is_collapse_sf'],
+                                                          is_collapse_tf=params['is_collapse_tf'])
+            osi_df_pos_raw, dsi_df_pos_raw, gosi_df_pos_raw, gdsi_df_pos_raw, \
+            osi_df_pos_ele, dsi_df_pos_ele, gosi_df_pos_ele, gdsi_df_pos_ele, \
+            osi_df_pos_rec, dsi_df_pos_rec, gosi_df_pos_rec, gdsi_df_pos_rec, \
+            peak_dire_raw_df_pos, vs_dire_raw_df_pos, vs_dire_ele_df_pos, vs_dire_rec_df_pos \
+                = dgcrt_df.get_dire_tuning_properties(dire_tuning_df_pos,
+                                                      response_dir='pos',
+                                                      elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_pos_osi_raw_df': osi_df_pos_raw,
+                                   'dgc_pos_dsi_raw_df': dsi_df_pos_raw,
+                                   'dgc_pos_gosi_raw_df': gosi_df_pos_raw,
+                                   'dgc_pos_gdsi_raw_df': gdsi_df_pos_raw,
+                                   'dgc_pos_osi_ele_df': osi_df_pos_ele,
+                                   'dgc_pos_dsi_ele_df': dsi_df_pos_ele,
+                                   'dgc_pos_gosi_ele_df': gosi_df_pos_ele,
+                                   'dgc_pos_gdsi_ele_df': gdsi_df_pos_ele,
+                                   'dgc_pos_osi_rec_df': osi_df_pos_rec,
+                                   'dgc_pos_dsi_rec_df': dsi_df_pos_rec,
+                                   'dgc_pos_gosi_rec_df': gosi_df_pos_rec,
+                                   'dgc_pos_gdsi_rec_df': gdsi_df_pos_rec,
+                                   'dgc_pos_peak_dire_raw_df': peak_dire_raw_df_pos,
+                                   'dgc_pos_vs_dire_raw_df': vs_dire_raw_df_pos,
+                                   'dgc_pos_vs_dire_ele_df': vs_dire_ele_df_pos,
+                                   'dgc_pos_vs_dire_rec_df': vs_dire_rec_df_pos})
+
+            # direction/orientation tuning of df responses in negative direction ===========================================
+            dire_tuning_df_neg = dgcrt_df.get_dire_tuning(response_dir='neg',
+                                                          is_collapse_sf=params['is_collapse_sf'],
+                                                          is_collapse_tf=params['is_collapse_tf'])
+            osi_df_neg_raw, dsi_df_neg_raw, gosi_df_neg_raw, gdsi_df_neg_raw, \
+            osi_df_neg_ele, dsi_df_neg_ele, gosi_df_neg_ele, gdsi_df_neg_ele, \
+            osi_df_neg_rec, dsi_df_neg_rec, gosi_df_neg_rec, gdsi_df_neg_rec, \
+            peak_dire_raw_df_neg, vs_dire_raw_df_neg, vs_dire_ele_df_neg, vs_dire_rec_df_neg \
+                = dgcrt_df.get_dire_tuning_properties(dire_tuning_df_neg,
+                                                      response_dir='neg',
+                                                      elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_neg_osi_raw_df': osi_df_neg_raw,
+                                   'dgc_neg_dsi_raw_df': dsi_df_neg_raw,
+                                   'dgc_neg_gosi_raw_df': gosi_df_neg_raw,
+                                   'dgc_neg_gdsi_raw_df': gdsi_df_neg_raw,
+                                   'dgc_neg_osi_ele_df': osi_df_neg_ele,
+                                   'dgc_neg_dsi_ele_df': dsi_df_neg_ele,
+                                   'dgc_neg_gosi_ele_df': gosi_df_neg_ele,
+                                   'dgc_neg_gdsi_ele_df': gdsi_df_neg_ele,
+                                   'dgc_neg_osi_rec_df': osi_df_neg_rec,
+                                   'dgc_neg_dsi_rec_df': dsi_df_neg_rec,
+                                   'dgc_neg_gosi_rec_df': gosi_df_neg_rec,
+                                   'dgc_neg_gdsi_rec_df': gdsi_df_neg_rec,
+                                   'dgc_neg_peak_dire_raw_df': peak_dire_raw_df_neg,
+                                   'dgc_neg_vs_dire_raw_df': vs_dire_raw_df_neg,
+                                   'dgc_neg_vs_dire_ele_df': vs_dire_ele_df_neg,
+                                   'dgc_neg_vs_dire_rec_df': vs_dire_rec_df_neg})
+
+            # sf tuning of df responses in positive direction ==============================================================
+            sf_tuning_df_pos = dgcrt_df.get_sf_tuning(response_dir='pos', is_collapse_tf=params['is_collapse_tf'],
+                                                      is_collapse_dire=params['is_collapse_dire'])
+            peak_sf_raw_df_pos, weighted_sf_raw_df_pos, weighted_sf_log_raw_df_pos, \
+            weighted_sf_ele_df_pos, weighted_sf_log_ele_df_pos, \
+            weighted_sf_rec_df_pos, weighted_sf_log_rec_df_pos = \
+                dgcrt_df.get_sf_tuning_properties(sf_tuning_df_pos, response_dir='pos',
+                                                  elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_pos_peak_sf_raw_df': peak_sf_raw_df_pos,
+                                   'dgc_pos_weighted_sf_raw_df': weighted_sf_raw_df_pos,
+                                   'dgc_pos_weighted_sf_log_raw_df': weighted_sf_log_raw_df_pos,
+                                   'dgc_pos_weighted_sf_ele_df': weighted_sf_ele_df_pos,
+                                   'dgc_pos_weighted_sf_log_ele_df': weighted_sf_log_ele_df_pos,
+                                   'dgc_pos_weighted_sf_rec_df': weighted_sf_rec_df_pos,
+                                   'dgc_pos_weighted_sf_log_rec_df': weighted_sf_log_rec_df_pos})
+
+            # sf tuning of df responses in negative direction ==============================================================
+            sf_tuning_df_neg = dgcrt_df.get_sf_tuning(response_dir='neg', is_collapse_tf=params['is_collapse_tf'],
+                                                      is_collapse_dire=params['is_collapse_dire'])
+            peak_sf_raw_df_neg, weighted_sf_raw_df_neg, weighted_sf_log_raw_df_neg, \
+            weighted_sf_ele_df_neg, weighted_sf_log_ele_df_neg, \
+            weighted_sf_rec_df_neg, weighted_sf_log_rec_df_neg = \
+                dgcrt_df.get_sf_tuning_properties(sf_tuning_df_neg, response_dir='neg',
+                                                  elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_neg_peak_sf_raw_df': peak_sf_raw_df_neg,
+                                   'dgc_neg_weighted_sf_raw_df': weighted_sf_raw_df_neg,
+                                   'dgc_neg_weighted_sf_log_raw_df': weighted_sf_log_raw_df_neg,
+                                   'dgc_neg_weighted_sf_ele_df': weighted_sf_ele_df_neg,
+                                   'dgc_neg_weighted_sf_log_ele_df': weighted_sf_log_ele_df_neg,
+                                   'dgc_neg_weighted_sf_rec_df': weighted_sf_rec_df_neg,
+                                   'dgc_neg_weighted_sf_log_rec_df': weighted_sf_log_rec_df_neg})
+
+            # tf tuning of df responses in positive direction ==============================================================
+            tf_tuning_df_pos = dgcrt_df.get_tf_tuning(response_dir='pos', is_collapse_sf=params['is_collapse_sf'],
+                                                      is_collapse_dire=params['is_collapse_dire'])
+            peak_tf_raw_df_pos, weighted_tf_raw_df_pos, weighted_tf_log_raw_df_pos, \
+            weighted_tf_ele_df_pos, weighted_tf_log_ele_df_pos, \
+            weighted_tf_rec_df_pos, weighted_tf_log_rec_df_pos = \
+                dgcrt_df.get_tf_tuning_properties(tf_tuning_df_pos, response_dir='pos',
+                                                  elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_pos_peak_tf_raw_df': peak_tf_raw_df_pos,
+                                   'dgc_pos_weighted_tf_raw_df': weighted_tf_raw_df_pos,
+                                   'dgc_pos_weighted_tf_log_raw_df': weighted_tf_log_raw_df_pos,
+                                   'dgc_pos_weighted_tf_ele_df': weighted_tf_ele_df_pos,
+                                   'dgc_pos_weighted_tf_log_ele_df': weighted_tf_log_ele_df_pos,
+                                   'dgc_pos_weighted_tf_rec_df': weighted_tf_rec_df_pos,
+                                   'dgc_pos_weighted_tf_log_rec_df': weighted_tf_log_rec_df_pos})
+
+            # tf tuning of df responses in negative direction ==============================================================
+            tf_tuning_df_neg = dgcrt_df.get_tf_tuning(response_dir='neg', is_collapse_sf=params['is_collapse_sf'],
+                                                      is_collapse_dire=params['is_collapse_dire'])
+            peak_tf_raw_df_neg, weighted_tf_raw_df_neg, weighted_tf_log_raw_df_neg, \
+            weighted_tf_ele_df_neg, weighted_tf_log_ele_df_neg, \
+            weighted_tf_rec_df_neg, weighted_tf_log_rec_df_neg = \
+                dgcrt_df.get_tf_tuning_properties(tf_tuning_df_neg, response_dir='neg',
+                                                  elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_neg_peak_tf_raw_df': peak_tf_raw_df_neg,
+                                   'dgc_neg_weighted_tf_raw_df': weighted_tf_raw_df_neg,
+                                   'dgc_neg_weighted_tf_log_raw_df': weighted_tf_log_raw_df_neg,
+                                   'dgc_neg_weighted_tf_ele_df': weighted_tf_ele_df_neg,
+                                   'dgc_neg_weighted_tf_log_ele_df': weighted_tf_log_ele_df_neg,
+                                   'dgc_neg_weighted_tf_rec_df': weighted_tf_rec_df_neg,
+                                   'dgc_neg_weighted_tf_log_rec_df': weighted_tf_log_rec_df_neg})
+
+            # direction/orientation tuning of dff responses in positive direction ===========================================
+            dire_tuning_dff_pos = dgcrt_dff.get_dire_tuning(response_dir='pos',
+                                                            is_collapse_sf=params['is_collapse_sf'],
+                                                            is_collapse_tf=params['is_collapse_tf'])
+            osi_dff_pos_raw, dsi_dff_pos_raw, gosi_dff_pos_raw, gdsi_dff_pos_raw, \
+            osi_dff_pos_ele, dsi_dff_pos_ele, gosi_dff_pos_ele, gdsi_dff_pos_ele, \
+            osi_dff_pos_rec, dsi_dff_pos_rec, gosi_dff_pos_rec, gdsi_dff_pos_rec, \
+            peak_dire_raw_dff_pos, vs_dire_raw_dff_pos, vs_dire_ele_dff_pos, vs_dire_rec_dff_pos \
+                = dgcrt_dff.get_dire_tuning_properties(dire_tuning_dff_pos,
+                                                       response_dir='pos',
+                                                       elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_pos_osi_raw_dff': osi_dff_pos_raw,
+                                   'dgc_pos_dsi_raw_dff': dsi_dff_pos_raw,
+                                   'dgc_pos_gosi_raw_dff': gosi_dff_pos_raw,
+                                   'dgc_pos_gdsi_raw_dff': gdsi_dff_pos_raw,
+                                   'dgc_pos_osi_ele_dff': osi_dff_pos_ele,
+                                   'dgc_pos_dsi_ele_dff': dsi_dff_pos_ele,
+                                   'dgc_pos_gosi_ele_dff': gosi_dff_pos_ele,
+                                   'dgc_pos_gdsi_ele_dff': gdsi_dff_pos_ele,
+                                   'dgc_pos_osi_rec_dff': osi_dff_pos_rec,
+                                   'dgc_pos_dsi_rec_dff': dsi_dff_pos_rec,
+                                   'dgc_pos_gosi_rec_dff': gosi_dff_pos_rec,
+                                   'dgc_pos_gdsi_rec_dff': gdsi_dff_pos_rec,
+                                   'dgc_pos_peak_dire_raw_dff': peak_dire_raw_dff_pos,
+                                   'dgc_pos_vs_dire_raw_dff': vs_dire_raw_dff_pos,
+                                   'dgc_pos_vs_dire_ele_dff': vs_dire_ele_dff_pos,
+                                   'dgc_pos_vs_dire_rec_dff': vs_dire_rec_dff_pos})
+
+            # direction/orientation tuning of dff responses in negative direction ===========================================
+            dire_tuning_dff_neg = dgcrt_dff.get_dire_tuning(response_dir='neg',
+                                                            is_collapse_sf=params['is_collapse_sf'],
+                                                            is_collapse_tf=params['is_collapse_tf'])
+            osi_dff_neg_raw, dsi_dff_neg_raw, gosi_dff_neg_raw, gdsi_dff_neg_raw, \
+            osi_dff_neg_ele, dsi_dff_neg_ele, gosi_dff_neg_ele, gdsi_dff_neg_ele, \
+            osi_dff_neg_rec, dsi_dff_neg_rec, gosi_dff_neg_rec, gdsi_dff_neg_rec, \
+            peak_dire_raw_dff_neg, vs_dire_raw_dff_neg, vs_dire_ele_dff_neg, vs_dire_rec_dff_neg \
+                = dgcrt_dff.get_dire_tuning_properties(dire_tuning_dff_neg,
+                                                       response_dir='neg',
+                                                       elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_neg_osi_raw_dff': osi_dff_neg_raw,
+                                   'dgc_neg_dsi_raw_dff': dsi_dff_neg_raw,
+                                   'dgc_neg_gosi_raw_dff': gosi_dff_neg_raw,
+                                   'dgc_neg_gdsi_raw_dff': gdsi_dff_neg_raw,
+                                   'dgc_neg_osi_ele_dff': osi_dff_neg_ele,
+                                   'dgc_neg_dsi_ele_dff': dsi_dff_neg_ele,
+                                   'dgc_neg_gosi_ele_dff': gosi_dff_neg_ele,
+                                   'dgc_neg_gdsi_ele_dff': gdsi_dff_neg_ele,
+                                   'dgc_neg_osi_rec_dff': osi_dff_neg_rec,
+                                   'dgc_neg_dsi_rec_dff': dsi_dff_neg_rec,
+                                   'dgc_neg_gosi_rec_dff': gosi_dff_neg_rec,
+                                   'dgc_neg_gdsi_rec_dff': gdsi_dff_neg_rec,
+                                   'dgc_neg_peak_dire_raw_dff': peak_dire_raw_dff_neg,
+                                   'dgc_neg_vs_dire_raw_dff': vs_dire_raw_dff_neg,
+                                   'dgc_neg_vs_dire_ele_dff': vs_dire_ele_dff_neg,
+                                   'dgc_neg_vs_dire_rec_dff': vs_dire_rec_dff_neg})
+
+            # sf tuning of dff responses in positive direction ==============================================================
+            sf_tuning_dff_pos = dgcrt_dff.get_sf_tuning(response_dir='pos', is_collapse_tf=params['is_collapse_tf'],
+                                                        is_collapse_dire=params['is_collapse_dire'])
+            peak_sf_raw_dff_pos, weighted_sf_raw_dff_pos, weighted_sf_log_raw_dff_pos, \
+            weighted_sf_ele_dff_pos, weighted_sf_log_ele_dff_pos, \
+            weighted_sf_rec_dff_pos, weighted_sf_log_rec_dff_pos = \
+                dgcrt_dff.get_sf_tuning_properties(sf_tuning_dff_pos, response_dir='pos',
+                                                   elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_pos_peak_sf_raw_dff': peak_sf_raw_dff_pos,
+                                   'dgc_pos_weighted_sf_raw_dff': weighted_sf_raw_dff_pos,
+                                   'dgc_pos_weighted_sf_log_raw_dff': weighted_sf_log_raw_dff_pos,
+                                   'dgc_pos_weighted_sf_ele_dff': weighted_sf_ele_dff_pos,
+                                   'dgc_pos_weighted_sf_log_ele_dff': weighted_sf_log_ele_dff_pos,
+                                   'dgc_pos_weighted_sf_rec_dff': weighted_sf_rec_dff_pos,
+                                   'dgc_pos_weighted_sf_log_rec_dff': weighted_sf_log_rec_dff_pos})
+
+            # sf tuning of dff responses in negative direction ==============================================================
+            sf_tuning_dff_neg = dgcrt_dff.get_sf_tuning(response_dir='neg', is_collapse_tf=params['is_collapse_tf'],
+                                                        is_collapse_dire=params['is_collapse_dire'])
+            peak_sf_raw_dff_neg, weighted_sf_raw_dff_neg, weighted_sf_log_raw_dff_neg, \
+            weighted_sf_ele_dff_neg, weighted_sf_log_ele_dff_neg, \
+            weighted_sf_rec_dff_neg, weighted_sf_log_rec_dff_neg = \
+                dgcrt_dff.get_sf_tuning_properties(sf_tuning_dff_neg, response_dir='neg',
+                                                   elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_neg_peak_sf_raw_dff': peak_sf_raw_dff_neg,
+                                   'dgc_neg_weighted_sf_raw_dff': weighted_sf_raw_dff_neg,
+                                   'dgc_neg_weighted_sf_log_raw_dff': weighted_sf_log_raw_dff_neg,
+                                   'dgc_neg_weighted_sf_ele_dff': weighted_sf_ele_dff_neg,
+                                   'dgc_neg_weighted_sf_log_ele_dff': weighted_sf_log_ele_dff_neg,
+                                   'dgc_neg_weighted_sf_rec_dff': weighted_sf_rec_dff_neg,
+                                   'dgc_neg_weighted_sf_log_rec_dff': weighted_sf_log_rec_dff_neg})
+
+            # tf tuning of dff responses in positive direction ==============================================================
+            tf_tuning_dff_pos = dgcrt_dff.get_tf_tuning(response_dir='pos', is_collapse_sf=params['is_collapse_sf'],
+                                                        is_collapse_dire=params['is_collapse_dire'])
+            peak_tf_raw_dff_pos, weighted_tf_raw_dff_pos, weighted_tf_log_raw_dff_pos, \
+            weighted_tf_ele_dff_pos, weighted_tf_log_ele_dff_pos, \
+            weighted_tf_rec_dff_pos, weighted_tf_log_rec_dff_pos = \
+                dgcrt_dff.get_tf_tuning_properties(tf_tuning_dff_pos, response_dir='pos',
+                                                   elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_pos_peak_tf_raw_dff': peak_tf_raw_dff_pos,
+                                   'dgc_pos_weighted_tf_raw_dff': weighted_tf_raw_dff_pos,
+                                   'dgc_pos_weighted_tf_log_raw_dff': weighted_tf_log_raw_dff_pos,
+                                   'dgc_pos_weighted_tf_ele_dff': weighted_tf_ele_dff_pos,
+                                   'dgc_pos_weighted_tf_log_ele_dff': weighted_tf_log_ele_dff_pos,
+                                   'dgc_pos_weighted_tf_rec_dff': weighted_tf_rec_dff_pos,
+                                   'dgc_pos_weighted_tf_log_rec_dff': weighted_tf_log_rec_dff_pos})
+
+            # tf tuning of dff responses in negative direction ==============================================================
+            tf_tuning_dff_neg = dgcrt_dff.get_tf_tuning(response_dir='neg', is_collapse_sf=params['is_collapse_sf'],
+                                                        is_collapse_dire=params['is_collapse_dire'])
+            peak_tf_raw_dff_neg, weighted_tf_raw_dff_neg, weighted_tf_log_raw_dff_neg, \
+            weighted_tf_ele_dff_neg, weighted_tf_log_ele_dff_neg, \
+            weighted_tf_rec_dff_neg, weighted_tf_log_rec_dff_neg = \
+                dgcrt_dff.get_tf_tuning_properties(tf_tuning_dff_neg, response_dir='neg',
+                                                   elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_neg_peak_tf_raw_dff': peak_tf_raw_dff_neg,
+                                   'dgc_neg_weighted_tf_raw_dff': weighted_tf_raw_dff_neg,
+                                   'dgc_neg_weighted_tf_log_raw_dff': weighted_tf_log_raw_dff_neg,
+                                   'dgc_neg_weighted_tf_ele_dff': weighted_tf_ele_dff_neg,
+                                   'dgc_neg_weighted_tf_log_ele_dff': weighted_tf_log_ele_dff_neg,
+                                   'dgc_neg_weighted_tf_rec_dff': weighted_tf_rec_dff_neg,
+                                   'dgc_neg_weighted_tf_log_rec_dff': weighted_tf_log_rec_dff_neg})
+
+            # direction/orientation tuning of zscore responses in positive direction ===========================================
+            dire_tuning_z_pos = dgcrt_z.get_dire_tuning(response_dir='pos',
+                                                        is_collapse_sf=params['is_collapse_sf'],
+                                                        is_collapse_tf=params['is_collapse_tf'])
+            osi_z_pos_raw, dsi_z_pos_raw, gosi_z_pos_raw, gdsi_z_pos_raw, \
+            osi_z_pos_ele, dsi_z_pos_ele, gosi_z_pos_ele, gdsi_z_pos_ele, \
+            osi_z_pos_rec, dsi_z_pos_rec, gosi_z_pos_rec, gdsi_z_pos_rec, \
+            peak_dire_raw_z_pos, vs_dire_raw_z_pos, vs_dire_ele_z_pos, vs_dire_rec_z_pos \
+                = dgcrt_z.get_dire_tuning_properties(dire_tuning_z_pos,
+                                                     response_dir='pos',
+                                                     elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_pos_osi_raw_z': osi_z_pos_raw,
+                                   'dgc_pos_dsi_raw_z': dsi_z_pos_raw,
+                                   'dgc_pos_gosi_raw_z': gosi_z_pos_raw,
+                                   'dgc_pos_gdsi_raw_z': gdsi_z_pos_raw,
+                                   'dgc_pos_osi_ele_z': osi_z_pos_ele,
+                                   'dgc_pos_dsi_ele_z': dsi_z_pos_ele,
+                                   'dgc_pos_gosi_ele_z': gosi_z_pos_ele,
+                                   'dgc_pos_gdsi_ele_z': gdsi_z_pos_ele,
+                                   'dgc_pos_osi_rec_z': osi_z_pos_rec,
+                                   'dgc_pos_dsi_rec_z': dsi_z_pos_rec,
+                                   'dgc_pos_gosi_rec_z': gosi_z_pos_rec,
+                                   'dgc_pos_gdsi_rec_z': gdsi_z_pos_rec,
+                                   'dgc_pos_peak_dire_raw_z': peak_dire_raw_z_pos,
+                                   'dgc_pos_vs_dire_raw_z': vs_dire_raw_z_pos,
+                                   'dgc_pos_vs_dire_ele_z': vs_dire_ele_z_pos,
+                                   'dgc_pos_vs_dire_rec_z': vs_dire_rec_z_pos})
+
+            # direction/orientation tuning of zscore responses in negative direction ===========================================
+            dire_tuning_z_neg = dgcrt_z.get_dire_tuning(response_dir='neg',
+                                                        is_collapse_sf=params['is_collapse_sf'],
+                                                        is_collapse_tf=params['is_collapse_tf'])
+            osi_z_neg_raw, dsi_z_neg_raw, gosi_z_neg_raw, gdsi_z_neg_raw, \
+            osi_z_neg_ele, dsi_z_neg_ele, gosi_z_neg_ele, gdsi_z_neg_ele, \
+            osi_z_neg_rec, dsi_z_neg_rec, gosi_z_neg_rec, gdsi_z_neg_rec, \
+            peak_dire_raw_z_neg, vs_dire_raw_z_neg, vs_dire_ele_z_neg, vs_dire_rec_z_neg \
+                = dgcrt_z.get_dire_tuning_properties(dire_tuning_z_neg,
+                                                     response_dir='neg',
+                                                     elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_neg_osi_raw_z': osi_z_neg_raw,
+                                   'dgc_neg_dsi_raw_z': dsi_z_neg_raw,
+                                   'dgc_neg_gosi_raw_z': gosi_z_neg_raw,
+                                   'dgc_neg_gdsi_raw_z': gdsi_z_neg_raw,
+                                   'dgc_neg_osi_ele_z': osi_z_neg_ele,
+                                   'dgc_neg_dsi_ele_z': dsi_z_neg_ele,
+                                   'dgc_neg_gosi_ele_z': gosi_z_neg_ele,
+                                   'dgc_neg_gdsi_ele_z': gdsi_z_neg_ele,
+                                   'dgc_neg_osi_rec_z': osi_z_neg_rec,
+                                   'dgc_neg_dsi_rec_z': dsi_z_neg_rec,
+                                   'dgc_neg_gosi_rec_z': gosi_z_neg_rec,
+                                   'dgc_neg_gdsi_rec_z': gdsi_z_neg_rec,
+                                   'dgc_neg_peak_dire_raw_z': peak_dire_raw_z_neg,
+                                   'dgc_neg_vs_dire_raw_z': vs_dire_raw_z_neg,
+                                   'dgc_neg_vs_dire_ele_z': vs_dire_ele_z_neg,
+                                   'dgc_neg_vs_dire_rec_z': vs_dire_rec_z_neg})
+
+            # sf tuning of zscore responses in positive direction ==============================================================
+            sf_tuning_z_pos = dgcrt_z.get_sf_tuning(response_dir='pos', is_collapse_tf=params['is_collapse_tf'],
+                                                    is_collapse_dire=params['is_collapse_dire'])
+            peak_sf_raw_z_pos, weighted_sf_raw_z_pos, weighted_sf_log_raw_z_pos, \
+            weighted_sf_ele_z_pos, weighted_sf_log_ele_z_pos, \
+            weighted_sf_rec_z_pos, weighted_sf_log_rec_z_pos = \
+                dgcrt_z.get_sf_tuning_properties(sf_tuning_z_pos, response_dir='pos',
+                                                 elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_pos_peak_sf_raw_z': peak_sf_raw_z_pos,
+                                   'dgc_pos_weighted_sf_raw_z': weighted_sf_raw_z_pos,
+                                   'dgc_pos_weighted_sf_log_raw_z': weighted_sf_log_raw_z_pos,
+                                   'dgc_pos_weighted_sf_ele_z': weighted_sf_ele_z_pos,
+                                   'dgc_pos_weighted_sf_log_ele_z': weighted_sf_log_ele_z_pos,
+                                   'dgc_pos_weighted_sf_rec_z': weighted_sf_rec_z_pos,
+                                   'dgc_pos_weighted_sf_log_rec_z': weighted_sf_log_rec_z_pos})
+
+            # sf tuning of zscore responses in negative direction ==============================================================
+            sf_tuning_z_neg = dgcrt_z.get_sf_tuning(response_dir='neg', is_collapse_tf=params['is_collapse_tf'],
+                                                    is_collapse_dire=params['is_collapse_dire'])
+            peak_sf_raw_z_neg, weighted_sf_raw_z_neg, weighted_sf_log_raw_z_neg, \
+            weighted_sf_ele_z_neg, weighted_sf_log_ele_z_neg, \
+            weighted_sf_rec_z_neg, weighted_sf_log_rec_z_neg = \
+                dgcrt_z.get_sf_tuning_properties(sf_tuning_z_neg, response_dir='neg',
+                                                 elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_neg_peak_sf_raw_z': peak_sf_raw_z_neg,
+                                   'dgc_neg_weighted_sf_raw_z': weighted_sf_raw_z_neg,
+                                   'dgc_neg_weighted_sf_log_raw_z': weighted_sf_log_raw_z_neg,
+                                   'dgc_neg_weighted_sf_ele_z': weighted_sf_ele_z_neg,
+                                   'dgc_neg_weighted_sf_log_ele_z': weighted_sf_log_ele_z_neg,
+                                   'dgc_neg_weighted_sf_rec_z': weighted_sf_rec_z_neg,
+                                   'dgc_neg_weighted_sf_log_rec_z': weighted_sf_log_rec_z_neg})
+
+            # tf tuning of zcore responses in positive direction ==============================================================
+            tf_tuning_z_pos = dgcrt_z.get_tf_tuning(response_dir='pos', is_collapse_sf=params['is_collapse_sf'],
+                                                    is_collapse_dire=params['is_collapse_dire'])
+            peak_tf_raw_z_pos, weighted_tf_raw_z_pos, weighted_tf_log_raw_z_pos, \
+            weighted_tf_ele_z_pos, weighted_tf_log_ele_z_pos, \
+            weighted_tf_rec_z_pos, weighted_tf_log_rec_z_pos = \
+                dgcrt_z.get_tf_tuning_properties(tf_tuning_z_pos, response_dir='pos',
+                                                 elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_pos_peak_tf_raw_z': peak_tf_raw_z_pos,
+                                   'dgc_pos_weighted_tf_raw_z': weighted_tf_raw_z_pos,
+                                   'dgc_pos_weighted_tf_log_raw_z': weighted_tf_log_raw_z_pos,
+                                   'dgc_pos_weighted_tf_ele_z': weighted_tf_ele_z_pos,
+                                   'dgc_pos_weighted_tf_log_ele_z': weighted_tf_log_ele_z_pos,
+                                   'dgc_pos_weighted_tf_rec_z': weighted_tf_rec_z_pos,
+                                   'dgc_pos_weighted_tf_log_rec_z': weighted_tf_log_rec_z_pos})
+
+            # tf tuning of zscore responses in negative direction ==============================================================
+            tf_tuning_z_neg = dgcrt_z.get_tf_tuning(response_dir='neg', is_collapse_sf=params['is_collapse_sf'],
+                                                    is_collapse_dire=params['is_collapse_dire'])
+            peak_tf_raw_z_neg, weighted_tf_raw_z_neg, weighted_tf_log_raw_z_neg, \
+            weighted_tf_ele_z_neg, weighted_tf_log_ele_z_neg, \
+            weighted_tf_rec_z_neg, weighted_tf_log_rec_z_neg = \
+                dgcrt_z.get_tf_tuning_properties(tf_tuning_z_neg, response_dir='neg',
+                                                 elevation_bias=params['dgc_elevation_bias'])
+            axon_properties.update({'dgc_neg_peak_tf_raw_z': peak_tf_raw_z_neg,
+                                   'dgc_neg_weighted_tf_raw_z': weighted_tf_raw_z_neg,
+                                   'dgc_neg_weighted_tf_log_raw_z': weighted_tf_log_raw_z_neg,
+                                   'dgc_neg_weighted_tf_ele_z': weighted_tf_ele_z_neg,
+                                   'dgc_neg_weighted_tf_log_ele_z': weighted_tf_log_ele_z_neg,
+                                   'dgc_neg_weighted_tf_rec_z': weighted_tf_rec_z_neg,
+                                   'dgc_neg_weighted_tf_log_rec_z': weighted_tf_log_rec_z_neg})
+
+        else:
+            dgcrm_df = None
+            dgcrm_dff = None
+            dgcrm_z = None
+            dgcrt_df = None
+            dgcrt_dff = None
+            dgcrt_z = None
+            dgc_block_dur = None
+
+            axon_properties.update({'dgc_pos_peak_df': np.nan,
+                                   'dgc_neg_peak_df': np.nan,
+                                   'dgc_pos_p_ttest_df': np.nan,
+                                   'dgc_neg_p_ttest_df': np.nan,
+                                   'dgc_p_anova_df': np.nan,
+                                   'dgc_pos_peak_dff': np.nan,
+                                   'dgc_neg_peak_dff': np.nan,
+                                   'dgc_pos_p_ttest_dff': np.nan,
+                                   'dgc_neg_p_ttest_dff': np.nan,
+                                   'dgc_p_anova_dff': np.nan,
+                                   'dgc_pos_peak_z': np.nan,
+                                   'dgc_neg_peak_z': np.nan,
+                                   'dgc_pos_p_ttest_z': np.nan,
+                                   'dgc_neg_p_ttest_z': np.nan,
+                                   'dgc_p_anova_z': np.nan,
+
+                                   'dgc_pos_osi_raw_df': np.nan,
+                                   'dgc_pos_dsi_raw_df': np.nan,
+                                   'dgc_pos_gosi_raw_df': np.nan,
+                                   'dgc_pos_gdsi_raw_df': np.nan,
+                                   'dgc_pos_osi_ele_df': np.nan,
+                                   'dgc_pos_dsi_ele_df': np.nan,
+                                   'dgc_pos_gosi_ele_df': np.nan,
+                                   'dgc_pos_gdsi_ele_df': np.nan,
+                                   'dgc_pos_osi_rec_df': np.nan,
+                                   'dgc_pos_dsi_rec_df': np.nan,
+                                   'dgc_pos_gosi_rec_df': np.nan,
+                                   'dgc_pos_gdsi_rec_df': np.nan,
+                                   'dgc_pos_peak_dire_raw_df': np.nan,
+                                   'dgc_pos_vs_dire_raw_df': np.nan,
+                                   'dgc_pos_vs_dire_ele_df': np.nan,
+                                   'dgc_pos_vs_dire_rec_df': np.nan,
+                                   'dgc_neg_osi_raw_df': np.nan,
+                                   'dgc_neg_dsi_raw_df': np.nan,
+                                   'dgc_neg_gosi_raw_df': np.nan,
+                                   'dgc_neg_gdsi_raw_df': np.nan,
+                                   'dgc_neg_osi_ele_df': np.nan,
+                                   'dgc_neg_dsi_ele_df': np.nan,
+                                   'dgc_neg_gosi_ele_df': np.nan,
+                                   'dgc_neg_gdsi_ele_df': np.nan,
+                                   'dgc_neg_osi_rec_df': np.nan,
+                                   'dgc_neg_dsi_rec_df': np.nan,
+                                   'dgc_neg_gosi_rec_df': np.nan,
+                                   'dgc_neg_gdsi_rec_df': np.nan,
+                                   'dgc_neg_peak_dire_raw_df': np.nan,
+                                   'dgc_neg_vs_dire_raw_df': np.nan,
+                                   'dgc_neg_vs_dire_ele_df': np.nan,
+                                   'dgc_neg_vs_dire_rec_df': np.nan,
+                                   'dgc_pos_peak_sf_raw_df': np.nan,
+                                   'dgc_pos_weighted_sf_raw_df': np.nan,
+                                   'dgc_pos_weighted_sf_log_raw_df': np.nan,
+                                   'dgc_pos_weighted_sf_ele_df': np.nan,
+                                   'dgc_pos_weighted_sf_log_ele_df': np.nan,
+                                   'dgc_pos_weighted_sf_rec_df': np.nan,
+                                   'dgc_pos_weighted_sf_log_rec_df': np.nan,
+                                   'dgc_neg_peak_sf_raw_df': np.nan,
+                                   'dgc_neg_weighted_sf_raw_df': np.nan,
+                                   'dgc_neg_weighted_sf_log_raw_df': np.nan,
+                                   'dgc_neg_weighted_sf_ele_df': np.nan,
+                                   'dgc_neg_weighted_sf_log_ele_df': np.nan,
+                                   'dgc_neg_weighted_sf_rec_df': np.nan,
+                                   'dgc_neg_weighted_sf_log_rec_df': np.nan,
+                                   'dgc_pos_peak_tf_raw_df': np.nan,
+                                   'dgc_pos_weighted_tf_raw_df': np.nan,
+                                   'dgc_pos_weighted_tf_log_raw_df': np.nan,
+                                   'dgc_pos_weighted_tf_ele_df': np.nan,
+                                   'dgc_pos_weighted_tf_log_ele_df': np.nan,
+                                   'dgc_pos_weighted_tf_rec_df': np.nan,
+                                   'dgc_pos_weighted_tf_log_rec_df': np.nan,
+                                   'dgc_neg_peak_tf_raw_df': np.nan,
+                                   'dgc_neg_weighted_tf_raw_df': np.nan,
+                                   'dgc_neg_weighted_tf_log_raw_df': np.nan,
+                                   'dgc_neg_weighted_tf_ele_df': np.nan,
+                                   'dgc_neg_weighted_tf_log_ele_df': np.nan,
+                                   'dgc_neg_weighted_tf_rec_df': np.nan,
+                                   'dgc_neg_weighted_tf_log_rec_df': np.nan,
+
+                                   'dgc_pos_osi_raw_dff': np.nan,
+                                   'dgc_pos_dsi_raw_dff': np.nan,
+                                   'dgc_pos_gosi_raw_dff': np.nan,
+                                   'dgc_pos_gdsi_raw_dff': np.nan,
+                                   'dgc_pos_osi_ele_dff': np.nan,
+                                   'dgc_pos_dsi_ele_dff': np.nan,
+                                   'dgc_pos_gosi_ele_dff': np.nan,
+                                   'dgc_pos_gdsi_ele_dff': np.nan,
+                                   'dgc_pos_osi_rec_dff': np.nan,
+                                   'dgc_pos_dsi_rec_dff': np.nan,
+                                   'dgc_pos_gosi_rec_dff': np.nan,
+                                   'dgc_pos_gdsi_rec_dff': np.nan,
+                                   'dgc_pos_peak_dire_raw_dff': np.nan,
+                                   'dgc_pos_vs_dire_raw_dff': np.nan,
+                                   'dgc_pos_vs_dire_ele_dff': np.nan,
+                                   'dgc_pos_vs_dire_rec_dff': np.nan,
+                                   'dgc_neg_osi_raw_dff': np.nan,
+                                   'dgc_neg_dsi_raw_dff': np.nan,
+                                   'dgc_neg_gosi_raw_dff': np.nan,
+                                   'dgc_neg_gdsi_raw_dff': np.nan,
+                                   'dgc_neg_osi_ele_dff': np.nan,
+                                   'dgc_neg_dsi_ele_dff': np.nan,
+                                   'dgc_neg_gosi_ele_dff': np.nan,
+                                   'dgc_neg_gdsi_ele_dff': np.nan,
+                                   'dgc_neg_osi_rec_dff': np.nan,
+                                   'dgc_neg_dsi_rec_dff': np.nan,
+                                   'dgc_neg_gosi_rec_dff': np.nan,
+                                   'dgc_neg_gdsi_rec_dff': np.nan,
+                                   'dgc_neg_peak_dire_raw_dff': np.nan,
+                                   'dgc_neg_vs_dire_raw_dff': np.nan,
+                                   'dgc_neg_vs_dire_ele_dff': np.nan,
+                                   'dgc_neg_vs_dire_rec_dff': np.nan,
+                                   'dgc_pos_peak_sf_raw_dff': np.nan,
+                                   'dgc_pos_weighted_sf_raw_dff': np.nan,
+                                   'dgc_pos_weighted_sf_log_raw_dff': np.nan,
+                                   'dgc_pos_weighted_sf_ele_dff': np.nan,
+                                   'dgc_pos_weighted_sf_log_ele_dff': np.nan,
+                                   'dgc_pos_weighted_sf_rec_dff': np.nan,
+                                   'dgc_pos_weighted_sf_log_rec_dff': np.nan,
+                                   'dgc_neg_peak_sf_raw_dff': np.nan,
+                                   'dgc_neg_weighted_sf_raw_dff': np.nan,
+                                   'dgc_neg_weighted_sf_log_raw_dff': np.nan,
+                                   'dgc_neg_weighted_sf_ele_dff': np.nan,
+                                   'dgc_neg_weighted_sf_log_ele_dff': np.nan,
+                                   'dgc_neg_weighted_sf_rec_dff': np.nan,
+                                   'dgc_neg_weighted_sf_log_rec_dff': np.nan,
+                                   'dgc_pos_peak_tf_raw_dff': np.nan,
+                                   'dgc_pos_weighted_tf_raw_dff': np.nan,
+                                   'dgc_pos_weighted_tf_log_raw_dff': np.nan,
+                                   'dgc_pos_weighted_tf_ele_dff': np.nan,
+                                   'dgc_pos_weighted_tf_log_ele_dff': np.nan,
+                                   'dgc_pos_weighted_tf_rec_dff': np.nan,
+                                   'dgc_pos_weighted_tf_log_rec_dff': np.nan,
+                                   'dgc_neg_peak_tf_raw_dff': np.nan,
+                                   'dgc_neg_weighted_tf_raw_dff': np.nan,
+                                   'dgc_neg_weighted_tf_log_raw_dff': np.nan,
+                                   'dgc_neg_weighted_tf_ele_dff': np.nan,
+                                   'dgc_neg_weighted_tf_log_ele_dff': np.nan,
+                                   'dgc_neg_weighted_tf_rec_dff': np.nan,
+                                   'dgc_neg_weighted_tf_log_rec_dff': np.nan,
+
+                                   'dgc_pos_osi_raw_z': np.nan,
+                                   'dgc_pos_dsi_raw_z': np.nan,
+                                   'dgc_pos_gosi_raw_z': np.nan,
+                                   'dgc_pos_gdsi_raw_z': np.nan,
+                                   'dgc_pos_osi_ele_z': np.nan,
+                                   'dgc_pos_dsi_ele_z': np.nan,
+                                   'dgc_pos_gosi_ele_z': np.nan,
+                                   'dgc_pos_gdsi_ele_z': np.nan,
+                                   'dgc_pos_osi_rec_z': np.nan,
+                                   'dgc_pos_dsi_rec_z': np.nan,
+                                   'dgc_pos_gosi_rec_z': np.nan,
+                                   'dgc_pos_gdsi_rec_z': np.nan,
+                                   'dgc_pos_peak_dire_raw_z': np.nan,
+                                   'dgc_pos_vs_dire_raw_z': np.nan,
+                                   'dgc_pos_vs_dire_ele_z': np.nan,
+                                   'dgc_pos_vs_dire_rec_z': np.nan,
+                                   'dgc_neg_osi_raw_z': np.nan,
+                                   'dgc_neg_dsi_raw_z': np.nan,
+                                   'dgc_neg_gosi_raw_z': np.nan,
+                                   'dgc_neg_gdsi_raw_z': np.nan,
+                                   'dgc_neg_osi_ele_z': np.nan,
+                                   'dgc_neg_dsi_ele_z': np.nan,
+                                   'dgc_neg_gosi_ele_z': np.nan,
+                                   'dgc_neg_gdsi_ele_z': np.nan,
+                                   'dgc_neg_osi_rec_z': np.nan,
+                                   'dgc_neg_dsi_rec_z': np.nan,
+                                   'dgc_neg_gosi_rec_z': np.nan,
+                                   'dgc_neg_gdsi_rec_z': np.nan,
+                                   'dgc_neg_peak_dire_raw_z': np.nan,
+                                   'dgc_neg_vs_dire_raw_z': np.nan,
+                                   'dgc_neg_vs_dire_ele_z': np.nan,
+                                   'dgc_neg_vs_dire_rec_z': np.nan,
+                                   'dgc_pos_peak_sf_raw_z': np.nan,
+                                   'dgc_pos_weighted_sf_raw_z': np.nan,
+                                   'dgc_pos_weighted_sf_log_raw_z': np.nan,
+                                   'dgc_pos_weighted_sf_ele_z': np.nan,
+                                   'dgc_pos_weighted_sf_log_ele_z': np.nan,
+                                   'dgc_pos_weighted_sf_rec_z': np.nan,
+                                   'dgc_pos_weighted_sf_log_rec_z': np.nan,
+                                   'dgc_neg_peak_sf_raw_z': np.nan,
+                                   'dgc_neg_weighted_sf_raw_z': np.nan,
+                                   'dgc_neg_weighted_sf_log_raw_z': np.nan,
+                                   'dgc_neg_weighted_sf_ele_z': np.nan,
+                                   'dgc_neg_weighted_sf_log_ele_z': np.nan,
+                                   'dgc_neg_weighted_sf_rec_z': np.nan,
+                                   'dgc_neg_weighted_sf_log_rec_z': np.nan,
+                                   'dgc_pos_peak_tf_raw_z': np.nan,
+                                   'dgc_pos_weighted_tf_raw_z': np.nan,
+                                   'dgc_pos_weighted_tf_log_raw_z': np.nan,
+                                   'dgc_pos_weighted_tf_ele_z': np.nan,
+                                   'dgc_pos_weighted_tf_log_ele_z': np.nan,
+                                   'dgc_pos_weighted_tf_rec_z': np.nan,
+                                   'dgc_pos_weighted_tf_log_rec_z': np.nan,
+                                   'dgc_neg_peak_tf_raw_z': np.nan,
+                                   'dgc_neg_weighted_tf_raw_z': np.nan,
+                                   'dgc_neg_weighted_tf_log_raw_z': np.nan,
+                                   'dgc_neg_weighted_tf_ele_z': np.nan,
+                                   'dgc_neg_weighted_tf_log_ele_z': np.nan,
+                                   'dgc_neg_weighted_tf_rec_z': np.nan,
+                                   'dgc_neg_weighted_tf_log_rec_z': np.nan,
+                                   })
+
+    if verbose:
+        # max_len_key = max([len(k) for k in axon_properties.keys()])
+        # print max_len_key
+        print('\n'.join(['{:>31}:  {}'.format(k, v) for k, v in axon_properties.items()]))
+
+    return axon_properties, axon_roi, trace, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_df, dgcrm_dff, \
            dgcrm_z, dgcrt_df, dgcrt_dff, dgcrt_z, dgc_block_dur
 
 
@@ -1833,6 +2782,11 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
 
     # plt.show()
     return f
+
+
+def axon_page_report(clu_f, plane_n, axon_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
+    # todo: finish if necessary
+    pass
 
 
 class BoutonClassifier(object):
@@ -2608,6 +3562,7 @@ class BoutonClassifier(object):
             for trace_n, trace in traces.items():
                 sta = get_sta(arr=trace, arr_ts=trace_ts, trigger_ts=probe_onsets, frame_start=frame_start,
                               frame_end=frame_end)
+                # curr_probe_grp.create_dataset('sta_' + trace_n, data=sta, compression='lzf')
                 curr_probe_grp.create_dataset('sta_' + trace_n, data=sta)
 
     @staticmethod
@@ -2625,7 +3580,6 @@ class BoutonClassifier(object):
         """
 
         def get_sta(arr, arr_ts, trigger_ts, frame_start, frame_end):
-
             sta_arr = []
 
             for trig in trigger_ts:
@@ -2661,11 +3615,12 @@ class BoutonClassifier(object):
 
         traces = {}
         for f_type in clu_f['rois_and_traces'].keys():
-            if clu_f['rois_and_traces/{}'.format(f_type)].shape[0] == 0:
-                print('no clustered axons, skip')
-                return
-            else:
-                traces.update({f_type: clu_f['rois_and_traces/{}'.format(f_type)].value})
+            if f_type[0:7] == 'traces_':
+                if clu_f['rois_and_traces/{}'.format(f_type)].shape[0] == 0:
+                    print('no clustered axons, skip')
+                    return
+                else:
+                    traces.update({f_type: clu_f['rois_and_traces/{}'.format(f_type)].value})
 
         dgcrm_grp = clu_f.create_group('response_table_{}'.format(dgc_stim_n))
         dgcrm_plane_grp = dgcrm_grp.create_group(plane_n)

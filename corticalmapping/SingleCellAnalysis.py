@@ -260,7 +260,7 @@ def get_strf_from_nwb(h5_grp, roi_ind, trace_type='sta_f_center_subtracted', loc
 def get_dgc_response_matrix_from_nwb(h5_grp, roi_ind, trace_type='sta_f_center_subtracted'):
     sta_ts = h5_grp.attrs['sta_timestamps']
 
-    dgcrt = DataFrame([], columns=['alt', 'azi', 'sf', 'tf', 'dire', 'con', 'rad', 'onset_ts', 'matrix'])
+    dgcrm = DataFrame([], columns=['alt', 'azi', 'sf', 'tf', 'dire', 'con', 'rad', 'onset_ts', 'matrix'])
 
     condi_ns = h5_grp.keys()
     condi_ns.sort()
@@ -278,17 +278,17 @@ def get_dgc_response_matrix_from_nwb(h5_grp, roi_ind, trace_type='sta_f_center_s
 
         matrix = condi_grp[trace_type][roi_ind, :, :]
 
-        dgcrt.loc[condi_i, 'alt'] = alt
-        dgcrt.loc[condi_i, 'azi'] = azi
-        dgcrt.loc[condi_i, 'sf'] = sf
-        dgcrt.loc[condi_i, 'tf'] = tf
-        dgcrt.loc[condi_i, 'dire'] = dire
-        dgcrt.loc[condi_i, 'con'] = con
-        dgcrt.loc[condi_i, 'rad'] = rad
-        dgcrt.loc[condi_i, 'onset_ts'] = onset_ts
-        dgcrt.loc[condi_i, 'matrix'] = matrix
+        dgcrm.loc[condi_i, 'alt'] = alt
+        dgcrm.loc[condi_i, 'azi'] = azi
+        dgcrm.loc[condi_i, 'sf'] = sf
+        dgcrm.loc[condi_i, 'tf'] = tf
+        dgcrm.loc[condi_i, 'dire'] = dire
+        dgcrm.loc[condi_i, 'con'] = con
+        dgcrm.loc[condi_i, 'rad'] = rad
+        dgcrm.loc[condi_i, 'onset_ts'] = onset_ts
+        dgcrm.loc[condi_i, 'matrix'] = matrix
 
-    return DriftingGratingResponseMatrix(sta_ts=sta_ts, trace_type=trace_type, data=dgcrt)
+    return DriftingGratingResponseMatrix(sta_ts=sta_ts, trace_type=trace_type, data=dgcrm)
 
 
 def get_local_similarity_index(mask1, mask2):
