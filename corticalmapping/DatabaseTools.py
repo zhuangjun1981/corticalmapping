@@ -80,6 +80,49 @@ PLOTTING_PARAMS = {
 }
 
 
+def get_nt_index(dire_lst, weights=None, is_arc=False, half_span=45., sum_thr=10):
+    """
+    calculate nasal/temporal index: (nasal - temporal) / (nasal + temporal) from a
+    list of preferred directions.
+
+    :param dire_lst: 1d array, a list of preferred directions
+    :param weights: 1d array, same shape as dire_lst, weights for the preferred directions
+    :param is_arc: bool, True: directions are in arc unit; False: directions are in degree unit
+    :param half_span: float, positive, in degrees, the half-span to define nasal or temporal direction.
+                      nasal directions will be definded as [- half_span, half_span], temporal directions
+                      will be defined as [180 - half_span, 180 + half_span].
+    :param sum_thr: float, positive, the threshold for the total number of nasal and temporal directions.
+                    if num(nasal) + num(temporal) < sum_thr, return np.nan
+    :return nt_index: float, [-1., 1.]
+    """
+
+    if is_arc:
+        dire_lst = np.array(dire_lst) * 180. / np.pi
+    else:
+        dire_lst = np.array(dire_lst)
+
+    if weights is None:
+        weights = np.ones(dire_lst.shape)
+
+    weights = np.array(weights, dtype=np.float64)
+
+    if dire_lst.shape != weights.shape:
+        raise ValueError("the shape of dire_lst ({}) should be the same "
+                         "as the shape of weights ({})".format(dire_lst.shape, weights.shape))
+
+    dire_lst = dire_lst % 360.
+
+    temp = np.sum(weights[dire_lst >= (360. - half_span)]) + \
+           np.sum(weights[dire_lst <= half_span])
+    nasa = np.sum(weights[np.logical_and(dire_lst >= (180. - half_span),
+                                         dire_lst <= (180. + half_span))])
+
+    if nasa + temp < float(sum_thr):
+        return np.nan, nasa, temp
+    else:
+        return (nasa - temp) / (nasa + temp), nasa, temp
+
+
 def get_background_img(nwb_f, plane_n):
 
     rf_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane/reference_images'.format(plane_n)]

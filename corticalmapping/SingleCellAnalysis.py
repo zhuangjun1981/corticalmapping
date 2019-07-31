@@ -2349,7 +2349,7 @@ class DriftingGratingResponseTable(DataFrame):
         axis.tick_params(length=0)
 
     def plot_dire_tuning(self, axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False,
-                         trace_color='#ff0000', postprocess='raw', is_plot_errbar=True,
+                         trace_color='#ff0000', postprocess='raw', is_plot_errbar=False,
                          is_normalize=False, **kwargs):
         """
 
@@ -2409,8 +2409,11 @@ class DriftingGratingResponseTable(DataFrame):
                 resp = resp / np.max(resp)
 
         if is_plot_errbar:
-            axis.fill_between(x=dire_tuning['dire'], y1=resp - dire_tuning['resp_stdev'],
-                              y2=resp + dire_tuning['resp_stdev'],
+            y1 = np.array(resp - dire_tuning['resp_stdev'])
+            y1[y1 < 0.] = 0.
+            y2 = np.array(resp + dire_tuning['resp_stdev'])
+            y2[y2 < 0.] = 0.
+            axis.fill_between(x=np.array(dire_tuning['dire']), y1=y1, y2=y2,
                               edgecolor='none', facecolor='#cccccc')
 
         axis.plot(dire_tuning['dire'], resp, '-', color=trace_color, **kwargs)
