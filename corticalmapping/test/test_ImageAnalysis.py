@@ -108,3 +108,30 @@ class TestImageAnalysis(unittest.TestCase):
         cir2 = ia.get_circularity(aa, is_skimage=False)
         # print(cir2)
         assert (0.7539822368615503 - 1e-15 < cir2 < 0.7539822368615503 + 1e-15)
+
+    def test_fit_ellipse(self):
+
+        mask = np.zeros((100, 100), dtype=np.uint8)
+        mask[20:50, 30:80] = 255
+        mask[40:50, 70:80] = 0
+        mask[20:30, 30:40] = 0
+
+        # import matplotlib.pyplot as plt
+        # f = plt.figure(figsize=(4, 4))
+        # ax = f.add_subplot(111)
+        # ax.set_aspect('equal')
+        # ax.imshow(mask, interpolation='nearest')
+        # plt.show()
+
+        ell = ia.fit_ellipse(mask)
+        print(ell.info())
+
+        assert((np.round(ell.angle * 100) / 100) % 180. == 44.16)
+
+        import cv2
+        img = np.array([mask, mask, mask]).transpose((1, 2, 0)).copy()
+        img = ell.draw(img=img, thickness=1)
+        img = cv2.cvtColor(img, code=cv2.COLOR_BGR2RGB)
+        import matplotlib.pyplot as plt
+        plt.imshow(img, interpolation='nearest')
+        plt.show()

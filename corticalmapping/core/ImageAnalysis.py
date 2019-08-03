@@ -1476,6 +1476,40 @@ def get_circularity(mask, is_skimage=True):
     return 4 * np.pi * area / (perimeter ** 2)
 
 
+def fit_ellipse(mask):
+    """
+    using opencv to fit a mask into ellipse
+
+    :param mask: 2d array, dtype np.uint8
+    :return:
+    """
+
+    mask2 = np.array(mask)
+
+    if len(mask.shape) != 2:
+        raise ValueError('input "mask" should be a 2d array.')
+
+    if not mask.dtype == np.uint8:
+        raise ValueError("input mask should have dtype as np.uint8")
+
+    _, cons, _ = cv2.findContours(image=mask2, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_SIMPLE)
+
+    if len(cons) == 0:
+        print('ImageAnalysis.fit_ellipse: No contour detected. Returning None.')
+        return None
+    elif cons[0].shape[0] < 5:
+        print('ImageAnalysis.fit_ellipse: No contour detected. Returning None.')
+        return None
+    else:
+        if len(cons) > 1:
+            print('ImageAnalysis.fit_ellipse: More than one contours detected. Taking the first one.')
+        con = cons[0]
+
+    box = cv2.fitEllipse(con)
+    ell = Ellipse.from_cv2_box(box)
+    return ell
+
+
 class ROI(object):
     '''
     class of binary ROI
@@ -1665,11 +1699,20 @@ class ROI(object):
             weights = h5Group['weights'].value
             mask = np.zeros(dimension, dtype=np.float32);
             mask[tuple(pixels)] = weights
-            return WeightedROI(mask, pixelSize=pixelSize, pixelSizeUnit=pixelSizeUnit)
+            roi = WeightedROI(mask, pixelSize=pixelSize, pixelSizeUnit=pixelSizeUnit)
         else:
             mask = np.zeros(dimension, dtype=np.uint8);
             mask[tuple(pixels)] = 1
-            return ROI(mask, pixelSize=pixelSize, pixelSizeUnit=pixelSizeUnit)
+            roi = ROI(mask, pixelSize=pixelSize, pixelSizeUnit=pixelSizeUnit)
+
+        for key in h5Group.keys():
+            if key not in ['pixels', 'weights']:
+                if h5Group[key].value == 'None':
+                    setattr(roi, key, None)
+                else:
+                    setattr(roi, key, h5Group[key].value)
+
+        return roi
 
 
 class WeightedROI(ROI):
@@ -1679,8 +1722,7 @@ class WeightedROI(ROI):
         self.weights = mask[self.pixels]
 
     def __str__(self):
-        return 'corticalmapping.core.ImageAnalysis.WeightedROI object, subclass of ' \
-               'corticalmapping.core.ImageAnalysis.ROI'
+        return 'corticalmapping.core.ImageAnalysis.WeightedROI object'
 
     def get_peak(self):
         return np.max(self.weights)
@@ -1773,6 +1815,37 @@ class WeightedROI(ROI):
         else:
             raise ValueError('is_area_weighted should be a boolean variable.')
 
+    def ellipse_fitting(self, thr=None, is_plot=False):
+        """
+        using opencv to fit a ellipse
+
+        :param thr: float, threshold to threshold the mask
+        :param is_plot: bool
+        :return ell: corticalmapping.ImageAnalysis.Ellipse object
+        """
+
+        if thr is None:
+            mask_thr = self.get_binary_mask() * 255
+        else:
+            mask = self.get_weighted_mask()
+            mask_thr = np.zeros(mask.shape, dtype=np.uint8)
+            mask_thr[mask >= thr] = 255
+
+        ell = fit_ellipse(mask_thr)
+
+        if is_plot:
+            f = plt.figure()
+            ax = f.add_subplot(111)
+            img = np.array([mask_thr, mask_thr, mask_thr]).transpose((1, 2, 0)).copy()
+            if ell is not None:
+                img = ell.draw(img=img, thickness=2)
+                ax.set_title('angle={} deg'.format(ell.angle))
+            img = cv2.cvtColor(img, code=cv2.COLOR_BGR2RGB)
+            ax.imshow(img, interpolation='nearest')
+            plt.show()
+
+        return ell
+
     @staticmethod
     def from_h5_group(h5Group):
         '''
@@ -1793,9 +1866,123 @@ class WeightedROI(ROI):
 
         for key in h5Group.keys():
             if key not in ['pixels', 'weights']:
-                setattr(roi, key, h5Group[key].value)
+                if h5Group[key].value == 'None':
+                    setattr(roi, key, None)
+                else:
+                    setattr(roi, key, h5Group[key].value)
 
-        return WeightedROI(mask, pixelSize=pixelSize, pixelSizeUnit=pixelSizeUnit)
+        return roi
+
+
+class Ellipse(object):
+    """
+    ellipse object
+
+    :attribute center: tuple of two positive floats, (center height, center width)
+    :attribute axes: tuple of two positive floats, (radius of the long axis, radius of short axis)
+    :attribute angle: float, degree, counterclockwise rotation of long axis, from right direction
+    """
+
+    def __init__(self, center, axes, angle):
+        """
+        ellipse object
+
+        :param center: tuple of two positive floats, (center height, center width)
+        :param axes: tuple of two positive floats, (radius of the long axis, radius of short axis)
+        :param angle: float, degree, counterclockwise rotation of long axis, from right direction
+        """
+        self.center = center
+
+        if axes[0] <= 0. or axes[1] <= 0.:
+            raise ValueError('length of axes should be larger than 0.')
+
+        if axes[0] >= axes[1]:
+            self.axes = axes
+            self.angle = angle % 180.
+        else:
+            self.axes = (axes[1], axes[0])
+            self.angle = (angle + 90.) % 180.
+
+    def get_aspect_ratio(self):
+        return(self.axes[0] / self.axes[1])
+
+    def get_cv2_ellips(self):
+        """
+        :return: the ellipse in opencv3 format for drawing
+        """
+        # return ((int(round(self.center[1])), int(round(self.center[0]))),
+        #         (int(round(self.axes[0])), int(round(self.axes[1]))),
+        #         -self.angle, 0, 360)
+        return ((int(self.center[1]), int(self.center[0])),
+                (int(self.axes[0]), int(self.axes[1])),
+                -self.angle, 0, 360)
+
+    def get_area(self):
+        return np.pi * self.axes[0] * self.axes[1]
+
+    def get_binary_mask(self, shape):
+        """
+        :param shape: tuple of 2 positive integers (height, width)
+        :return: binary mask of the ellipse with given shape
+        """
+        mask = np.zeros(shape=shape, dtype=np.uint8)
+        ell_cv2 = self.get_cv2_ellips()
+        mask = cv2.ellipse(mask, center=ell_cv2[0], axes=ell_cv2[1], angle=ell_cv2[2], startAngle=0, endAngle=360,
+                           color=1, thickness=-1)
+        return mask.astype(np.uint8)
+
+    def get_intensity(self, img):
+        """
+        :param img: 2d gray scale image
+        :return: mean intensity of ellipse
+        """
+
+        if len(img.shape) != 2:
+            raise ValueError('input image should be 2d array.')
+
+        mask = self.get_binary_mask(img.shape)
+        return np.mean(img[mask])
+
+    def draw(self, img, color=(0, 255, 0), thickness=3):
+        """
+        :param img: 3d array, (height x width x channel), opencv frame
+        :param color:
+        :param thickness:
+        :return:
+        """
+
+        ell_cv2 = self.get_cv2_ellips()
+        img_marked = cv2.ellipse(img=img, center=ell_cv2[0], axes=ell_cv2[1], angle=ell_cv2[2], startAngle=ell_cv2[3],
+                                 endAngle=ell_cv2[4], color=color, thickness=thickness)
+
+        # img_marked = cv2.ellipse(img, box=self.to_cv2_box(), color=color, thickness=thickness)
+
+        return img_marked
+
+    def copy(self):
+        return Ellipse(center=self.center,
+                       axes=self.axes,
+                       angle=self.angle)
+
+    def info(self):
+        s = 'center: ({:6.2f}, {:6.2f})\n'.format(self.center[0], self.center[1])
+        s += 'axes:  ({:6.2f}, {:6.2f})\n'.format(self.axes[0], self.axes[1])
+        s += 'angle: {:8.2f} deg\n'.format(self.angle)
+        s += 'area: {:9.2f}\n'.format(self.get_area())
+        return s
+
+    @staticmethod
+    def from_cv2_box(box):
+        """
+        get Ellipse object from cv2 rotated rectangle object (from cv2.fitEllipse() function)
+        """
+        center = (box[0][1], box[0][0])
+        axes = (box[1][0] / 2., box[1][1] / 2.)
+        angle = -box[2]
+        return Ellipse(center=center, axes=axes, angle=angle)
+
+    def to_cv2_box(self):
+        return ((self.center[1], self.center[0]), (self.axes[0] * 2., self.axes[1] * 2), -self.angle)
 
 
 if __name__ == '__main__':

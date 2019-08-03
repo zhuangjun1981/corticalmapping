@@ -313,8 +313,8 @@ def get_rf_properties(srf,
     :param interpolate_rate: int, interpolation upsample rate
     :param peak_z_thr:
     :return rf_z: peak absolute zscore after filtering and interpolation
-    :return rf_center: list of two floats, (alt, azi) in visual degrees
-    :return rf_area: float, unit: visual degree squares
+    :return srf_new: corticalmapping.SingleCellAnalysis.SpatialReceptiveField object, filtered, interpolated,
+                     thresholded receptive field
     """
 
     srf_new = srf.gaussian_filter(sigma=sigma)

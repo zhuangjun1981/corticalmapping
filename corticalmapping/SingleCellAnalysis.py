@@ -372,6 +372,9 @@ class SpatialReceptiveField(WeightedROI):
             else:
                 raise ValueError('interpolate_rate should be larger than 1!')
 
+    def __str__(self):
+        return 'corticalmapping.SingleCellAnalysis.SpatialReceptiveField object'
+
     def get_name(self):
 
         name = []
@@ -554,6 +557,64 @@ class SpatialReceptiveField(WeightedROI):
         azi_step = abs(np.mean(np.diff(self.aziPos).astype(np.float)))
 
         return len(self.weights) * alt_step * azi_step
+
+    @staticmethod
+    def from_h5_group(h5Group):
+
+        dimension = h5Group.attrs['dimension']
+        pixelSizeUnit = h5Group.attrs['pixelSizeUnit']
+        if pixelSizeUnit == 'None': pixelSizeUnit = None
+        pixels = h5Group['pixels'].value
+        weights = h5Group['weights'].value
+        mask = np.zeros(dimension, dtype=np.float32)
+        mask[tuple(pixels)] = weights
+
+        altPos = h5Group['altPos'].value
+        if altPos == 'None':
+            altPos = None
+
+        aziPos = h5Group['aziPos'].value
+        if aziPos == 'None':
+            aziPos = None
+
+        sign = h5Group['sign'].value
+        if sign == 'None':
+            sign = None
+
+        temporalWindow = h5Group['temporalWindow'].value
+        if temporalWindow == 'None':
+            temporalWindow = None
+
+        dataType = h5Group['dataType'].value
+        if dataType == 'None':
+            dataType = None
+
+        thr = h5Group['thr'].value
+        if thr == 'None':
+            thr = None
+
+        filter_sigma = h5Group['filter_sigma'].value
+        if filter_sigma == 'None':
+            filter_sigma = None
+
+        interpolate_rate = h5Group['interpolate_rate'].value
+        if interpolate_rate == 'None':
+            interpolate_rate = None
+
+        srf = SpatialReceptiveField(mask, pixelSizeUnit=pixelSizeUnit, altPos=altPos, aziPos=aziPos,
+                                    sign=sign, dataType=dataType, thr=thr, filter_sigma=filter_sigma,
+                                    interpolate_rate=interpolate_rate, temporalWindow=temporalWindow)
+
+        for key in h5Group.keys():
+            if key not in ['pixels', 'weights', 'altPos', 'aziPos', 'dataType', 'filter_sigma',
+                           'interpolate_rate', 'sign', 'temporalWindow', 'thr']:
+
+                if h5Group[key].value == 'None':
+                    setattr(srf, key, None)
+                else:
+                    setattr(srf, key, h5Group[key].value)
+
+        return srf
 
 
 class SpatialTemporalReceptiveField(object):
