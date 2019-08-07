@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.ndimage as ni
+import matplotlib.pyplot as plt
 
 
 def interpolate_nans(arr):
@@ -168,13 +169,16 @@ def get_clustering_distances(mat_dis, cluster):
     # reorganize mat_dis
     mat_dis_tmp = []
     for clu_i in range(cluster_num):
-        mat_dis_tmp.append(mat_dis[clu_dic[clu_i]])
+        mat_dis_tmp.append(mat_dis[clu_dic[clu_i], :])
     mat_dis_tmp = np.concatenate(mat_dis_tmp, axis=0).transpose()
 
     mat_dis_reorg = []
     for clu_i in range(cluster_num):
-        mat_dis_reorg.append(mat_dis_tmp[clu_dic[clu_i]])
+        mat_dis_reorg.append(mat_dis_tmp[clu_dic[clu_i], :])
     mat_dis_reorg = np.concatenate(mat_dis_reorg, axis=0).transpose()
+
+    # plt.imshow(mat_dis_reorg, interpolation='nearest', cmap='plasma', vmin=0, vmax=1)
+    # plt.show()
 
     # get cluster masks on the reorganized distance matrix
     mask_non_clu = np.ones(mat_dis.shape, dtype=np.bool)

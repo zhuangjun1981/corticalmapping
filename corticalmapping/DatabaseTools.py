@@ -2896,7 +2896,7 @@ class BoutonClassifier(object):
         :param sample_dur: float, duration of each sample in second.
         :return traces_res: l x m array, l number of rois that pass the skewness thresold, self.skew_thr
         :return roi_ns_res: list of strings, length = l, name of these rois
-        :return event_masks: l x m array, dtype: np.bool, event masks for each roi. events are deteced by
+        :return event_masks: n x m array, dtype: np.bool, event masks for each roi. events are deteced by
                              larger than trace_mean + self.event_std_thr * trace_std
         """
 
@@ -3177,7 +3177,7 @@ class BoutonClassifier(object):
 
     @staticmethod
     def plot_chunked_traces_with_intervals(traces, trace_center=None, event_masks=None, chunk_num=4,
-                                           fig_obj=None, colors=None, **kwarg):
+                                           fig_obj=None, colors=None, is_normalize_traces=False, **kwarg):
         """
         plot traces in defined number of chunks. Also mark the defined period indicated by the marked_inds
 
@@ -3190,35 +3190,82 @@ class BoutonClassifier(object):
         """
 
         if len(traces.shape) == 1:
-            traces = np.array([traces])
+            traces_p = np.array([traces])
+        elif len(traces.shape) == 2:
+            traces_p = np.array(traces)
+        else:
+            raise ValueError("the input 'traces' should be a 2d array.")
+
+        if is_normalize_traces:
+            #=================================================================
+            mins = np.min(traces_p, axis=1, keepdims=True)
+            maxs = np.max(traces_p, axis=1, keepdims=True)
+            traces_p = (traces_p - mins) / (maxs - mins)
+            # =================================================================
+
+            # =================================================================
+            # mins = np.min(traces_p, axis=1, keepdims=True)
+            # stds = np.std(traces_p, axis=1, keepdims=True)
+            # traces_p = (traces_p - mins) / stds
+            # =================================================================
+
+            # =================================================================
+            # medians = np.median(traces_p, axis=1, keepdims=True)
+            # traces_p = (traces_p - medians) / medians
+            # =================================================================
+
+        if trace_center is not None:
+            if is_normalize_traces:
+                # =================================================================
+                min_c = np.min(trace_center)
+                max_c = np.max(trace_center)
+                trace_center_p = (trace_center - min_c) / (max_c - min_c)
+                # =================================================================
+
+                # =================================================================
+                # min_c = np.min(trace_center)
+                # std_c = np.std(trace_center)
+                # trace_center_p = (trace_center - min_c) / std_c
+                # =================================================================
+
+                # =================================================================
+                # median_c = np.median(trace_center)
+                # trace_center_p = (trace_center - median_c) / median_c
+                # =================================================================
+            else:
+                trace_center_p = np.array(trace_center)
 
         if event_masks is not None and len(event_masks.shape) == 1:
             event_masks = np.array([event_masks])
 
-        if event_masks is not None and traces.shape != event_masks.shape:
+        if event_masks is not None and traces_p.shape != event_masks.shape:
             raise ValueError(
-                'the shape of input "traces" ({}) and "event_masks" ({}) are not the same.'.format(traces.shape,
+                'the shape of input "traces" ({}) and "event_masks" ({}) are not the same.'.format(traces_p.shape,
                                                                                                    event_masks.shape))
 
         if fig_obj is None:
             fig_obj = plt.figure(figsize=(15, 10))
 
         if colors is None:
-            colors = pt.random_color(traces.shape[0])
+            colors = pt.random_color(traces_p.shape[0])
 
-        len_tot = traces.shape[1]
+        len_tot = traces_p.shape[1]
         len_chunk = len_tot // chunk_num
 
         for chunk_i in range(chunk_num):
-            chunk_traces = traces[:, chunk_i * len_chunk: (chunk_i + 1) * len_chunk]
+            chunk_traces = traces_p[:, chunk_i * len_chunk: (chunk_i + 1) * len_chunk]
             chunk_ax = fig_obj.add_subplot(chunk_num, 1, chunk_i + 1)
             chunk_ax.set_xlim([0, len_chunk])
 
-            for trace_i in range(traces.shape[0]):
+            if is_normalize_traces:
+                chunk_ax.set_ylim([-0.1, 1.1])
+                chunk_ax.set_axis_off()
+
+            for trace_i in range(traces_p.shape[0]):
                 chunk_ax.plot(chunk_traces[trace_i], color=colors[trace_i], **kwarg)
 
             if trace_center is not None:
-                chunk_trace_c = trace_center[chunk_i * len_chunk: (chunk_i + 1) * len_chunk]
+                chunk_trace_c = trace_center_p[chunk_i * len_chunk: (chunk_i + 1) * len_chunk]
                 chunk_ax.plot(chunk_trace_c, color='#ff0000', lw=1, alpha=1)
 
             if event_masks is not None:
@@ -3226,10 +3273,10 @@ class BoutonClassifier(object):
                 chunk_ind = np.any(chunk_inds, axis=0)
                 chunk_intes = ta.threshold_to_intervals(trace=chunk_ind.astype(np.float32), thr=0.5, comparison='>=')
                 for chunk_int in chunk_intes:
-                    chunk_ax.axvspan(chunk_int[0], chunk_int[1], color='#ff0000', alpha=0.2)
+                    chunk_ax.axvspan(chunk_int[0], chunk_int[1], color='#000000', lw=None, alpha=0.2)
 
     def process_plane(self, nwb_f, save_folder, plane_n='plane0', trace_type='f_center_subtracted',
-                      trace_window='AllStimuli'):
+                      trace_window='AllStimuli', is_normalize_traces=False):
         """
 
         :param nwb_f:
@@ -3272,7 +3319,6 @@ class BoutonClassifier(object):
 
         traces_res, roi_ns_res, event_masks = self.filter_traces(traces=traces_sub, roi_ns=roi_ns,
                                                                  sample_dur=sample_dur)
-
         mat_corr = self.get_correlation_coefficient_matrix(traces=traces_res, event_masks=event_masks,
                                                            sample_dur=sample_dur, is_plot=False)
         mat_corr_thr = self.threshold_correlation_coefficient_matrix(mat_corr=mat_corr, is_plot=False)
@@ -3506,7 +3552,8 @@ class BoutonClassifier(object):
                                                         event_masks=axon_event_masks,
                                                         chunk_num=10,
                                                         fig_obj=f,
-                                                        lw=0.5)
+                                                        lw=0.5,
+                                                        is_normalize_traces=is_normalize_traces)
 
                 trace_f.savefig(f)
                 plt.close(f)
