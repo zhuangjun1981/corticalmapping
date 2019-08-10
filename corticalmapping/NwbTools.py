@@ -1271,10 +1271,9 @@ class RecordedFile(NWB):
         pd_ts_vsync = []
         for pd_onset in pd_onsets_seq:
 
-            # if pd_onset['global_frame_ind'] < len(vsync_ts):
-            #     pd_ts_vsync.append(vsync_ts[pd_onset['global_frame_ind']])
+            if pd_onset['global_frame_ind'] < len(vsync_ts):
+                pd_ts_vsync.append(vsync_ts[pd_onset['global_frame_ind']])
 
-            pd_ts_vsync.append(vsync_ts[pd_onset['global_frame_ind']])
 
         # calculate display delay as the weighted average of pd_ccg
         print('Total number of detected photodiode onsets: {}'.format(len(pd_ts_pd)))
@@ -1318,13 +1317,15 @@ class RecordedFile(NWB):
                 pd_onset_grp['global_pd_onset_ind'] = pd_onsets_com[stim_n][pd_onset_n]['global_pd_onset_ind']
                 pd_onset_grp['global_frame_ind'] = pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']
 
-                # pd_onset_ts_sec = []
-                # for gfi in pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']:
-                #     if gfi < len(vsync_stim_ts):
-                #         pd_onset_ts_sec.append(vsync_stim_ts[gfi])
-                # pd_onset_grp['pd_onset_ts_sec'] = pd_onset_ts_sec
+                try:
+                   pd_onset_grp['pd_onset_ts_sec'] = vsync_stim_ts[pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']]
+                except IndexError:
+                    pd_onset_ts_sec = []
+                    for gfi in pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']:
+                        if gfi < len(vsync_stim_ts):
+                            pd_onset_ts_sec.append(vsync_stim_ts[gfi])
+                    pd_onset_grp['pd_onset_ts_sec'] = pd_onset_ts_sec
 
-                pd_onset_grp['pd_onset_ts_sec'] = vsync_stim_ts[pd_onsets_com[stim_n][pd_onset_n]['global_frame_ind']]
 
     def get_drifting_grating_response_table_retinotopic_mapping(self, stim_name, time_window=(-1, 2.5)):
 

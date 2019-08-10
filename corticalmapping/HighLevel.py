@@ -8,6 +8,7 @@ import itertools
 import pandas as pd
 import scipy.stats as stats
 import scipy.ndimage as ni
+import scipy.sparse as sparse
 import scipy.interpolate as ip
 import matplotlib.pyplot as plt
 import tifffile as tf
@@ -1518,6 +1519,137 @@ def plot_roi_traces_three_planes(nwb_f, roi0=None, roi1=None, roi2=None, trace_t
     # plt.show()
 
     return f
+
+
+def get_masks_from_caiman(spatial_com, dims, thr=0, thr_method='nrg', swap_dim=False):
+    """
+    Gets masks of spatial components results generated the by the CaImAn segmentation
+
+    this function is stripped out from the caiman.utils.visualization.get_contours(). only works for 2d spatial
+    components.
+
+    Args:
+         spatial_com: np.ndarray or sparse matrix, mostly will be the caiman.source_extraction.cnmf.estimates.A
+                      2d Matrix of Spatial components, each row is a flattened pixel (order 'F'), each column
+                      is a spatial component
+         dims: tuple of ints
+               Spatial dimensions of movie (row, col)
+         thr: scalar between 0 and 1
+              Energy threshold for computing contours (default 0.9)
+              if thr_method is 'nrg': higher thr will make bigger hole inside the mask
+              if thr_method is 'max': (usually does not work very well), higher thr will make smaller mask
+                                      near the center.
+         thr_method: [optional] string
+                     Method of thresholding:
+                     'max' sets to zero pixels that have value less than a fraction of the max value
+                     'nrg' keeps the pixels that contribute up to a specified fraction of the energy
+         swap_dim: if True, flattened 2d array will be reshaped by order 'C', otherwise with order 'F'.
+    Returns:
+         masks: 3d array, dtype=np.float, spatial component x row x col
+    """
+
+    if 'csc_matrix' not in str(type(spatial_com)):
+        spatial_com = sparse.csc_matrix(spatial_com)
+
+    if len(spatial_com.shape) != 2:
+        raise ValueError('input "spatial_com" should be a 2d array or 2d sparse matrix.')
+
+    n_mask = spatial_com.shape[1]
+
+    if len(dims) != 2:
+        raise ValueError("input 'dims' should have two entries: (num_row, num_col).")
+
+    if dims[0] * dims[1] != spatial_com.shape[0]:
+        raise ValueError("the product of dims[0] and dims[1] ({} x {}) should be equal to the first dimension "
+                         "of the input 'spatial_com'.".format(dims[0], dims[1], spatial_com.shape[0]))
+
+    masks = []
+
+    # # get the center of mass of neurons( patches )
+    # cm = com(A, *dims)
+
+    # for each patches
+    for i in range(n_mask):
+        # we compute the cumulative sum of the energy of the Ath component that has been ordered from least to highest
+        patch_data = spatial_com.data[spatial_com.indptr[i]:spatial_com.indptr[i + 1]]
+        indx = np.argsort(patch_data)[::-1]
+        if thr_method == 'nrg':
+            cumEn = np.cumsum(patch_data[indx] ** 2)
+            # we work with normalized values
+            cumEn /= cumEn[-1]
+            Bvec = np.ones(spatial_com.shape[0])
+            # we put it in a similar matrix
+            Bvec[spatial_com.indices[spatial_com.indptr[i]:spatial_com.indptr[i + 1]][indx]] = cumEn
+        else:
+            if thr_method != 'max':
+                print('Unknown threshold method {}. should be either "max" or "nrg". '
+                      'Choosing "max".'.format(thr_method))
+            Bvec = np.zeros(spatial_com.shape[0])
+            Bvec[spatial_com.indices[spatial_com.indptr[i]:
+                                     spatial_com.indptr[i + 1]]] = patch_data / patch_data.max()
+        if swap_dim:
+            Bmat = np.reshape(Bvec, dims, order='C')
+            mask = np.array(spatial_com[:, i].todense().reshape(dims, order='C'))
+        else:
+            Bmat = np.reshape(Bvec, dims, order='F')
+            mask = np.array(spatial_com[:, i].todense().reshape(dims, order='F'))
+
+        Bmat[Bmat >= thr] = 1.
+        Bmat[Bmat < thr] = 0.
+
+        masks.append(mask * Bmat)
+
+    return np.array(masks)
+
+
+def threshold_mask_by_energe(mask, sigma=1., thr_high=0.0, thr_low=0.1):
+    """
+    threshold a weighted mask by reversed accumulative energy. Use this to treat masks spit out by caiman
+    segmentation.
+    :param mask: 2d array
+    :param sigma: float, 2d gaussian filter sigma
+    :param thr_high: float, 0 - 1, bigger thr_high will make bigger hole inside the roi
+    :param thr_low: float, 0 - 1, bigger thr_low will make smaller roi around the center
+    :return: 2d array thresholded mask
+    """
+
+    if len(mask.shape) != 2:
+        raise ValueError('input "mask" should be a 2d array.')
+
+    if sigma is not None:
+        mask = ni.gaussian_filter(mask, sigma=sigma)
+
+    mask = ia.array_nor(mask)
+    mask_s = mask.flatten()
+
+    indx_low = np.argsort(mask_s)
+    cum_eng_low = np.cumsum(mask_s[indx_low] ** 2)
+    cum_eng_low /= cum_eng_low[-1]
+    mask_eng_low = np.ones(mask_s.shape, dtype=np.float)
+    mask_eng_low[indx_low] = cum_eng_low
+    mask_eng_low = mask_eng_low.reshape(mask.shape)
+
+    indx_high = np.argsort(mask_s)[::-1]
+    cum_eng_high = np.cumsum(mask_s[indx_high] ** 2)
+    cum_eng_high /= cum_eng_high[-1]
+    mask_eng_high = np.ones(mask_s.shape, dtype=np.float)
+    mask_eng_high[indx_high] = cum_eng_high
+    mask_eng_high = mask_eng_high.reshape(mask.shape)
+
+    mask_bin = np.ones(mask.shape)
+
+    mask_bin[mask_eng_high < thr_high] = 0.
+    mask_bin[mask_eng_low < thr_low] = 0.
+
+    mask_labeled, mask_num = ni.label(mask_bin, structure=[[1,1,1], [1,1,1], [1,1,1]])
+    mask_dict = ia.get_masks(labeled=mask_labeled, keyPrefix='', labelLength=5)
+
+    for key, value in mask_dict.items():
+        mask_w = value * mask
+        mask_w = mask_w / np.amax(mask_w)
+        mask_dict[key] = ia.WeightedROI(mask_w)
+
+    return mask_dict
 
 
 if __name__ == '__main__':
