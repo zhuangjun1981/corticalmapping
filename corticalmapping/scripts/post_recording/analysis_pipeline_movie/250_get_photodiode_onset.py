@@ -6,7 +6,7 @@ import corticalmapping.NwbTools as nt
 import corticalmapping.HighLevel as hl
 
 # photodiode
-digitizeThr = 0.055 # deepscope: 0.055, sutter: -0.15
+digitizeThr = 0.055 # deepscope: 0.15 or 0.055, sutter: -0.15
 filterSize = 0.01 # deepscope: 0.01, sutter: 0.01
 segmentThr = 0.02 # deepscope: 0.02, sutter: 0.01
 smallestInterval = 0.05 # deepscope: 0.05, sutter: 0.05

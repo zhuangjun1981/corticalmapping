@@ -33,7 +33,7 @@ def run():
 
     roi_ind = 0
     for i, mask in enumerate(masks):
-        mask_dict = hl.threshold_mask_by_energe(mask, sigma=filter_sigma, thr_high=thr_high, thr_low=thr_low)
+        mask_dict = hl.threshold_mask_by_energy(mask, sigma=filter_sigma, thr_high=thr_high, thr_low=thr_low)
         for mask_roi in mask_dict.values():
             final_roi_dict.update({'roi_{:04d}'.format(roi_ind): mask_roi})
             roi_ind += 1

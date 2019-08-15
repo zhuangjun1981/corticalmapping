@@ -1602,7 +1602,7 @@ def get_masks_from_caiman(spatial_com, dims, thr=0, thr_method='nrg', swap_dim=F
     return np.array(masks)
 
 
-def threshold_mask_by_energe(mask, sigma=1., thr_high=0.0, thr_low=0.1):
+def threshold_mask_by_energy(mask, sigma=1., thr_high=0.0, thr_low=0.1):
     """
     threshold a weighted mask by reversed accumulative energy. Use this to treat masks spit out by caiman
     segmentation.

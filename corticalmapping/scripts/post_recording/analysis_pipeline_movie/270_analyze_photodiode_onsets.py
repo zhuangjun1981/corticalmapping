@@ -6,7 +6,7 @@ import retinotopic_mapping.DisplayLogAnalysis as dla
 import corticalmapping.core.TimingAnalysis as ta
 
 # for deepscope
-vsync_frame_path='acquisition/timeseries/digital_stim_vsync_rise'
+vsync_frame_path='acquisition/timeseries/digital_vsync_stim_rise'
 
 # for sutter
 # vsync_frame_path='acquisition/timeseries/digital_vsync_visual_rise'
