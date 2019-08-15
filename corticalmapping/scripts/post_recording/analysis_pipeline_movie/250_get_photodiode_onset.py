@@ -24,7 +24,7 @@ fs = 1. / np.mean(np.diff(pd_t))
 pd_onsets = hl.segmentPhotodiodeSignal(pd, digitizeThr=digitizeThr, filterSize=filterSize,
                                        segmentThr=segmentThr, Fs=fs, smallestInterval=smallestInterval)
 
-# raw_input('press enter to continue ...')
+raw_input('press enter to continue ...')
 
 pdo_ts = nwb_f.create_timeseries('TimeSeries', 'digital_photodiode_rise', modality='other')
 pdo_ts.set_time(pd_onsets)

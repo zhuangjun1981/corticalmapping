@@ -23,13 +23,15 @@ else:
 nwb_fn = [f for f in os.listdir(curr_folder) if f[-4:] == '.nwb'][0]
 nwb_f = nt.RecordedFile(nwb_fn)
 
-if scope == 'sutter':
-    ts_2p_tot = nwb_f.file_pointer['/acquisition/timeseries/digital_vsync_2p_rise/timestamps'].value
-elif scope == 'DeepScope':
-    ts_2p_tot = nwb_f.file_pointer['/acquisition/timeseries/digital_2p_vsync_rise/timestamps'].value
-else:
-    raise LookupError('do not understand scope type')
-print('total 2p timestamps count: {}'.format(len(ts_2p_tot)))
+ts_2p_tot = nwb_f.file_pointer['/acquisition/timeseries/digital_vsync_2p_rise/timestamps'].value
+
+# if scope == 'sutter':
+#     ts_2p_tot = nwb_f.file_pointer['/acquisition/timeseries/digital_vsync_2p_rise/timestamps'].value
+# elif scope == 'DeepScope':
+#     ts_2p_tot = nwb_f.file_pointer['/acquisition/timeseries/digital_2p_vsync_rise/timestamps'].value
+# else:
+#     raise LookupError('do not understand scope type')
+# print('total 2p timestamps count: {}'.format(len(ts_2p_tot)))
 
 mov_fn = os.path.splitext(nwb_fn)[0] + '_2p_movies.hdf5'
 mov_f = h5py.File(mov_fn, 'r')

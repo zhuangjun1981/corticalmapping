@@ -1,13 +1,23 @@
+"""
+run it in command line with new caiman v1.5.3
+
+>>> activate caiman_new
+"""
+
 import os
 import numpy as np
 from caiman.source_extraction import cnmf as cnmf
 import h5py
 from shutil import copyfile
 
-date_recorded = '190809'
+
+date_recorded = '190814'
 mouse_id = 'M471944'
 resolution = (512, 512)
 channel = 'green'
+data_folder_n = '110_LSNDGCUC_reorg'
+imaging_mode = 'deepscope' # '2p' or 'deepscope'
+
 
 # caiman parameters
 fr = 2  # frame rate (Hz)
@@ -33,8 +43,8 @@ show_movie = False  # show the movie with the results as the data gets processed
 
 curr_folder = os.path.dirname(os.path.realpath(__file__))
 
-data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-2p" \
-              r"\110_LSNDGC_reorged".format(date_recorded, mouse_id)
+data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-{}" \
+              r"\{}".format(date_recorded, mouse_id, imaging_mode, data_folder_n)
 
 
 plane_ns = [f for f in os.listdir(data_folder) if os.path.isdir(f) and f[:5] == 'plane']

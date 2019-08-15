@@ -15,7 +15,7 @@ pd_ts_pd_path = 'analysis/digital_photodiode_rise'
 pd_thr = -0.5 # this is color threshold, not analog photodiode threshold
 ccg_t_range = (0., 0.1)
 ccg_bins = 100
-is_plot = False
+is_plot = True
 
 curr_folder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(curr_folder)
