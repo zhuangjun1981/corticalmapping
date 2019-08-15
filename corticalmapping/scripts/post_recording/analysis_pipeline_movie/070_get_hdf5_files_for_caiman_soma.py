@@ -9,10 +9,12 @@ mouse_id = 'M471944'
 sess_id = '110'
 t_downsample_rate = 3
 channel = 'green'
+data_folder_n = '110_LSNDGC_reorged'
+imaging_mode = '2p' # '2p' or 'deepscope'
 identifier = '110_LSNDGC'
 
-data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-2p" \
-              r"\110_LSNDGC_reorged".format(date_recorded, mouse_id)
+data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-{}" \
+              r"\{}".format(date_recorded, mouse_id, imaging_mode, data_folder_n)
 
 plane_ns = [p for p in os.listdir(data_folder) if os.path.isdir(os.path.join(data_folder, p))]
 plane_ns.sort()

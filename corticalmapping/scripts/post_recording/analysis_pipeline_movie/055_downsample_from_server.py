@@ -12,10 +12,12 @@ mouse_id = 'M439939'
 xy_downsample_rate = 2
 t_downsample_rate = 10
 ch_ns = ['green', 'red']
+data_folder_n = '110_LSNDGC_reorged'
+imaging_mode = '2p' # '2p' or 'deepscope'
 identifier = '110_LSNDGC'
 
-data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-2p" \
-              r"\110_LSNDGC_reorged".format(date_recorded, mouse_id)
+data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-{}" \
+              r"\{}".format(date_recorded, mouse_id, imaging_mode, data_folder_n)
 
 curr_folder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(curr_folder)

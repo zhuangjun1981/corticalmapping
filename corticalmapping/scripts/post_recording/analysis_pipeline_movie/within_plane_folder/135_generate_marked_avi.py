@@ -110,7 +110,7 @@ def run():
         ax.imshow(frame, vmin=v_min, vmax=v_max*0.5, cmap='gray', interpolation='nearest')
         pt.plot_mask_borders(total_mask, plotAxis=ax, color='#ff0000', zoom=1, borderWidth=1)
         ax.set_aspect('equal')
-        plt.show()
+        # plt.show()
 
         buffer_ = StringIO()
         pt.save_figure_without_borders(f, buffer_, dpi=100)

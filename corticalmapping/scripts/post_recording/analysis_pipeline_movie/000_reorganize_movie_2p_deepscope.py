@@ -23,7 +23,7 @@ print('total file number: {}'.format(len(fns)))
 
 save_folders = []
 for i in range(plane_num):
-    curr_save_folder = os.path.join(data_folder, identifier, 'plane{}'.format(i))
+    curr_save_folder = os.path.join(data_folder, identifier + '_reorged', 'plane{}'.format(i))
     if not os.path.isdir(curr_save_folder):
         os.makedirs(curr_save_folder)
     save_folders.append(curr_save_folder)
@@ -76,22 +76,22 @@ for plane_ind in range(plane_num):
         else:
             for ch_n in channels:
                 curr_mov_ch = np.array(curr_mov[ch_n], dtype=np.int16)
-                save_name = 'plane{}_{:03d}.tif'.format(plane_ind, curr_file_ind)
+                save_name = '{}_{:05d}_reorged.tif'.format(identifier, curr_file_ind)
                 save_folder_ch = os.path.join(save_folders[plane_ind], ch_n)
                 if not os.path.isdir(save_folder_ch):
                     os.makedirs(save_folder_ch)
                 tf.imsave(os.path.join(save_folder_ch, save_name), curr_mov_ch)
                 curr_mov[ch_n] = [curr_frame[ch_n]]
-                print('current file ind: {:03d}; channel: {}'.format(curr_file_ind, ch_n))
+                print('current file ind: {:05d}; channel: {}'.format(curr_file_ind, ch_n))
             curr_file_ind += 1
             curr_frame_ind = 1
 
     for ch_n in channels:
         curr_mov_ch = np.array(curr_mov[ch_n], dtype=np.int16)
-        save_name = 'plane{}_{:03d}.tif'.format(plane_ind, curr_file_ind)
+        save_name = '{}_{:05d}_reorged.tif'.format(identifier, curr_file_ind)
         save_folder_ch = os.path.join(save_folders[plane_ind], ch_n)
         if not os.path.isdir(save_folder_ch):
             os.makedirs(save_folder_ch)
         tf.imsave(os.path.join(save_folder_ch, save_name), curr_mov_ch)
-        print('current file ind: {:03d}; channel: {}'.format(curr_file_ind, ch_n))
+        print('current file ind: {:05d}; channel: {}'.format(curr_file_ind, ch_n))
 

@@ -101,14 +101,14 @@ def run():
     p.map(plot_traces_for_multi_process, params)
 
     # wait for keyboard abortion
-    msg = raw_input('Do you want to save? (y/n)\n')
-    while True:
-        if msg == 'y':
-            break
-        elif msg == 'n':
-            sys.exit('Stop process without saving.')
-        else:
-            msg = raw_input('Do you want to save? (y/n)\n')
+    # msg = raw_input('Do you want to save? (y/n)\n')
+    # while True:
+    #     if msg == 'y':
+    #         break
+    #     elif msg == 'n':
+    #         sys.exit('Stop process without saving.')
+    #     else:
+    #         msg = raw_input('Do you want to save? (y/n)\n')
 
     data_f['traces_center_subtracted'] = traces_subtracted
     data_f['neuropil_r'] = ratio

@@ -3,9 +3,11 @@ import stia.motion_correction as mc
 
 date_recorded = '190503'
 mouse_id = 'M439939'
+data_folder_n = '110_LSNDGC_reorged'
+imaging_mode = '2p' # '2p' or 'deepscope'
 
-data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-2p" \
-              r"\110_LSNDGC_reorged".format(date_recorded, mouse_id)
+data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-{}" \
+              r"\{}".format(date_recorded, mouse_id, imaging_mode, data_folder_n)
 
 def correct(data_folder):
 

@@ -6,15 +6,19 @@ import skimage.external.tifffile as tf
 date_recorded = '190503'
 mouse_id = 'M439939'
 sess_id = '110'
-
-file_prefix = '{}_{}_{}'.format(date_recorded, mouse_id, sess_id)
-data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-2p" \
-              r"\110_LSNDGC_reorged".format(date_recorded, mouse_id)
 channel = 'green'
+data_folder_n = '110_LSNDGC_reorged'
+imaging_mode = '2p' # '2p' or 'deepscope'
 identifier = '110_LSNDGC'
+
+data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\{}-{}-{}" \
+              r"\{}".format(date_recorded, mouse_id, imaging_mode, data_folder_n)
+
 
 curr_folder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(curr_folder)
+
+file_prefix = '{}_{}_{}'.format(date_recorded, mouse_id, sess_id)
 
 plane_fns = [f for f in os.listdir(data_folder) if f[:5] == 'plane']
 plane_fns.sort()
