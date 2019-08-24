@@ -9,13 +9,27 @@ import scipy.ndimage as ni
 import scipy.stats as stats
 import skimage.morphology as sm
 import skimage.measure as measure
-import FileTools as ft
-import PlottingTools as pt
 import time
-try: import cv2
-except ImportError as e: print e
-try: from toolbox.misc import BinarySlicer
-except ImportError as e: print e
+
+try:
+    import FileTools as ft
+except (AttributeError, ImportError):
+    from . import FileTools as ft
+
+try:
+    import PlottingTools as pt
+except (AttributeError, ImportError):
+    from . import PlottingTools as pt
+
+try:
+    import cv2
+except ImportError as e:
+    print(e)
+
+try:
+    from toolbox.misc import BinarySlicer
+except ImportError as e:
+    print(e)
 
 
 def resample(t1,y1,interval,kind='linear', isPlot = False):
@@ -127,10 +141,10 @@ def distance(p0, p1):
 
     #old code======================================================================
     # if (len(p0.shape) > 1) or (len(p1.shape) > 1):
-    #     raise LookupError, 'Both input arrays should be 1d array!!'
+    #     raise(LookupError('Both input arrays should be 1d array!!'))
     #
     # if p0.shape != p1.shape:
-    #     raise LookupError, 'The two input arrays should have same dimensions.'
+    #     raise LookupError('The two input arrays should have same dimensions.')
     #
     # distance = math.sqrt(np.sum(((p0.astype(np.float)-p1.astype(np.float))**2)))
     #===============================================================================
@@ -200,13 +214,13 @@ def resize_image(img, outputShape, fillValue = 0.):
     height = outputShape[0]
 
     if width < 1:
-        raise ValueError, 'width should be bigger than 0!!'
+        raise ValueError('width should be bigger than 0!!')
 
     if height < 1:
-        raise ValueError, 'height should be bigger than 0!!'
+        raise ValueError('height should be bigger than 0!!')
 
     if len(img.shape) !=2 and len(img.shape) !=3 :
-        raise ValueError, 'input image should be a 2-d or 3-d array!!'
+        raise ValueError('input image should be a 2-d or 3-d array!!')
 
     if len(img.shape) == 2: # 2-d image
         startWidth = img.shape[-1]
@@ -255,7 +269,7 @@ def resize_image(img, outputShape, fillValue = 0.):
 def expand_image_cv2(img):
 
     if len(img.shape) != 2:
-        raise ValueError, 'Input image should be 2d!'
+        raise ValueError('Input image should be 2d!')
 
     dtype = img.dtype
     img = img.astype(np.float32)
@@ -289,7 +303,7 @@ def expand_image(img):
         newImg = np.concatenate((left,tall,right),axis=2)
         return newImg
     else:
-        raise ValueError, 'Input image should be 2d or 3d!'
+        raise ValueError('Input image should be 2d or 3d!')
 
 
 def zoom_image(img, zoom, interpolation ='cubic'): #'cubic','linear','area','nearest','lanczos4'
@@ -300,7 +314,7 @@ def zoom_image(img, zoom, interpolation ='cubic'): #'cubic','linear','area','nea
     zoom[1]: width
     '''
     if len(img.shape) != 2:
-        raise ValueError, 'Input image should be 2d!'
+        raise ValueError('Input image should be 2d!')
 
     try: zoomH = float(zoom[0]); zoomW = float(zoom[1])
     except TypeError: zoomH = float(zoom); zoomW = float(zoom)
@@ -324,7 +338,7 @@ def moveImage(img,Xoffset,Yoffset,width,height,borderValue=0.0):
     empty pixels will be filled with zeros
     '''
     if len(img.shape) != 2:
-        raise ValueError, 'Input image should be 2d!'
+        raise ValueError('Input image should be 2d!')
 
     M = np.float32([[1,0,Xoffset],[0,1,Yoffset]])
 
@@ -342,7 +356,7 @@ def rotate_image(img, angle, borderValue=0.0):
     '''
 
     if len(img.shape) != 2:
-        raise ValueError, 'Input image should be 2d!'
+        raise ValueError('Input image should be 2d!')
 
     rows,cols = img.shape
 
@@ -366,7 +380,7 @@ def rigid_transform(img, zoom=None, rotation=None, offset=None, outputShape=None
     '''
 
     if len(img.shape) != 2 and len(img.shape) != 3:
-        raise LookupError, 'Input image is not a 2d or 3d array!'
+        raise LookupError('Input image is not a 2d or 3d array!')
 
     newImg = img.astype(np.float32)
 
@@ -409,7 +423,7 @@ def rigid_transform_cv2_2d(img, zoom=None, rotation=None, offset=None, outputSha
     '''
 
     if len(img.shape) != 2:
-        raise LookupError, 'Input image is not a 2d or 3d array!'
+        raise LookupError('Input image is not a 2d or 3d array!')
 
     newImg = np.array(img).astype(np.float)
     minValue = np.amin(newImg)
@@ -436,7 +450,7 @@ def rigid_transform_cv2_2d(img, zoom=None, rotation=None, offset=None, outputSha
 def rigid_transform_cv2_3d(img, zoom=None, rotation=None, offset=None, outputShape=None):
 
     if len(img.shape) != 3:
-        raise LookupError, 'Input image is not a 3d array!'
+        raise LookupError('Input image is not a 3d array!')
 
     # if outputShape is None:
     #
@@ -483,7 +497,7 @@ def rigid_transform_cv2(img, zoom=None, rotation=None, offset=None, outputShape=
     elif len(img.shape) == 3:
         return rigid_transform_cv2_3d(img, zoom=zoom, rotation=rotation, offset=offset, outputShape=outputShape)
     else:
-        raise ValueError, 'Input image is not a 2d or 3d array!'
+        raise ValueError('Input image is not a 2d or 3d array!')
 
 
 def boxcartime_dff(data,
@@ -501,7 +515,7 @@ def boxcartime_dff(data,
     import scipy.signal as sig
 
     if data.ndim != 3:
-        raise LookupError, 'input images must be a 3-dim array format [t,y,x]'
+        raise LookupError('input images must be a 3-dim array format [t,y,x]')
 
     exposure = np.float(fs/1000) #convert exposure from ms to s
     win = np.float(window)
@@ -540,7 +554,7 @@ def normalize_movie(movie,
     if baselinePic is not None:
 
       if movie.shape[1:] != baselinePic.shape:
-          raise LookupError, 'The shape of "baselinePic" should match the shape of the frame shape of "movie"!'
+          raise LookupError('The shape of "baselinePic" should match the shape of the frame shape of "movie"!')
 
       averageImage = baselinePic
 
@@ -551,7 +565,7 @@ def normalize_movie(movie,
         averageImage = np.median(movie, axis = 0)
 
     else:
-        raise LookupError, 'The "baselineType" should be "mean" or "median"!!'
+        raise LookupError('The "baselineType" should be "mean" or "median"!!')
 
     normalizedMovie = np.subtract(movie,averageImage)
     dFoverFMovie = np.divide(normalizedMovie,averageImage)
@@ -566,7 +580,7 @@ def temporal_filter_movie(mov,  # array of movie
                         mode = 'box'): # filter mode, '1/f' or 'box'):
 
     if len(mov.shape) != 3:
-        raise LookupError, 'The "mov" array should have 3 dimensions!'
+        raise LookupError('The "mov" array should have 3 dimensions!')
 
     frameNum = mov.shape[0]
     freqs = np.fft.fftfreq(frameNum, d = (1./float(Fs)))
@@ -584,7 +598,7 @@ def temporal_filter_movie(mov,  # array of movie
         filterArray = (filterArray - np.amin(filterArray)) / (np.amax(filterArray) - np.amin(filterArray))
     elif mode == 'box':
         filterArray[0] = 0
-    else: raise NameError, 'Variable "mode" should be either "1/f" or "box"!'
+    else: raise NameError('Variable "mode" should be either "1/f" or "box"!')
 
     if Flow == 0:
         filterArray[0] = 1
@@ -602,13 +616,13 @@ def temporal_filter_movie(mov,  # array of movie
 
 def generate_rectangle_mask(shape, center, width, height, isplot = False):
 
-    if len(shape) !=2: raise LookupError, 'Shape should be two dimensional.'
+    if len(shape) !=2: raise LookupError('Shape should be two dimensional.')
 
     mask = np.zeros(shape); mask[:] = np.nan
     mask[int(round(center[0]-height/2)):int(round(center[0]+height/2)),int(round(center[1]-width/2)):int(round(center[1]+width/2))] = 1
 
     if np.isnan(np.nansum(mask[:])):
-        raise ArithmeticError, 'No element in mask!'
+        raise ArithmeticError('No element in mask!')
 
     if isplot == True:
         f = plt.figure(); ax = f.add_subplot(111)
@@ -619,7 +633,7 @@ def generate_rectangle_mask(shape, center, width, height, isplot = False):
 
 def generate_oval_mask(shape, center, width, height, isplot = False):
 
-    if len(shape) !=2: raise LookupError, 'Shape should be two dimensional.'
+    if len(shape) !=2: raise LookupError('Shape should be two dimensional.')
 
     mask = np.zeros(shape); mask[:] = np.nan
 
@@ -631,7 +645,7 @@ def generate_oval_mask(shape, center, width, height, isplot = False):
                 mask[i,j]=1
 
     if np.isnan(np.nansum(mask[:])):
-        raise ArithmeticError, 'No element in mask!'
+        raise ArithmeticError('No element in mask!')
 
     if isplot == True:
         f = plt.figure(); ax = f.add_subplot(111)
@@ -652,19 +666,19 @@ def get_trace(movie, mask, maskMode ='binary'):
 
     if maskMode == 'binary':
         if np.where(mask==0)[0].size + np.where(mask==1)[0].size < mask.size:
-            raise ValueError, 'Binary mask should only contain zeros and ones!!'
+            raise ValueError('Binary mask should only contain zeros and ones!!')
         else:
             finalMask = np.array(mask.astype(np.float))
             pixelNum = np.sum(finalMask.flatten())
     elif maskMode == 'binaryNan':
         if np.sum(np.isnan(mask).flatten())+np.where(mask==1)[0].size < mask.size:
-            raise ValueError, 'BinaryNan mask should only contain nans and ones!!'
+            raise ValueError('BinaryNan mask should only contain nans and ones!!')
         else:
             finalMask = np.ones(mask.shape,dtype=np.float)
             finalMask[np.isnan(mask)] = 0
             pixelNum = mask.size - np.sum(np.isnan(mask).flatten())
     elif maskMode == 'weighted':
-        if np.isnan(mask).any(): raise ValueError, 'Weighted mask should not contain nan(s)!!'
+        if np.isnan(mask).any(): raise ValueError('Weighted mask should not contain nan(s)!!')
         else:
             finalMask = np.array(mask.astype(np.float))
             pixelNum = mask.size - np.where(mask==0)[0].size
@@ -673,7 +687,7 @@ def get_trace(movie, mask, maskMode ='binary'):
         finalMask[np.isnan(mask)] = 0
         pixelNum = mask.size - np.where(finalMask==0)[0].size
     else:
-        raise LookupError, 'maskMode not understood. Should be one of "binary", "binaryNan", "weighted", "weightedNan".'
+        raise LookupError('maskMode not understood. Should be one of "binary", "binaryNan", "weighted", "weightedNan".')
 
     trace = np.sum(np.multiply(movie,finalMask),(1,2))/pixelNum
 
@@ -695,23 +709,23 @@ def get_trace_binaryslicer(bl_obj, mask, mask_mode = 'binary'):
     :return: extracted trace
     '''
 
-    if len(bl_obj.shape) != 3: raise ValueError, 'BinarySlicer object should be 3d!'
-    if len(mask.shape) != 2: raise ValueError, 'Mask should be 2d!'
+    if len(bl_obj.shape) != 3: raise ValueError('BinarySlicer object should be 3d!')
+    if len(mask.shape) != 2: raise ValueError('Mask should be 2d!')
     if bl_obj.shape[1] != mask.shape[0] or bl_obj.shape[2] != mask.shape[1]:
-        raise ValueError, 'the size of each frame of the BinarySlicer object should be the same as the size of mask'
+        raise ValueError('the size of each frame of the BinarySlicer object should be the same as the size of mask')
 
     if mask_mode == 'binary':
         if np.where(mask==0)[0].size + np.where(mask==1)[0].size < mask.size:
-            raise ValueError, 'Binary mask should only contain zeros and ones!!'
+            raise ValueError('Binary mask should only contain zeros and ones!!')
         else:
             mask_ind = np.where(mask != 0)
-            # print mask_ind
+            # print(mask_ind)
             min_row = min(mask_ind[0]); max_row = max(mask_ind[0]) + 1
             min_col = min(mask_ind[1]); max_col = max(mask_ind[1]) + 1
             finalMask = np.array(mask.astype(np.float))[min_row:max_row, min_col:max_col]
     elif mask_mode == 'binaryNan':
         if np.sum(np.isnan(mask).flatten())+np.where(mask==1)[0].size < mask.size:
-            raise ValueError, 'BinaryNan mask should only contain nans and ones!!'
+            raise ValueError('BinaryNan mask should only contain nans and ones!!')
         else:
             mask_ind = np.where(mask != np.nan)
             min_row = min(mask_ind[0]); max_row = max(mask_ind[0]) + 1
@@ -720,7 +734,7 @@ def get_trace_binaryslicer(bl_obj, mask, mask_mode = 'binary'):
             finalMask[np.isnan(mask)] = 0
             finalMask = finalMask[min_row:max_row, min_col:max_col]
     elif mask_mode == 'weighted':
-        if np.isnan(mask).any(): raise ValueError, 'Weighted mask should not contain nan(s)!!'
+        if np.isnan(mask).any(): raise ValueError('Weighted mask should not contain nan(s)!!')
         else:
             mask_ind = np.where(mask != 0)
             min_row = min(mask_ind[0]); max_row = max(mask_ind[0]) + 1
@@ -735,7 +749,7 @@ def get_trace_binaryslicer(bl_obj, mask, mask_mode = 'binary'):
         finalMask = finalMask[min_row:max_row, min_col:max_col]
 
     mov = bl_obj[:,min_row:max_row, min_col:max_col]
-    # print mov
+    # print(mov)
     return get_trace(mov, finalMask, maskMode='weighted')
 
 
@@ -757,29 +771,29 @@ def get_trace_binaryslicer2(bl_obj, mask, mask_mode = 'binary', loading_frame_nu
     :return: extracted trace
     '''
 
-    if loading_frame_num <= 1: raise ValueError, 'loading_frame_num should be a integer larger than 1!'
-    if len(bl_obj.shape) != 3: raise ValueError, 'BinarySlicer object should be 3d!'
-    if len(mask.shape) != 2: raise ValueError, 'Mask should be 2d!'
+    if loading_frame_num <= 1: raise ValueError('loading_frame_num should be a integer larger than 1!')
+    if len(bl_obj.shape) != 3: raise ValueError('BinarySlicer object should be 3d!')
+    if len(mask.shape) != 2: raise ValueError('Mask should be 2d!')
     if bl_obj.shape[1] != mask.shape[0] or bl_obj.shape[2] != mask.shape[1]:
-        raise ValueError, 'the size of each frame of the BinarySlicer object should be the same as the size of mask'
+        raise ValueError('the size of each frame of the BinarySlicer object should be the same as the size of mask')
 
     frameNum = bl_obj.shape[0]
 
-    print '\nInput movie shape:', bl_obj.shape
+    print('\nInput movie shape:', bl_obj.shape)
 
     chunkNum = frameNum // loading_frame_num
     if frameNum % loading_frame_num == 0:
-        print 'Translating in chunks: '+ str(chunkNum)+' x '+str(loading_frame_num)+' frame(s)'
+        print('Translating in chunks: '+ str(chunkNum)+' x '+str(loading_frame_num)+' frame(s)')
     else:
         chunkNum += 1
-        print 'Translating in chunks: '+str(chunkNum-1)+' x '+str(loading_frame_num)+' frame(s)'+' + '+str(frameNum % loading_frame_num)+' frame(s)'
+        print('Translating in chunks: '+str(chunkNum-1)+' x '+str(loading_frame_num)+' frame(s)'+' + '+str(frameNum % loading_frame_num)+' frame(s)')
 
     traces = []
     for i in range(chunkNum):
         indStart = i*loading_frame_num
         indEnd = (i+1)*loading_frame_num
         if indEnd > frameNum: indEnd = frameNum
-        print 'Extracting signal from frame '+str(indStart)+' to frame '+str(indEnd)+'.\t'+str(i*100./chunkNum)+'%'
+        print('Extracting signal from frame '+str(indStart)+' to frame '+str(indEnd)+'.\t'+str(i*100./chunkNum)+'%')
         currMov = bl_obj[indStart:indEnd,:,:]
         traces.append(get_trace(currMov, mask, maskMode=mask_mode))
 
@@ -804,20 +818,20 @@ def get_trace_binaryslicer3(bl_obj, masks, mask_mode = 'binary', loading_frame_n
     :return: extracted trace
     '''
 
-    if loading_frame_num <= 1: raise ValueError, 'loading_frame_num should be a integer larger than 1!'
-    if len(bl_obj.shape) != 3: raise ValueError, 'BinarySlicer object should be 3d!'
+    if loading_frame_num <= 1: raise ValueError('loading_frame_num should be a integer larger than 1!')
+    if len(bl_obj.shape) != 3: raise ValueError('BinarySlicer object should be 3d!')
 
 
     frameNum = bl_obj.shape[0]
 
-    print '\nInput movie shape:', bl_obj.shape
+    print('\nInput movie shape:', bl_obj.shape)
 
     chunkNum = frameNum // loading_frame_num
     if frameNum % loading_frame_num == 0:
-        print 'Translating in chunks: '+ str(chunkNum)+' x '+str(loading_frame_num)+' frame(s)'
+        print('Translating in chunks: '+ str(chunkNum)+' x '+str(loading_frame_num)+' frame(s)')
     else:
         chunkNum += 1
-        print 'Translating in chunks: '+str(chunkNum-1)+' x '+str(loading_frame_num)+' frame(s)'+' + '+str(frameNum % loading_frame_num)+' frame(s)'
+        print('Translating in chunks: '+str(chunkNum-1)+' x '+str(loading_frame_num)+' frame(s)'+' + '+str(frameNum % loading_frame_num)+' frame(s)')
 
     traces = {}
     for key in masks.iterkeys(): traces.update({'trace_'+key:[]})
@@ -826,12 +840,12 @@ def get_trace_binaryslicer3(bl_obj, masks, mask_mode = 'binary', loading_frame_n
         indStart = i*loading_frame_num
         indEnd = (i+1)*loading_frame_num
         if indEnd > frameNum: indEnd = frameNum
-        print 'Extracting signal from frame '+str(indStart)+' to frame '+str(indEnd)+'.\t'+str(i*100./chunkNum)+'%'
+        print('Extracting signal from frame '+str(indStart)+' to frame '+str(indEnd)+'.\t'+str(i*100./chunkNum)+'%')
         currMov = bl_obj[indStart:indEnd,:,:]
         for key, mask in masks.iteritems():
-            if len(mask.shape) != 2: raise ValueError, 'Mask "' + key + '" should be 2d!'
+            if len(mask.shape) != 2: raise ValueError('Mask "' + key + '" should be 2d!')
             if bl_obj.shape[1] != mask.shape[0] or bl_obj.shape[2] != mask.shape[1]:
-                raise ValueError, 'the size of each frame of the BinarySlicer object should be the same as the size of mask "' + key + '"!'
+                raise ValueError('the size of each frame of the BinarySlicer object should be the same as the size of mask "' + key + '"!')
             traces['trace_'+key].append(get_trace(currMov, mask, maskMode=mask_mode))
 
     for key in traces.iterkeys():
@@ -865,10 +879,10 @@ def harmonic_amplitude(f,  # function value
     '''
 
     if (type(period) != int) | (period <= 0):
-        raise ArithmeticError, '"period" should be a positive integer!'
+        raise ArithmeticError('"period" should be a positive integer!')
 
     if (type(n) != int) | (n < 0):
-        raise ArithmeticError, '"n" should be a non-negative positive integer!'
+        raise ArithmeticError('"n" should be a non-negative positive integer!')
 
     L = len(f)
     x = np.arange(L)
@@ -952,8 +966,8 @@ def remove_small_patches(mask, areaThr=100, structure=([1, 1, 1], [1, 1, 1], [1,
 
     if mask.dtype == np.bool:pass
     elif issubclass(mask.dtype.type, np.integer):
-        if np.amin(mask)<0 or np.amax(mask)>1:raise ValueError, 'Values of input image should be either 0 or 1.'
-    else: raise TypeError, 'Data type of input image should be either np.bool or integer.'
+        if np.amin(mask)<0 or np.amax(mask)>1:raise ValueError('Values of input image should be either 0 or 1.')
+    else: raise TypeError('Data type of input image should be either np.bool or integer.')
 
     patches, n = ni.label(mask,structure)
     newMask = np.zeros(mask.shape,dtype=np.uint8)
@@ -1046,7 +1060,7 @@ def z_downsample(img, downSampleRate, is_verbose=True):
     '''
 
     if len(img.shape) != 3:
-        raise ValueError, 'Input array shoud be 3D!'
+        raise ValueError('Input array shoud be 3D!')
 
 
     newFrameNum = img.shape[0] //downSampleRate
@@ -1144,7 +1158,7 @@ def sort_masks(masks, keyPrefix=None, labelLength=3):
 #     down sample a 3-d array in 0 direction
 #     '''
 #
-#     if len(A.shape) != 3: raise ValueError, 'input array should be 3-d.'
+#     if len(A.shape) != 3: raise ValueError('input array should be 3-d.')
 #     rate = int(rate)
 #     dataType = A.dtype
 #     newZDepth = (A.shape[0] - (A.shape[0]%rate))/rate
@@ -1172,9 +1186,9 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur, isReturnN=False):
 
     chunkFrameDur = int(np.ceil(chunkDur / meanFrameDur))
 
-    # print 'chunkDur:', chunkDur
-    # print 'meanFrameDur:', meanFrameDur
-    # print 'chunkFrameDur:', chunkFrameDur
+    # print('chunkDur:', chunkDur)
+    # print('meanFrameDur:', meanFrameDur)
+    # print('chunkFrameDur:', chunkFrameDur)
 
     sumMov = None
     n = 0.
@@ -1187,20 +1201,20 @@ def get_average_movie(mov, frameTS, onsetTimes, chunkDur, isReturnN=False):
         if onset >= frameTS[0] and onset + chunkDur <= frameTS[-1]:
 
             if i // (onset_num // 10) > curr_onset:
-                # print t0 - time.time(), ' second :', (i // (onset_num // 10)) * 10, '%'
+                # print(t0 - time.time(), ' second :', (i // (onset_num // 10)) * 10, '%')
                 print('{:09.2f} second: {:2d} %'.format(time.time() - t0, (i // (onset_num // 10)) * 10))
                 curr_onset = i // (onset_num // 10)
 
             onsetFrameInd = np.argmin(np.abs(frameTS-onset))
-            # print 'Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
+            # print('Chunk:',int(n),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur)
 
             if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
                 if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]), dtype=np.float64)
                 sumMov += mov[onsetFrameInd:onsetFrameInd+chunkFrameDur,:,:].astype(np.float64)
                 n += 1.
             else:
-                print 'Ending frame index ('+str(int(onsetFrameInd+chunkFrameDur))+') is larger than frames in movie ('+\
-                      str(int(mov.shape[0]))+'.\nExclude this trigger.'
+                print('Ending frame index ('+str(int(onsetFrameInd+chunkFrameDur))+') is larger than frames in movie (' +
+                      str(int(mov.shape[0]))+'.\nExclude this trigger.')
                 continue
 
     if isReturnN:
@@ -1222,9 +1236,9 @@ def get_average_movie2(mov, frameTS, onsetTimes, chunkDur, verbose=True):
 
     chunkFrameDur = int(np.ceil(chunkDur / meanFrameDur))
 
-    # print 'chunkDur:', chunkDur
-    # print 'meanFrameDur:', meanFrameDur
-    # print 'chunkFrameDur:', chunkFrameDur
+    # print('chunkDur:', chunkDur)
+    # print('meanFrameDur:', meanFrameDur)
+    # print('chunkFrameDur:', chunkFrameDur)
 
     sumMov = None
     real_count = 0
@@ -1241,12 +1255,12 @@ def get_average_movie2(mov, frameTS, onsetTimes, chunkDur, verbose=True):
 
         if onset < frameTS[0]:  # the onset is before imaging start time. Exclude this onset.
             continue
-            # print 'onset number:', count, 'is before imaging start time. Exclude this onset.'
+            # print('onset number:', count, 'is before imaging start time. Exclude this onset.')
 
         else:
             onsetFrameInd = np.argmin(np.abs(frameTS-onset))
             # if verbose:
-            #     print 'Chunk:',int(count),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur
+            #     print('Chunk:',int(count),'; Starting frame index:',onsetFrameInd,'; Ending frame index', onsetFrameInd+chunkFrameDur)
 
             if onsetFrameInd+chunkFrameDur <= mov.shape[0]:
                 if sumMov is None: sumMov = np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]))
@@ -1254,15 +1268,15 @@ def get_average_movie2(mov, frameTS, onsetTimes, chunkDur, verbose=True):
                 real_count += 1.
             else:  # the chunk exceeds the end of imaging.
                 continue
-                # print 'the chunk of onset number', count, 'exceeds the end of imaging. Exclude this onset.'
+                # print('the chunk of onset number', count, 'exceeds the end of imaging. Exclude this onset.')
 
 
     if sumMov is None:
-        print '\nNo valid chunk found!'
+        print('\nNo valid chunk found!')
         return np.zeros((chunkFrameDur,mov.shape[1],mov.shape[2]), dtype=np.float32), 0
     else:
         if verbose:
-            print '\n' + str(int(real_count)) + ' valid chunks found.'
+            print('\n' + str(int(real_count)) + ' valid chunks found.')
         return sumMov.astype(np.float32) / real_count, int(real_count)
 
 
@@ -1308,10 +1322,10 @@ def merge_weighted_rois(roi1, roi2):
     merge two WeightedROI objects, most useful for merge ON and OFF subfields
     """
     if (roi1.pixelSizeX != roi2.pixelSizeX) or (roi1.pixelSizeY != roi2.pixelSizeY):
-        raise ValueError, 'The pixel sizes of the two WeightedROI objects should match!'
+        raise ValueError('The pixel sizes of the two WeightedROI objects should match!')
 
     if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
-        raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
+        raise ValueError('The pixel size units of the two WeightedROI objects should match!')
 
     mask1 = roi1.get_weighted_mask()
     mask2 = roi2.get_weighted_mask()
@@ -1324,10 +1338,10 @@ def merge_binary_rois(roi1, roi2):
     merge two ROI objects, most useful for merge ON and OFF subfields
     """
     if (roi1.pixelSizeX != roi2.pixelSizeX) or (roi1.pixelSizeY != roi2.pixelSizeY):
-        raise ValueError, 'The pixel sizes of the two WeightedROI objects should match!'
+        raise ValueError('The pixel sizes of the two WeightedROI objects should match!')
 
     if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
-        raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
+        raise ValueError('The pixel size units of the two WeightedROI objects should match!')
 
     mask1 = roi1.get_binary_mask()
     mask2 = roi2.get_binary_mask()
@@ -1455,7 +1469,7 @@ def get_circularity(mask, is_skimage=True):
     labeled, roi_num = ni.label(msk)
 
     if roi_num > 1: # found more than one labeled regions
-        # raise ValueError('input mask should have only one continuous region labeled. {} found.'.format(roi_num))
+        # raise(ValueError('input mask should have only one continuous region labeled. {} found.'.format(roi_num)))
         print('input mask has {} (> 1) continuous regions labeled. only analyze the first one'.format(roi_num))
 
         msk[:] = 0
@@ -1523,7 +1537,7 @@ class ROI(object):
         :param pixelSizeUnit: str, the unit of pixel size
         '''
 
-        if len(mask.shape)!=2: raise ValueError, 'Input mask should be 2d.'
+        if len(mask.shape)!=2: raise ValueError('Input mask should be 2d.')
 
         self.dimension = mask.shape
         self.pixels = np.where(np.logical_and(mask!=0, ~np.isnan(mask)))
@@ -1531,7 +1545,7 @@ class ROI(object):
         if pixelSize is None: self.pixelSizeX = self.pixelSizeY = pixelSize
         elif (not hasattr(pixelSize, '__len__')): self.pixelSizeX = self.pixelSizeY = pixelSize
         elif len(pixelSize)==2: self.pixelSizeY = pixelSize[0]; self.pixelSizeX = pixelSize[1]
-        else: raise LookupError, 'pixel size should be either None or scalar or list(array) of two sclars!!'
+        else: raise LookupError('pixel size should be either None or scalar or list(array) of two sclars!!')
 
         if self.pixelSizeY is None: self.pixelSizeUnit=None
         else: self.pixelSizeUnit = pixelSizeUnit
@@ -1543,11 +1557,11 @@ class ROI(object):
         if pixelSize is None: self.pixelSizeX = self.pixelSizeY = pixelSize
         elif (not hasattr(pixelSize, '__len__')): self.pixelSizeX = self.pixelSizeY = pixelSize
         elif len(pixelSize)==2: self.pixelSizeY = pixelSize[0]; self.pixelSizeX = pixelSize[1]
-        else: raise LookupError, 'pixel size should be either None or scalar or list(array) of two sclars!!'
+        else: raise LookupError('pixel size should be either None or scalar or list(array) of two sclars!!')
 
     def set_pixel_size_unit(self, pixelSizeUnit):
         if self.pixelSizeY is None or self.pixelSizeX is None:
-            print 'ROI pixel size is None. Setting pixel size unit to None'
+            print('ROI pixel size is None. Setting pixel size unit to None')
             self.pixelSizeUnit=None
         else: self.pixelSizeUnit = pixelSizeUnit
 
@@ -1600,10 +1614,10 @@ class ROI(object):
         '''
 
         if (self.pixelSizeX is not None) and (self.pixelSizeX is not None):
-            print 'returning area with unit:' + self.pixelSizeUnit + '^2'
+            print('returning area with unit:' + self.pixelSizeUnit + '^2')
             return float(len(self.pixels[0]))*self.pixelSizeX*self.pixelSizeY
         else:
-            print 'returning area as pixel counts without unit.'
+            print('returning area as pixel counts without unit.')
             return len(self.pixels[0])
 
     def get_binary_area(self):
@@ -1624,7 +1638,7 @@ class ROI(object):
         '''
         binaryMask = self.get_binary_mask().astype(np.float32)
         trace = np.multiply(mov, np.array([binaryMask])).sum(axis=1).sum(axis=1)
-        # print trace
+        # print(trace)
         return trace / self.get_binary_area()
 
     def get_binary_trace_pixelwise(self, mov):
@@ -1637,7 +1651,7 @@ class ROI(object):
         for pixel in pixels:
             # trace += mov[:, pixel[0], pixel[1]]  # somehow this is less precise !! do not use
             trace = trace + mov[:, int(pixel[0]), int(pixel[1])].flatten().astype(np.float32)
-        # print trace
+        # print(trace)
         return trace / self.get_binary_area()
 
     def plot_binary_mask(self, plotAxis=None, color='#ff0000', alpha=1):
@@ -1787,7 +1801,7 @@ class WeightedROI(ROI):
         '''
         weightedMask = self.get_weighted_mask()
         trace = np.multiply(mov, np.array([weightedMask])).sum(axis=-1).sum(axis=-1)
-        # print trace
+        # print(trace)
         if is_area_weighted:
             return trace / self.get_binary_area()
         elif not is_area_weighted:
@@ -1807,7 +1821,7 @@ class WeightedROI(ROI):
         for i, pixel in enumerate(pixels):
             # trace += mov[:, pixel[0], pixel[1]]  # somehow this is less precise !! do not use
             trace = trace + self.weights[i] * (mov[:, pixel[0], pixel[1]]).astype(np.float32)
-        # print trace
+        # print(trace)
         if not is_area_weighted:
             return trace / self.get_binary_area()
         elif is_area_weighted:
@@ -2033,10 +2047,10 @@ if __name__ == '__main__':
 
     #============================================================
     a=np.array(range(15)+range(10)[::-1]).reshape((5,5))
-    print a
+    print(a)
     labeled,_ = ni.label(a>7)
     peakCoor = np.array(np.where(a==np.amax(a))).transpose()[0]
-    print peakCoor
+    print(peakCoor)
     peakMask = get_marked_masks(labeled,peakCoor)
     plt.imshow(peakMask,interpolation='nearest')
     plt.show()
@@ -2044,7 +2058,7 @@ if __name__ == '__main__':
 
     #============================================================
     # mov = np.arange(64).reshape((4,4,4))
-    # print mov
+    # print(mov)
     #
     # mask1 = np.zeros((4,4)); mask1[2,2]=1; mask1[1,1]=1
     # trace1 = get_trace(mov,mask1,maskMode='binary')
@@ -2073,7 +2087,7 @@ if __name__ == '__main__':
     #
     # masks = {'mask1':mask1, 'mask2':mask2}
     # traces = get_trace_binaryslicer3(bl_obj,masks,mask_mode='binary',loading_frame_num=2)
-    # print traces
+    # print(traces)
     # assert(traces['trace_mask1'][2] == 39.5)
     # assert(traces['trace_mask2'][3] == 60.5)
     #============================================================
@@ -2083,13 +2097,13 @@ if __name__ == '__main__':
     # roi1 = np.zeros((10, 10))
     # roi1[4:8, 3:7] = 1
     # roi1 = ROI(roi1)
-    # print roi1.get_pixel_array()
-    # print roi1.get_pixel_list()
-    # print roi1.get_pixel_tuple()
+    # print(roi1.get_pixel_array())
+    # print(roi1.get_pixel_list())
+    # print(roi1.get_pixel_tuple())
     # roi2 = np.zeros((10, 10))
     # roi2[5:9, 5:8] = 1
     # roi2 = ROI(roi2)
-    # print roi1.binary_overlap(roi2)
+    # print(roi1.binary_overlap(roi2))
     # ============================================================
 
     # ============================================================
@@ -2097,14 +2111,14 @@ if __name__ == '__main__':
     # trend = np.zeros((100,))
     # trend[5] = 1
     # detrended, slope, r = regression_detrend_1d(sig, trend)
-    # print detrended
-    # print slope
-    # print r
+    # print(detrended)
+    # print(slope)
+    # print(r)
     # ============================================================
 
     # ============================================================
     mov = np.arange(27).reshape((3,3,3)).astype(np.float)
-    print mov
+    print(mov)
     mask1 = np.array([[0.,0.,0.],[0.,3.,0.],[0.,0.,0.]])
     roi1 = WeightedROI(mask1)
     mask2 = np.array([[1,1,1],[1,0,1],[1,1,0]])
@@ -2114,8 +2128,8 @@ if __name__ == '__main__':
 
 
 
-    print trace1
-    print trace2
+    print(trace1)
+    print(trace2)
 
 
-    print 'for debug'
+    print('for debug')

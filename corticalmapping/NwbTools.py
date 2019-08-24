@@ -1057,7 +1057,7 @@ class RecordedFile(NWB):
             timestamps = orig['timestamps'].value
             # print(timestamps.shape)
 
-            img_file = h5py.File(mov_dict['corrected_file_path'])
+            img_file = h5py.File(mov_dict['corrected_file_path'], 'r')
             img_data = img_file[mov_dict['corrected_dataset_path']]
             # print(img_data.shape)
             if timestamps.shape[0] != img_data.shape[0]:

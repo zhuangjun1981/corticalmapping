@@ -14,14 +14,20 @@ import colorsys
 import matplotlib.colors as col
 import scipy.ndimage as ni
 
-import tifffile as tf
-import ImageAnalysis as ia
-import TimingAnalysis as ta
+try:
+    import tifffile as tf
+except ImportError:
+    import skimage.external.tifffile as tf
+
+try:
+    import ImageAnalysis as ia
+except (AttributeError, ImportError):
+    from . import ImageAnalysis as ia
 
 try:
     import cv2
 except ImportError as e:
-    print 'can not import OpenCV. ' + str(e)
+    print('can not import OpenCV. ' + str(e))
 
 
 def get_rgb(colorStr):
@@ -36,10 +42,10 @@ def get_color_str(R, G, B):
     get hex color string from R,G,B value (integer with uint8 format)
     """
     if not (isinstance(R, (int, long)) and isinstance(G, (int, long)) and isinstance(G, (int, long))):
-        raise TypeError, 'Input R, G and B should be integer!'
+        raise TypeError('Input R, G and B should be integer!')
 
     if not ((0 <= R <= 255) and (0 <= G <= 255) and (
-            0 <= B <= 255)): raise ValueError, 'Input R, G and B should between 0 and 255!'
+            0 <= B <= 255)): raise ValueError('Input R, G and B should between 0 and 255!')
     return '#' + ''.join(map(chr, (R, G, B))).encode('hex')
 
 
@@ -57,19 +63,19 @@ def binary_2_rgba(img, foregroundColor='#ff0000', backgroundColor='#000000', for
     if img.dtype == np.bool:
         pass
     elif issubclass(img.dtype.type, np.integer):
-        if np.amin(img) < 0 or np.amax(img) > 1: raise ValueError, 'Values of input image should be either 0 or 1.'
+        if np.amin(img) < 0 or np.amax(img) > 1: raise ValueError('Values of input image should be either 0 or 1.')
     else:
-        raise TypeError, 'Data type of input image should be either np.bool or integer.'
+        raise TypeError('Data type of input image should be either np.bool or integer.')
 
     if type(foregroundAlpha) is int:
-        if foregroundAlpha < 0 or foregroundAlpha > 255: raise ValueError, 'Value of foreGroundAlpha should be between 0 and 255.'
+        if foregroundAlpha < 0 or foregroundAlpha > 255: raise ValueError('Value of foreGroundAlpha should be between 0 and 255.')
     else:
-        raise TypeError, 'Data type of foreGroundAlpha should be integer.'
+        raise TypeError('Data type of foreGroundAlpha should be integer.')
 
     if type(backgroundAlpha) is int:
-        if backgroundAlpha < 0 or backgroundAlpha > 255: raise ValueError, 'Value of backGroundAlpha should be between 0 and 255.'
+        if backgroundAlpha < 0 or backgroundAlpha > 255: raise ValueError('Value of backGroundAlpha should be between 0 and 255.')
     else:
-        raise TypeError, 'Data type of backGroundAlpha should be integer.'
+        raise TypeError('Data type of backGroundAlpha should be integer.')
 
     fR, fG, fB = get_rgb(foregroundColor)
     bR, bG, bB = get_rgb(backgroundColor)
@@ -139,6 +145,8 @@ def bar_graph(left,
         else:
             raise (ValueError, '"errorDir" should be one of the following: "both", "positive" of "negative".')
 
+
+
         plotAxis.errorbar(left + width / 2,
                           height,
                           yerr=yerr,
@@ -153,7 +161,8 @@ def bar_graph(left,
                  color=faceColor,
                  edgecolor=edgeColor,
                  lw=lw,
-                 label=label)
+                 label=label,
+                 align='edge')
 
     return plotAxis
 
@@ -212,7 +221,7 @@ def show_movie(path,  # tif file path or numpy arrary of the movie
         elif mode == 'dFoverF':
             mov = dFoverFMov
         else:
-            raise LookupError, 'The "mode" should be "raw", "dF" or "dFoverF"!'
+            raise LookupError('The "mode" should be "raw", "dF" or "dFoverF"!')
 
     if isinstance(path, str):
         tf.imshow(mov,
@@ -257,10 +266,10 @@ def alpha_blending(image, alphaData, vmin, vmax, cmap='Paired', sectionNum=10, b
     """
 
     if image.shape != alphaData.shape:
-        raise LookupError, '"image" and "alphaData" should have same shape!!'
+        raise LookupError('"image" and "alphaData" should have same shape!!')
 
     if np.amin(alphaData) < 0:
-        raise ValueError, 'All the elements in alphaData should be bigger than zero.'
+        raise ValueError('All the elements in alphaData should be bigger than zero.')
 
     # normalize image
     image[image > vmax] = vmax
@@ -491,9 +500,9 @@ def grid_axis2(nrows, ncols, fig=None, fig_kw=None, gridspec_kw=None, share_leve
 
 def tile_axis(f, rowNum, columnNum, topDownMargin=0.05, leftRightMargin=0.01, rowSpacing=0.01, columnSpacing=0.01):
     if 2 * topDownMargin + (
-        (rowNum - 1) * rowSpacing) >= 1: raise ValueError, 'Top down margin or row spacing are too big!'
+        (rowNum - 1) * rowSpacing) >= 1: raise ValueError('Top down margin or row spacing are too big!')
     if 2 * leftRightMargin + (
-        (columnNum - 1) * columnSpacing) >= 1: raise ValueError, 'Left right margin or column spacing are too big!'
+        (columnNum - 1) * columnSpacing) >= 1: raise ValueError('Left right margin or column spacing are too big!')
 
     height = (1 - (2 * topDownMargin) - (rowNum - 1) * rowSpacing) / rowNum
     width = (1 - (2 * leftRightMargin) - (columnNum - 1) * columnSpacing) / columnNum
@@ -653,7 +662,7 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
     :return: fig
     """
 
-    # print 'in plotting tools.'
+    # print('in plotting tools.')
 
     if fig is None:
         fig = plt.figure(figsize=(8, 6))
@@ -662,14 +671,14 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
     t_step = np.mean(np.diff(channel_ts))
 
     ind_range = [int(t_range[0] / t_step), int(t_range[1] / t_step)]
-    # print 'ind_range:', ind_range
+    # print('ind_range:', ind_range)
 
     if t_range[0] < 0:
         base_point_num = -int(t_range[0] / t_step)
     else:
         base_point_num = ind_range[1] - ind_range[0]
 
-    # print 'getting spike indices ...'
+    # print('getting spike indices ...')
     unit_inds = np.round((unit_ts - channel_ts[0]) / t_step).astype(np.int64)
     unit_inds = np.array([ind for ind in unit_inds if (ind + ind_range[0]) >= 0 and
                           (ind + ind_range[1]) < len(channel_ts)])
@@ -677,11 +686,11 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
     # axis direction: (channel, spike, time)
     traces = np.zeros((ch_num, len(unit_inds), ind_range[1] - ind_range[0]), dtype=np.float32)
 
-    # print 'traces shape:', traces.shape
+    # print('traces shape:', traces.shape)
 
-    # print 'filling traces ...'
+    # print('filling traces ...')
     for i, ch in enumerate(channels):
-        # print 'current channel:', i
+        # print('current channel:', i)
         for j, unit_ind in enumerate(unit_inds):
             curr_trace = ch[unit_ind + ind_range[0]: unit_ind + ind_range[1]]
             traces[i, j, :] = curr_trace - np.mean(curr_trace[0:base_point_num])
@@ -690,8 +699,8 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
     traces_max = np.amax(traces)
     mean_traces = np.mean(traces, axis=1)
 
-    # print traces_min
-    # print traces_max
+    # print(traces_min)
+    # print(traces_max)
 
     t_axis = t_range[0] + np.arange(traces.shape[2], dtype=np.float32) * t_step
     for k in range(traces.shape[0]):
@@ -1010,4 +1019,4 @@ if __name__ == '__main__':
     # plt.show()
     # ----------------------------------------------------
 
-    print 'for debug'
+    print('for debug')
