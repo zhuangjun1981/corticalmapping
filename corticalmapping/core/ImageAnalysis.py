@@ -1608,16 +1608,18 @@ class ROI(object):
         mask[self.pixels] = 1
         return mask
 
-    def get_pixel_area(self):
+    def get_pixel_area(self, verbose=False):
         '''
         return the area coverage of the ROI
         '''
 
         if (self.pixelSizeX is not None) and (self.pixelSizeX is not None):
-            print('returning area with unit:' + self.pixelSizeUnit + '^2')
+            if verbose:
+                print('returning area with unit:' + self.pixelSizeUnit + '^2')
             return float(len(self.pixels[0]))*self.pixelSizeX*self.pixelSizeY
         else:
-            print('returning area as pixel counts without unit.')
+            print('Did not find information about pixel size. '
+                  'Returning area as pixel counts without unit.')
             return len(self.pixels[0])
 
     def get_binary_area(self):
