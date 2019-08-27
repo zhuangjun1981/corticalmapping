@@ -101,7 +101,7 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
     n = len(ts1s)
 
     if n == 0:
-        print 'no overlapping time range (defined as ' + str(t_range) + ' between two input timestamp arrays'
+        print('no overlapping time range (defined as ' + str(t_range) + ' between two input timestamp arrays')
         # return None
     else:
         ts2_start_ind = 0
@@ -129,7 +129,7 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
         ax = f.add_subplot(111)
         ax.bar([a[0] for a in intervals], values, bin_width * 0.9)
 
-    return t, values.astype(np.float64)
+    return t, values.astype(np.float32)
 
 
 def find_nearest(trace, value, direction=0):
@@ -258,7 +258,7 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
     freq_axis: frequency for each row (from low to high)
     '''
 
-    if len(trace.shape) != 1: raise ValueError, 'Input trace should be 1d array!'
+    if len(trace.shape) != 1: raise ValueError('Input trace should be 1d array!')
 
     total_length = len(trace) / float(fs)
 
@@ -267,8 +267,12 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
     freq_bin_width = (freq_range[1] - freq_range[0]) / freq_bins
     freq_axis = np.arange(freq_bins, dtype=np.float32) * freq_bin_width + freq_range[0]
 
-    if sliding_step_length is None: sliding_step_length = sliding_window_length
-    if sliding_step_length > sliding_window_length: print "Step length larger than window length, not using all data points!"
+    if sliding_step_length is None:
+        sliding_step_length = sliding_window_length
+
+    if sliding_step_length > sliding_window_length:
+        print("Step length larger than window length, not using all data points!")
+
     times = np.arange(0., total_length, sliding_step_length)
     times = times[(times + sliding_window_length) < total_length]
 
@@ -291,8 +295,8 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
         fig = ax.imshow(spectrum, interpolation='nearest', **kwargs)
         ax.set_xlabel('times (sec)')
         ax.set_ylabel('frequency (Hz)')
-        ax.set_xticks(range(len(times))[::(len(times)//10)])
-        ax.set_yticks(range(len(freq_axis))[::(len(freq_axis)//10)])
+        ax.set_xticks(list(range(len(times)))[::(len(times)//10)])
+        ax.set_yticks(list(range(len(freq_axis)))[::(len(freq_axis)//10)])
         ax.set_xticklabels(times[::(len(times)//10)])
         ax.set_yticklabels(freq_axis[::(len(freq_axis)//10)])
         ax.invert_yaxis()
@@ -640,7 +644,7 @@ def event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_ran
     eta = np.zeros(t.shape, dtype=np.float32)
     eta[:] = np.nan
 
-    print '\nStart calculating event triggered average ...'
+    print('\nStart calculating event triggered average ...')
     percentage = None
 
     for ind_eve, eve in enumerate(ts_event):
@@ -648,7 +652,7 @@ def event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_ran
         # for display
         curr_percentage =  int((float(ind_eve) * 100. / float(len(ts_event))) // 10) * 10
         if curr_percentage != percentage:
-            print 'progress: ' + str(curr_percentage) + '%'
+            print('progress: ' + str(curr_percentage) + '%')
             # print eve, ':', ts_continuous[-1]
             percentage = curr_percentage
 
