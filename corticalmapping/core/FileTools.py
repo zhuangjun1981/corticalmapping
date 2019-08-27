@@ -32,13 +32,13 @@ def is_integer(var):
 
 def saveFile(path,data):
     f = open(path,'wb')
-    pickle.dump(data, f)
+    pickle.dump(data, f, protocol=2)
     f.close()
 
 
 def loadFile(path):
     f = open(path,'rb')
-    data = pickle.load(f)
+    data = pickle.load(f, encoding='bytes')
     f.close()
     return data
 
@@ -277,7 +277,7 @@ def importRawNewJPhys(path,
     if len(JPhysFile) % channelNum != 0:
         raise ArithmeticError('Length of the file should be divisible by channel number!')
 
-    JPhysFile = JPhysFile.reshape([channelLength, channelNum])
+    JPhysFile = JPhysFile.reshape([int(channelLength), int(channelNum)])
 
     headerMatrix = JPhysFile[0:headerLength,:]
     bodyMatrix = JPhysFile[headerLength:,:]
@@ -346,7 +346,7 @@ def importRawJPhys2(path,
     # first time of visual stimulation
     visualStart = None
 
-    for i in xrange(80,len(photodiode)):
+    for i in range(80,len(photodiode)):
         if ((photodiode[i] - photodiodeThr) * (photodiode[i-1] - photodiodeThr)) < 0 and \
            ((photodiode[i] - photodiodeThr) * (photodiode[i-75] - photodiodeThr)) < 0: #first frame of big change
                 visualStart = i*(1./sf)
@@ -413,7 +413,7 @@ def importRawNewJPhys2(path,
     # first time of visual stimulation
     visualStart = None
 
-    for i in xrange(80,len(photodiode)):
+    for i in range(80,len(photodiode)):
         if ((photodiode[i] - photodiodeThr) * (photodiode[i-1] - photodiodeThr)) < 0 and \
            ((photodiode[i] - photodiodeThr) * (photodiode[i-75] - photodiodeThr)) < 0: #first frame of big change
                 visualStart = i*(1./sf)
@@ -618,7 +618,7 @@ def update_key(group, dataset_name, dataset_data, is_overwrite=True):
     :param is_overwrite: bool, if True, automatically overwrite
                                if False, ask for manual confirmation for overwriting.
     '''
-    if dataset_name not in group.keys():
+    if dataset_name not in list(group.keys()):
         group.create_dataset(dataset_name, data=dataset_data)
     else:
         if is_overwrite:
@@ -628,7 +628,7 @@ def update_key(group, dataset_name, dataset_data, is_overwrite=True):
         else:
             check = ''
             while check != 'y' and check != 'n':
-                check = raw_input(dataset_name + ' already exists in group ' + str(group) + '. Overwrite? (y/n)\n')
+                check = input(dataset_name + ' already exists in group ' + str(group) + '. Overwrite? (y/n)\n')
                 if check == 'y':
                     del group[dataset_name]
                     group.create_dataset(dataset_name, data=dataset_data)
@@ -662,7 +662,7 @@ def write_dictionary_to_h5group_recursively(target, source, is_overwrite=True):
         else:
             check = ''
             while check != 'y' and check != 'n':
-                check = raw_input(name + ' already exists in group ' + str(parent) + '. Overwrite? (y/n)\n')
+                check = input(name + ' already exists in group ' + str(parent) + '. Overwrite? (y/n)\n')
                 if check == 'y':
                     del parent[name]
                     curr_group = parent.create_group(name)
@@ -671,8 +671,8 @@ def write_dictionary_to_h5group_recursively(target, source, is_overwrite=True):
                     pass
 
     elif isinstance(target, h5py.Group):
-        for key, value in source.items():
-            if key not in target.keys():
+        for key, value in list(source.items()):
+            if key not in list(target.keys()):
                 if isinstance(value, dict):
                     curr_group = target.create_group(key)
                     write_dictionary_to_h5group_recursively(curr_group, value, is_overwrite=is_overwrite)

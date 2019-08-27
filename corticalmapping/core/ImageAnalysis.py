@@ -587,7 +587,7 @@ def temporal_filter_movie(mov,  # array of movie
 
     filterArray = np.ones(frameNum)
 
-    for i in xrange(frameNum):
+    for i in range(frameNum):
         if ((freqs[i] > 0) and (freqs[i] < Flow) or (freqs[i] > Fhigh)) or \
            ((freqs[i] < 0) and (freqs[i] > -Flow) or (freqs[i] < -Fhigh)):
             filterArray[i] = 0
@@ -605,8 +605,8 @@ def temporal_filter_movie(mov,  # array of movie
 
     movFFT = np.fft.fft(mov, axis = 0)
 
-    for i in xrange(mov.shape[1]):
-        for j in xrange(mov.shape[2]):
+    for i in range(mov.shape[1]):
+        for j in range(mov.shape[2]):
             movFFT[:,i,j] = movFFT[:,i,j] * filterArray
 
     movF = np.real(np.fft.ifft(movFFT, axis = 0))
@@ -834,7 +834,7 @@ def get_trace_binaryslicer3(bl_obj, masks, mask_mode = 'binary', loading_frame_n
         print('Translating in chunks: '+str(chunkNum-1)+' x '+str(loading_frame_num)+' frame(s)'+' + '+str(frameNum % loading_frame_num)+' frame(s)')
 
     traces = {}
-    for key in masks.iterkeys(): traces.update({'trace_'+key:[]})
+    for key in masks.keys(): traces.update({'trace_'+key:[]})
 
     for i in range(chunkNum):
         indStart = i*loading_frame_num
@@ -848,7 +848,7 @@ def get_trace_binaryslicer3(bl_obj, masks, mask_mode = 'binary', loading_frame_n
                 raise ValueError('the size of each frame of the BinarySlicer object should be the same as the size of mask "' + key + '"!')
             traces['trace_'+key].append(get_trace(currMov, mask, maskMode=mask_mode))
 
-    for key in traces.iterkeys():
+    for key in traces.keys():
         traces[key] = np.concatenate(traces[key])
 
     return traces
@@ -916,7 +916,7 @@ def discretize(array, binSize):
     newArray = np.zeros(flatArray.shape)
     newArray[:] = np.nan
 
-    for i in xrange(len(indArray)):
+    for i in range(len(indArray)):
         if np.isnan(flatArray[i]) == False:
             newArray[i] = bins[indArray[i]]
 
@@ -1128,7 +1128,7 @@ def get_marked_masks(labeled, markCoor):
     '''
 
     masks = get_masks(labeled)
-    for key, value in masks.iteritems():
+    for key, value in masks.items():
         if hit_or_miss(markCoor, value): return value
     return None
 
