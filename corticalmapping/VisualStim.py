@@ -16,19 +16,19 @@ import time
 from random import shuffle
 
 import socket
-import tifffile as tf
-import core.FileTools as ft
-import core.ImageAnalysis as ia
+#import tifffile as tf
+from . import core.FileTools as ft
+from . import core.ImageAnalysis as ia
 
 
-from zro import RemoteObject, Proxy
+#from zro import RemoteObject, Proxy
 
 try: import toolbox.IO.nidaq as iodaq
 except ImportError as e:
-    print e
-    print 'import iodaq from aibs package...'
+    print(e)
+    print('import iodaq from aibs package...')
     try: import aibs.iodaq as iodaq
-    except ImportError as er: print er
+    except ImportError as er: print(er)
 
 
 
@@ -62,7 +62,7 @@ def analyze_frames(ts, refreshRate, checkPoint=(0.02, 0.033, 0.05, 0.1)):
         frameNumber = len(frameDuration[frameDuration>checkNumber])
         frame_stats += 'Number of frames longer than %d ms: %d; %.2f%% \n' % (round(checkNumber*1000), frameNumber, round(frameNumber*10000/(len(ts)-1))/100)
 
-    print frame_stats
+    print(frame_stats)
 
     return frameDuration, frame_stats
 
@@ -84,7 +84,7 @@ def noise_movie(frameFilter, widthFilter, heightFilter, isplot = False):
 
     filterXY = filterX * filterY
 
-    for i in xrange(rawMovFFT.shape[0]):
+    for i in range(rawMovFFT.shape[0]):
         rawMovFFT[i] = frameFilter[i]* (rawMovFFT[i] * filterXY)
 
 
@@ -99,7 +99,7 @@ def noise_movie(frameFilter, widthFilter, heightFilter, isplot = False):
     noise_movie = ((filteredMov - np.amin(filteredMov)) / rangeFilteredMov) * 2 - 1
 
     if isplot:
-        tf.imshow(noise_movie, vmin=-1, vmax=1, cmap='gray')
+       print('no tiffs 4 u')# tf.imshow(noise_movie, vmin=-1, vmax=1, cmap='gray')
 
     return noise_movie
 
@@ -118,7 +118,7 @@ def generate_filter(length, # length of filter
 
     filterArray = np.ones(length)
 
-    for i in xrange(len(freqs)):
+    for i in range(len(freqs)):
         if ((freqs[i] > 0) and (freqs[i] < Flow) or (freqs[i] > Fhigh)) or \
            ((freqs[i] < 0) and (freqs[i] > -Flow) or (freqs[i] < -Fhigh)):
             filterArray[i] = 0
@@ -129,7 +129,7 @@ def generate_filter(length, # length of filter
         filterArray = (filterArray - np.amin(filterArray)) / (np.amax(filterArray) - np.amin(filterArray))
     elif mode == 'box':
         filterArray[0] = 0
-    else: raise NameError, 'Variable "mode" should be either "1/f" or "box"!'
+    else: raise NameError('Variable "mode" should be either "1/f" or "box"!')
 
     if Flow == 0:
         filterArray[0] = 1
@@ -143,10 +143,10 @@ def lookup_image(img, lookupI, lookupJ):
     """
 
     if not img.shape == lookupI.shape:
-        raise LookupError, 'The image and lookupI should have same size!!'
+        raise LookupError('The image and lookupI should have same size!!')
 
     if not lookupI.shape == lookupJ.shape:
-        raise LookupError, 'The lookupI and lookupJ should have same size!!'
+        raise LookupError('The lookupI and lookupJ should have same size!!')
 
     img2 = np.zeros(img.shape)
 
@@ -184,7 +184,7 @@ def get_warped_square(degCorX,degCorY,center,width,height,ori,foregroundColor=1,
 
     frame = np.ones(degCorX.shape,dtype=np.float32)*backgroundColor
 
-    if ori < 0. or ori > 180.: raise ValueError, 'ori should be between 0 and 180.'
+    if ori < 0. or ori > 180.: raise ValueError('ori should be between 0 and 180.')
 
     k1 = np.tan(ori*np.pi/180.)
     k2 = np.tan((ori+90.)*np.pi/180.)
@@ -209,9 +209,9 @@ def circle_mask(map_x, map_y, center, radius):
     :return: binary mask for the circle, value range [0., 1.]
     """
 
-    if map_x.shape != map_y.shape: raise ValueError, 'map_x and map_y should have same shape!'
+    if map_x.shape != map_y.shape: raise ValueError('map_x and map_y should have same shape!')
 
-    if len(map_x.shape) != 2: raise ValueError, 'map_x and map_y should be 2-d!!'
+    if len(map_x.shape) != 2: raise ValueError('map_x and map_y should be 2-d!!')
 
     circle_mask = np.zeros(map_x.shape, dtype = np.uint8)
     for (i, j), value in  np.ndenumerate(circle_mask):
@@ -235,9 +235,9 @@ def get_grating(map_x, map_y, ori=0., spatial_freq=0.1, center=(0.,60.), phase=0
     :return: a frame as floating point 2-d array with grating, value range [0., 1.]
     """
 
-    if map_x.shape != map_y.shape: raise ValueError, 'map_x and map_y should have same shape!'
+    if map_x.shape != map_y.shape: raise ValueError('map_x and map_y should have same shape!')
 
-    if len(map_x.shape) != 2: raise ValueError, 'map_x and map_y should be 2-d!!'
+    if len(map_x.shape) != 2: raise ValueError('map_x and map_y should be 2-d!!')
 
     map_x_h = np.array(map_x, dtype = np.float32)
     map_y_h = np.array(map_y, dtype = np.float32)
@@ -276,7 +276,7 @@ class Monitor(object):
                  refreshRate = 60.):
 
         if resolution[0] % downSampleRate != 0 or resolution[1] % downSampleRate != 0:
-           raise ArithmeticError, 'Resolution pixel numbers are not divisible by down sampling rate'
+           raise ArithmeticError('Resolution pixel numbers are not divisible by down sampling rate')
 
         self.resolution = resolution
         self.dis = dis
@@ -304,7 +304,7 @@ class Monitor(object):
         resolution[0]=self.resolution[0]/downSampleRate
         resolution[1]=self.resolution[1]/downSampleRate
 
-        mapcorX, mapcorY = np.meshgrid(range(resolution[1]), range(resolution[0]))
+        mapcorX, mapcorY = np.meshgrid(list(range(resolution[1])), list(range(resolution[0])))
 
         if self.visualField == "left":
             mapX = np.linspace(self.C2Acm, -1.0 * self.C2Pcm, resolution[1])
@@ -331,7 +331,7 @@ class Monitor(object):
 
         if self.resolution[0] % downSampleRate != 0 or self.resolution[1] % downSampleRate != 0:
 
-           raise ArithmeticError, 'resolutionolution pixel numbers are not divisible by down sampling rate'
+           raise ArithmeticError('resolutionolution pixel numbers are not divisible by down sampling rate')
 
         self.downSampleRate=downSampleRate
 
@@ -339,7 +339,7 @@ class Monitor(object):
         resolution[0]=self.resolution[0]/downSampleRate
         resolution[1]=self.resolution[1]/downSampleRate
 
-        mapcorX, mapcorY = np.meshgrid(range(resolution[1]), range(resolution[0]))
+        mapcorX, mapcorY = np.meshgrid(list(range(resolution[1])), list(range(resolution[0])))
 
         if self.visualField == "left":
             mapX = np.linspace(self.C2Acm, -1.0 * self.C2Pcm, resolution[1])
@@ -362,7 +362,7 @@ class Monitor(object):
         resolution[0]=self.resolution[0]/self.downSampleRate
         resolution[1]=self.resolution[1]/self.downSampleRate
 
-        mapcorX, mapcorY = np.meshgrid(range(resolution[1]), range(resolution[0]))
+        mapcorX, mapcorY = np.meshgrid(list(range(resolution[1])), list(range(resolution[0])))
 
         newmapX = np.zeros(resolution,dtype=np.float16)
         newmapY = np.zeros(resolution,dtype=np.float16)
@@ -384,7 +384,7 @@ class Monitor(object):
         resolution[0]=self.resolution[0]/self.downSampleRate
         resolution[1]=self.resolution[1]/self.downSampleRate
 
-        mapcorX, mapcorY = np.meshgrid(range(resolution[1]), range(resolution[0]))
+        mapcorX, mapcorY = np.meshgrid(list(range(resolution[1])), list(range(resolution[0])))
 
         f1 = plt.figure(figsize=(12,5))
         f1.suptitle('Remap monitor', fontsize=14, fontweight='bold')
@@ -392,7 +392,7 @@ class Monitor(object):
         OMX = plt.subplot(221)
         OMX.set_title('Linear Map X (cm)')
         currfig = plt.imshow(self.linCorX)
-        levels1 = range(int(np.floor(self.linCorX.min() / 10) * 10), int((np.ceil(self.linCorX.max() / 10)+1) * 10), 10)
+        levels1 = list(range(int(np.floor(self.linCorX.min() / 10) * 10), int((np.ceil(self.linCorX.max() / 10)+1) * 10), 10))
         im1 =plt.contour(mapcorX, mapcorY, self.linCorX, levels1, colors = 'k', linewidth = 2)
 #        plt.clabel(im1, levels1, fontsize = 10, inline = 1, fmt='%2.1f')
         f1.colorbar(currfig,ticks=levels1)
@@ -401,7 +401,7 @@ class Monitor(object):
         OMY = plt.subplot(222)
         OMY.set_title('Linear Map Y (cm)')
         currfig = plt.imshow(self.linCorY)
-        levels2 = range(int(np.floor(self.linCorY.min() / 10) * 10), int((np.ceil(self.linCorY.max() / 10)+1) * 10), 10)
+        levels2 = list(range(int(np.floor(self.linCorY.min() / 10) * 10), int((np.ceil(self.linCorY.max() / 10)+1) * 10), 10))
         im2 =plt.contour(mapcorX, mapcorY, self.linCorY, levels2, colors = 'k', linewidth = 2)
 #        plt.clabel(im2, levels2, fontsize = 10, inline = 1, fmt='%2.2f')
         f1.colorbar(currfig,ticks=levels2)
@@ -410,7 +410,7 @@ class Monitor(object):
         NMX = plt.subplot(223)
         NMX.set_title('Spherical Map X (deg)')
         currfig = plt.imshow(self.degCorX)
-        levels3 = range(int(np.floor(self.degCorX.min() / 10) * 10), int((np.ceil(self.degCorX.max() / 10)+1) * 10), 10)
+        levels3 = list(range(int(np.floor(self.degCorX.min() / 10) * 10), int((np.ceil(self.degCorX.max() / 10)+1) * 10), 10))
         im3 =plt.contour(mapcorX, mapcorY, self.degCorX, levels3, colors = 'k', linewidth = 2)
 #        plt.clabel(im3, levels3, fontsize = 10, inline = 1, fmt='%2.1f')
         f1.colorbar(currfig,ticks=levels3)
@@ -419,7 +419,7 @@ class Monitor(object):
         NMY = plt.subplot(224)
         NMY.set_title('Spherical Map Y (deg)')
         currfig = plt.imshow(self.degCorY)
-        levels4 = range(int(np.floor(self.degCorY.min() / 10) * 10), int((np.ceil(self.degCorY.max() / 10)+1) * 10), 10)
+        levels4 = list(range(int(np.floor(self.degCorY.min() / 10) * 10), int((np.ceil(self.degCorY.max() / 10)+1) * 10), 10))
         im4 =plt.contour(mapcorX, mapcorY, self.degCorY, levels4, colors = 'k', linewidth = 2)
 #        plt.clabel(im4, levels4, fontsize = 10, inline = 1, fmt='%2.1f')
         f1.colorbar(currfig,ticks=levels4)
@@ -450,13 +450,13 @@ class Monitor(object):
         lookupI = np.zeros(degCorX.shape).astype(np.int32)
         lookupJ = np.zeros(degCorX.shape).astype(np.int32)
 
-        for j in xrange(lookupI.shape[1]):
+        for j in range(lookupI.shape[1]):
             currDegX = degCorX[0,j]
             diffDegX = degNoWarpCorX[0,:] - currDegX
             IndJ = np.argmin(np.abs(diffDegX))
             lookupJ[:,j] = IndJ
 
-            for i in xrange(lookupI.shape[0]):
+            for i in range(lookupI.shape[0]):
                 currDegY = degCorY[i,j]
                 diffDegY = degNoWarpCorY[:,IndJ] - currDegY
                 indI = np.argmin(np.abs(diffDegY))
@@ -524,7 +524,7 @@ class Indicator(object):
             centerH = screen_height - self.height_pixel / 2
 
         else:
-            raise LookupError, '"position" attributor should be "northeast", "southeast", "northwest" and "southwest"'
+            raise LookupError('"position" attributor should be "northeast", "southeast", "northwest" and "southwest"')
 
         return int(centerW), int(centerH)
 
@@ -538,7 +538,7 @@ class Indicator(object):
         refreshRate = self.monitor.refreshRate
 
         if refreshRate % self.freq != 0:
-            raise ArithmeticError, "self update frequency of should be divisible by monitor's refresh rate."
+            raise ArithmeticError("self update frequency of should be divisible by monitor's refresh rate.")
 
         return refreshRate/self.freq
 
@@ -575,17 +575,17 @@ class Stim(object):
         """
         place holder of function "generate_frames" for each specific stimulus
         """
-        print 'Nothing executed! This is place holder of function "generate_frames" for each specific stimulus.'
-        print 'This function should return a list of tuples, each tuple represents a single frame of the stimulus and contains all the information to recreate the frame.'
+        print('Nothing executed! This is place holder of function "generate_frames" for each specific stimulus.')
+        print('This function should return a list of tuples, each tuple represents a single frame of the stimulus and contains all the information to recreate the frame.')
 
     def generate_movie(self):
         """
         place holder of function "generate_movie" for each specific stimulus
         """
-        print 'Nothing executed! This is place holder of function "generate_movie" for each specific stimulus.'
-        print 'This function should return two things:'
-        print 'First: a 3-d array (with format of uint8) of the stimulus to be displayed.'
-        print 'Second: a dictionary contain the information of this particular stimulus'
+        print('Nothing executed! This is place holder of function "generate_movie" for each specific stimulus.')
+        print('This function should return two things:')
+        print('First: a 3-d array (with format of uint8) of the stimulus to be displayed.')
+        print('Second: a dictionary contain the information of this particular stimulus')
 
     def clear(self):
         self.frames = None
@@ -653,7 +653,7 @@ class UniformContrast(Stim):
                                        dtype=np.float16)
 
         if not (self.coordinate == 'degree' or self.coordinate == 'linear'):
-            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+            raise LookupError('the "coordinate" attributate show be either "degree" or "linear"')
 
         for i in range(len(self.frames)):
             currFrame = self.frames[i]
@@ -668,7 +668,7 @@ class UniformContrast(Stim):
             fullSequence[i] = currFCsequence
 
             if i in range(0, len(self.frames), len(self.frames) / 10):
-                print ['Generating numpy sequence: ' + str(int(100 * (i + 1) / len(self.frames))) + '%']
+                print(['Generating numpy sequence: ' + str(int(100 * (i + 1) / len(self.frames))) + '%'])
 
         mondict = dict(self.monitor.__dict__)
         indicatordict = dict(self.indicator.__dict__)
@@ -740,7 +740,7 @@ class KSstim(Stim):
             mapY = self.monitor.linCorY
 
         else:
-            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+            raise LookupError('the "coordinate" attributate show be either "degree" or "linear"')
 
         minX = mapX.min()
         maxX = mapX.max()
@@ -799,7 +799,7 @@ class KSstim(Stim):
             mapX = self.monitor.linCorX
             mapY = self.monitor.linCorY
         else:
-            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+            raise LookupError('the "coordinate" attributate show be either "degree" or "linear"')
 
         minX = mapX.min()
         maxX = mapX.max()
@@ -818,7 +818,7 @@ class KSstim(Stim):
             stepX = np.arange(minX - sweepWidth, maxX + stepWidth, stepWidth)[::-1]
             # stepX = np.arange(maxX, minX - sweepWidth - stepWidth, -1 * stepWidth)
         else:
-            raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
+            raise LookupError('attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".')
 
         sweepTable = []
 
@@ -954,7 +954,7 @@ class KSstim(Stim):
             fullSequence[i] = currNMsequence
 
             if i in range(0, len(self.frames),len(self.frames)/10):
-                print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+                print(['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%'])
 
 
         mondict=dict(self.monitor.__dict__)
@@ -980,7 +980,7 @@ class KSstim(Stim):
             self.direction = direction
             self.clear()
         else:
-            raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
+            raise LookupError('attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".')
 
     def set_sweep_sigma(self,sweepSigma):
         self.sweepSigma = sweepSigma
@@ -1096,7 +1096,7 @@ class NoiseKSstim(Stim):
             mapY = self.monitor.linCorY
 
         else:
-            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+            raise LookupError('the "coordinate" attributate show be either "degree" or "linear"')
 
         minX = mapX.min()
         maxX = mapX.max()
@@ -1115,7 +1115,7 @@ class NoiseKSstim(Stim):
             stepX = np.arange(minX - edgeWidth - sweepWidth / 2, maxX + edgeWidth + stepWidth + sweepWidth / 2, stepWidth)[::-1]
             # stepX = np.arange(maxX + edgeWidth + sweepWidth / 2, minX - edgeWidth - stepWidth - sweepWidth / 2, -1 * stepWidth)
         else:
-            raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
+            raise LookupError('attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".')
 
         sweepTable = []
 
@@ -1264,7 +1264,7 @@ class NoiseKSstim(Stim):
             fullSequence[i] = currNMsequence
 
             if i in range(0, len(self.frames),len(self.frames)/10):
-                print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+                print(['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%'])
 
 
         mondict=dict(self.monitor.__dict__)
@@ -1288,7 +1288,7 @@ class NoiseKSstim(Stim):
             self.direction = direction
             self.clear()
         else:
-            raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
+            raise LookupError('attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".')
 
     def set_sweep_sigma(self,sweepSigma):
         self.sweepSigma = sweepSigma
@@ -1358,7 +1358,7 @@ class ObliqueKSstim(Stim):
             mapY = self.monitor.linCorY
 
         else:
-            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+            raise LookupError('the "coordinate" attributate show be either "degree" or "linear"')
 
         minX = mapX.min()
         maxX = mapX.max()
@@ -1418,7 +1418,7 @@ class ObliqueKSstim(Stim):
             mapY = self.monitor.linCorY
 
         else:
-            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+            raise LookupError('the "coordinate" attributate show be either "degree" or "linear"')
 
         all_x = mapX.flatten(); all_y = mapY.flatten()
         rotation_matrix = np.array([[np.cos(self.rotation_angle), np.sin(self.rotation_angle)],
@@ -1442,7 +1442,7 @@ class ObliqueKSstim(Stim):
             stepX = np.arange(min_x_r - sweepWidth, max_x_r + stepWidth, stepWidth)[::-1]
             # stepX = np.arange(maxX, minX - sweepWidth - stepWidth, -1 * stepWidth)
         else:
-            raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
+            raise LookupError('attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".')
 
         sweepTable = []
 
@@ -1578,7 +1578,7 @@ class ObliqueKSstim(Stim):
             fullSequence[i] = currNMsequence
 
             if i in range(0, len(self.frames),len(self.frames)/10):
-                print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+                print(['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%'])
 
 
         mondict=dict(self.monitor.__dict__)
@@ -1604,7 +1604,7 @@ class ObliqueKSstim(Stim):
             self.direction = direction
             self.clear()
         else:
-            raise LookupError, 'attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".'
+            raise LookupError('attribute "direction" should be "B2U", "U2B", "L2R" or "R2L".')
 
     def set_sweep_sigma(self,sweepSigma):
         self.sweepSigma = sweepSigma
@@ -1695,7 +1695,7 @@ class FlashingNoise(Stim):
         #initilize indicator color
         frames[:,3] = -1
 
-        for i in xrange(frames.shape[0]):
+        for i in range(frames.shape[0]):
 
             # current iteration number
             frames[i,2] = i // iterationFrameNum
@@ -1759,7 +1759,7 @@ class FlashingNoise(Stim):
             fullSequence[i] = currFNsequence
 
             if i in range(0, len(self.frames),len(self.frames)/10):
-                print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+                print(['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%'])
 
         mondict=dict(self.monitor.__dict__)
         indicatordict=dict(self.indicator.__dict__)
@@ -1893,7 +1893,7 @@ class GaussianNoise(Stim):
         #initilize indicator color
         frames[:,3] = -1
 
-        for i in xrange(frames.shape[0]):
+        for i in range(frames.shape[0]):
 
             # current iteration number
             frames[i,2] = i // iterationFrameNum
@@ -1973,7 +1973,7 @@ class GaussianNoise(Stim):
             fullSequence[i] = currGNsequence
 
             if i in range(0, len(self.frames),len(self.frames)/10):
-                print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+                print(['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%'])
 
         mondict=dict(self.monitor.__dict__)
         indicatordict=dict(self.indicator.__dict__)
@@ -2073,7 +2073,7 @@ class FlashingCircle(Stim):
         #initilize indicator color
         frames[:,3] = -1
 
-        for i in xrange(frames.shape[0]):
+        for i in range(frames.shape[0]):
 
             # current iteration number
             frames[i, 2] = i // iterationFrameNum
@@ -2126,7 +2126,7 @@ class FlashingCircle(Stim):
             mapX = self.monitor.linCorX
             mapY = self.monitor.linCorY
         else:
-            raise LookupError, 'the "coordinate" attributate show be either "degree" or "linear"'
+            raise LookupError('the "coordinate" attributate show be either "degree" or "linear"')
 
         circleMask = circle_mask(mapX,mapY,self.center,self.radius).astype(np.float16)
 
@@ -2143,7 +2143,7 @@ class FlashingCircle(Stim):
             fullSequence[i] = currFCsequence
 
             if i in range(0, len(self.frames),len(self.frames)/10):
-                print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+                print(['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%'])
 
         mondict=dict(self.monitor.__dict__)
         indicatordict=dict(self.indicator.__dict__)
@@ -2281,7 +2281,7 @@ class SparseNoise(Stim):
             allGridPoints = [[x,1] for x in gridPoints] + [[x,-1] for x in gridPoints]
             shuffle(allGridPoints)
             # remove coincident hit of same location by continuous frames
-            print 'removing coincident hit of same location with continuous frames:'
+            print('removing coincident hit of same location with continuous frames:')
             while True:
                 iteration = 0
                 coincidentHitNum = 0
@@ -2290,7 +2290,7 @@ class SparseNoise(Stim):
                         allGridPoints[i+1], allGridPoints[i+2] = allGridPoints[i+2], allGridPoints[i+1]
                         coincidentHitNum += 1
                 iteration += 1
-                print 'iteration:',iteration,'  continous hits number:',coincidentHitNum
+                print('iteration:',iteration,'  continous hits number:',coincidentHitNum)
                 if coincidentHitNum == 0:
                     break
 
@@ -2390,7 +2390,7 @@ class SparseNoise(Stim):
             fullSequence[i, indicatorHmin:indicatorHmax, indicatorWmin:indicatorWmax]=currFrame[3]
 
             if i in range(0, len(self.frames),len(self.frames)/10):
-                print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+                print(['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%'])
 
         #generate log dictionary
         mondict=dict(self.monitor.__dict__)
@@ -2446,11 +2446,11 @@ class DriftingGratingCircle(Stim):
         for tf in tf_list:
             period = 1. / tf
             if (0.05 * period) < (blockDur % period) < (0.95 * period):
-                print period
-                print blockDur % period
-                print 0.95 * period
+                print(period)
+                print(blockDur % period)
+                print(0.95 * period)
                 error_msg = 'Duration of each block times tf '+ str(tf) + ' should be close to a whole number!'
-                raise ValueError, error_msg
+                raise ValueError(error_msg)
 
     def _generate_all_conditions(self):
         """
@@ -2590,7 +2590,7 @@ class DriftingGratingCircle(Stim):
         if self.coordinate=='degree':corX=self.monitor.degCorX;corY=self.monitor.degCorY
         elif self.coordinate=='linear':corX=self.monitor.linCorX;corY=self.monitor.linCorY
         else:
-            raise LookupError, "self.coordinate should be either 'linear' or 'degree'."
+            raise LookupError("self.coordinate should be either 'linear' or 'degree'.")
 
         indicatorWmin=self.indicator.centerWpixel - (self.indicator.width_pixel / 2)
         indicatorWmax=self.indicator.centerWpixel + (self.indicator.width_pixel / 2)
@@ -2624,7 +2624,7 @@ class DriftingGratingCircle(Stim):
 
 
             if i in range(0, len(self.frames),len(self.frames)/10):
-                print ['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%']
+                print(['Generating numpy sequence: '+str(int(100 * (i+1) / len(self.frames)))+'%'])
 
 
 
@@ -2918,7 +2918,7 @@ class DisplaySequence(object):
             self._remote_obj = RemoteObject(rep_port=self.displayControlPort)
             self._remote_obj.close = self.flag_to_close()
         except Exception as e:
-            print e
+            print(e)
 
         # set up remote zro object for sync program
         if self.isRemoteSync:
@@ -2927,7 +2927,7 @@ class DisplaySequence(object):
         if displayIteration % 1 == 0:
             self.displayIteration = displayIteration
         else:
-            raise ArithmeticError, "displayIteration should be a whole number."
+            raise ArithmeticError("displayIteration should be a whole number.")
 
         self.displayOrder = displayOrder
         self.logdir = logdir
@@ -2954,7 +2954,7 @@ class DisplaySequence(object):
         to display any numpy 3-d array.
         """
         if len(anyArray.shape) != 3:
-            raise LookupError, "Input numpy array should have dimension of 3!"
+            raise LookupError("Input numpy array should have dimension of 3!")
 
         Vmax = np.amax(anyArray).astype(np.float32)
         Vmin = np.amin(anyArray).astype(np.float32)
@@ -2966,7 +2966,7 @@ class DisplaySequence(object):
             if type(logDict) is dict:
                 self.sequenceLog = logDict
             else:
-                raise ValueError, '"logDict" should be a dictionary!'
+                raise ValueError('"logDict" should be a dictionary!')
         else:
             self.sequenceLog = {}
         self.clear()
@@ -2991,12 +2991,12 @@ class DisplaySequence(object):
         try:
             refreshRate = self.sequenceLog['monitor']['refreshRate']
         except KeyError:
-            print "No monitor refresh rate information, assuming 60Hz.\n"
+            print("No monitor refresh rate information, assuming 60Hz.\n")
             refreshRate = 60.
 
         #prepare display frames log
         if self.sequence is None:
-            raise LookupError, "Please set the sequence to be displayed!!\n"
+            raise LookupError("Please set the sequence to be displayed!!\n")
         try:
             sequenceFrames = self.sequenceLog['stimulation']['frames']
             if self.displayOrder == -1: sequenceFrames = sequenceFrames[::-1]
@@ -3005,17 +3005,17 @@ class DisplaySequence(object):
             for i in range(self.displayIteration):
                 self.displayFrames += sequenceFrames
         except Exception as e:
-            print e
-            print "No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'.\n"
+            print(e)
+            print("No frame information in sequenceLog dictionary. \nSetting displayFrames to 'None'.\n")
             self.displayFrames = None
 
         # calculate expected display time
         displayTime = float(self.sequence.shape[0]) * self.displayIteration / refreshRate
-        print '\n Expected display time: ', displayTime, ' seconds\n'
+        print('\n Expected display time: ', displayTime, ' seconds\n')
 
         # generate file name
         self._get_file_name()
-        print 'File name:', self.fileName + '\n'
+        print('File name:', self.fileName + '\n')
         # ---------------------------- early preparation for display----------------------------------------------------
 
 
@@ -3056,12 +3056,12 @@ class DisplaySequence(object):
 
             try:
                 self._get_file_name()
-                print 'File name:', self.fileName + '\n'
+                print('File name:', self.fileName + '\n')
                 self.remoteSync.set_output_path(os.path.join("c:/sync/output", self.fileName + '-sync.h5'),
                                                 timestamp=False)
                 self.remoteSync.start()
             except Exception as err:
-                print "remote sync object is not started correctly. \n" + str(err) + "\n\n"
+                print("remote sync object is not started correctly. \n" + str(err) + "\n\n")
 
         # handle display trigger
         if self.isTriggered:
@@ -3095,22 +3095,22 @@ class DisplaySequence(object):
                 try:
                     self.remoteSync.stop()
                 except Exception as err:
-                    print "remote sync object is not stopped correctly. \n" + str(err)
+                    print("remote sync object is not stopped correctly. \n" + str(err))
 
                 # backup remote sync file
                 try:
                     backupFileFolder = self._get_backup_folder()
-                    print '\nRemote sync backup file folder: ' + backupFileFolder + '\n'
+                    print('\nRemote sync backup file folder: ' + backupFileFolder + '\n')
                     if backupFileFolder is not None:
                         if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
                         backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
                         time.sleep(self.remoteSyncSaveWaitTime ) # wait remote sync to finish saving
                         self.remoteSync.copy_last_dataset(backupFilePath)
-                        print "remote sync dataset saved successfully."
+                        print("remote sync dataset saved successfully.")
                     else:
-                        print "did not find backup path, no remote sync dataset has been saved."
+                        print("did not find backup path, no remote sync dataset has been saved.")
                 except Exception as e:
-                    print "remote sync dataset is not saved successfully!\n", e
+                    print("remote sync dataset is not saved successfully!\n", e)
 
                 # save display log
                 self.save_log()
@@ -3121,38 +3121,38 @@ class DisplaySequence(object):
                                                                           refreshRate=self.sequenceLog['monitor'][
                                                                               'refreshRate'])
                 except KeyError:
-                    print "No monitor refresh rate information, assuming 60Hz."
+                    print("No monitor refresh rate information, assuming 60Hz.")
                     self.frameDuration, self.frame_stats = analyze_frames(ts=self.timeStamp, refreshRate=60.)
                 self.clear()
                 return None
             try:
                 self.remoteSync.stop()
             except Exception as err:
-                print "remote sync object is not stopped correctly. \n" + str(err)
+                print("remote sync object is not stopped correctly. \n" + str(err))
 
         self.save_log()
 
         #analyze frames
         try: self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = self.sequenceLog['monitor']['refreshRate'])
         except KeyError:
-            print "No monitor refresh rate information, assuming 60Hz."
+            print("No monitor refresh rate information, assuming 60Hz.")
             self.frameDuration, self.frame_stats = analyze_frames(ts = self.timeStamp, refreshRate = 60.)
 
         # backup remote dataset
         if self.isRemoteSync:
             try:
                 backupFileFolder = self._get_backup_folder()
-                print '\nRemote sync backup file folder: ' + backupFileFolder + '\n'
+                print('\nRemote sync backup file folder: ' + backupFileFolder + '\n')
                 if backupFileFolder is not None:
                     if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
                     backupFilePath = os.path.join(backupFileFolder,self.fileName+'-sync.h5')
                     time.sleep(self.remoteSyncSaveWaitTime )  # wait remote sync to finish saving
                     self.remoteSync.copy_last_dataset(backupFilePath)
-                    print "remote sync dataset saved successfully."
+                    print("remote sync dataset saved successfully.")
                 else:
-                    print "did not find backup path, no remote sync dataset has been saved."
+                    print("did not find backup path, no remote sync dataset has been saved.")
             except Exception as e:
-                print "remote sync dataset is not saved successfully!\n", e
+                print("remote sync dataset is not saved successfully!\n", e)
 
         #clear display data
         self.clear()
@@ -3172,7 +3172,7 @@ class DisplaySequence(object):
         triggerTask = iodaq.DigitalInput(self.triggerNIDev, self.triggerNIPort, self.triggerNILine)
         triggerTask.StartTask()
 
-        print "Waiting for trigger: " + event + ' on ' + triggerTask.devstr
+        print("Waiting for trigger: " + event + ' on ' + triggerTask.devstr)
 
         if event == 'LowLevel':
             lastTTL = triggerTask.read()
@@ -3180,33 +3180,33 @@ class DisplaySequence(object):
                 lastTTL = triggerTask.read()[0]
                 self._update_display_status()
             else:
-                if self.keepDisplay: triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n'; return True
-                else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
+                if self.keepDisplay: triggerTask.StopTask(); print('Trigger detected. Start displaying...\n\n'); return True
+                else: triggerTask.StopTask(); print('Manual stop signal detected during waiting period. Stop the program.'); return False
         elif event == 'HighLevel':
             lastTTL = triggerTask.read()[0]
             while lastTTL != 1 and self.keepDisplay:
                 lastTTL = triggerTask.read()[0]
                 self._update_display_status()
             else:
-                if self.keepDisplay: triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n'; return True
-                else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
+                if self.keepDisplay: triggerTask.StopTask(); print('Trigger detected. Start displaying...\n\n'); return True
+                else: triggerTask.StopTask(); print('Manual stop signal detected during waiting period. Stop the program.'); return False
         elif event == 'NegativeEdge':
             lastTTL = triggerTask.read()[0]
             while self.keepDisplay:
                 currentTTL = triggerTask.read()[0]
                 if (lastTTL == 1) and (currentTTL == 0):break
                 else:lastTTL = int(currentTTL);self._update_display_status()
-            else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.';return False
-            triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n'; return True
+            else: triggerTask.StopTask(); print('Manual stop signal detected during waiting period. Stop the program.');return False
+            triggerTask.StopTask(); print('Trigger detected. Start displaying...\n\n'); return True
         elif event == 'PositiveEdge':
             lastTTL = triggerTask.read()[0]
             while self.keepDisplay:
                 currentTTL = triggerTask.read()[0]
                 if (lastTTL == 0) and (currentTTL == 1):break
                 else:lastTTL = int(currentTTL);self._update_display_status()
-            else: triggerTask.StopTask(); print 'Manual stop signal detected during waiting period. Stop the program.'; return False
-            triggerTask.StopTask(); print 'Trigger detected. Start displaying...\n\n';  return True
-        else:raise NameError, 'trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!'
+            else: triggerTask.StopTask(); print('Manual stop signal detected during waiting period. Stop the program.'); return False
+            triggerTask.StopTask(); print('Trigger detected. Start displaying...\n\n');  return True
+        else:raise NameError('trigger should be one of "NegativeEdge", "PositiveEdge", "HighLevel", or "LowLevel"!')
 
 
     def _get_file_name(self):
@@ -3246,7 +3246,7 @@ class DisplaySequence(object):
             fileNumber = int(numStr, 2)
             # print array, fileNumber
         except Exception as e:
-            print e
+            print(e)
             fileNumber = None
 
         return fileNumber
@@ -3302,7 +3302,7 @@ class DisplaySequence(object):
         if self.displayFrames is not None:
             self.displayFrames = self.displayFrames[:i]
 
-        if self.keepDisplay == True: print '\nDisplay successfully completed.'
+        if self.keepDisplay == True: print('\nDisplay successfully completed.')
 
 
     def flag_to_close(self):
@@ -3311,19 +3311,19 @@ class DisplaySequence(object):
 
     def _update_display_status(self):
 
-        if self.keepDisplay is None: raise LookupError, 'self.keepDisplay should start as True for updating display status'
+        if self.keepDisplay is None: raise LookupError('self.keepDisplay should start as True for updating display status')
 
         #check keyboard input 'q' or 'escape'
         keyList = event.getKeys(['q','escape'])
         if len(keyList) > 0:
             self.keepDisplay = False
-            print "Keyboard stop signal detected. Stop displaying. \n"
+            print("Keyboard stop signal detected. Stop displaying. \n")
 
         try:
             msg, addr =  self.displayControlSock.recvfrom(128)
             if msg[0:4].upper() == 'STOP':
                 self.keepDisplay = False
-                print "Remote stop signal detected. Stop displaying. \n"
+                print("Remote stop signal detected. Stop displaying. \n")
         except: pass
 
         if self.isRemoteSync:
@@ -3339,7 +3339,7 @@ class DisplaySequence(object):
     def set_display_iteration(self, displayIteration):
 
         if displayIteration % 1 == 0:self.displayIteration = displayIteration
-        else:raise ArithmeticError, "displayIteration should be a whole number."
+        else:raise ArithmeticError("displayIteration should be a whole number.")
         self.clear()
 
 
@@ -3347,7 +3347,7 @@ class DisplaySequence(object):
 
         if self.displayLength is None:
             self.clear()
-            raise LookupError, "Please display sequence first!"
+            raise LookupError("Please display sequence first!")
 
         if self.fileName is None:
             self._get_file_name()
@@ -3377,7 +3377,7 @@ class DisplaySequence(object):
         #generate full log dictionary
         path = os.path.join(directory, filename)
         ft.saveFile(path,logFile)
-        print ".pkl file generated successfully."
+        print(".pkl file generated successfully.")
 
 
         backupFileFolder = self._get_backup_folder()
@@ -3385,15 +3385,15 @@ class DisplaySequence(object):
             if not (os.path.isdir(backupFileFolder)): os.makedirs(backupFileFolder)
             backupFilePath = os.path.join(backupFileFolder,filename)
             ft.saveFile(backupFilePath,logFile)
-            print ".pkl backup file generate successfully"
+            print(".pkl backup file generate successfully")
         else:
-            print "did not find backup path, no backup has been saved."
+            print("did not find backup path, no backup has been saved.")
 
 
     def _get_backup_folder(self):
 
         if self.fileName is None:
-            raise LookupError, 'self.fileName not found.'
+            raise LookupError('self.fileName not found.')
         else:
 
             if self.backupdir is not None:
@@ -3628,4 +3628,4 @@ if __name__ == "__main__":
     # print phases
     # ==============================================================================================================================
 
-    print 'for debug...'
+    print('for debug...')

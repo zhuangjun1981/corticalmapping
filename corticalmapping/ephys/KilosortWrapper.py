@@ -39,7 +39,7 @@ def get_clusters(csv_output):
         try:
             cluster_id = int(cluster[0])
         except ValueError:
-            print cluster[0], 'can not be converted into integer.'
+            print(cluster[0], 'can not be converted into integer.')
             continue
         cluster_type = cluster[1]
 
@@ -70,7 +70,7 @@ def get_spike_times_indices(clusters, spike_clusters_path, spike_times_path):
 
     spike_ind = {}
 
-    for cluster, cluster_id in clusters.iteritems():
+    for cluster, cluster_id in clusters.items():
         if cluster == 'unit_mua':
             mua_spike_ind = []
             for id in cluster_id:
@@ -120,23 +120,23 @@ def get_spike_timestamps(spike_ind, h5_path):
     :return: update the h5_file to contain timestamps in seconds of each defined unit in spike_ind for each file
     """
     h5_file = h5py.File(h5_path, 'r+')
-    folder_list = [f for f in h5_file.keys() if f[0:6] == 'folder']
+    folder_list = [f for f in list(h5_file.keys()) if f[0:6] == 'folder']
     fs = h5_file['fs_hz'].value
-    units = spike_ind.keys()
+    units = list(spike_ind.keys())
     units.sort()
     h5_file.create_dataset('units', data=units)
 
-    print folder_list
-    print fs
+    print(folder_list)
+    print(fs)
 
     for folder in folder_list:
         curr_group = h5_file[folder]
         curr_start_ind = curr_group.attrs['start_index']
         curr_end_ind = curr_group.attrs['end_index']
-        print curr_start_ind
-        print curr_end_ind
+        print(curr_start_ind)
+        print(curr_end_ind)
 
-        for unit, spikes in spike_ind.iteritems():
+        for unit, spikes in spike_ind.items():
 
             curr_spike_ind = [spk for spk in spikes if spk >= curr_start_ind and spk < curr_end_ind]
             curr_spike_ind = np.array(curr_spike_ind, dtype=np.float32) - curr_start_ind
@@ -153,16 +153,16 @@ if __name__ == "__main__":
     h5_path = r"G:\160610-M240652\processed_1\160610-M240652.hdf5"
 
     cluster_group = read_csv(csv_path)
-    print 'cluster_group:'
-    print cluster_group
+    print('cluster_group:')
+    print(cluster_group)
     clusters = get_clusters(cluster_group)
-    print '\nclusters:'
-    print clusters
+    print('\nclusters:')
+    print(clusters)
     spike_ind = get_spike_times_indices(clusters, spike_cluster_path, spike_times_path)
-    print '\nspike_ind:'
-    print spike_ind.keys()
-    for key, value in spike_ind.iteritems():
-        print key, ':', len(value)
-        print key, ':', value[0:10]
+    print('\nspike_ind:')
+    print(list(spike_ind.keys()))
+    for key, value in spike_ind.items():
+        print(key, ':', len(value))
+        print(key, ':', value[0:10])
 
     get_spike_timestamps(spike_ind, h5_path)

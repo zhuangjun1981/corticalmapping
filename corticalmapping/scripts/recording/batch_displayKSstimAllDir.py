@@ -1,30 +1,37 @@
 import matplotlib.pyplot as plt
-import corticalmapping.VisualStim as vs
+import CorticalMapping.corticalmapping.VisualStim as vs
 
 
-mouseID = 'TEST' #'147861' #'TEST'
-userID = 'Jun'
-numOfTrials = 2 # 20
+mouseID = '326981' #'147861' #'TEST'
+userID = 'Natalia'
+numOfTrials = 40 # 20
 
 logFolder = r'C:\data'
 
-
+isTriggered = False
+isRemoteSync = False
+psychopyMonitor = 'smartTVgamma' #'smartTVgamma'
+logFolder = r'C:\data'
+backupFolder = r'\\W7DTMJ03jgl2\data'
+remoteSyncIP = 'w7dtmj19vtx'
+remoteSyncPort = 11001
+syncOutputFolder = None
 
 mon=vs.Monitor(resolution=(1080, 1920),
-               dis=15.3,
-               monWcm=88.8,
-               monHcm=50.1,
-               C2Tcm=31.1,
-               C2Acm=41.91,
-               monTilt=26.56,
+               dis=9.5,
+               monWcm=52.0,
+               monHcm=30.25,
+               C2Tcm=15.125,
+               C2Acm=25.5,
+               monTilt=0.0,
                downSampleRate=5)
                   
 #mon.plot_map()
 #plt.show()                  
                   
 indicator=vs.Indicator(mon,
-                       width_cm=3.,
-                       height_cm=3.,
+                       width_cm=6.,
+                       height_cm=6.,
                        position = 'southeast',
                        isSync=True,
                        freq=1.)
@@ -44,14 +51,14 @@ stim = vs.KSstimAllDir(mon,
 ds = vs.DisplaySequence(logdir=logFolder,
                         backupdir=None,
                         displayIteration=numOfTrials,
-                        psychopyMonitor='testMonitor',
+                        psychopyMonitor=psychopyMonitor,
                         displayOrder=1,
                         mouseid=mouseID,
                         userid=userID,
                         isInterpolate=False,
                         isRemoteSync=False,
-                        remoteSyncIP='localhost',
-                        remoteSyncPort=10003,
+                        remoteSyncIP=remoteSyncIP,
+                        remoteSyncPort=remoteSyncPort,
                         remoteSyncTriggerEvent="positiveEdge",
                         remoteSyncSaveWaitTime=5.,
                         isTriggered=False,
@@ -63,7 +70,7 @@ ds = vs.DisplaySequence(logdir=logFolder,
                         syncPulseNIDev='Dev1',
                         syncPulseNIPort=1,
                         syncPulseNILine=1,
-                        displayScreen=0,
+                        displayScreen=1,
                         initialBackgroundColor=0.,
                         isVideoRecord=False,
                         videoRecordIP='w7dtmj007lhu',

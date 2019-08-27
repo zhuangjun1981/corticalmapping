@@ -49,8 +49,8 @@ class TestTimingAnalysis(unittest.TestCase):
         assert (np.array_equal(ts5, np.array([2, 6, 8])))
         np.random.shuffle(ts3)
         ts6 = ta.get_event_with_pre_iei(ts3, iei=0.5)
-        print ts3
-        print ts6
+        print(ts3)
+        print(ts6)
         assert (np.array_equal(ts6, np.array([2, 3, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])))
         ts7 = ta.get_event_with_pre_iei(ts3, iei=1)
         assert (np.array_equal(ts7, np.array([2, 6, 8])))
@@ -91,20 +91,6 @@ class TestTimingAnalysis(unittest.TestCase):
         har = ta.haramp(trace=trace, periods=4, ceil_f=4)
         assert (len(har) == 4)
         assert (round(1000. * har[1] / har[0]) / 1000. == 2.)
-
-    def test_threshold_to_intervals(self):
-        trace = np.array([2.3, 4.5, 6.7, 5.5, 3.3, 9.2, 4.4, 3.2, 1.0, 0.8, 5.5])
-
-        intvs1 = ta.threshold_to_intervals(trace=trace, thr=5.0, comparison='>=')
-        # print(intvs1)
-        for intv in intvs1:
-            # print(trace[intv[0]: intv[1]])
-            assert(np.min(trace[intv[0]: intv[1]]) >= 5.0)
-
-        intvs2 = ta.threshold_to_intervals(trace=trace, thr=3.0, comparison='<')
-        for intv in intvs2:
-            # print(trace[intv[0]: intv[1]])
-            assert(np.max(trace[intv[0]: intv[1]]) < 3.0)
 
 
 if __name__ == '__main__':

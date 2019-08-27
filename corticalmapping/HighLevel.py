@@ -7,26 +7,157 @@ import numpy as np
 import itertools
 import pandas as pd
 import scipy.stats as stats
-import scipy.ndimage as ni
 import scipy.sparse as sparse
-import scipy.interpolate as ip
+import scipy.ndimage as ni
 import matplotlib.pyplot as plt
 import tifffile as tf
-from toolbox.misc import BinarySlicer
-import allensdk_internal.brain_observatory.mask_set as mask_set
+from toolbox.misc.slicer import BinarySlicer
+#import allensdk_internal.brain_observatory.mask_set as mask_set
 import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.TimingAnalysis as ta
 import corticalmapping.core.PlottingTools as pt
 import corticalmapping.core.FileTools as ft
-import corticalmapping.SingleCellAnalysis as sca
+#import corticalmapping.SingleCellAnalysis as sca
 import corticalmapping.RetinotopicMapping as rm
 
-try:
-    # from r_neuropil import NeuropilSubtract as NS
-    from allensdk.brain_observatory.r_neuropil import NeuropilSubtract as NS
-except Exception as e:
-    print 'fail to import neural pil subtraction module ...'
-    print e
+#try:
+#    # from r_neuropil import NeuropilSubtract as NS
+#    from allensdk.brain_observatory.r_neuropil import NeuropilSubtract as NS
+#except Exception as e:
+    #print('fail to import neural pil subtraction module ...')
+    #print(e)
+
+
+
+def get_masks_from_caiman(spatial_com, dims, thr=0, thr_method='nrg', swap_dim=False):
+    """
+    Gets masks of spatial components results generated the by the CaImAn segmentation
+
+    this function is stripped out from the caiman.utils.visualization.get_contours(). only works for 2d spatial
+    components.
+
+    Args:
+         spatial_com: np.ndarray or sparse matrix, mostly will be the caiman.source_extraction.cnmf.estimates.A
+                      2d Matrix of Spatial components, each row is a flattened pixel (order 'F'), each column
+                      is a spatial component
+         dims: tuple of ints
+               Spatial dimensions of movie (row, col)
+         thr: scalar between 0 and 1
+              Energy threshold for computing contours (default 0.9)
+              if thr_method is 'nrg': higher thr will make bigger hole inside the mask
+              if thr_method is 'max': (usually does not work very well), higher thr will make smaller mask
+                                      near the center.
+         thr_method: [optional] string
+                     Method of thresholding:
+                     'max' sets to zero pixels that have value less than a fraction of the max value
+                     'nrg' keeps the pixels that contribute up to a specified fraction of the energy
+         swap_dim: if True, flattened 2d array will be reshaped by order 'C', otherwise with order 'F'.
+    Returns:
+         masks: 3d array, dtype=np.float, spatial component x row x col
+    """
+
+    if 'csc_matrix' not in str(type(spatial_com)):
+        spatial_com = sparse.csc_matrix(spatial_com)
+
+    if len(spatial_com.shape) != 2:
+        raise ValueError('input "spatial_com" should be a 2d array or 2d sparse matrix.')
+
+    n_mask = spatial_com.shape[1]
+
+    if len(dims) != 2:
+        raise ValueError("input 'dims' should have two entries: (num_row, num_col).")
+
+    if dims[0] * dims[1] != spatial_com.shape[0]:
+        raise ValueError("the product of dims[0] and dims[1] ({} x {}) should be equal to the first dimension "
+                         "of the input 'spatial_com'.".format(dims[0], dims[1], spatial_com.shape[0]))
+
+    masks = []
+
+    # # get the center of mass of neurons( patches )
+    # cm = com(A, *dims)
+
+    # for each patches
+    for i in range(n_mask):
+        # we compute the cumulative sum of the energy of the Ath component that has been ordered from least to highest
+        patch_data = spatial_com.data[spatial_com.indptr[i]:spatial_com.indptr[i + 1]]
+        indx = np.argsort(patch_data)[::-1]
+        if thr_method == 'nrg':
+            cumEn = np.cumsum(patch_data[indx] ** 2)
+            # we work with normalized values
+            cumEn /= cumEn[-1]
+            Bvec = np.ones(spatial_com.shape[0])
+            # we put it in a similar matrix
+            Bvec[spatial_com.indices[spatial_com.indptr[i]:spatial_com.indptr[i + 1]][indx]] = cumEn
+        else:
+            if thr_method != 'max':
+                print('Unknown threshold method {}. should be either "max" or "nrg". '
+                      'Choosing "max".'.format(thr_method))
+            Bvec = np.zeros(spatial_com.shape[0])
+            Bvec[spatial_com.indices[spatial_com.indptr[i]:
+                                     spatial_com.indptr[i + 1]]] = patch_data / patch_data.max()
+        if swap_dim:
+            Bmat = np.reshape(Bvec, dims, order='C')
+            mask = np.array(spatial_com[:, i].todense().reshape(dims, order='C'))
+        else:
+            Bmat = np.reshape(Bvec, dims, order='F')
+            mask = np.array(spatial_com[:, i].todense().reshape(dims, order='F'))
+
+        Bmat[Bmat >= thr] = 1.
+        Bmat[Bmat < thr] = 0.
+
+        masks.append(mask * Bmat)
+
+    return np.array(masks)
+
+
+def threshold_mask_by_energe(mask, sigma=1., thr_high=0.0, thr_low=0.1):
+    """
+    threshold a weighted mask by reversed accumulative energy. Use this to treat masks spit out by caiman
+    segmentation.
+    :param mask: 2d array
+    :param sigma: float, 2d gaussian filter sigma
+    :param thr_high: float, 0 - 1, bigger thr_high will make bigger hole inside the roi
+    :param thr_low: float, 0 - 1, bigger thr_low will make smaller roi around the center
+    :return: 2d array thresholded mask
+    """
+
+    if len(mask.shape) != 2:
+        raise ValueError('input "mask" should be a 2d array.')
+
+    if sigma is not None:
+        mask = ni.gaussian_filter(mask, sigma=sigma)
+
+    mask = ia.array_nor(mask)
+    mask_s = mask.flatten()
+
+    indx_low = np.argsort(mask_s)
+    cum_eng_low = np.cumsum(mask_s[indx_low] ** 2)
+    cum_eng_low /= cum_eng_low[-1]
+    mask_eng_low = np.ones(mask_s.shape, dtype=np.float)
+    mask_eng_low[indx_low] = cum_eng_low
+    mask_eng_low = mask_eng_low.reshape(mask.shape)
+
+    indx_high = np.argsort(mask_s)[::-1]
+    cum_eng_high = np.cumsum(mask_s[indx_high] ** 2)
+    cum_eng_high /= cum_eng_high[-1]
+    mask_eng_high = np.ones(mask_s.shape, dtype=np.float)
+    mask_eng_high[indx_high] = cum_eng_high
+    mask_eng_high = mask_eng_high.reshape(mask.shape)
+
+    mask_bin = np.ones(mask.shape)
+
+    mask_bin[mask_eng_high < thr_high] = 0.
+    mask_bin[mask_eng_low < thr_low] = 0.
+
+    mask_labeled, mask_num = ni.label(mask_bin, structure=[[1,1,1], [1,1,1], [1,1,1]])
+    mask_dict = ia.get_masks(labeled=mask_labeled, keyPrefix='', labelLength=5)
+
+    for key, value in mask_dict.items():
+        mask_w = value * mask
+        mask_w = mask_w / np.amax(mask_w)
+        mask_dict[key] = ia.WeightedROI(mask_w)
+
+    return mask_dict
 
 
 def translateMovieByVasculature(mov, parameterPath, matchingDecimation=2, referenceDecimation=2, verbose=True):
@@ -46,17 +177,17 @@ def translateMovieByVasculature(mov, parameterPath, matchingDecimation=2, refere
     referenceDecimation = float(referenceDecimation)
 
     if matchingParams[
-        'Xoffset'] % matchingDecimation != 0: print 'Original Xoffset is not divisble by movDecimation. Taking the floor integer.'
+        'Xoffset'] % matchingDecimation != 0: print('Original Xoffset is not divisble by movDecimation. Taking the floor integer.')
     if matchingParams[
-        'Yoffset'] % matchingDecimation != 0: print 'Original Yoffset is not divisble by movDecimation. Taking the floor integer.'
+        'Yoffset'] % matchingDecimation != 0: print('Original Yoffset is not divisble by movDecimation. Taking the floor integer.')
 
     offset = [int(matchingParams['Xoffset'] / matchingDecimation),
               int(matchingParams['Yoffset'] / matchingDecimation)]
 
     if matchingParams[
-        'ReferenceMapHeight'] % matchingDecimation != 0: print 'Original ReferenceMapHeight is not divisble by movDecimation. Taking the floor integer.'
+        'ReferenceMapHeight'] % matchingDecimation != 0: print('Original ReferenceMapHeight is not divisble by movDecimation. Taking the floor integer.')
     if matchingParams[
-        'ReferenceMapWidth'] % matchingDecimation != 0: print 'Original ReferenceMapWidth is not divisble by movDecimation. Taking the floor integer.'
+        'ReferenceMapWidth'] % matchingDecimation != 0: print('Original ReferenceMapWidth is not divisble by movDecimation. Taking the floor integer.')
 
     outputShape = [int(matchingParams['ReferenceMapHeight'] / matchingDecimation),
                    int(matchingParams['ReferenceMapHeight'] / matchingDecimation)]
@@ -67,7 +198,7 @@ def translateMovieByVasculature(mov, parameterPath, matchingDecimation=2, refere
     if matchingDecimation / referenceDecimation != 1:
         movT = ia.rigid_transform_cv2(movT, zoom=matchingDecimation / referenceDecimation)
 
-    if verbose: print 'shape of output movie:', movT.shape
+    if verbose: print('shape of output movie:', movT.shape)
 
     return movT
 
@@ -92,22 +223,22 @@ def translateHugeMovieByVasculature(inputPath, outputPath, parameterPath, output
 
     if outputDtype is None: outputDtype = inputMov.dtype.str
 
-    if len(inputMov.shape) != 3: raise ValueError, 'Input movie should be 3-d!'
+    if len(inputMov.shape) != 3: raise ValueError('Input movie should be 3-d!')
 
     frameNum = inputMov.shape[0]
 
     if outputPath[-4:] != '.npy': outputPath += '.npy'
 
-    if verbose: print '\nInput movie shape:', inputMov.shape
+    if verbose: print('\nInput movie shape:', inputMov.shape)
 
     chunkNum = frameNum // chunkLength
     if frameNum % chunkLength == 0:
         if verbose:
-            print 'Translating in chunks: ' + str(chunkNum) + ' x ' + str(chunkLength) + ' frame(s)'
+            print('Translating in chunks: ' + str(chunkNum) + ' x ' + str(chunkLength) + ' frame(s)')
     else:
         chunkNum += 1
-        if verbose: print 'Translating in chunks: ' + str(chunkNum - 1) + ' x ' + str(
-            chunkLength) + ' frame(s)' + ' + ' + str(frameNum % chunkLength) + ' frame(s)'
+        if verbose: print('Translating in chunks: ' + str(chunkNum - 1) + ' x ' + str(
+            chunkLength) + ' frame(s)' + ' + ' + str(frameNum % chunkLength) + ' frame(s)')
 
     frameT1 = translateMovieByVasculature(inputMov[0, :, :], parameterPath=parameterPath,
                                           matchingDecimation=matchingDecimation,
@@ -115,7 +246,7 @@ def translateHugeMovieByVasculature(inputPath, outputPath, parameterPath, output
     plt.imshow(frameT1, cmap='gray')
     plt.show()
 
-    if verbose: print 'Output movie shape:', (frameNum, frameT1.shape[0], frameT1.shape[1]), '\n'
+    if verbose: print('Output movie shape:', (frameNum, frameT1.shape[0], frameT1.shape[1]), '\n')
 
     with open(outputPath, 'wb') as f:
         np.lib.format.write_array_header_1_0(f, {'descr': outputDtype, 'fortran_order': False,
@@ -126,8 +257,8 @@ def translateHugeMovieByVasculature(inputPath, outputPath, parameterPath, output
             indEnd = (i + 1) * chunkLength
             if indEnd > frameNum: indEnd = frameNum
             currMov = inputMov[indStart:indEnd, :, :]
-            if verbose: print 'Translating frame ' + str(indStart) + ' to frame ' + str(indEnd) + '.\t' + str(
-                i * 100. / chunkNum) + '%'
+            if verbose: print('Translating frame ' + str(indStart) + ' to frame ' + str(indEnd) + '.\t' + str(
+                i * 100. / chunkNum) + '%')
             currMovT = translateMovieByVasculature(currMov, parameterPath=parameterPath,
                                                    matchingDecimation=matchingDecimation,
                                                    referenceDecimation=referenceDecimation, verbose=False)
@@ -147,38 +278,26 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
     :return:
     '''
 
-    # plot_r = [2000., 3000.]
-    #
-    # plt.plot(pd[int(plot_r[0]*Fs):int(plot_r[1]*Fs)])
-    # plt.title('pd raw')
+    pdDigitized = np.array(pd)
+    # plt.plot(pdDigitized[0: 100 * 30000])
     # plt.show()
 
-    pdDigitized = np.array(pd)
-
-    pdDigitized[pd < digitizeThr] = 0.
+    pdDigitized[pd < digitizeThr] = 0.;
     pdDigitized[pd >= digitizeThr] = 5.
-
-    # plt.plot(pdDigitized[int(plot_r[0]*Fs):int(plot_r[1]*Fs)])
-    # plt.title('pd digitized')
+    # plt.plot(pdDigitized[0: 100 * 30000])
     # plt.show()
 
     filterDataPoint = int(filterSize * Fs)
-    # print filterDataPoint
 
     pdFiltered = ni.filters.gaussian_filter(pdDigitized, filterDataPoint)
-
-    # plt.plot(pdFiltered[int(plot_r[0]*Fs):int(plot_r[1]*Fs)])
-    # plt.title('pd filtered')
-    # plt.show()
-
     pdFilteredDiff = np.diff(pdFiltered)
     pdFilteredDiff = np.hstack(([0], pdFilteredDiff))
     pdSignal = np.multiply(pdDigitized, pdFilteredDiff)
-
-    # plt.plot(pdSignal[int(plot_r[0]*Fs):int(plot_r[1]*Fs)])
-    # plt.title('pd signal')
+    # plt.plot(pdSignal[0: 100 * 30000])
     # plt.show()
 
+    # plt.plot(pdSignal[:1000000])
+    # plt.show()
     displayOnsets = ta.get_onset_timeStamps(pdSignal, Fs, threshold=segmentThr, onsetType='raising')
 
     trueDisplayOnsets = []
@@ -191,13 +310,13 @@ def segmentPhotodiodeSignal(pd, digitizeThr=0.9, filterSize=0.01, segmentThr=0.0
                 trueDisplayOnsets.append(displayOnset)
                 currOnset = displayOnset
 
-    print '\nNumber of photodiode onsets:', len(trueDisplayOnsets)
+    print('\nNumber of photodiode onsets:', len(trueDisplayOnsets))
 
     if verbose:
-        print '\nDisplay onsets (sec):'
-        print '\n'.join([str(o) for o in trueDisplayOnsets])
+        print('\nDisplay onsets (sec):')
+        print('\n'.join([str(o) for o in trueDisplayOnsets]))
 
-    print '\n'
+    print('\n')
 
     return np.array(trueDisplayOnsets)
 
@@ -242,11 +361,11 @@ def findLogPath(date,  # string
         if (dateTime[0:6] == date) and (mouseID in mouse) and (stimulus in stim) and (userID in user) and (
             fileNumber == fileNum) and (ext == '.pkl'):
             logPathList.append(os.path.join(displayFolder, f))
-    print '\n' + '\n'.join(logPathList) + '\n'
+    print('\n' + '\n'.join(logPathList) + '\n')
     if len(logPathList) == 0:
-        raise LookupError, 'Can not find visual display Log.'
+        raise LookupError('Can not find visual display Log.')
     elif len(logPathList) > 1:
-        raise LookupError, 'Find more than one visual display Log!'
+        raise LookupError('Find more than one visual display Log!')
     return logPathList[0]
 
 
@@ -356,26 +475,34 @@ def analysisMappingDisplayLog(display_log):
     else:
         raise ValueError('log should be either dictionary or a path string!')
 
+    def convert(data):
+        if isinstance(data, bytes):  return data.decode('ascii')
+        if isinstance(data, dict):   return dict(map(convert, data.items()))
+        if isinstance(data, tuple):  return map(convert, data)
+        return data
+
+    log = convert(log) # convert bytestrings to strings (a py2to3 issue)
+
     # check display order
-    if log['presentation']['displayOrder'] == -1: raise ValueError, 'Display order is -1 (should be 1)!'
+    if log['presentation']['displayOrder'] == -1: raise ValueError('Display order is -1 (should be 1)!')
     refreshRate = float(log['monitor']['refreshRate'])
 
     # check display visual frame interval
     interFrameInterval = np.mean(np.diff(log['presentation']['timeStamp']))
-    if interFrameInterval > (1.01 / refreshRate): raise ValueError, 'Mean visual display too long: ' + str(
-        interFrameInterval) + 'sec'  # check display
-    if interFrameInterval < (0.99 / refreshRate): raise ValueError, 'Mean visual display too short: ' + str(
-        interFrameInterval) + 'sec'  # check display
+    if interFrameInterval > (1.01 / refreshRate): raise ValueError('Mean visual display too long: ' + str(
+        interFrameInterval) + 'sec')  # check display
+    if interFrameInterval < (0.99 / refreshRate): raise ValueError('Mean visual display too short: ' + str(
+        interFrameInterval) + 'sec')  # check display
 
     # get sweep start time relative to display onset
     try:
         startTime = -1 * log['stimulation']['preGapDur']
     except KeyError:
         startTime = -1 * log['stimulation']['preGapFrameNum'] / log['monitor']['refreshRate']
-    print 'Movie chunk start time relative to sweep onset:', startTime, 'sec'
-    displayInfo['B2U']['startTime'] = startTime
+    print('Movie chunk start time relative to sweep onset:', startTime, 'sec')
+    displayInfo['B2U']['startTime'] = startTime;
     displayInfo['U2B']['startTime'] = startTime
-    displayInfo['L2R']['startTime'] = startTime
+    displayInfo['L2R']['startTime'] = startTime;
     displayInfo['R2L']['startTime'] = startTime
 
     # get basic information
@@ -383,44 +510,44 @@ def analysisMappingDisplayLog(display_log):
     displayIter = log['presentation']['displayIteration']
     sweepTable = log['stimulation']['sweepTable']
     dirList = []
-    B2Uframes = []
-    U2Bframes = []
-    L2Rframes = []
+    B2Uframes = [];
+    U2Bframes = [];
+    L2Rframes = [];
     R2Lframes = []
 
     # parcel frames for each direction
     for frame in frames:
         currDir = frame[4]
         if currDir not in dirList: dirList.append(currDir)
-        if currDir == 'B2U':
+        if currDir == b'B2U':
             B2Uframes.append(frame)
-        elif currDir == 'U2B':
+        elif currDir == b'U2B':
             U2Bframes.append(frame)
-        elif currDir == 'L2R':
+        elif currDir == b'L2R':
             L2Rframes.append(frame)
-        elif currDir == 'R2L':
+        elif currDir == b'R2L':
             R2Lframes.append(frame)
 
     # get sweep order indices for each direction
     dirList = dirList * displayIter
-    displayInfo['B2U']['ind'] = [ind for ind, dir in enumerate(dirList) if dir == 'B2U']
-    print 'B2U sweep order indices:', displayInfo['B2U']['ind']
-    displayInfo['U2B']['ind'] = [ind for ind, dir in enumerate(dirList) if dir == 'U2B']
-    print 'U2B sweep order indices:', displayInfo['U2B']['ind']
-    displayInfo['L2R']['ind'] = [ind for ind, dir in enumerate(dirList) if dir == 'L2R']
-    print 'L2R sweep order indices:', displayInfo['L2R']['ind']
-    displayInfo['R2L']['ind'] = [ind for ind, dir in enumerate(dirList) if dir == 'R2L']
-    print 'R2L sweep order indices:', displayInfo['R2L']['ind']
+    displayInfo['B2U']['ind'] = [ind for ind, adir in enumerate(dirList) if adir == b'B2U']
+    print('B2U sweep order indices:', displayInfo['B2U']['ind'])
+    displayInfo['U2B']['ind'] = [ind for ind, adir in enumerate(dirList) if adir == b'U2B']
+    print('U2B sweep order indices:', displayInfo['U2B']['ind'])
+    displayInfo['L2R']['ind'] = [ind for ind, adir in enumerate(dirList) if adir == b'L2R']
+    print('L2R sweep order indices:', displayInfo['L2R']['ind'])
+    displayInfo['R2L']['ind'] = [ind for ind, adir in enumerate(dirList) if adir == b'R2L']
+    print('R2L sweep order indices:', displayInfo['R2L']['ind'])
 
     # get sweep duration for each direction
     displayInfo['B2U']['sweepDur'] = len(B2Uframes) / refreshRate
-    print 'Chunk duration for B2U sweeps:', displayInfo['B2U']['sweepDur'], 'sec'
+    print('Chunk duration for B2U sweeps:', displayInfo['B2U']['sweepDur'], 'sec')
     displayInfo['U2B']['sweepDur'] = len(U2Bframes) / refreshRate
-    print 'Chunk duration for U2B sweeps:', displayInfo['U2B']['sweepDur'], 'sec'
+    print('Chunk duration for U2B sweeps:', displayInfo['U2B']['sweepDur'], 'sec')
     displayInfo['L2R']['sweepDur'] = len(L2Rframes) / refreshRate
-    print 'Chunk duration for L2R sweeps:', displayInfo['L2R']['sweepDur'], 'sec'
+    print('Chunk duration for L2R sweeps:', displayInfo['L2R']['sweepDur'], 'sec')
     displayInfo['R2L']['sweepDur'] = len(R2Lframes) / refreshRate
-    print 'Chunk duration for R2L sweeps:', displayInfo['R2L']['sweepDur'], 'sec'
+    print('Chunk duration for R2L sweeps:', displayInfo['R2L']['sweepDur'], 'sec')
 
     # get phase position slopes and intercepts for each direction
     displayInfo['B2U']['slope'], displayInfo['B2U']['intercept'] = rm.getPhasePositionEquation2(B2Uframes, sweepTable)
@@ -475,7 +602,7 @@ def analyzeSparseNoiseDisplayLog(logPath):
 
 
 def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temporalDownSampleRate=1,
-                      is_load_all=False):
+                      is_load_all=True):
     '''
     :param movPath: path to the image movie
     :param frameTS: the timestamps for each frame of the raw movie
@@ -491,14 +618,14 @@ def getAverageDfMovie(movPath, frameTS, onsetTimes, chunkDur, startTime=0., temp
     elif temporalDownSampleRate > 1:
         frameTS_real = frameTS[::temporalDownSampleRate]
     else:
-        raise ValueError, 'temporal downsampling rate can not be less than 1!'
+        raise ValueError('temporal downsampling rate can not be less than 1!')
 
     if is_load_all:
         if movPath[-4:] == '.npy':
             try:
                 mov = np.load(movPath)
             except ValueError:
-                print 'Cannot load the entire npy file into memroy. Trying BinarySlicer...'
+                print('Cannot load the entire npy file into memroy. Trying BinarySlicer...')
                 mov = BinarySlicer(movPath)
         elif movPath[-4:] == '.tif':
             mov = tf.imread(movPath)
@@ -537,7 +664,7 @@ def getAverageDfMovieFromH5Dataset(dset, frameTS, onsetTimes, chunkDur, startTim
     elif temporalDownSampleRate > 1:
         frameTS_real = frameTS[::temporalDownSampleRate]
     else:
-        raise ValueError, 'temporal downsampling rate can not be less than 1!'
+        raise ValueError('temporal downsampling rate can not be less than 1!')
 
     aveMov, n = ia.get_average_movie(dset, frameTS_real, onsetTimes + startTime, chunkDur, isReturnN=True)
 
@@ -578,17 +705,17 @@ def getMappingMovies(movPath, frameTS, displayOnsets, displayInfo, temporalDownS
     elif FFTmode == 'valley':
         isReverse = True
     else:
-        raise LookupError, 'FFTmode should be either "peak" or "valley"!'
+        raise LookupError('FFTmode should be either "peak" or "valley"!')
 
     for dir in ['B2U', 'U2B', 'L2R', 'R2L']:
-        print '\nAnalyzing sweeps with direction:', dir
+        print('\nAnalyzing sweeps with direction:', dir)
 
         onsetInd = list(displayInfo[dir]['ind'])
 
         for ind in displayInfo[dir]['ind']:
             if ind >= len(displayOnsets):
-                print 'Visual Stimulation Direction:' + dir + ' index:' + str(
-                    ind) + ' was not displayed. Remove from averageing.'
+                print('Visual Stimulation Direction:' + dir + ' index:' + str(
+                    ind) + ' was not displayed. Remove from averageing.')
                 onsetInd.remove(ind)
 
         aveMov, aveMovNor = getAverageDfMovie(movPath=movPath,
@@ -598,6 +725,9 @@ def getMappingMovies(movPath, frameTS, displayOnsets, displayInfo, temporalDownS
                                               startTime=displayInfo[dir]['startTime'],
                                               temporalDownSampleRate=temporalDownSampleRate,
                                               is_load_all=is_load_all)
+
+        print('aveMov.shape = ' + str(aveMov.shape))
+        print('aveMovNor.shape = ' + str(aveMovNor.shape))
 
         if isRectify:
             aveMovNorRec = np.array(aveMovNor)
@@ -651,7 +781,7 @@ def regression_detrend(mov, roi, verbose=True):
     """
 
     if len(mov.shape) != 3:
-        raise (ValueError, 'Input movie should be 3-dimensional!')
+        raise ValueError
 
     roi = ia.WeightedROI(roi)
     trend = roi.get_weighted_trace(mov)
@@ -664,7 +794,7 @@ def regression_detrend(mov, roi, verbose=True):
 
     n = 0
 
-    for i, j in itertools.product(range(mov.shape[1]), range(mov.shape[2])):
+    for i, j in itertools.product(list(range(mov.shape[1])), list(range(mov.shape[2]))):
         pixel_trace = mov[:, i, j]
         slope, intercept, r_value, p_value, stderr = stats.linregress(trend, pixel_trace)
         slopes[i, j] = slope
@@ -673,7 +803,7 @@ def regression_detrend(mov, roi, verbose=True):
 
         if verbose:
             if n % (pixel_num // 10) == 0:
-                print 'progress:', int(round(float(n) * 100 / pixel_num)), '%'
+                print('progress:', int(round(float(n) * 100 / pixel_num)), '%')
         n += 1
 
     return mov_new, trend, slopes, rvalues
@@ -715,7 +845,7 @@ def neural_pil_subtraction(trace_center, trace_surround, lam=0.05):
     ns.fit()
     # ns.fit_block_coordinate_desc()
 
-    return ns.r, ns.error, trace_center - (ns.r * trace_surround)
+    return ns.r, ns.error, trace_center - ns.r * trace_surround
 
 
 def get_lfp(trace, fs=30000., notch_base=60., notch_bandwidth=1., notch_harmonics=4, notch_order=2,
@@ -770,7 +900,7 @@ def array_to_rois(input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), i
         center_masks.update(curr_masks)
 
     center_mask_array = []
-    for mask in center_masks.values():
+    for mask in list(center_masks.values()):
         center_mask_array.append(mask)
     center_mask_array = np.array(center_mask_array, dtype=np.uint8)
 
@@ -779,7 +909,7 @@ def array_to_rois(input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), i
     duplicates = ms.detect_duplicates(overlap_threshold=overlap_threshold)
     # print 'number of duplicates:', len(duplicates)
     if len(duplicates) > 0:
-        inds = duplicates.keys()
+        inds = list(duplicates.keys())
         center_mask_array = np.array([center_mask_array[i] for i in range(len(center_mask_array)) if i not in inds])
 
     # removing unions
@@ -787,7 +917,7 @@ def array_to_rois(input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), i
     unions = ms.detect_unions()
     # print 'number of unions:', len(unions)
     if len(unions) > 0:
-        inds = unions.keys()
+        inds = list(unions.keys())
         center_mask_array = np.array([center_mask_array[i] for i in range(len(center_mask_array)) if i not in inds])
 
     # get total mask
@@ -888,7 +1018,7 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
 
     for i, curr_path in enumerate(path_list):
 
-        print('\n\nprocessing ' + curr_path + '...')
+        print(('\n\nprocessing ' + curr_path + '...'))
 
         curr_f = h5py.File(curr_path, 'r')
 
@@ -913,7 +1043,7 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
                 pixel_size_unit = None
 
             roi_grp = curr_f[roi_path]
-            for roi_n in roi_grp.keys():
+            for roi_n in list(roi_grp.keys()):
                 if roi_n[0: 4] == 'roi_' and roi_n != 'roi_list':
                     roi_dict_center.update({roi_n: ia.ROI(roi_grp[roi_n]['img_mask'].value, pixelSize=pixel_size,
                                                           pixelSizeUnit=pixel_size_unit)})
@@ -922,12 +1052,12 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
                                                             pixelSizeUnit=pixel_size_unit)})
                 else:
                     # print('avoid loading {}/{} as an roi.'.format(roi_path, roi_n))
-                    print('avoid loading {} as an roi.'.format(roi_n))
+                    print(('avoid loading {} as an roi.'.format(roi_n)))
 
         # check analog start time
         all_chs_grp = curr_f['acquisition/timeseries']
-        for curr_chn, curr_ch_grp in all_chs_grp.items():
-            if 'starting_time' in curr_ch_grp.keys():
+        for curr_chn, curr_ch_grp in list(all_chs_grp.items()):
+            if 'starting_time' in list(curr_ch_grp.keys()):
                 total_analog_sample_count = curr_ch_grp['num_samples'].value
                 if curr_ch_grp['starting_time'].value != 0:
                     raise ValueError('starting time of analog channel: {} is not 0.'.format(curr_chn))
@@ -972,7 +1102,7 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
                 except Exception:
                     pass
                 for curr_unit_n in curr_unit_ns:
-                    if curr_unit_n in curr_ug_dict.keys():
+                    if curr_unit_n in list(curr_ug_dict.keys()):
                         curr_ug_dict[curr_unit_n].append(curr_ug_grp[curr_unit_n]['times'].value + next_start)
                     else:
                         curr_ug_dict[curr_unit_n] = [curr_ug_grp[curr_unit_n]['times'].value + next_start]
@@ -995,7 +1125,7 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
         print('\nsaving rois ...')
         roi_grp = save_f.create_group('rois')
         if roi_dict_center:
-            for curr_roi_n_c, curr_roi_c in roi_dict_center.items():
+            for curr_roi_n_c, curr_roi_c in list(roi_dict_center.items()):
                 curr_roi_grp = roi_grp.create_group(curr_roi_n_c)
                 curr_roi_grp_c = curr_roi_grp.create_group('center')
                 curr_roi_c.to_h5_group(curr_roi_grp_c)
@@ -1006,26 +1136,26 @@ def concatenate_nwb_files(path_list, save_path, gap_dur=100., roi_path=None, is_
                     curr_roi_grp_s = curr_roi_grp.create_group('surround')
                     curr_roi_s.to_h5_group(curr_roi_grp_s)
                 except Exception as e:
-                    print('error in saving surrounding roi: {}. \nError message: {}'.format(curr_roi_n_c, e))
+                    print(('error in saving surrounding roi: {}. \nError message: {}'.format(curr_roi_n_c, e)))
 
     if analog_chs or is_save_running:
         print('\nsaving analog channels ...')
-        for curr_analog_n, curr_analog_trace_list in analog_dict.items():
-            print curr_analog_n
+        for curr_analog_n, curr_analog_trace_list in list(analog_dict.items()):
+            print(curr_analog_n)
             curr_analog_trace_all = np.concatenate(curr_analog_trace_list, axis=0)
             save_f['analog_' + curr_analog_n] = curr_analog_trace_all
 
     if unit_groups:
         for unit_group in unit_groups:
-            print('\nsaving ephys units for unit group: {}'.format(unit_group))
+            print(('\nsaving ephys units for unit group: {}'.format(unit_group)))
             save_units_grp = save_f.create_group(unit_group)
-            for unit_n, unit_ts in unit_dict[unit_group].items():
+            for unit_n, unit_ts in list(unit_dict[unit_group].items()):
                 save_unit_grp = save_units_grp.create_group(unit_n)
                 save_unit_grp.create_dataset('timestamps', data=np.concatenate(unit_ts, axis=0))
 
     if time_series_paths:
         print('\nsaving other time series ...')
-        for save_ts_n, save_ts_dict in time_series_dict.items():
+        for save_ts_n, save_ts_dict in list(time_series_dict.items()):
             print(save_ts_n)
             save_ts_grp = save_f.create_group(save_ts_n)
             curr_ts_data = save_ts_dict['data']
@@ -1138,7 +1268,7 @@ def get_drifting_grating_dataframe(dgr_grp, sweep_dur):
     bl_bins = t <= 0
     res_bins = (t > 0) & (t <= sweep_dur)
 
-    gratings = dgr_grp.keys()
+    gratings = list(dgr_grp.keys())
 
     dg_df = pd.DataFrame(columns=['n', 'sf', 'tf', 'dir', 'con', 'radius', 'baseline', 'baseline_std', 'F0', 'F0_std',
                                   'F1', 'F1_std', 'F2', 'F2_std'])
@@ -1258,8 +1388,7 @@ def generate_strf_from_timestamps(unit_ts, squares_ts_grp, unit_n='', sta_start=
 
     :param unit_ts: 1d array, spike timestamps, should be monotonic increasing
     :param squares_ts_grp: h5py group object, containing the timestamps of each square displayed, this should be the
-                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli_corticalmapping()
-                         function
+                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli() function
     :param unit_n: str, name of the unit
     :param sta_start: float, stimulus triggered average start time relative to stimulus onset
     :param sta_end: float, stimulus triggered average end time relative to stimulus onset
@@ -1271,7 +1400,7 @@ def generate_strf_from_timestamps(unit_ts, squares_ts_grp, unit_n='', sta_start=
     t = np.arange((sta_start + bin_width / 2), (sta_end + bin_width / 2), bin_width)
     t = np.round(t * 100000) / 100000
 
-    all_squares = squares_ts_grp.keys()
+    all_squares = list(squares_ts_grp.keys())
     traces = []
     locations = []
     signs = []
@@ -1302,8 +1431,7 @@ def generate_strf_from_continuous(continuous, continuous_ts, squares_ts_grp, roi
     :param continuous_ts: 1d array, timestamp series for the continuous, monotonically increasing, should have same
                           size as continuous
     :param squares_ts_grp: h5py group object, containing the timestamps of each square displayed, this should be the
-                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli_corticalmapping()
-                         function
+                         output of corticalmapping.NwbTools.RecordedFile.analyze_visual_stimuli() function
     :param roi_n: str, name of the roi
     :param sta_start: float, stimulus triggered average start time relative to stimulus onset
     :param sta_end: float, stimulus triggered average end time relative to stimulus onset
@@ -1316,7 +1444,7 @@ def generate_strf_from_continuous(continuous, continuous_ts, squares_ts_grp, roi
     chunk_frame_start = int(np.floor(sta_start / mean_frame_dur))
     t = (np.arange(chunk_frame_dur) + chunk_frame_start) * mean_frame_dur
 
-    all_squares = squares_ts_grp.keys()
+    all_squares = list(squares_ts_grp.keys())
 
     traces = []  # square x trial x t
     locations = []
@@ -1345,321 +1473,7 @@ def generate_strf_from_continuous(continuous, continuous_ts, squares_ts_grp, roi
     return sca.SpatialTemporalReceptiveField(locations, signs, traces, t, name=roi_n, trace_data_type='df/f')
 
 
-def get_drifting_grating_response_nwb(nwb_path, plane_ns, grating_onsets_path, time_window):
-    """
-    extract and response table for drifting_gratings from a nwb file. The response table will be saved in the /analysis
-    group.
-
-    :param nwb_path: str, path to the nwb file
-    :param plane_ns: list of strings, plane names for multi-plane imaging
-    :param grating_onsets_path: str, hdf5 group path to the grating_onset timestamps
-    :param time_window: tuple/list of two floats, start and end time relative to grating onset
-    :return: None
-    """
-
-    def get_sta(arr, arr_ts, trigger_ts, frame_start, frame_end):
-
-        sta_arr = []
-
-        for trig in trigger_ts:
-            trig_ind = ta.find_nearest(arr_ts, trig)
-            curr_sta = arr[:, (trig_ind + frame_start) : (trig_ind + frame_end)]
-            sta_arr.append(curr_sta.reshape((curr_sta.shape[0], 1, curr_sta.shape[1])))
-
-        sta_arr = np.concatenate(sta_arr, axis=1)
-        return sta_arr
-
-
-    if time_window[0] >= time_window[1]:
-        raise ValueError('time window should be from early time to late time.')
-
-    nwb_f = h5py.File(nwb_path)
-
-    res_grp = nwb_f['analysis'].create_group('response_table_drifting_grating')
-
-
-    grating_ns = nwb_f[grating_onsets_path].keys()
-    grating_ns.sort()
-
-    for plane_n in plane_ns:
-        print(plane_n)
-
-        res_grp_plane = res_grp.create_group(plane_n)
-
-        trace_ts = nwb_f['processing/motion_correction/MotionCorrection/' + plane_n + '/corrected/timestamps']
-
-        traces = {}
-        traces['global_dff_center'] = nwb_f['processing/rois_and_traces_' + plane_n + '/DfOverF/dff_center/data'].value
-        traces['f_center_demixed'] = nwb_f['processing/rois_and_traces_' + plane_n + '/Fluorescence/f_center_demixed/data'].value
-        traces['f_center_raw'] = nwb_f['processing/rois_and_traces_' + plane_n + '/Fluorescence/f_center_raw/data'].value
-        traces['f_center_subtracted'] = nwb_f['processing/rois_and_traces_' + plane_n + '/Fluorescence/f_center_subtracted/data'].value
-        traces['f_surround_raw'] = nwb_f['processing/rois_and_traces_' + plane_n + '/Fluorescence/f_surround_raw/data'].value
-
-        frame_dur = np.mean(np.diff(trace_ts))
-        frame_start = int(time_window[0] // frame_dur)
-        frame_end = int(time_window[1] // frame_dur)
-        t_axis = np.arange(frame_end - frame_start) * frame_dur + time_window[0]
-
-        res_grp_plane.attrs['sta_timestamps'] = t_axis
-
-        for grating_n in grating_ns:
-
-            onsets_grating_grp = nwb_f[grating_onsets_path + '/' + grating_n]
-
-            curr_grating_grp = res_grp_plane.create_group(grating_n)
-            for key, value in onsets_grating_grp.items():
-                if key not in ['data', 'num_samples', 'timestamps']:
-                    curr_grating_grp.attrs[key] = value.value
-            curr_grating_grp.attrs['sta_traces_dimenstion'] = 'roi x trial x timepoint'
-
-            grating_onsets = onsets_grating_grp['timestamps'].value
-            for trace_n, trace in traces.items():
-                sta = get_sta(arr=trace, arr_ts=trace_ts, trigger_ts=grating_onsets, frame_start=frame_start,
-                              frame_end=frame_end)
-                curr_grating_grp.create_dataset('sta_' + trace_n, data=sta)
-
-
-def plot_roi_traces_three_planes(nwb_f, roi0=None, roi1=None, roi2=None, trace_type='f_center_raw'):
-
-    f = plt.figure(figsize=(10, 10))
-
-    ax0_img = f.add_axes([0.04, 0.67, 0.32, 0.32])
-    ax0_img.set_xticks([])
-    ax0_img.set_yticks([])
-    ax0_img.set_ylabel('plane0, {}'.format(roi0), fontsize=15)
-    bg0 = nwb_f['processing/rois_and_traces_plane0/ImageSegmentation/imaging_plane' \
-                '/reference_images/max_projection/data'].value
-    bg0 = ia.array_nor(bg0)
-    ax0_img.imshow(bg0, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
-
-    ax0_trace0 = f.add_axes([0.37, 0.88, 0.62, 0.1])
-    ax0_trace0.set_axis_off()
-
-    ax0_trace1 = f.add_axes([0.37, 0.78, 0.62, 0.1])
-    ax0_trace1.set_axis_off()
-
-    ax0_trace2 = f.add_axes([0.37, 0.68, 0.62, 0.1])
-    ax0_trace2.set_axis_off()
-
-    if roi0 is not None:
-        roi0_mask = nwb_f['processing/rois_and_traces_plane0/ImageSegmentation/imaging_plane' \
-                         '/{}/img_mask'.format(roi0)].value
-        pt.plot_mask_borders(mask=roi0_mask, plotAxis=ax0_img, lw=0.5)
-
-        roi0_ind = int(roi0[-4:])
-        roi0_trace = nwb_f['processing/rois_and_traces_plane0/Fluorescence/{}' \
-                          '/data'.format(trace_type)][roi0_ind, :]
-        chunk_len = len(roi0_trace) // 3
-        ax0_trace0.plot(roi0_trace[0:chunk_len])
-        ax0_trace1.plot(roi0_trace[chunk_len:2*chunk_len])
-        ax0_trace2.plot(roi0_trace[2*chunk_len:3*chunk_len])
-
-    ax1_img = f.add_axes([0.04, 0.34, 0.32, 0.32])
-    ax1_img.set_xticks([])
-    ax1_img.set_yticks([])
-    ax1_img.set_ylabel('plane1, {}'.format(roi1), fontsize=15)
-    bg1 = nwb_f['processing/rois_and_traces_plane1/ImageSegmentation/imaging_plane' \
-                '/reference_images/max_projection/data'].value
-    bg1 = ia.array_nor(bg1)
-    ax1_img.imshow(bg1, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
-
-    ax1_trace0 = f.add_axes([0.37, 0.55, 0.62, 0.1])
-    ax1_trace0.set_axis_off()
-
-    ax1_trace1 = f.add_axes([0.37, 0.45, 0.62, 0.1])
-    ax1_trace1.set_axis_off()
-
-    ax1_trace2 = f.add_axes([0.37, 0.35, 0.62, 0.1])
-    ax1_trace2.set_axis_off()
-
-    if roi1 is not None:
-        roi1_mask = nwb_f['processing/rois_and_traces_plane1/ImageSegmentation/imaging_plane' \
-                         '/{}/img_mask'.format(roi1)].value
-        pt.plot_mask_borders(mask=roi1_mask, plotAxis=ax1_img, lw=0.5)
-
-        roi1_ind = int(roi1[-4:])
-        roi1_trace = nwb_f['processing/rois_and_traces_plane1/Fluorescence/{}' \
-                           '/data'.format(trace_type)][roi1_ind, :]
-        chunk_len = len(roi1_trace) // 3
-        ax1_trace0.plot(roi1_trace[0:chunk_len])
-        ax1_trace1.plot(roi1_trace[chunk_len:2 * chunk_len])
-        ax1_trace2.plot(roi1_trace[2 * chunk_len:3 * chunk_len])
-
-    ax2_img = f.add_axes([0.04, 0.01, 0.32, 0.32])
-    ax2_img.set_xticks([])
-    ax2_img.set_yticks([])
-    ax2_img.set_ylabel('plane2, {}'.format(roi2), fontsize=15)
-    bg2 = nwb_f['processing/rois_and_traces_plane2/ImageSegmentation/imaging_plane' \
-                '/reference_images/max_projection/data'].value
-    bg2 = ia.array_nor(bg2)
-    ax2_img.imshow(bg2, vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
-
-    ax2_trace0 = f.add_axes([0.37, 0.22, 0.62, 0.1])
-    ax2_trace0.set_axis_off()
-
-    ax2_trace1 = f.add_axes([0.37, 0.12, 0.62, 0.1])
-    ax2_trace1.set_axis_off()
-
-    ax2_trace2 = f.add_axes([0.37, 0.02, 0.62, 0.1])
-    ax2_trace2.set_axis_off()
-
-    if roi2 is not None:
-        roi2_mask = nwb_f['processing/rois_and_traces_plane2/ImageSegmentation/imaging_plane' \
-                         '/{}/img_mask'.format(roi2)].value
-        pt.plot_mask_borders(mask=roi2_mask, plotAxis=ax2_img, lw=0.5)
-
-        roi2_ind = int(roi2[-4:])
-        roi2_trace = nwb_f['processing/rois_and_traces_plane2/Fluorescence/{}' \
-                           '/data'.format(trace_type)][roi2_ind, :]
-        chunk_len = len(roi2_trace) // 3
-        ax2_trace0.plot(roi2_trace[0:chunk_len])
-        ax2_trace1.plot(roi2_trace[chunk_len:2 * chunk_len])
-        ax2_trace2.plot(roi2_trace[2 * chunk_len:3 * chunk_len])
-
-    # plt.show()
-
-    return f
-
-
-def get_masks_from_caiman(spatial_com, dims, thr=0, thr_method='nrg', swap_dim=False):
-    """
-    Gets masks of spatial components results generated the by the CaImAn segmentation
-
-    this function is stripped out from the caiman.utils.visualization.get_contours(). only works for 2d spatial
-    components.
-
-    Args:
-         spatial_com: np.ndarray or sparse matrix, mostly will be the caiman.source_extraction.cnmf.estimates.A
-                      2d Matrix of Spatial components, each row is a flattened pixel (order 'F'), each column
-                      is a spatial component
-         dims: tuple of ints
-               Spatial dimensions of movie (row, col)
-         thr: scalar between 0 and 1
-              Energy threshold for computing contours (default 0.9)
-              if thr_method is 'nrg': higher thr will make bigger hole inside the mask
-              if thr_method is 'max': (usually does not work very well), higher thr will make smaller mask
-                                      near the center.
-         thr_method: [optional] string
-                     Method of thresholding:
-                     'max' sets to zero pixels that have value less than a fraction of the max value
-                     'nrg' keeps the pixels that contribute up to a specified fraction of the energy
-         swap_dim: if True, flattened 2d array will be reshaped by order 'C', otherwise with order 'F'.
-    Returns:
-         masks: 3d array, dtype=np.float, spatial component x row x col
-    """
-
-    if 'csc_matrix' not in str(type(spatial_com)):
-        spatial_com = sparse.csc_matrix(spatial_com)
-
-    if len(spatial_com.shape) != 2:
-        raise ValueError('input "spatial_com" should be a 2d array or 2d sparse matrix.')
-
-    n_mask = spatial_com.shape[1]
-
-    if len(dims) != 2:
-        raise ValueError("input 'dims' should have two entries: (num_row, num_col).")
-
-    if dims[0] * dims[1] != spatial_com.shape[0]:
-        raise ValueError("the product of dims[0] and dims[1] ({} x {}) should be equal to the first dimension "
-                         "of the input 'spatial_com'.".format(dims[0], dims[1], spatial_com.shape[0]))
-
-    masks = []
-
-    # # get the center of mass of neurons( patches )
-    # cm = com(A, *dims)
-
-    # for each patches
-    for i in range(n_mask):
-        # we compute the cumulative sum of the energy of the Ath component that has been ordered from least to highest
-        patch_data = spatial_com.data[spatial_com.indptr[i]:spatial_com.indptr[i + 1]]
-        indx = np.argsort(patch_data)[::-1]
-        if thr_method == 'nrg':
-            cumEn = np.cumsum(patch_data[indx] ** 2)
-            # we work with normalized values
-            cumEn /= cumEn[-1]
-            Bvec = np.ones(spatial_com.shape[0])
-            # we put it in a similar matrix
-            Bvec[spatial_com.indices[spatial_com.indptr[i]:spatial_com.indptr[i + 1]][indx]] = cumEn
-        else:
-            if thr_method != 'max':
-                print('Unknown threshold method {}. should be either "max" or "nrg". '
-                      'Choosing "max".'.format(thr_method))
-            Bvec = np.zeros(spatial_com.shape[0])
-            Bvec[spatial_com.indices[spatial_com.indptr[i]:
-                                     spatial_com.indptr[i + 1]]] = patch_data / patch_data.max()
-        if swap_dim:
-            Bmat = np.reshape(Bvec, dims, order='C')
-            mask = np.array(spatial_com[:, i].todense().reshape(dims, order='C'))
-        else:
-            Bmat = np.reshape(Bvec, dims, order='F')
-            mask = np.array(spatial_com[:, i].todense().reshape(dims, order='F'))
-
-        Bmat[Bmat >= thr] = 1.
-        Bmat[Bmat < thr] = 0.
-
-        masks.append(mask * Bmat)
-
-    return np.array(masks)
-
-
-def threshold_mask_by_energy(mask, sigma=1., thr_high=0.0, thr_low=0.1):
-    """
-    threshold a weighted mask by reversed accumulative energy. Use this to treat masks spit out by caiman
-    segmentation.
-    :param mask: 2d array
-    :param sigma: float, 2d gaussian filter sigma
-    :param thr_high: float, 0 - 1, bigger thr_high will make bigger hole inside the roi
-    :param thr_low: float, 0 - 1, bigger thr_low will make smaller roi around the center
-    :return: 2d array thresholded mask
-    """
-
-    if len(mask.shape) != 2:
-        raise ValueError('input "mask" should be a 2d array.')
-
-    if sigma is not None:
-        mask = ni.gaussian_filter(mask, sigma=sigma)
-
-    mask = ia.array_nor(mask)
-    mask_s = mask.flatten()
-
-    indx_low = np.argsort(mask_s)
-    cum_eng_low = np.cumsum(mask_s[indx_low] ** 2)
-    cum_eng_low /= cum_eng_low[-1]
-    mask_eng_low = np.ones(mask_s.shape, dtype=np.float)
-    mask_eng_low[indx_low] = cum_eng_low
-    mask_eng_low = mask_eng_low.reshape(mask.shape)
-
-    indx_high = np.argsort(mask_s)[::-1]
-    cum_eng_high = np.cumsum(mask_s[indx_high] ** 2)
-    cum_eng_high /= cum_eng_high[-1]
-    mask_eng_high = np.ones(mask_s.shape, dtype=np.float)
-    mask_eng_high[indx_high] = cum_eng_high
-    mask_eng_high = mask_eng_high.reshape(mask.shape)
-
-    mask_bin = np.ones(mask.shape)
-
-    mask_bin[mask_eng_high < thr_high] = 0.
-    mask_bin[mask_eng_low < thr_low] = 0.
-
-    mask_labeled, mask_num = ni.label(mask_bin, structure=[[1,1,1], [1,1,1], [1,1,1]])
-    mask_dict = ia.get_masks(labeled=mask_labeled, keyPrefix='', labelLength=5)
-
-    for key, value in mask_dict.items():
-        mask_w = value * mask
-        mask_w = mask_w / np.amax(mask_w)
-        mask_dict[key] = ia.WeightedROI(mask_w)
-
-    return mask_dict
-
-
 if __name__ == '__main__':
-
-    # ===========================================================================
-    nwb_f = h5py.File(r"Z:\chandelier_cell_project\M447219\2019-06-25-deepscope\190625_M447219_110.nwb", 'r')
-    plot_roi_traces_three_planes(nwb_f=nwb_f, roi0='roi_0000', roi1='roi_0004', roi2='roi_0003')
-    nwb_f.close()
-    # ===========================================================================
-
     # ===========================================================================
     # dateRecorded = '150930'
     # mouseID = '187474'
@@ -1841,14 +1655,12 @@ if __name__ == '__main__':
     # ===========================================================================
 
     # ===========================================================================
-    # input_folder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData" \
-    #                r"\170404-M302706\2p_movies\for_segmentation\tempdir"
-    # c, s = array_to_rois(input_folder=input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), is_plot=True)
-    # print c.shape
-    # print s.shape
+    input_folder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData" \
+                   r"\170404-M302706\2p_movies\for_segmentation\tempdir"
+    c, s = array_to_rois(input_folder=input_folder, overlap_threshold=0.9, neuropil_limit=(5, 10), is_plot=True)
+    print(c.shape)
+    print(s.shape)
 
     # ===========================================================================
 
-    print 'for debug...'
-
-
+    print('for debug...')

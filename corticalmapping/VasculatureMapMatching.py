@@ -28,8 +28,8 @@ import corticalmapping.core.ImageAnalysis as ia
 import tifffile as tf
 import corticalmapping.core.PlottingTools as pt
 
-try: import cv2; from core.ImageAnalysis import rigid_transform_cv2 as rigid_transform
-except ImportError as e: print e; from core.ImageAnalysis import rigid_transform as rigid_transform
+try: import cv2; from .core.ImageAnalysis import rigid_transform_cv2 as rigid_transform
+except ImportError as e: print(e); from .core.ImageAnalysis import rigid_transform as rigid_transform
 
 
 class AppForm(QMainWindow):
@@ -81,7 +81,7 @@ class AppForm(QMainWindow):
 
 
     def save_alignment_json(self):
-        path = unicode(QFileDialog.getSaveFileName(self,
+        path = str(QFileDialog.getSaveFileName(self,
                         'Save file', self.currSaveFolder,
                         '*.json'))
 
@@ -177,7 +177,7 @@ class AppForm(QMainWindow):
         try:
             if len(fnames) == 0: # no file is chosen
 
-                print "no file is chosen! Setting reference map as None..."
+                print("no file is chosen! Setting reference map as None...")
                 self.textbrowser_RPath.clear()
                 self.ReferenceVasMap = None
 
@@ -204,7 +204,7 @@ class AppForm(QMainWindow):
                         self.ReferenceVasMap = pt.merge_normalized_images([currMap[0]])
                         self.textbrowser_RPath.setText(filePath)
                     else:
-                        print 'Can not read reference map '+filePath
+                        print('Can not read reference map '+filePath)
                         self.textbrowser_RPath.clear()
                         self.ReferenceVasMap = None
 
@@ -226,21 +226,21 @@ class AppForm(QMainWindow):
                         elif 'JCam' in fileName:
                             currMap, _ = ft.importRawJCam(filePath)
                         else:
-                            print 'Can not read '+filePath
+                            print('Can not read '+filePath)
 
                         mapList.append(currMap[0].astype(np.float32))
 
                 if len(mapList) == 0:
-                    print "no file can be read! Setting reference map as None..."
+                    print("no file can be read! Setting reference map as None...")
                     self.textbrowser_RPath.clear()
                     self.ReferenceVasMap = None
                 else:
                     self.ReferenceVasMap = pt.merge_normalized_images(mapList).astype(np.float32)
                     self.textbrowser_RPath.setText(displayText)
 
-        except Exception, e:
-            print e, '\n\n'
-            print 'Can not load reference Map! Setting it as None...'
+        except Exception as e:
+            print(e, '\n\n')
+            print('Can not load reference Map! Setting it as None...')
             self.textbrowser_RPath.clear()
             self.ReferenceVasMap = None
 
@@ -268,7 +268,7 @@ class AppForm(QMainWindow):
         try:
             if len(fnames) == 0: # no file is chosen
 
-                print "no file is chosen! Setting matching map as None..."
+                print("no file is chosen! Setting matching map as None...")
                 self.textbrowser_MPath.clear()
                 self.MatchingVasMap = None
                 self.MatchingVasMapRaw = None
@@ -303,7 +303,7 @@ class AppForm(QMainWindow):
                         self.MatchingVasMapRaw = currMap[0]
                         self.textbrowser_MPath.setText(filePath)
                     else:
-                        print 'Can not read matching map '+filePath
+                        print('Can not read matching map '+filePath)
                         self.textbrowser_MPath.clear()
                         self.MatchingVasMap = None
                     self.MatchingVasMapAfterChange = None
@@ -325,12 +325,12 @@ class AppForm(QMainWindow):
                         elif 'JCam' in fileName:
                             currMap, _ = ft.importRawJCam(filePath)
                         else:
-                            print 'Can not read '+filePath
+                            print('Can not read '+filePath)
 
                         mapList.append(currMap[0].astype(np.float32))
 
                 if len(mapList) == 0:
-                    print "no file can be read! Setting matching map as None..."
+                    print("no file can be read! Setting matching map as None...")
                     self.textbrowser_MPath.clear()
                     self.MatchingVasMap = None
                     self.MatchingVasMapRaw = None
@@ -341,9 +341,9 @@ class AppForm(QMainWindow):
                     self.textbrowser_MPath.setText(displayText)
                     self.MatchingVasMapAfterChange = None
 
-        except Exception, e:
-            print e, '\n\n'
-            print 'Can not load matching Map! Setting it as None...'
+        except Exception as e:
+            print(e, '\n\n')
+            print('Can not load matching Map! Setting it as None...')
             self.textbrowser_MPath.clear()
             self.MatchingVasMap = None
             self.MatchingVasMapRaw = None

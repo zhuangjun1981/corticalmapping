@@ -89,8 +89,8 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
     """
 
     bin_width = (float(t_range[1]) - float(t_range[0])) / bins
-    t = np.arange(bins).astype(np.float64) * bin_width + t_range[0]
-    intervals = zip(t, t + bin_width)
+    t = np.arange(bins) * bin_width + t_range[0]
+    intervals = list(zip(t, t + bin_width))
     values = np.zeros(bins, dtype=np.int64)
     ts1s = np.sort(ts1)  # sort first timestamps array
     ts2s = np.sort(ts2)  # sort second timestamps array
@@ -101,7 +101,7 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
     n = len(ts1s)
 
     if n == 0:
-        print 'no overlapping time range (defined as ' + str(t_range) + ' between two input timestamp arrays'
+        print('no overlapping time range (defined as ' + str(t_range) + ' between two input timestamp arrays')
         # return None
     else:
         ts2_start_ind = 0
@@ -129,7 +129,7 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
         ax = f.add_subplot(111)
         ax.bar([a[0] for a in intervals], values, bin_width * 0.9)
 
-    return t, values.astype(np.float64)
+    return t, values.astype(np.float32)
 
 
 def find_nearest(trace, value, direction=0):
@@ -258,7 +258,7 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
     freq_axis: frequency for each row (from low to high)
     '''
 
-    if len(trace.shape) != 1: raise ValueError, 'Input trace should be 1d array!'
+    if len(trace.shape) != 1: raise ValueError('Input trace should be 1d array!')
 
     total_length = len(trace) / float(fs)
 
@@ -268,14 +268,14 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
     freq_axis = np.arange(freq_bins, dtype=np.float32) * freq_bin_width + freq_range[0]
 
     if sliding_step_length is None: sliding_step_length = sliding_window_length
-    if sliding_step_length > sliding_window_length: print "Step length larger than window length, not using all data points!"
+    if sliding_step_length > sliding_window_length: print("Step length larger than window length, not using all data points!")
     times = np.arange(0., total_length, sliding_step_length)
     times = times[(times + sliding_window_length) < total_length]
 
-    if len(times) == 0: raise ValueError, 'No time point found.'
+    if len(times) == 0: raise ValueError('No time point found.')
     else:
         points_in_window = int(sliding_window_length * fs)
-        if points_in_window <= 0: raise ValueError, 'Sliding window length too short!'
+        if points_in_window <= 0: raise ValueError('Sliding window length too short!')
         else:
             spectrum = np.zeros((len(freq_axis), len(times)))
             for idx, start_time in enumerate(times):
@@ -291,8 +291,8 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
         fig = ax.imshow(spectrum, interpolation='nearest', **kwargs)
         ax.set_xlabel('times (sec)')
         ax.set_ylabel('frequency (Hz)')
-        ax.set_xticks(range(len(times))[::(len(times)//10)])
-        ax.set_yticks(range(len(freq_axis))[::(len(freq_axis)//10)])
+        ax.set_xticks(list(range(len(times)))[::(len(times)//10)])
+        ax.set_yticks(list(range(len(freq_axis)))[::(len(freq_axis)//10)])
         ax.set_xticklabels(times[::(len(times)//10)])
         ax.set_yticklabels(freq_axis[::(len(freq_axis)//10)])
         ax.invert_yaxis()
@@ -640,7 +640,7 @@ def event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_ran
     eta = np.zeros(t.shape, dtype=np.float32)
     eta[:] = np.nan
 
-    print '\nStart calculating event triggered average ...'
+    print('\nStart calculating event triggered average ...')
     percentage = None
 
     for ind_eve, eve in enumerate(ts_event):
@@ -648,7 +648,7 @@ def event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_ran
         # for display
         curr_percentage =  int((float(ind_eve) * 100. / float(len(ts_event))) // 10) * 10
         if curr_percentage != percentage:
-            print 'progress: ' + str(curr_percentage) + '%'
+            print('progress: ' + str(curr_percentage) + '%')
             # print eve, ':', ts_continuous[-1]
             percentage = curr_percentage
 
@@ -784,73 +784,6 @@ def event_triggered_event_trains(event_ts, triggers, t_range=(-1., 2.)):
     return etts, t_range
 
 
-def threshold_to_intervals(trace, thr, comparison='>='):
-    """
-    threshold a 1d trace, return intervals of indices that are above the threshold.
-
-    :param trace: 1d array
-    :param thr: float
-    :param comparison: str, '>', '>=', '<' or '<='
-    :return: list of tuples, each tuple contains two non-negative integers representing
-             the start index and the end index of thresholded intervals. the first int should
-             be smaller than the second int.
-    """
-
-    if len(trace.shape) != 1:
-        raise ValueError("the input 'trace' should be a 1d array.")
-
-    flag = False
-
-    start = []
-    end = []
-
-    for pi, pv in enumerate(trace):
-
-        if comparison == '>=':
-            if pv >= thr and (not flag):
-                start.append(pi)
-                flag = True
-
-            if pv < thr and flag:
-                end.append(pi)
-                flag = False
-
-        elif comparison == '>':
-            if pv > thr and (not flag):
-                start.append(pi)
-                flag = True
-
-            if pv <= thr and flag:
-                end.append(pi)
-                flag = False
-
-        elif comparison == '<=':
-            if pv <= thr and (not flag):
-                start.append(pi)
-                flag = True
-
-            if pv > thr and flag:
-                end.append(pi)
-                flag = False
-
-        elif comparison == '<':
-            if pv < thr and (not flag):
-                start.append(pi)
-                flag = True
-
-            if pv >= thr and flag:
-                end.append(pi)
-                flag = False
-
-        else:
-            raise LookupError('Do not understand input "comparison", should be ">=", ">", "<=", "<".')
-
-    if len(start) - len(end) == 1:
-        end.append(len(trace))
-
-    return zip(start, end)
-
-
 def haramp(trace, periods, ceil_f=4):
     """
     get amplitudes of first couple harmonic components from a time series corresponding to a sinusoidal stimulus.
@@ -885,133 +818,6 @@ def haramp(trace, periods, ceil_f=4):
 
     return harmonic
 
-
-class TimeIntervals(object):
-    """
-    class to describe time intervals, designed to represent epochs
-
-    self.data save the (start, end) timestamps of each epochs. Shape (n, 2).
-    Each row: a single interval
-    column 0: start timestamps
-    column 1: end timestamps
-
-    the intervals are incremental in time and should not have overlap within them.
-    """
-
-    def __init__(self, intervals):
-        self._intervals = self.check_integraty(intervals)
-
-    def get_intervals(self):
-        return self._intervals
-
-    @staticmethod
-    def check_integraty(intervals):
-
-        intervals_cp = np.array([np.array(d, dtype=np.float64) for d in intervals])
-        intervals_cp = intervals_cp.astype(np.float64)
-
-        if len(intervals_cp.shape) != 2:
-            raise ValueError('intervals should be 2d.')
-
-        if intervals_cp.shape[1] != 2:
-            raise ValueError('intervals.shape[1] should be 2. (start, end) of the interval')
-
-        # for interval_i, interval in enumerate(intervals_cp):
-        #     if interval[1] <= interval[0]:
-        #         raise ValueError('the {}th interval: end time ({}) earlier than start time ({})'.
-        #                          format(interval_i, interval[1], interval[0]))
-
-        intervals_cp = intervals_cp[intervals_cp[:, 0].argsort()]
-
-        ts_list = np.concatenate(intervals_cp, axis=0)
-        if not check_monotonicity(arr=ts_list, direction='increasing'):
-            raise ValueError('The intervals should be incremental in time and should not have overlap within them.')
-
-        return intervals_cp
-
-    def overlap(self, time_intervals):
-        """
-        return a new TimeIntervals object that represents the overlap between self and the input Timeintervals
-
-        :param time_intervals: corticalmapping.core.TimingAnalysis.TimeIntervals object
-        """
-
-        starts0 = [[s, 1] for s in self._intervals[:, 0]]
-        ends0 = [[e, -1] for e in self._intervals[:, 1]]
-
-        starts1 = [[s, 1] for s in time_intervals.get_intervals()[:, 0]]
-        ends1 = [[e, -1] for e in time_intervals.get_intervals()[:, 1]]
-
-        events_lst = starts0 + ends0 + starts1 + ends1
-        # print(events_lst)
-
-        ts_arr = np.array([e[0] for e in events_lst])
-        events_lst = [events_lst[i] for i in np.argsort(ts_arr)]
-        # print(events_lst)
-
-        mask = np.cumsum([e[1] for e in events_lst])
-
-        new_starts = []
-        new_ends = []
-
-        flag = 0 # 1: within overlap, 0: outside overlap
-        for ts_i, msk in enumerate(mask):
-
-            if flag == 0 and msk == 2:
-                new_starts.append(events_lst[ts_i][0])
-                flag = 1
-            elif flag == 1 and msk < 2:
-                new_ends.append(events_lst[ts_i][0])
-                flag = 0
-            elif flag == 1 and msk == 2:
-                raise ValueError('do not understand the timestamps: flag={}, msk={}.'.format(flag, msk))
-            else:
-                pass
-
-        if len(new_starts) != len(new_ends):
-            raise ValueError('the length of new_starts ({}) does not equal the length of new_ends ({}).'.
-                             format(len(new_starts), len(new_ends)))
-
-        if new_starts:
-            new_intervals = np.array([np.array(new_starts), np.array(new_ends)]).transpose()
-            return TimeIntervals(intervals=new_intervals)
-        else:
-            return None
-
-    def is_contain(self, time_interval):
-        """
-        :param time_interval: list or tuple of two floats, representing one single time interval
-        :return: bool, if the input interval is completely contained by self
-        """
-
-        if len(time_interval) != 2:
-            raise ValueError('input "time_interval" should have two and only two elements.')
-
-        if time_interval[0] >= time_interval[1]:
-            raise ValueError('the start of input "time_interval" should be earlier than the end.')
-
-        for interval in self._intervals:
-
-            if interval[0] > time_interval[0]: # current interval starts after input time_interval
-                return False
-            else: # current interval starts before input time_interval
-                if interval[1] < time_interval[0]: # current interval ends before input time_interval
-                    pass
-                elif interval[1] < time_interval[1]: # current interval ends within input time_interval
-                    return False
-                else:
-                    return True # current interval contains input time_interval
-
-        # all intervals in self end before input time_interval
-        # or self._intervals is empty
-        return False
-
-    def to_h5_group(self, grp):
-        pass
-
-    @staticmethod
-    def from_h5_group(grp):
-        pass
 
 
 if __name__=='__main__':
@@ -1117,4 +923,4 @@ if __name__=='__main__':
     # butter_highpass_filter(is_plot=True)
     # ============================================================================================================
 
-    print 'for debugging...'
+    print('for debugging...')

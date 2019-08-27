@@ -8,21 +8,14 @@ Created on Fri Oct 31 11:07:20 2014
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
-import matplotlib
 import matplotlib.gridspec as gridspec
 import colorsys
 import matplotlib.colors as col
 import scipy.ndimage as ni
 
-try:
-    import tifffile as tf
-except ImportError:
-    import skimage.external.tifffile as tf
-
-try:
-    import ImageAnalysis as ia
-except (AttributeError, ImportError):
-    from . import ImageAnalysis as ia
+from . import tifffile as tf
+from . import ImageAnalysis as ia
+from . import TimingAnalysis as ta
 
 try:
     import cv2
@@ -41,7 +34,7 @@ def get_color_str(R, G, B):
     """
     get hex color string from R,G,B value (integer with uint8 format)
     """
-    if not (isinstance(R, (int, long)) and isinstance(G, (int, long)) and isinstance(G, (int, long))):
+    if not (isinstance(R, int) and isinstance(G, int) and isinstance(G, int)):
         raise TypeError('Input R, G and B should be integer!')
 
     if not ((0 <= R <= 255) and (0 <= G <= 255) and (
@@ -143,9 +136,7 @@ def bar_graph(left,
         elif errorDir == 'negative':
             yerr = [[error], [0]]
         else:
-            raise (ValueError, '"errorDir" should be one of the following: "both", "positive" of "negative".')
-
-
+            raise ValueError
 
         plotAxis.errorbar(left + width / 2,
                           height,
@@ -161,8 +152,7 @@ def bar_graph(left,
                  color=faceColor,
                  edgecolor=edgeColor,
                  lw=lw,
-                 label=label,
-                 align='edge')
+                 label=label)
 
     return plotAxis
 
@@ -522,15 +512,13 @@ def save_figure_without_borders(f,
     """
     remove borders of a figure
     """
-    f.gca().get_xaxis().set_visible(False)
-    f.gca().get_yaxis().set_visible(False)
+    # f.gca().get_xaxis().set_visible(False)
+    # f.gca().get_yaxis().set_visible(False)
     f.gca().set_axis_off()
     f.gca().set_title('')
     if removeSuperTitle:
         f.suptitle('')
-    f.tight_layout(pad=0., h_pad=0., w_pad=0., rect=(0, 0, 1, 1))
-    # f.savefig(savePath, frameon=False, **kwargs)
-    f.savefig(savePath, pad_inches=0, bbox_inches='tight', frameon=False, **kwargs)
+    f.savefig(savePath, pad_inches=0, bbox_inches='tight', **kwargs)
 
 
 def merge_normalized_images(imgList, isFilter=True, sigma=50, mergeMethod='mean', dtype=np.float32):
@@ -662,7 +650,7 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
     :return: fig
     """
 
-    # print('in plotting tools.')
+    # print 'in plotting tools.'
 
     if fig is None:
         fig = plt.figure(figsize=(8, 6))
@@ -671,14 +659,14 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
     t_step = np.mean(np.diff(channel_ts))
 
     ind_range = [int(t_range[0] / t_step), int(t_range[1] / t_step)]
-    # print('ind_range:', ind_range)
+    # print 'ind_range:', ind_range
 
     if t_range[0] < 0:
         base_point_num = -int(t_range[0] / t_step)
     else:
         base_point_num = ind_range[1] - ind_range[0]
 
-    # print('getting spike indices ...')
+    # print 'getting spike indices ...'
     unit_inds = np.round((unit_ts - channel_ts[0]) / t_step).astype(np.int64)
     unit_inds = np.array([ind for ind in unit_inds if (ind + ind_range[0]) >= 0 and
                           (ind + ind_range[1]) < len(channel_ts)])
@@ -686,11 +674,11 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
     # axis direction: (channel, spike, time)
     traces = np.zeros((ch_num, len(unit_inds), ind_range[1] - ind_range[0]), dtype=np.float32)
 
-    # print('traces shape:', traces.shape)
+    # print 'traces shape:', traces.shape
 
-    # print('filling traces ...')
+    # print 'filling traces ...'
     for i, ch in enumerate(channels):
-        # print('current channel:', i)
+        # print 'current channel:', i
         for j, unit_ind in enumerate(unit_inds):
             curr_trace = ch[unit_ind + ind_range[0]: unit_ind + ind_range[1]]
             traces[i, j, :] = curr_trace - np.mean(curr_trace[0:base_point_num])
@@ -699,8 +687,8 @@ def plot_spike_waveforms(unit_ts, channels, channel_ts, fig=None, t_range=(-0.00
     traces_max = np.amax(traces)
     mean_traces = np.mean(traces, axis=1)
 
-    # print(traces_min)
-    # print(traces_max)
+    # print traces_min
+    # print traces_max
 
     t_axis = t_range[0] + np.arange(traces.shape[2], dtype=np.float32) * t_step
     for k in range(traces.shape[0]):
@@ -827,70 +815,9 @@ def plot_multiple_traces(traces, x=None, plot_axis=None, mean_kw=None, is_plot_s
     return plot_axis
 
 
-def plot_dire_distribution(dires, weights=None, is_arc=False, bins=12,  plot_ax=None, plot_type='bar', **kwargs):
-    """
-    plot the distribution of a list of directions in a nice way.
-
-    :param dires: array of float. directions to be plotted.
-    :param weights: array with same size as dires, weights of data
-    :param is_arc: bool. If True, dires are in [0, 2*pi] scale, if False, dires are in [0, 360] scale
-    :param bins: int, how many bins are there
-    :param plot_ax: matplotlib.axes._subplots.PolarAxesSubplot object
-    :param plot_type: str, 'bar' or 'line'
-    :param kwargs: if plot_type == 'bar', key word argument to the plot_ax.bar() function;
-                   if plot_type == 'line', kew word argument to the plot_ax.plot() function;
-    :return:
-    """
-
-    if plot_ax is None:
-        f = plt.figure(figsize=(5,5))
-        plot_ax = f.add_subplot(111, projection='polar')
-
-    if not isinstance(plot_ax, matplotlib.projections.polar.PolarAxes):
-        raise TypeError('input "plot_ax" should be a "matplotlib.projections.polar.PolarAxes" or '
-                        'a "matplotlib.axes._subplots.PolarAxesSubplot" object')
-
-    plot_dires = np.array(dires, dtype=np.float64)
-
-    if is_arc is False:
-        plot_dires = plot_dires * np.pi / 180.
-
-    plot_dires = plot_dires % (2 * np.pi)
-
-    bin_width = np.pi * 2 / bins
-
-    for dire_i, dire in enumerate(plot_dires):
-        if dire > ((np.pi * 2) - (bin_width / 2)):
-            plot_dires[dire_i] = dire - (np.pi * 2)
-
-    # print(plot_dires)
-    counts, bin_lst = np.histogram(plot_dires, weights=weights, bins=bins, range=[-bin_width / 2., (np.pi * 2) - (bin_width / 2)])
-    bin_lst = bin_lst[0:-1] + (bin_width / 2)
-
-    if plot_type == 'bar':
-        plot_ax.bar(bin_lst, counts, width=bin_width, align='center', **kwargs)
-    elif plot_type == 'line':
-        counts = list(counts)
-        counts.append(counts[0])
-        bin_lst = list(bin_lst)
-        bin_lst.append(bin_lst[0])
-        plot_ax.plot(bin_lst, counts, **kwargs)
-    else:
-        raise LookupError('Do not understand parameter "plot_type", should be "bar" or "line".')
-
-    plot_ax.set_xticklabels([])
-
-    return plot_ax, counts[:-1], bin_lst[:-1]
-
 
 if __name__ == '__main__':
     plt.ioff()
-
-    # ----------------------------------------------------
-    dires = [0,0,0,90,90,90,90,90,90,180,180]
-    plot_dire_distribution(dires=dires, is_arc=False)
-    plt.show()
-    # ----------------------------------------------------
 
     # ----------------------------------------------------
     # bg = np.random.rand(100,100)
@@ -1015,8 +942,8 @@ if __name__ == '__main__':
     # ----------------------------------------------------
 
     # ----------------------------------------------------
-    # grid_axis2(nrows=4, ncols=3, share_level=1)
-    # plt.show()
+    grid_axis2(nrows=4, ncols=3, share_level=1)
+    plt.show()
     # ----------------------------------------------------
 
     print('for debug')
