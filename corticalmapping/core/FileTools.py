@@ -5,40 +5,24 @@ import pickle
 import os
 import shutil
 import struct
+from . import ImageAnalysis as ia
+from . import tifffile as tf
 import h5py
-import warnings
-import numbers
 
-try:
-    import ImageAnalysis as ia
-except (AttributeError, ImportError):
-    from . import ImageAnalysis as ia
-
-try:
-    import tifffile as tf
-except ImportError:
-    import skimage.external.tifffile as tf
 
 try: import cv2
-except ImportError as e: print('cannot import OpenCV. {}'.format(e))
-
-try: import sync.dataset as sync_dset
-except ImportError as e: print('cannot import sync.dataset. {}'.format(e))
-
-
-def is_integer(var):
-    return isinstance(var, numbers.Integral)
+except ImportError as e: print('can not import OpenCV. ' + str(e))
 
 
 def saveFile(path,data):
     f = open(path,'wb')
-    pickle.dump(data, f)
+    pickle.dump(data, f, 2)
     f.close()
 
 
 def loadFile(path):
     f = open(path,'rb')
-    data = pickle.load(f)
+    data = pickle.load(f, encoding='bytes')
     f.close()
     return data
 
@@ -271,13 +255,13 @@ def importRawNewJPhys(path,
     channelNum = len(channels)
 
     channelLength = len(JPhysFile) / channelNum
-#    print('length of JPhys:', len(JPhysFile))
-#    print('length of JPhys channel number:', channelNum)
+#    print 'length of JPhys:', len(JPhysFile)
+#    print 'length of JPhys channel number:', channelNum
 
     if len(JPhysFile) % channelNum != 0:
         raise ArithmeticError('Length of the file should be divisible by channel number!')
 
-    JPhysFile = JPhysFile.reshape([channelLength, channelNum])
+    JPhysFile = JPhysFile.reshape([int(channelLength), int(channelNum)])
 
     headerMatrix = JPhysFile[0:headerLength,:]
     bodyMatrix = JPhysFile[headerLength:,:]
@@ -346,7 +330,7 @@ def importRawJPhys2(path,
     # first time of visual stimulation
     visualStart = None
 
-    for i in xrange(80,len(photodiode)):
+    for i in range(80,len(photodiode)):
         if ((photodiode[i] - photodiodeThr) * (photodiode[i-1] - photodiodeThr)) < 0 and \
            ((photodiode[i] - photodiodeThr) * (photodiode[i-75] - photodiodeThr)) < 0: #first frame of big change
                 visualStart = i*(1./sf)
@@ -413,7 +397,7 @@ def importRawNewJPhys2(path,
     # first time of visual stimulation
     visualStart = None
 
-    for i in xrange(80,len(photodiode)):
+    for i in range(80,len(photodiode)):
         if ((photodiode[i] - photodiodeThr) * (photodiode[i-1] - photodiodeThr)) < 0 and \
            ((photodiode[i] - photodiodeThr) * (photodiode[i-75] - photodiodeThr)) < 0: #first frame of big change
                 visualStart = i*(1./sf)
@@ -492,8 +476,8 @@ def generateAVI(saveFolder,
 
     out.release()
     cv2.destroyAllWindows()
-
-
+    
+    
 def importRawJCamF(path,
                    saveFolder = None,
                    dtype = np.dtype('<u2'),
@@ -503,7 +487,7 @@ def importRawJCamF(path,
                    row = 2048,
                    frame = None, #how many frame to read
                    crop = None):
-
+    
     if frame:
         data = np.fromfile(path,dtype=dtype,count=frame*column*row+headerLength)
         header = data[0:headerLength]
@@ -514,9 +498,9 @@ def importRawJCamF(path,
         header = data[0:headerLength]
         tailer = data[len(data)-tailerLength:len(data)]
         frame = (len(data)-headerLength-tailerLength)/(column*row)
-        # print(len(data[headerLength:len(data)-tailerLength]))
+        # print len(data[headerLength:len(data)-tailerLength])
         mov = data[headerLength:len(data)-tailerLength].reshape((frame,column,row))
-
+    
     if saveFolder:
         if crop:
             try:
@@ -527,7 +511,7 @@ def importRawJCamF(path,
 
         fileName = os.path.splitext(os.path.split(path)[-1])[0] + '.tif'
         tf.imsave(os.path.join(saveFolder,fileName),mov)
-
+    
     return mov, header, tailer
 
 
@@ -561,7 +545,7 @@ def imageToHdf5(array_like, save_path, hdf5_path, spatial_zoom=None, chunk_size=
     original_shape = array_like.shape
     original_dtype = array_like.dtype
 
-    print('\ntransforming image array to hdf5 format. \noriginal shape: ' + str(original_shape))
+    print(('\ntransforming image array to hdf5 format. \noriginal shape: ' + str(original_shape)))
 
     if len(original_shape) != 3:
         raise ValueError('the array_like should be 3-d!')
@@ -577,7 +561,7 @@ def imageToHdf5(array_like, save_path, hdf5_path, spatial_zoom=None, chunk_size=
     else:
         new_shape = original_shape
 
-    print('shape after transformation: ' + str(new_shape))
+    print(('shape after transformation: ' + str(new_shape)))
 
     save_file = h5py.File(save_path)
     if compression is not None:
@@ -590,7 +574,7 @@ def imageToHdf5(array_like, save_path, hdf5_path, spatial_zoom=None, chunk_size=
     for i in range(chunk_num):
         chunk_start = i * chunk_size
         chunk_end = (i + 1) * chunk_size
-        print('transforming chunk: [' + str(chunk_start) + ':' + str(chunk_end) + '] ...')
+        print(('transforming chunk: [' + str(chunk_start) + ':' + str(chunk_end) + '] ...'))
         curr_chunk =  array_like[chunk_start : chunk_end, :, :]
         if spatial_zoom is not None:
             curr_chunk = ia.rigid_transform_cv2(curr_chunk, zoom=zoom).astype(original_dtype)
@@ -598,7 +582,7 @@ def imageToHdf5(array_like, save_path, hdf5_path, spatial_zoom=None, chunk_size=
 
 
     if chunk_num % chunk_size != 0:
-        print('transforming chunk: [' + str(chunk_size * chunk_num) + ':' + str(original_shape[0]) + '] ...')
+        print(('transforming chunk: [' + str(chunk_size * chunk_num) + ':' + str(original_shape[0]) + '] ...'))
         last_chunk = array_like[chunk_size * chunk_num:, :, :]
         if spatial_zoom is not None:
             last_chunk = ia.rigid_transform_cv2(last_chunk, zoom=zoom).astype(original_dtype)
@@ -618,17 +602,17 @@ def update_key(group, dataset_name, dataset_data, is_overwrite=True):
     :param is_overwrite: bool, if True, automatically overwrite
                                if False, ask for manual confirmation for overwriting.
     '''
-    if dataset_name not in group.keys():
+    if dataset_name not in list(group.keys()):
         group.create_dataset(dataset_name, data=dataset_data)
     else:
         if is_overwrite:
-            print('overwriting dataset "' + dataset_name + '" in group "' + str(group) + '".')
+            print(('overwriting dataset "' + dataset_name + '" in group "' + str(group) + '".'))
             del group[dataset_name]
             group.create_dataset(dataset_name, data=dataset_data)
         else:
             check = ''
             while check != 'y' and check != 'n':
-                check = raw_input(dataset_name + ' already exists in group ' + str(group) + '. Overwrite? (y/n)\n')
+                check = input(dataset_name + ' already exists in group ' + str(group) + '. Overwrite? (y/n)\n')
                 if check == 'y':
                     del group[dataset_name]
                     group.create_dataset(dataset_name, data=dataset_data)
@@ -662,7 +646,7 @@ def write_dictionary_to_h5group_recursively(target, source, is_overwrite=True):
         else:
             check = ''
             while check != 'y' and check != 'n':
-                check = raw_input(name + ' already exists in group ' + str(parent) + '. Overwrite? (y/n)\n')
+                check = input(name + ' already exists in group ' + str(parent) + '. Overwrite? (y/n)\n')
                 if check == 'y':
                     del parent[name]
                     curr_group = parent.create_group(name)
@@ -671,8 +655,8 @@ def write_dictionary_to_h5group_recursively(target, source, is_overwrite=True):
                     pass
 
     elif isinstance(target, h5py.Group):
-        for key, value in source.items():
-            if key not in target.keys():
+        for key, value in list(source.items()):
+            if key not in list(target.keys()):
                 if isinstance(value, dict):
                     curr_group = target.create_group(key)
                     write_dictionary_to_h5group_recursively(curr_group, value, is_overwrite=is_overwrite)
@@ -687,119 +671,18 @@ def write_dictionary_to_h5group_recursively(target, source, is_overwrite=True):
         raise TypeError('target: "' + target.name + '" should be either h5py.Dataset or h5py.Group classes.')
 
 
-def read_sync(f_path, analog_downsample_rate=None, by_label=True, digital_labels=None,
-              analog_labels=None):
-    """
-    convert sync output to a dictionary
-
-    :param f_path: path to the sync output .h5 file
-    :param analog_downsample_rate: int, temporal downsample factor for analog channel
-    :param by_label: bool, if True: only extract channels with string labels
-                           if False: extract all saved channels by indices
-    :param digital_labels: list of strings,
-                           selected labels for extracting digital channels. Overwrites
-                           'by_label' for digital channel. Use this only if you know what
-                           you are doing.
-    :param analog_labels: list of strings,
-                          selected labels for extracting analog channels. Overwrites
-                          'by_label' for analog channel. Use this only if you know what
-                          you are doing.
-    :return: sync_dict: {'digital_channels': {'rise': rise_ts (in seconds),
-                                              'fall': fall_ts (in seconds)},
-                         'analog_channels': analog_traces,
-                         'analog_sample_rate': analog_fs (float)}
-    """
-
-    ds = sync_dset.Dataset(path=f_path)
-
-    # print(ds.meta_data)
-    # print(ds.analog_meta_data)
-
-    # read digital channels
-    digital_channels = {}
-
-    if digital_labels is not None:
-        digital_cns = digital_labels
-    elif by_label:
-        digital_cns = ds.meta_data['line_labels']
-    else:
-        digital_cns = [dl for dl in ds.meta_data['line_labels'] if dl]
-        if len(digital_cns) > 0:
-            warnings.warn('You choose to extract digital channels by index. But there are '
-                          'digital channels with string labels: {}. All the string labels '
-                          'will be lost.'.format(str(digital_cns)))
-        digital_cns = range(ds.meta_data['ni_daq']['event_bits'])
-        digital_cns = [str(cn) for cn in digital_cns]
-
-    # print(digital_cns)
-
-    for digital_i, digital_cn in enumerate(digital_cns):
-        if digital_cn:
-            digital_channels[digital_cn] = {'rise': ds.get_rising_edges(line=digital_i, units='seconds'),
-                                            'fall': ds.get_falling_edges(line=digital_i, units='seconds')}
-
-    # read analog channels
-    data_f = h5py.File(f_path, 'r')
-    if 'analog_meta' not in data_f.keys():
-        data_f.close()
-        print ('no analog data found in file: {}.'.format(f_path))
-        return {'digital_channels': digital_channels}
-    else:
-
-        analog_channels = {}
-
-        if analog_downsample_rate is None:
-            analog_downsample_rate = 1
-        analog_fs = ds.analog_meta_data['analog_sample_rate'] / analog_downsample_rate
-        if analog_labels is not None:
-            analog_cns = analog_labels
-            for analog_cn in analog_cns:
-                analog_channels[str(analog_cn)] = ds.get_analog_channel(channel=analog_cn,
-                                                                        downsample=analog_downsample_rate)
-        elif by_label:
-            analog_cns = [al for al in ds.analog_meta_data['analog_labels'] if al]
-
-            for analog_cn in analog_cns:
-                analog_channels[str(analog_cn)] = ds.get_analog_channel(channel=analog_cn,
-                                                                        downsample=analog_downsample_rate)
-        else:
-            analog_cns = [al for al in ds.analog_meta_data['analog_labels'] if al]
-            if len(analog_cns) > 0:
-                warnings.warn('You choose to extract analog channels by index. But there are '
-                              'analog channels with string labels: {}. All the string labels '
-                              'will be lost.'.format(str(digital_cns)))
-            analog_cns = ds.analog_meta_data['analog_channels']
-
-            for analog_ind, analog_cn in enumerate(analog_cns):
-                analog_channels[str(analog_cn)] = ds.get_analog_channel(channel=analog_ind,
-                                                                        downsample=analog_downsample_rate)
-
-        return {'digital_channels': digital_channels,
-                'analog_channels': analog_channels,
-                'analog_sample_rate': analog_fs}
-
 
 if __name__=='__main__':
 
-    # ----------------------------------------------------------------------------
-    sync_path = r"D:\data2\rabies_tracing_project\method_development" \
-                r"\2017-10-05-read-sync\171003_M345521_FlashingCircle_106_171003165755.h5"
-    # sync_path = r"\\allen\programs\braintv\workgroups\nc-ophys\ImageData\Soumya\trees\m255" \
-    #             r"\log_m255\sync_pkl\m255_presynaptic_pop_vol1_stimDG_bessel170918013215.h5"
-    sync_dict = read_sync(f_path=sync_path, by_label=False, digital_labels=['vsync_2p'],
-                          analog_labels=['photodiode'], analog_downsample_rate=None)
-    # sync_dict = read_sync(f_path=sync_path, by_label=False, digital_labels=None,
-    #                       analog_labels=None, analog_downsample_rate=None)
-    # print(sync_dict)
-    # ----------------------------------------------------------------------------
-
     #----------------------------------------------------------------------------
+
     # mov = np.random.rand(250,512,512,4)
     # generateAVI(r'C:\JunZhuang\labwork\data\python_temp_folder','tempMov',mov)
+
     #----------------------------------------------------------------------------
-    # print(int2str(5))
-    # print(int2str(5,2))
-    # print(int2str(155,6))
+    # print int2str(5)
+    # print int2str(5,2)
+    # print int2str(155,6)
     #----------------------------------------------------------------------------
 
     # ----------------------------------------------------------------------------
@@ -808,15 +691,15 @@ if __name__=='__main__':
     # ----------------------------------------------------------------------------
 
     # ----------------------------------------------------------------------------
-    # ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
-    # test_dict = {'a':1, 'b':2, 'c': {'A': 4, 'B': 5}}
-    # write_dictionary_to_h5group_recursively(target=ff, source=test_dict, is_overwrite=True)
-    # ff.close()
-    #
-    # ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
-    # test_dict2 = {'a': {'C': 6, 'D': 7}, 'c': {'A': 4, 'B': 6}, 'd':10, 'e':{'E':11, 'F':'xx'}}
-    # write_dictionary_to_h5group_recursively(target=ff, source=test_dict2, is_overwrite=False)
-    # ff.close()
+    ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
+    test_dict = {'a':1, 'b':2, 'c': {'A': 4, 'B': 5}}
+    write_dictionary_to_h5group_recursively(target=ff, source=test_dict, is_overwrite=True)
+    ff.close()
+
+    ff = h5py.File(r"E:\data\python_temp_folder\test4.hdf5")
+    test_dict2 = {'a': {'C': 6, 'D': 7}, 'c': {'A': 4, 'B': 6}, 'd':10, 'e':{'E':11, 'F':'xx'}}
+    write_dictionary_to_h5group_recursively(target=ff, source=test_dict2, is_overwrite=False)
+    ff.close()
     # ----------------------------------------------------------------------------
 
 

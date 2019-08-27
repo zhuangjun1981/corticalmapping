@@ -1717,80 +1717,6 @@ def get_axon_dgcrm_from_clu_f(clu_f, plane_n, axon_n, trace_type):
         return dgcrm
 
 
-def get_axon_morphology(clu_f, nwb_f, plane_n, axon_n):
-
-    axon_morph = {}
-
-    mc_grp = nwb_f['processing/motion_correction/MotionCorrection/{}/corrected'.format(plane_n)]
-    pixel_size = mc_grp['pixel_size'].value
-    # print(pixel_size)
-    pixel_size_mean = np.mean(pixel_size)
-
-    bout_ns = clu_f['axons/{}'.format(axon_n)].value
-    # print(bout_ns)
-    bout_num = len(bout_ns)
-    axon_morph['bouton_num'] = bout_num
-
-    if bout_num == 1:
-        axon_roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=bout_ns[0])
-    else:
-        axon_roi = get_axon_roi_from_clu_f(clu_f=clu_f, axon_n=axon_n)
-        axon_roi = ia.WeightedROI(axon_roi.get_weighted_mask(), pixelSize=pixel_size,
-                                  pixelSizeUnit=mc_grp['pixel_size_unit'].value)
-
-    # plt.imshow(axon_roi.get_binary_mask(), interpolation='nearest')
-    # plt.show()
-
-    axon_morph['axon_row_range'] = (np.max(axon_roi.pixels[0]) -
-                                    np.min(axon_roi.pixels[0])) * pixel_size[0] * 1e6
-    axon_morph['axon_col_range'] = (np.max(axon_roi.pixels[1]) -
-                                    np.min(axon_roi.pixels[1])) * pixel_size[1] * 1e6
-
-    axon_morph['axon_area'] = axon_roi.get_pixel_area() * 1e12
-
-    axon_qhull = spatial.ConvexHull(np.array(axon_roi.pixels).transpose())
-    # print(axon_qhull.volume)
-    axon_morph['axon_qhull_area'] = axon_qhull.volume * axon_roi.pixelSizeX * axon_roi.pixelSizeY * 1e12
-
-    bout_rois = []
-    for bout_n in bout_ns:
-        bout_rois.append(get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=bout_n))
-
-    bout_areas = [r.get_pixel_area() for r in bout_rois]
-    bout_area_mean = np.mean(bout_areas)
-    axon_morph['bouton_area_mean'] = bout_area_mean * 1e12
-
-    if bout_num == 1:
-        bout_area_std = np.nan
-    else:
-        bout_area_std = np.std(bout_areas)
-    axon_morph['bouton_area_std'] = bout_area_std * 1e12
-
-    bout_coords = np.array([r.get_center() for r in bout_rois]) # [[y0, x0], [y1, x1], ... , [yn, xn]]
-    if bout_num == 1:
-        axon_morph['bouton_row_std'] = np.nan
-        axon_morph['bouton_col_std'] = np.nan
-        axon_morph['bouton_dis_mean'] = np.nan
-        axon_morph['bouton_dis_std'] = np.nan
-        axon_morph['bouton_dis_median'] = np.nan
-        axon_morph['bouton_dis_max'] = np.nan
-    else:
-        axon_morph['bouton_row_std'] = np.std(bout_coords[:, 0]) * pixel_size_mean * 1e6
-        axon_morph['bouton_col_std'] = np.std(bout_coords[:, 1]) * pixel_size_mean * 1e6
-
-        bout_dis = spatial.distance.pdist(bout_coords) * pixel_size_mean
-        axon_morph['bouton_dis_mean'] = np.mean(bout_dis) * 1e6
-        axon_morph['bouton_dis_median'] = np.median(bout_dis) * 1e6
-        axon_morph['bouton_dis_max'] = np.max(bout_dis) * 1e6
-
-        if bout_num == 2:
-            axon_morph['bouton_dis_std'] = np.nan
-        else:
-            axon_morph['bouton_dis_std'] = np.std(bout_dis) * 1e6
-
-    return axon_morph
-
-
 def get_everything_from_axon(nwb_f, clu_f, plane_n, axon_n, params=ANALYSIS_PARAMS, verbose=False):
     """
 
@@ -3819,28 +3745,14 @@ class BoutonClassifier(object):
 if __name__ == '__main__':
 
     # ===================================================================================================
-    nwb_f = h5py.File(r"G:\bulk_LGN_database\nwbs\190221_M426525_110_repacked.nwb", 'r')
-    clu_f = h5py.File(r"G:\bulk_LGN_database\intermediate_results\bouton_clustering"
-                      r"\AllStimuli_DistanceThr_1.30\190221_M426525_plane0_axon_grouping.hdf5", 'r')
-    plane_n = 'plane0'
-    axon_n = 'axon_0007'
-    axon_morph = get_axon_morphology(clu_f=clu_f, nwb_f=nwb_f, plane_n=plane_n, axon_n=axon_n)
+    nwb_f = h5py.File(r"G:\bulk_LGN_database\nwbs\190404_M439939_110_repacked.nwb")
+    uc_inds, _ = get_UC_ts_mask(nwb_f=nwb_f, plane_n='plane0')
+    plt.plot(uc_inds)
+    plt.show()
 
-    keys = axon_morph.keys()
-    keys.sort()
-    for key in keys:
-        print('{}: {}'.format(key, axon_morph[key]))
-    # ===================================================================================================
-
-    # ===================================================================================================
-    # nwb_f = h5py.File(r"G:\bulk_LGN_database\nwbs\190404_M439939_110_repacked.nwb")
-    # uc_inds, _ = get_UC_ts_mask(nwb_f=nwb_f, plane_n='plane0')
-    # plt.plot(uc_inds)
-    # plt.show()
-    #
-    # dgc_spont_inds, _ = get_DGC_spont_ts_mask(nwb_f=nwb_f, plane_n='plane0')
-    # plt.plot(dgc_spont_inds)
-    # plt.show()
+    dgc_spont_inds, _ = get_DGC_spont_ts_mask(nwb_f=nwb_f, plane_n='plane0')
+    plt.plot(dgc_spont_inds)
+    plt.show()
     # ===================================================================================================
 
     # ===================================================================================================
@@ -3895,5 +3807,3 @@ if __name__ == '__main__':
     #                     cmap='viridis', canvas_shape=(512, 512), edgecolors='#000000', linewidths=0.5)
     # plt.show()
     # ===================================================================================================
-
-    print('for debug ...')

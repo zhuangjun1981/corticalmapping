@@ -1,0 +1,8 @@
+numpy
+scipy
+PyDAQmx
+scikit-image
+tifffile
+
+[testing]
+pytest
