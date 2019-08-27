@@ -41,7 +41,7 @@ def get_color_str(R, G, B):
     """
     get hex color string from R,G,B value (integer with uint8 format)
     """
-    if not (isinstance(R, (int, long)) and isinstance(G, (int, long)) and isinstance(G, (int, long))):
+    if not (isinstance(R, int) and isinstance(G, int) and isinstance(G, int)):
         raise TypeError('Input R, G and B should be integer!')
 
     if not ((0 <= R <= 255) and (0 <= G <= 255) and (
