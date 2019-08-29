@@ -1835,7 +1835,11 @@ def get_axon_roi(clu_f, nwb_f, plane_n, axon_n, is_normalize=False, canvas_size=
         axon_mask_raw = axon_roi.get_binary_mask()
         axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_raw, zoom=zoom)
 
-        device = nwb_f['general/optophysiology/imaging_plane_1/device'].value
+        try:
+            device = nwb_f['general/optophysiology/imaging_plane_1/device'].value
+        except KeyError:
+            device = nwb_f['general/optophysiology/imaging_plane_0/device'].value
+
         if 'Deep' in device or 'deep' in device:
             axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_nor,
                                                       rotation=140,
