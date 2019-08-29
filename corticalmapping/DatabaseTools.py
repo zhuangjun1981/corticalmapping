@@ -1791,6 +1791,82 @@ def get_axon_morphology(clu_f, nwb_f, plane_n, axon_n):
     return axon_morph
 
 
+def get_axon_roi(clu_f, nwb_f, plane_n, axon_n, is_normalize=False, canvas_size=200., pixel_res=512):
+    """
+    get axon mask in the format of standard orientation and specified canvas with specified pixel size
+
+    :param clu_f: hdf5.File
+    :param nwb_f: hdf5.File
+    :param plane_n: str
+    :param axon_n: str
+    :param is_normalize: bool, output normalized the mask or not
+    :param canvas_size: float, um
+    :param pixel_res: uint,
+    :return mask: if is_normalize is False, return WeightedROI object of the axon in the original imaging format,
+                                            pixel size unit is whatever saved in the nwb file
+                  if is_normalize is True, return ROI object of the axon in the specified standard format,
+                                           pixel size unit will be micron
+    """
+
+    pixel_size_s = nwb_f['acquisition/timeseries/2p_movie_{}/pixel_size'.format(plane_n)].value
+    pixel_size_u_s = nwb_f['acquisition/timeseries/2p_movie_{}/pixel_size_unit'.format(plane_n)].value
+
+    if axon_n in clu_f['rois_and_traces/axon_list'].value:
+        axon_roi = get_axon_roi_from_clu_f(clu_f=clu_f, axon_n=axon_n)
+        axon_roi.pixelSizeX = pixel_size_s[1]
+        axon_roi.pixelSizeY = pixel_size_s[0]
+        axon_roi.pixelSizeUnit = pixel_size_u_s
+    else:
+        roi_n = clu_f['axons/{}'.format(axon_n)].value
+        if len(roi_n) == 0 :
+            raise ValueError('Did not find bouton rois for this axon: {} / {}'.format(clu_f.filename, axon_n))
+        elif len(roi_n) > 1:
+            raise ValueError('More than one bouton rois found in this axon: {} /{}'.format(clu_f.filename, axon_n))
+        else:
+            roi_n = roi_n[0]
+
+        axon_roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+
+    if not is_normalize:
+        return axon_roi
+    else:
+        pixel_size_t = canvas_size / float(pixel_res)
+        zoom = np.mean(pixel_size_s) * 1e6 / pixel_size_t
+        axon_mask_raw = axon_roi.get_binary_mask()
+        axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_raw, zoom=zoom)
+
+        device = nwb_f['general/optophysiology/imaging_plane_1/device'].value
+        if 'Deep' in device or 'deep' in device:
+            axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_nor,
+                                                      rotation=140,
+                                                      outputShape=(pixel_res, pixel_res))[::-1]
+        elif 'Sutter' in device:
+            axon_mask_nor = axon_mask_nor.transpose()[::-1, :]
+            axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_nor, outputShape=(pixel_res, pixel_res))
+        else:
+            raise LookupError('Do not understand device ({}). should be "Deep Scope" or "Sutter"'.format(device))
+
+        axon_mask_nor[axon_mask_nor <= 0] = 0
+        axon_mask_nor[axon_mask_nor > 0] = 1
+        axon_mask_nor = axon_mask_nor.astype(np.uint8)
+
+        center = ia.ROI(axon_mask_nor).get_center()
+        offset_y = pixel_res / 2. - center[0]
+        offset_x = pixel_res / 2. - center[1]
+
+        axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_nor,
+                                                  offset=[offset_x, offset_y],)
+
+        # plt.imshow(axon_mask_nor, interpolation='nearest', vmin=0, vmax=1, cmap='gray')
+        # plt.show()
+
+        axon_mask_nor[axon_mask_nor <= 0] = 0
+        axon_mask_nor[axon_mask_nor > 0] = 1
+        axon_mask_nor = axon_mask_nor.astype(np.uint8)
+
+        return ia.ROI(axon_mask_nor, pixelSize=pixel_size_t, pixelSizeUnit='micron')
+
+
 def get_everything_from_axon(nwb_f, clu_f, plane_n, axon_n, params=ANALYSIS_PARAMS, verbose=False):
     """
 
@@ -3823,13 +3899,31 @@ if __name__ == '__main__':
     clu_f = h5py.File(r"G:\bulk_LGN_database\intermediate_results\bouton_clustering"
                       r"\AllStimuli_DistanceThr_1.30\190221_M426525_plane0_axon_grouping.hdf5", 'r')
     plane_n = 'plane0'
-    axon_n = 'axon_0007'
-    axon_morph = get_axon_morphology(clu_f=clu_f, nwb_f=nwb_f, plane_n=plane_n, axon_n=axon_n)
+    axon_n = 'axon_0003'
+    roi_s = get_axon_roi(clu_f=clu_f, nwb_f=nwb_f, plane_n=plane_n, axon_n=axon_n, is_normalize=False)
+    roi_t = get_axon_roi(clu_f=clu_f, nwb_f=nwb_f, plane_n=plane_n, axon_n=axon_n, is_normalize=True,
+                         pixel_res=1024, canvas_size=360)
+    f = plt.figure(figsize=(10, 4))
+    ax1 = f.add_subplot(121)
+    ax1.imshow(roi_s.get_binary_mask(), interpolation='nearest', cmap='gray', vmax=1, vmin=0)
+    ax2 = f.add_subplot(122)
+    ax2.imshow(roi_t.get_binary_mask(), interpolation='nearest', cmap='gray', vmax=1, vmin=0)
+    plt.show()
+    # ===================================================================================================
 
-    keys = axon_morph.keys()
-    keys.sort()
-    for key in keys:
-        print('{}: {}'.format(key, axon_morph[key]))
+
+    # ===================================================================================================
+    # nwb_f = h5py.File(r"G:\bulk_LGN_database\nwbs\190221_M426525_110_repacked.nwb", 'r')
+    # clu_f = h5py.File(r"G:\bulk_LGN_database\intermediate_results\bouton_clustering"
+    #                   r"\AllStimuli_DistanceThr_1.30\190221_M426525_plane0_axon_grouping.hdf5", 'r')
+    # plane_n = 'plane0'
+    # axon_n = 'axon_0007'
+    # axon_morph = get_axon_morphology(clu_f=clu_f, nwb_f=nwb_f, plane_n=plane_n, axon_n=axon_n)
+    #
+    # keys = axon_morph.keys()
+    # keys.sort()
+    # for key in keys:
+    #     print('{}: {}'.format(key, axon_morph[key]))
     # ===================================================================================================
 
     # ===================================================================================================

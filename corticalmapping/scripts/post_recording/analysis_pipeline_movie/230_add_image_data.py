@@ -14,7 +14,7 @@ curr_folder = os.path.dirname(os.path.realpath(__file__))
 os.chdir(curr_folder)
 
 if scope == 'DeepScope':
-    pixel_size = 0.000000967 / zoom # meter
+    pixel_size = 0.0000009765 / zoom # meter
 elif scope == 'sutter':
     pixel_size = 0.0000014 / zoom # meter
 else:

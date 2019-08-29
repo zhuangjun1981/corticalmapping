@@ -317,7 +317,7 @@ def zoom_image(img, zoom, interpolation ='cubic'): #'cubic','linear','area','nea
         raise ValueError('Input image should be 2d!')
 
     try: zoomH = float(zoom[0]); zoomW = float(zoom[1])
-    except TypeError: zoomH = float(zoom); zoomW = float(zoom)
+    except (TypeError, IndexError): zoomH = float(zoom); zoomW = float(zoom)
 
     if interpolation == 'cubic': interpo = cv2.INTER_CUBIC
     if interpolation == 'linear': interpo = cv2.INTER_LINEAR
