@@ -123,6 +123,84 @@ def get_nt_index(dire_lst, weights=None, is_arc=False, half_span=45., sum_thr=10
         return (nasa - temp) / (nasa + temp), nasa, temp
 
 
+def get_normalized_binary_roi(roi, scope, canvas_size=300., pixel_res=600, is_center=True):
+    """
+    given an roi, return the
+
+    :param roi: corticalmapping.core.ImagingAnalysis.ROI object, this object should have correct "pixelSize" and
+                "pixelSizeUnit" attribute
+    :param scope: str, 'deepscope' or 'sutter' in future maybe "scientifica"
+    :param canvas_size: float, micron
+    :param pixel_res: uint, pixel resolution of the final roi
+    :param is_center: bool, if true, center the roi to its center of mass (binary).
+    :return: corticalmapping.core.ImagingAnalysis.ROI object, with orientation in the standard way.
+             (up: anterior; bottom: posterior; left: lateral; right: medial) and with pixelSizeUnit as microns
+    """
+
+    mask = roi.get_binary_mask()
+
+    if roi.pixelSizeX != roi.pixelSizeY:
+        raise NotImplementedError('rois with non-square pixels are not supported.')
+
+    if roi.pixelSizeUnit == 'meter':
+        pixel_size_s = float(roi.pixelSizeX) * 1e6
+    elif roi.pixelSizeUnit == 'micron':
+        pixel_size_s = float(roi.pixelSizeX)
+    else:
+        raise LookupError("the pixelSizeUnit attribute of input roi should be either 'meter' or 'micron'. "
+                          "'{}' given.".format(roi.pixelSizeUnit))
+
+    pixel_size_t = float(canvas_size) / pixel_res
+    zoom = pixel_size_s / pixel_size_t
+
+    print(zoom)
+    mask_nor = ia.rigid_transform_cv2_2d(mask, zoom=zoom)
+
+    if scope == 'deepscope':
+        mask_nor = ia.rigid_transform_cv2_2d(mask_nor,
+                                             rotation=140,
+                                             outputShape=(pixel_res, pixel_res))[::-1]
+    elif scope == 'sutter':
+        mask_nor = mask_nor.transpose()[::-1, :]
+        mask_nor = ia.rigid_transform_cv2_2d(mask_nor, outputShape=(pixel_res, pixel_res))
+    else:
+        raise LookupError('Do not understand scope type ({}). Should be "deepscope" or "sutter".')
+
+    mask_nor[mask_nor <= 0] = 0
+    mask_nor[mask_nor > 0] = 1
+    mask_nor = mask_nor.astype(np.uint8)
+    roi_nor = ia.ROI(mask_nor, pixelSize=pixel_size_t, pixelSizeUnit='micron')
+    if not is_center:
+        return roi_nor
+    else:
+        center = roi_nor.get_center()
+        offset_y = pixel_res / 2. - center[0]
+        offset_x = pixel_res / 2. - center[1]
+
+        mask_nor = ia.rigid_transform_cv2_2d(mask_nor, offset=[offset_x, offset_y])
+
+        mask_nor[mask_nor <= 0] = 0
+        mask_nor[mask_nor > 0] = 1
+        mask_nor = mask_nor.astype(np.uint8)
+        roi_nor = ia.ROI(mask_nor, pixelSize=pixel_size_t, pixelSizeUnit='micron')
+    return roi_nor
+
+
+def get_scope(nwb_f):
+
+    try:
+        device = nwb_f['general/optophysiology/imaging_plane_1/device'].value
+    except KeyError:
+        device = nwb_f['general/optophysiology/imaging_plane_0/device'].value
+
+    if device in ['DeepScope', 'Deep Scope', 'deepscope', 'Deepscope', 'deep scope', 'Deep scope']:
+        return 'deepscope'
+    elif device in ['Sutter', 'sutter']:
+        return 'sutter'
+    else:
+        raise LookupError('Do not understand device ({}). should be "deepscope" or "sutter"'.format(device))
+
+
 def get_background_img(nwb_f, plane_n):
 
     rf_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane/reference_images'.format(plane_n)]
@@ -1793,19 +1871,13 @@ def get_axon_morphology(clu_f, nwb_f, plane_n, axon_n):
 
 def get_axon_roi(clu_f, nwb_f, plane_n, axon_n, is_normalize=False, canvas_size=200., pixel_res=512):
     """
-    get axon mask in the format of standard orientation and specified canvas with specified pixel size
+    get axon roi as corticalmapping.core.ImageAnalysis.WeightedROI object
 
     :param clu_f: hdf5.File
     :param nwb_f: hdf5.File
     :param plane_n: str
     :param axon_n: str
-    :param is_normalize: bool, output normalized the mask or not
-    :param canvas_size: float, um
-    :param pixel_res: uint,
-    :return mask: if is_normalize is False, return WeightedROI object of the axon in the original imaging format,
-                                            pixel size unit is whatever saved in the nwb file
-                  if is_normalize is True, return ROI object of the axon in the specified standard format,
-                                           pixel size unit will be micron
+    :return axon_roi: corticalmapping.core.ImageAnalysis.WeightedROI object
     """
 
     pixel_size_s = nwb_f['acquisition/timeseries/2p_movie_{}/pixel_size'.format(plane_n)].value
@@ -1827,48 +1899,7 @@ def get_axon_roi(clu_f, nwb_f, plane_n, axon_n, is_normalize=False, canvas_size=
 
         axon_roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
 
-    if not is_normalize:
-        return axon_roi
-    else:
-        pixel_size_t = canvas_size / float(pixel_res)
-        zoom = np.mean(pixel_size_s) * 1e6 / pixel_size_t
-        axon_mask_raw = axon_roi.get_binary_mask()
-        axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_raw, zoom=zoom)
-
-        try:
-            device = nwb_f['general/optophysiology/imaging_plane_1/device'].value
-        except KeyError:
-            device = nwb_f['general/optophysiology/imaging_plane_0/device'].value
-
-        if 'Deep' in device or 'deep' in device:
-            axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_nor,
-                                                      rotation=140,
-                                                      outputShape=(pixel_res, pixel_res))[::-1]
-        elif 'Sutter' in device:
-            axon_mask_nor = axon_mask_nor.transpose()[::-1, :]
-            axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_nor, outputShape=(pixel_res, pixel_res))
-        else:
-            raise LookupError('Do not understand device ({}). should be "Deep Scope" or "Sutter"'.format(device))
-
-        axon_mask_nor[axon_mask_nor <= 0] = 0
-        axon_mask_nor[axon_mask_nor > 0] = 1
-        axon_mask_nor = axon_mask_nor.astype(np.uint8)
-
-        center = ia.ROI(axon_mask_nor).get_center()
-        offset_y = pixel_res / 2. - center[0]
-        offset_x = pixel_res / 2. - center[1]
-
-        axon_mask_nor = ia.rigid_transform_cv2_2d(axon_mask_nor,
-                                                  offset=[offset_x, offset_y],)
-
-        # plt.imshow(axon_mask_nor, interpolation='nearest', vmin=0, vmax=1, cmap='gray')
-        # plt.show()
-
-        axon_mask_nor[axon_mask_nor <= 0] = 0
-        axon_mask_nor[axon_mask_nor > 0] = 1
-        axon_mask_nor = axon_mask_nor.astype(np.uint8)
-
-        return ia.ROI(axon_mask_nor, pixelSize=pixel_size_t, pixelSizeUnit='micron')
+    return axon_roi
 
 
 def get_everything_from_axon(nwb_f, clu_f, plane_n, axon_n, params=ANALYSIS_PARAMS, verbose=False):
@@ -3904,9 +3935,10 @@ if __name__ == '__main__':
                       r"\AllStimuli_DistanceThr_1.30\190221_M426525_plane0_axon_grouping.hdf5", 'r')
     plane_n = 'plane0'
     axon_n = 'axon_0003'
-    roi_s = get_axon_roi(clu_f=clu_f, nwb_f=nwb_f, plane_n=plane_n, axon_n=axon_n, is_normalize=False)
-    roi_t = get_axon_roi(clu_f=clu_f, nwb_f=nwb_f, plane_n=plane_n, axon_n=axon_n, is_normalize=True,
-                         pixel_res=1024, canvas_size=360)
+    roi_s = get_axon_roi(clu_f=clu_f, nwb_f=nwb_f, plane_n=plane_n, axon_n=axon_n)
+    scope = get_scope(nwb_f=nwb_f)
+    roi_t = get_normalized_binary_roi(roi=roi_s, scope=scope, canvas_size=300., pixel_res=600, is_center=True)
+
     f = plt.figure(figsize=(10, 4))
     ax1 = f.add_subplot(121)
     ax1.imshow(roi_s.get_binary_mask(), interpolation='nearest', cmap='gray', vmax=1, vmin=0)

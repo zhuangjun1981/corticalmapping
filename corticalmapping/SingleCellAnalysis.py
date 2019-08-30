@@ -403,7 +403,8 @@ class SpatialReceptiveField(WeightedROI):
 
         return ' '.join(name)
 
-    def plot_rf(self, plot_axis=None, is_colorbar=False, cmap='Reds', interpolation='nearest', **kwargs):
+    def plot_rf(self, plot_axis=None, is_colorbar=False, cmap='Reds', interpolation='nearest',
+                tick_spacing=5, **kwargs):
         '''
         return display image (RGBA uint8 format) which can be plotted by plt.imshow
         '''
@@ -421,10 +422,10 @@ class SpatialReceptiveField(WeightedROI):
         else:
             interpolate_rate = self.interpolate_rate
 
-        plot_axis.set_yticks(range(len(self.altPos))[::interpolate_rate])
-        plot_axis.set_xticks(range(len(self.aziPos))[::interpolate_rate])
-        plot_axis.set_yticklabels(['{:.1f}'.format(p) for p in self.altPos[::interpolate_rate]])
-        plot_axis.set_xticklabels(['{:.1f}'.format(p) for p in self.aziPos[::interpolate_rate]])
+        plot_axis.set_yticks(range(len(self.altPos))[::(interpolate_rate * tick_spacing)])
+        plot_axis.set_xticks(range(len(self.aziPos))[::(interpolate_rate * tick_spacing)])
+        plot_axis.set_yticklabels(['{:.1f}'.format(p) for p in self.altPos[::(interpolate_rate * tick_spacing)]])
+        plot_axis.set_xticklabels(['{:.1f}'.format(p) for p in self.aziPos[::(interpolate_rate * tick_spacing)]])
 
         if is_colorbar:
             plot_axis.get_figure().colorbar(curr_plot)
