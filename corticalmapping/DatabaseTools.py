@@ -153,7 +153,6 @@ def get_normalized_binary_roi(roi, scope, canvas_size=300., pixel_res=600, is_ce
     pixel_size_t = float(canvas_size) / pixel_res
     zoom = pixel_size_s / pixel_size_t
 
-    print(zoom)
     mask_nor = ia.rigid_transform_cv2_2d(mask, zoom=zoom)
 
     if scope == 'deepscope':
@@ -195,7 +194,7 @@ def get_scope(nwb_f):
 
     if device in ['DeepScope', 'Deep Scope', 'deepscope', 'Deepscope', 'deep scope', 'Deep scope']:
         return 'deepscope'
-    elif device in ['Sutter', 'sutter']:
+    elif device in ['Sutter', 'sutter'] or 'Sutter' in device:
         return 'sutter'
     else:
         raise LookupError('Do not understand device ({}). should be "deepscope" or "sutter"'.format(device))
@@ -615,99 +614,6 @@ def get_LSN_ts_mask(nwb_f, plane_n='plane0', len_thr=100):
             return mask, False
         else:
             return mask, True
-
-
-# def group_boutons(traces, corr_std_thr=1.5, is_show=False):
-#     """
-#     given traces of a population of boutons, classify them into a tree based on their activity correlations.
-#
-#     method modified from: Liang et al., Cell, 2018, 173(6):1343
-#
-#     :param traces: 2d array, row: roi, col: time point
-#     :param corr_std_thr: float, used to determine the threshold of correlation coefficients. for each roi, the
-#                          coefficients lower than (mean + corr_std_thr * std) will be set zero.
-#     :param is_show: bool
-#     :return:
-#     """
-#
-#     mat_corr = np.corrcoef(traces, rowvar=True)
-#     mat_corr[np.isnan(mat_corr)] = 0.
-#
-#     # threshold correlation coefficient matrix
-#     mask = np.ones(mat_corr.shape)
-#     for row_i, row in enumerate(mat_corr):
-#         curr_std = np.std(row)
-#         curr_mean = np.mean(row)
-#         curr_thr = curr_mean + corr_std_thr * curr_std
-#         mask[row_i, :][row < curr_thr] = 0.
-#         mask[:, row_i][row < curr_thr] = 0.
-#     mat_corr_thr = mat_corr * mask
-#
-#     # calculated distance matrix based on cosine similarity
-#     mat_dis = np.zeros(mat_corr_thr.shape)
-#     roi_num = mat_dis.shape[0]
-#     # print('total roi number: {}'.format(roi_num))
-#     for i in range(roi_num):
-#         for j in range(i + 1, roi_num, 1):
-#
-#             ind = np.ones(roi_num, dtype=np.bool)
-#             ind[i] = 0
-#             ind[j] = 0
-#
-#             row_i = mat_corr_thr[i][ind]
-#             row_j = mat_corr_thr[j][ind]
-#
-#             if max(row_i) == 0 or max(row_j) == 0:
-#                 mat_dis[i, j] = 1
-#             else:
-#                 mat_dis[i, j] = 1 - spatial.distance.cosine(row_i, row_j)
-#
-#
-#     # calculate linkage Z matrix using WPGMA algorithm
-#     z_linkage = cluster.hierarchy.linkage(mat_dis, method='weighted')
-#     # if is_plot:
-#     #     _ = cluster.hierarchy.dendrogram(z_linkage)
-#     #     plt.title('dendrogram')
-#     #     plt.show()
-#
-#
-#     # reorganize thresholded correlation coefficient matrix
-#     clu = cluster.hierarchy.fcluster(z_linkage, t=0, criterion='distance')
-#     mat_0 = np.zeros(mat_corr_thr.shape)
-#     for l_i, l in enumerate(clu):
-#         mat_0[l - 1, :] = mat_corr_thr[l_i, :]
-#
-#     mat_corr_thr_reorg = np.zeros(mat_0.shape)
-#     for l_i, l in enumerate(clu):
-#         mat_corr_thr_reorg[:, l - 1] = mat_0[:, l_i]
-#
-#     # plotting
-#     f = plt.figure(figsize=(13, 10))
-#
-#     ax00 = f.add_subplot(221)
-#     f00 = ax00.imshow(mat_corr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
-#     ax00.set_title('corr coef matrix')
-#     f.colorbar(f00)
-#
-#     ax01 = f.add_subplot(222)
-#     f01 = ax01.imshow(mat_corr_thr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
-#     ax01.set_title('thresholded corr coef matrix')
-#     f.colorbar(f01)
-#
-#     ax10 = f.add_subplot(223)
-#     f10 = ax10.imshow(mat_dis, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
-#     ax10.set_title('distance matrix')
-#     f.colorbar(f10)
-#
-#     ax11 = f.add_subplot(224)
-#     f11 = ax11.imshow(mat_corr_thr_reorg, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
-#     ax11.set_title('reorganized thresholded corr coef matrix')
-#     f.colorbar(f11)
-#
-#     if is_show:
-#         plt.show()
-#
-#     return mat_corr, mat_corr_thr, mat_dis, z_linkage, mat_corr_thr_reorg, f
 
 
 def plot_roi_retinotopy(coords_roi, coords_rf, ax_alt, ax_azi, alt_range=None, azi_range=None, cmap='viridis',
@@ -1869,7 +1775,7 @@ def get_axon_morphology(clu_f, nwb_f, plane_n, axon_n):
     return axon_morph
 
 
-def get_axon_roi(clu_f, nwb_f, plane_n, axon_n, is_normalize=False, canvas_size=200., pixel_res=512):
+def get_axon_roi(clu_f, nwb_f, plane_n, axon_n):
     """
     get axon roi as corticalmapping.core.ImageAnalysis.WeightedROI object
 
