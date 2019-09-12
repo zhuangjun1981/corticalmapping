@@ -96,10 +96,10 @@ def merge_weighted_rois(roi1, roi2):
     merge two WeightedROI objects, most useful for merge ON and OFF subfields
     """
     if (roi1.pixelSizeX != roi2.pixelSizeX) or (roi1.pixelSizeY != roi2.pixelSizeY):
-        raise ValueError, 'The pixel sizes of the two WeightedROI objects should match!'
+        raise ValueError('The pixel sizes of the two WeightedROI objects should match!')
 
     if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
-        raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
+        raise ValueError('The pixel size units of the two WeightedROI objects should match!')
 
     mask1 = roi1.get_weighted_mask()
     mask2 = roi2.get_weighted_mask()
@@ -112,10 +112,10 @@ def merge_binary_rois(roi1, roi2):
     merge two ROI objects, most useful for merge ON and OFF subfields
     """
     if (roi1.pixelSizeX != roi2.pixelSizeX) or (roi1.pixelSizeY != roi2.pixelSizeY):
-        raise ValueError, 'The pixel sizes of the two WeightedROI objects should match!'
+        raise ValueError('The pixel sizes of the two WeightedROI objects should match!')
 
     if roi1.pixelSizeUnit != roi2.pixelSizeUnit:
-        raise ValueError, 'The pixel size units of the two WeightedROI objects should match!'
+        raise ValueError('The pixel size units of the two WeightedROI objects should match!')
 
     mask1 = roi1.get_binary_mask()
     mask2 = roi2.get_binary_mask()
@@ -494,10 +494,10 @@ class SpatialReceptiveField(WeightedROI):
         """
 
         if (self.thr is not None) and (thr < self.thr):
-            raise ValueError, 'Can not cut a thresholded receptive field with a lower thresold!'
+            raise ValueError('Can not cut a thresholded receptive field with a lower thresold!')
         cutRF = get_peak_weighted_roi(self.get_weighted_mask(), thr)
         if cutRF is None:
-            # print 'No ROI found. Threshold too high!'
+            # print('No ROI found. Threshold too high!')
             cutRF = ia.WeightedROI(np.zeros(self.dimension))
 
         return SpatialReceptiveField(cutRF.get_weighted_mask(), self.altPos, self.aziPos, sign=self.sign,
@@ -687,7 +687,7 @@ class SpatialTemporalReceptiveField(object):
         values = [(location[0], location[1], signs[i], traces[i], trigger_ts[i]) for i, location in
                   enumerate(locations)]
         if len(values) == 0:
-            raise ValueError, 'Can not find input traces!'
+            raise ValueError('Can not find input traces!')
         self.data = DataFrame(values, columns=['altitude', 'azimuth', 'sign', 'traces', 'trigger_ts'])
 
         self.name = str(name)
@@ -779,7 +779,7 @@ class SpatialTemporalReceptiveField(object):
 
         values = [(location[0], location[1], signs[i], traces[i], trigger_ts[i]) for i, location in
                   enumerate(locations)]
-        if not values: raise ValueError, 'Can not find input traces!'
+        if not values: raise ValueError('Can not find input traces!')
 
         df_to_add = DataFrame(values, columns=['altitude', 'azimuth', 'sign', 'traces', 'trigger_ts'])
 
@@ -1066,10 +1066,10 @@ class SpatialTemporalReceptiveField(object):
         if zscoreROION is not None and zscoreROIOFF is not None:
             zscoreROIALL = WeightedROI(zscoreROION.get_weighted_mask() + zscoreROIOFF.get_weighted_mask())
         elif zscoreROION is None and zscoreROIOFF is not None:
-            print 'No zscore receptive field found for ON channel. Threshold too high.'
+            print('No zscore receptive field found for ON channel. Threshold too high.')
             zscoreROIALL = zscoreROIOFF
         elif zscoreROION is not None and zscoreROIOFF is None:
-            print 'No zscore receptive field found for OFF channel. Threshold too high.'
+            print('No zscore receptive field found for OFF channel. Threshold too high.')
             zscoreROIALL = zscoreROION
         else:
             zscoreROIALL = None
@@ -1174,15 +1174,15 @@ class SpatialTemporalReceptiveField(object):
 
                         if sign == 1:
                             if indON[j][k] is not None:
-                                raise LookupError, 'Duplication of trace items found at location: ' + str(
-                                    [alt, azi]) + '; sign: 1!'
+                                raise LookupError('Duplication of trace items found at location: ' + str(
+                                    [alt, azi]) + '; sign: 1!')
                             else:
                                 indON[j][k] = i
 
                         if sign == -1:
                             if indOFF[j][k] is not None:
-                                raise LookupError, 'Duplication of trace items found at location: ' + str(
-                                    [alt, azi]) + '; sign:-1!'
+                                raise LookupError('Duplication of trace items found at location: ' + str(
+                                    [alt, azi]) + '; sign:-1!')
                             else:
                                 indOFF[j][k] = i
 
@@ -1197,7 +1197,7 @@ class SpatialTemporalReceptiveField(object):
         """
 
         if altRange is None and aziRange is None:
-            raise LookupError, 'At least one of altRange and aziRange should be defined!'
+            raise LookupError('At least one of altRange and aziRange should be defined!')
 
         if altRange is not None:
             indAlt = np.logical_and(self.data['altitude'] >= altRange[0],
@@ -2626,4 +2626,4 @@ if __name__ == '__main__':
 
     # =====================================================================
 
-    print '\nfor debug...'
+    print('\nfor debug...')
