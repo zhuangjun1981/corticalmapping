@@ -1,15 +1,22 @@
 import warnings
 import numpy as np
 import matplotlib.pyplot as plt
-import core.PlottingTools as pt
-import core.ImageAnalysis as ia
 import scipy.ndimage as ni
 import scipy.interpolate as ip
 import scipy.stats as stats
 import math
 import h5py
 from pandas import DataFrame
-from corticalmapping.core.ImageAnalysis import ROI, WeightedROI
+
+try:
+    import core.PlottingTools as pt
+except ModuleNotFoundError:
+    from .core import PlottingTools as pt
+
+try:
+    import core.ImageAnalysis as ia
+except ModuleNotFoundError:
+    from .core import ImageAnalysis as ia
 
 warnings.simplefilter('always', RuntimeWarning)
 
@@ -64,7 +71,7 @@ def get_peak_weighted_roi(arr, thr):
         # print('Threshold too high! No ROI found. Returning None'.)
         return None
     else:
-        return WeightedROI(arr2 * peakMask)
+        return ia.WeightedROI(arr2 * peakMask)
 
 
 def plot_2d_receptive_field(mapArray, altPos, aziPos, plot_axis=None, **kwargs):
@@ -104,7 +111,7 @@ def merge_weighted_rois(roi1, roi2):
     mask1 = roi1.get_weighted_mask()
     mask2 = roi2.get_weighted_mask()
 
-    return WeightedROI(mask1 + mask2, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
+    return ia.WeightedROI(mask1 + mask2, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
 
 
 def merge_binary_rois(roi1, roi2):
@@ -121,7 +128,7 @@ def merge_binary_rois(roi1, roi2):
     mask2 = roi2.get_binary_mask()
     mask3 = np.logical_or(mask1, mask2).astype(np.int8)
 
-    return ROI(mask3, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
+    return ia.ROI(mask3, pixelSize=[roi1.pixelSizeY, roi1.pixelSizeX], pixelSizeUnit=roi1.pixelSizeUnit)
 
 
 def get_dff(traces, t_axis, response_window, baseline_window):
@@ -327,7 +334,7 @@ def dire2ori(dire):
     return (dire + 90) % 180
 
 
-class SpatialReceptiveField(WeightedROI):
+class SpatialReceptiveField(ia.WeightedROI):
     """
     Object for spatial receptive field, a subclass of WeightedROI object
     """
@@ -1064,7 +1071,7 @@ class SpatialTemporalReceptiveField(object):
         zscoreROION = get_peak_weighted_roi(zscoreON, zscoreThr)
         zscoreROIOFF = get_peak_weighted_roi(zscoreOFF, zscoreThr)
         if zscoreROION is not None and zscoreROIOFF is not None:
-            zscoreROIALL = WeightedROI(zscoreROION.get_weighted_mask() + zscoreROIOFF.get_weighted_mask())
+            zscoreROIALL = ia.WeightedROI(zscoreROION.get_weighted_mask() + zscoreROIOFF.get_weighted_mask())
         elif zscoreROION is None and zscoreROIOFF is not None:
             print('No zscore receptive field found for ON channel. Threshold too high.')
             zscoreROIALL = zscoreROIOFF

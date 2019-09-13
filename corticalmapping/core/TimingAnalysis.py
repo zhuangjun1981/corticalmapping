@@ -101,7 +101,7 @@ def discrete_cross_correlation(ts1, ts2, t_range=(-1., 1.), bins=100, isPlot=Fal
     n = len(ts1s)
 
     if n == 0:
-        print 'no overlapping time range (defined as ' + str(t_range) + ' between two input timestamp arrays'
+        print('no overlapping time range (defined as ' + str(t_range) + ' between two input timestamp arrays')
         # return None
     else:
         ts2_start_ind = 0
@@ -258,7 +258,8 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
     freq_axis: frequency for each row (from low to high)
     '''
 
-    if len(trace.shape) != 1: raise ValueError, 'Input trace should be 1d array!'
+    if len(trace.shape) != 1:
+        raise ValueError('Input trace should be 1d array!')
 
     total_length = len(trace) / float(fs)
 
@@ -268,14 +269,16 @@ def sliding_power_spectrum(trace, fs, sliding_window_length=5., sliding_step_len
     freq_axis = np.arange(freq_bins, dtype=np.float32) * freq_bin_width + freq_range[0]
 
     if sliding_step_length is None: sliding_step_length = sliding_window_length
-    if sliding_step_length > sliding_window_length: print "Step length larger than window length, not using all data points!"
+    if sliding_step_length > sliding_window_length:
+        print("Step length larger than window length, not using all data points!")
     times = np.arange(0., total_length, sliding_step_length)
     times = times[(times + sliding_window_length) < total_length]
 
-    if len(times) == 0: raise ValueError, 'No time point found.'
+    if len(times) == 0:
+        raise ValueError('No time point found.')
     else:
         points_in_window = int(sliding_window_length * fs)
-        if points_in_window <= 0: raise ValueError, 'Sliding window length too short!'
+        if points_in_window <= 0: raise ValueError('Sliding window length too short!')
         else:
             spectrum = np.zeros((len(freq_axis), len(times)))
             for idx, start_time in enumerate(times):
@@ -640,7 +643,7 @@ def event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_ran
     eta = np.zeros(t.shape, dtype=np.float32)
     eta[:] = np.nan
 
-    print '\nStart calculating event triggered average ...'
+    print('\nStart calculating event triggered average ...')
     percentage = None
 
     for ind_eve, eve in enumerate(ts_event):
@@ -648,8 +651,8 @@ def event_triggered_average_irregular(ts_event, continuous, ts_continuous, t_ran
         # for display
         curr_percentage =  int((float(ind_eve) * 100. / float(len(ts_event))) // 10) * 10
         if curr_percentage != percentage:
-            print 'progress: ' + str(curr_percentage) + '%'
-            # print eve, ':', ts_continuous[-1]
+            print('progress: ' + str(curr_percentage) + '%')
+            # print(eve, ':', ts_continuous[-1])
             percentage = curr_percentage
 
         if ((eve + t_range[0]) > ts_continuous[0]) and ((eve + t_range[1]) < ts_continuous[-1]):
@@ -1117,4 +1120,4 @@ if __name__=='__main__':
     # butter_highpass_filter(is_plot=True)
     # ============================================================================================================
 
-    print 'for debugging...'
+    print('for debugging...')
