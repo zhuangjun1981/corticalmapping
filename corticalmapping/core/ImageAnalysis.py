@@ -1063,7 +1063,7 @@ def z_downsample(img, downSampleRate, is_verbose=True):
         raise ValueError('Input array shoud be 3D!')
 
 
-    newFrameNum = img.shape[0] //downSampleRate
+    newFrameNum = img.shape[0] // downSampleRate
     newImg = np.empty((newFrameNum,img.shape[1],img.shape[2]),dtype=img.dtype)
 
     if is_verbose:

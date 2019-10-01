@@ -15,7 +15,7 @@ date_recorded = '190814'
 mouse_id = 'M471944'
 resolution = (512, 512)
 channel = 'green'
-data_folder_n = '110_LSNDGCUC_reorg'
+data_folder_n = '110_LSNDGCUC_reorged'
 imaging_mode = 'deepscope' # '2p' or 'deepscope'
 
 

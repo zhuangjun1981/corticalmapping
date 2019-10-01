@@ -3833,6 +3833,130 @@ class BoutonClassifier(object):
                 curr_grating_grp.create_dataset('sta_' + trace_n, data=sta)
 
 
+class BulkPaperFunctions(object):
+
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def get_dataframe_has_dgc(df):
+        """
+        return a subset dataframe of input dataframe the has dgc measurement
+        """
+        return df.dropna(axis=0, how='any', subset=['dgc_pos_peak_z'])
+
+    @staticmethod
+    def get_dataframe_has_rf(df):
+        """
+        return a subset dataframe of input dataframe the has dgc measurement
+        """
+        return df.dropna(axis=0, how='any', subset=['rf_pos_on_peak_z'])
+
+    @staticmethod
+    def get_dataframe_has_rf_and_dgc(df):
+        """
+        return a subset dataframe of input dataframe the has dgc measurement
+        """
+        return df.dropna(axis=0, how='any', subset=['dgc_pos_peak_z', 'rf_pos_on_peak_z'])
+
+    @staticmethod
+    def get_dataframe_dgc(df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3., dgc_p_anova_thr=0.01):
+        """
+        return a subset of the input df with rows that have significant dgc response
+        """
+
+        return df[(df['dgc_{}_peak_z'.format(response_dir)] >= dgc_peak_z_thr) &
+                  (df['dgc_p_anova_{}'.format(response_type)] <= dgc_p_anova_thr)]
+
+    @staticmethod
+    def get_dataframe_ndgc(df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3., dgc_p_anova_thr=0.01):
+        """
+        return a subset of the input df with rows that do not have significant dgc response
+        """
+
+        return df[~((df['dgc_{}_peak_z'.format(response_dir)] >= dgc_peak_z_thr) &
+                    (df['dgc_p_anova_{}'.format(response_type)] <= dgc_p_anova_thr))]
+
+    def get_dataframe_ds(self, df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3., dgc_p_anova_thr=0.01,
+                         post_process_type='ele', dsi_type='gdsi', dsi_thr=0.5):
+        """
+        return a subset of the input df with rows that are direction selective
+        """
+
+        df_dgc = self.get_dataframe_dgc(df=df, response_dir=response_dir, response_type=response_type,
+                                        dgc_peak_z_thr=dgc_peak_z_thr, dgc_p_anova_thr=dgc_p_anova_thr)
+
+        df_ds = df_dgc[df_dgc['dgc_{}_{}_{}_{}'.format(response_dir,
+                                                       dsi_type,
+                                                       post_process_type,
+                                                       response_type)] >= dsi_thr]
+
+        return df_ds
+
+    def get_dataframe_nds(self, df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3., dgc_p_anova_thr=0.01,
+                         post_process_type='ele', dsi_type='gdsi', dsi_thr=0.5):
+        """
+        return a subset of the input df with rows that have significant dgc response but not direction selective
+        """
+
+        df_dgc = self.get_dataframe_dgc(df=df, response_dir=response_dir, response_type=response_type,
+                                        dgc_peak_z_thr=dgc_peak_z_thr, dgc_p_anova_thr=dgc_p_anova_thr)
+
+        df_ds = df_dgc[df_dgc['dgc_{}_{}_{}_{}'.format(response_dir,
+                                                       dsi_type,
+                                                       post_process_type,
+                                                       response_type)] < dsi_thr]
+        return df_ds
+
+    @staticmethod
+    def get_dataframe_rf(df, response_dir='pos', rf_z_thr_abs=1.6):
+        """
+        return a subset of the input df with rows that have significant rf response
+        """
+        df_rf = df[(df['rf_{}_on_peak_z'.format(response_dir)] >= rf_z_thr_abs) |
+                   (df['rf_{}_off_peak_z'.format(response_dir)] >= rf_z_thr_abs)]
+        return df_rf
+
+    @staticmethod
+    def get_dataframe_nrf(df, response_dir='pos', rf_z_thr_abs=1.6):
+        """
+        return a subset of the input df with rows that have rf measurement but do not have significant rf response
+        """
+        df_nrf = df[(df['rf_{}_on_peak_z'.format(response_dir)] < rf_z_thr_abs) |
+                    (df['rf_{}_off_peak_z'.format(response_dir)] < rf_z_thr_abs)]
+        return df_nrf
+
+    @staticmethod
+    def get_dataframe_s1on(df, response_dir='pos', rf_z_thr_abs=1.6):
+        """
+        return a subset of the input df with rows that have only ON subfield
+        """
+        df_s1on = df[(df['rf_{}_on_peak_z'.format(response_dir)] >= rf_z_thr_abs) &
+                     (df['rf_{}_off_peak_z'.format(response_dir)] < rf_z_thr_abs)]
+        return df_s1on
+
+    @staticmethod
+    def get_dataframe_s1off(df, response_dir='pos', rf_z_thr_abs=1.6):
+        """
+        return a subset of the input df with rows that have only OFF subfield
+        """
+        df_s1off = df[(df['rf_{}_on_peak_z'.format(response_dir)] < rf_z_thr_abs) &
+                      (df['rf_{}_off_peak_z'.format(response_dir)] >= rf_z_thr_abs)]
+        return df_s1off
+
+    @staticmethod
+    def get_dataframe_s2(df, response_dir='pos', rf_z_thr_abs=1.6):
+        """
+        return a subset of the input df with rows that have both ON and OFF subfield
+        """
+        df_s2 = df[(df['rf_{}_on_peak_z'.format(response_dir)] >= rf_z_thr_abs) &
+                   (df['rf_{}_off_peak_z'.format(response_dir)] >= rf_z_thr_abs)]
+        return df_s2
+
+
+
+
+
 if __name__ == '__main__':
 
     # ===================================================================================================

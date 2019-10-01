@@ -2,12 +2,11 @@ import os
 import numpy as np
 import tifffile as tf
 
-data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data_rabies_project" \
-              r"\180928-M393857-deepscope\movie_mp"
-identifier = '110_LSNDGC'
-channels = ['green', 'red']
+data_folder = r"\\allen\programs\braintv\workgroups\nc-ophys\Jun\raw_data\190921-M488586-deepscope\movie"
+identifier = '110_LSNDGCUC'
+channels = ['green']
 plane_num = 3
-temporal_downsample_rate = 4
+temporal_downsample_rate = 2
 frame_each_file = 500
 low_thr = -500
 
@@ -23,7 +22,7 @@ print('total file number: {}'.format(len(fns)))
 
 save_folders = []
 for i in range(plane_num):
-    curr_save_folder = os.path.join(data_folder, identifier + '_reorged', 'plane{}'.format(i))
+    curr_save_folder = os.path.join(os.path.split(data_folder)[0], identifier + '_reorged', 'plane{}'.format(i))
     if not os.path.isdir(curr_save_folder):
         os.makedirs(curr_save_folder)
     save_folders.append(curr_save_folder)

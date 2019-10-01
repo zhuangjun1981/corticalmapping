@@ -125,8 +125,8 @@ def bar_graph(left,
               faceColor='none',
               edgeColor='#000000',
               capSize=10,
-              label=None
-              ):
+              label=None,
+              **kwargs):
     """
     plot a single bar with error bar
     """
@@ -162,7 +162,8 @@ def bar_graph(left,
                  edgecolor=edgeColor,
                  lw=lw,
                  label=label,
-                 align='edge')
+                 align='edge',
+                 **kwargs)
 
     return plotAxis
 
@@ -246,12 +247,13 @@ def standalone_color_bar(vmin, vmax, cmap, sectionNum=10):
 
     a = np.array([[vmin, vmax]])
 
-    plt.figure(figsize=(0.1, 9))
-
-    img = plt.imshow(a, cmap=cmap, vmin=vmin, vmax=vmax)
-    plt.gca().set_visible(False)
-    cbar = plt.colorbar()
+    f = plt.figure(figsize=(0.1, 9))
+    ax = f.add_subplot(111)
+    fig = ax.imshow(a, cmap=cmap, vmin=vmin, vmax=vmax)
+    ax.set_visible(False)
+    cbar = f.colorbar(fig)
     cbar.set_ticks(np.linspace(vmin, vmax, num=sectionNum + 1))
+    return f
 
 
 def alpha_blending(image, alphaData, vmin, vmax, cmap='Paired', sectionNum=10, background=-1, interpolation='nearest',
@@ -878,6 +880,70 @@ def plot_dire_distribution(dires, weights=None, is_arc=False, bins=12,  plot_ax=
     else:
         raise LookupError('Do not understand parameter "plot_type", should be "bar" or "line".')
 
+    plot_ax.set_xticklabels([])
+
+    return plot_ax, counts[:-1], bin_lst[:-1]
+
+
+def plot_orie_distribution(ories, weights=None, is_arc=False, bins=12,  plot_ax=None, plot_type='bar',
+                           plot_color='#888888', **kwargs):
+    """
+    plot the distribution of a list of directions in a nice way.
+
+    :param ories: array of float. orientations to be plotted.
+    :param weights: array with same size as dires, weights of data
+    :param is_arc: bool. If True, dires are in [0, 2*pi] scale, if False, dires are in [0, 360] scale
+    :param bins: int, how many bins are there
+    :param plot_ax: matplotlib.axes._subplots.PolarAxesSubplot object
+    :param plot_type: str, 'bar' or 'line'
+    :param kwargs: if plot_type == 'bar', key word argument to the plot_ax.bar() function;
+                   if plot_type == 'line', kew word argument to the plot_ax.plot() function;
+    :return:
+    """
+
+    if plot_ax is None:
+        f = plt.figure(figsize=(5,5))
+        plot_ax = f.add_subplot(111, projection='polar')
+
+    if not isinstance(plot_ax, matplotlib.projections.polar.PolarAxes):
+        raise TypeError('input "plot_ax" should be a "matplotlib.projections.polar.PolarAxes" or '
+                        'a "matplotlib.axes._subplots.PolarAxesSubplot" object')
+
+    plot_ories = np.array(ories, dtype=np.float64)
+
+    if is_arc is False:
+        plot_ories = plot_ories * np.pi / 180.
+
+    plot_ories = plot_ories % np.pi
+
+    bin_width = np.pi / bins
+
+    for orie_i, orie in enumerate(plot_ories):
+        if orie > (np.pi - (bin_width / 2)):
+            plot_ories[orie_i] = orie - (np.pi * 2)
+
+    # print(plot_dires)
+    counts, bin_lst = np.histogram(plot_ories, weights=weights, bins=bins, range=[-bin_width / 2.,
+                                                                                  np.pi - (bin_width / 2)])
+    bin_lst = bin_lst[0:-1] + (bin_width / 2)
+
+    if plot_type == 'bar':
+        plot_ax.bar(bin_lst, counts, width=bin_width * 0.5, align='center', color=plot_color,
+                    edgecolor=plot_color, **kwargs)
+        plot_ax.bar(bin_lst + np.pi, counts, width=bin_width * 0.5, align='center', color='#ffffff',
+                    edgecolor=plot_color, **kwargs)
+    elif plot_type == 'line':
+        counts = list(counts)
+        counts.append(counts[0])
+        bin_lst = list(bin_lst)
+        bin_lst.append(bin_lst[-1] + bin_width)
+        bin_lst = np.array(bin_lst)
+        plot_ax.plot(bin_lst, counts, ls='-', color=plot_color, **kwargs)
+        plot_ax.plot(bin_lst + np.pi, counts, ls='--', color=plot_color, **kwargs)
+    else:
+        raise LookupError('Do not understand parameter "plot_type", should be "bar" or "line".')
+
+    plot_ax.set_xticks(np.concatenate((bin_lst, bin_lst + np.pi), axis=0))
     plot_ax.set_xticklabels([])
 
     return plot_ax, counts[:-1], bin_lst[:-1]
