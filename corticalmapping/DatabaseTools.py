@@ -3834,6 +3834,29 @@ class BoutonClassifier(object):
 
 
 class BulkPaperFunctions(object):
+    """
+    for the bulk paper the cell classification are as follows:
+
+    for the rois with both RF and DGC measurement
+    there are 6 types in total:
+    ("RF" means significant RF, "DGC" means significant DGC response
+    "DS" means direction selective)
+
+
+    1. RFnDGC
+    2. RFDGCnDS
+    3. RFDS
+    4. nRFnDGC
+    5. nRFDGCnDS
+    6. nRFDS
+
+    in which:
+
+    3 and 6 are combined into "DS" group
+    1 and 2 are combined into "RFnDS" group
+    5 is defined as "nRFnDS" group
+    4 is excluded from the study
+    """
 
     def __init__(self):
         pass
@@ -3850,111 +3873,205 @@ class BulkPaperFunctions(object):
         """
         return a subset dataframe of input dataframe the has dgc measurement
         """
-        return df.dropna(axis=0, how='any', subset=['rf_pos_on_peak_z'])
+        return df.dropna(axis=0, how='all', subset=['rf_pos_on_peak_z', 'rf_pos_off_peak_z'])
+
+    def get_dataframe_rf(self, df, response_dir='pos', rf_z_thr_abs=1.6):
+        """
+        return two subsets of the input df
+            1. rows that have significant rf response
+            2. rows that do not have significant rf response
+
+        rows that do not have rf measurement will be excluded
+        """
+
+        df_has_rf = self.get_dataframe_has_rf(df=df)
+
+        df_rf = df_has_rf[(df_has_rf['rf_{}_on_peak_z'.format(response_dir)] >= rf_z_thr_abs) |
+                          (df_has_rf['rf_{}_off_peak_z'.format(response_dir)] >= rf_z_thr_abs)]
+
+        df_nrf = df_has_rf[(df_has_rf['rf_{}_on_peak_z'.format(response_dir)] < rf_z_thr_abs) &
+                           (df_has_rf['rf_{}_off_peak_z'.format(response_dir)] < rf_z_thr_abs)]
+
+        assert(len(df_has_rf) == len(df_rf) + len(df_nrf))
+
+        return df_rf, df_nrf
+
+    def get_dataframe_rf_type(self, df, response_dir='pos', rf_z_thr_abs=1.6):
+        """
+        return three subsets of the input df
+            1. rows that have S1 ON receptive field
+            2. rows that have S1 OFF receptive field
+            3. rows that have S2 receptive field
+        """
+
+        df_rf, _ = self.get_dataframe_rf(df=df, response_dir=response_dir, rf_z_thr_abs=rf_z_thr_abs)
+
+        df_s1on = df_rf[(df_rf['rf_{}_on_peak_z'.format(response_dir)] >= rf_z_thr_abs) &
+                        (df_rf['rf_{}_off_peak_z'.format(response_dir)] < rf_z_thr_abs)]
+
+        df_s1off = df_rf[(df_rf['rf_{}_on_peak_z'.format(response_dir)] < rf_z_thr_abs) &
+                         (df_rf['rf_{}_off_peak_z'.format(response_dir)] >= rf_z_thr_abs)]
+
+        df_s2 = df_rf[(df_rf['rf_{}_on_peak_z'.format(response_dir)] >= rf_z_thr_abs) &
+                      (df_rf['rf_{}_off_peak_z'.format(response_dir)] >= rf_z_thr_abs)]
+
+        assert(len(df_rf) == len(df_s1on) + len(df_s1off) + len(df_s2))
+
+        return df_s1on, df_s1off, df_s2
+
+    def get_dataframe_dgc(self, df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3.,
+                          dgc_p_anova_thr=0.01):
+        """
+        return two subsets of the input df
+            1. rows that have significant dgc response
+            2. rows that do not have significant dgc response
+
+        rows that do not have dgc measurement will be excluded
+        """
+
+        df_has_dgc = self.get_dataframe_has_dgc(df=df)
+
+        df_dgc = df_has_dgc[(df_has_dgc['dgc_{}_peak_z'.format(response_dir)] >= dgc_peak_z_thr) &
+                            (df_has_dgc['dgc_p_anova_{}'.format(response_type)] <= dgc_p_anova_thr)]
+
+        df_ndgc = df_has_dgc[(df_has_dgc['dgc_{}_peak_z'.format(response_dir)] < dgc_peak_z_thr) |
+                            (df_has_dgc['dgc_p_anova_{}'.format(response_type)] > dgc_p_anova_thr)]
+
+        assert(len(df_has_dgc) == len(df_dgc) + len(df_ndgc))
+
+        return df_dgc, df_ndgc
+
+    def get_dataframe_ds(self, df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3.,
+                         dgc_p_anova_thr=0.01, post_process_type='ele', dsi_type='gdsi', dsi_thr=0.5):
+        """
+        return two subsets of the input df
+            1. rows that have significant dgc response and that are also direction selective
+            2. rows that have significant dgc response but not direction selective
+
+        rows that do not have dgc measurement or do not have significant dgc response will be excluded
+        """
+
+        df_dgc, _ = self.get_dataframe_dgc(df=df, response_dir=response_dir, response_type=response_type,
+                                           dgc_peak_z_thr=dgc_peak_z_thr, dgc_p_anova_thr=dgc_p_anova_thr)
+
+        df_dgcds = df_dgc[df_dgc['dgc_{}_{}_{}_{}'.format(response_dir,
+                                                          dsi_type,
+                                                          post_process_type,
+                                                          response_type)] >= dsi_thr]
+
+        df_dgcnds = df_dgc[df_dgc['dgc_{}_{}_{}_{}'.format(response_dir,
+                                                           dsi_type,
+                                                           post_process_type,
+                                                           response_type)] <= dsi_thr]
+
+        assert(len(df_dgc) == len(df_dgcds)+ len(df_dgcnds))
+
+        return df_dgcds, df_dgcnds
+
+    def get_dataframe_all_groups(self, df, response_dir='pos', rf_z_thr_abs=1.6, response_type='dff',
+                                 dgc_peak_z_thr=3., dgc_p_anova_thr=0.01, post_process_type='ele', dsi_type='gdsi',
+                                 dsi_thr=0.5):
+        """
+        return 6 subsets of the input df
+            1. rfndgc
+            2. rfdgcds
+            3. rfdgcnds
+            4. nrfndgc
+            5. nrfdgcds
+            6. nrfdgcnds
+
+        rows that do not have rf measurement or do not have dgc measurement will be excluded
+        """
+
+        df_has_rf = self.get_dataframe_has_rf(df=df)
+        df_has_rfdgc = self.get_dataframe_has_dgc(df=df_has_rf)
+
+        df_rf, df_nrf = self.get_dataframe_rf(df=df_has_rfdgc, response_dir=response_dir, rf_z_thr_abs=rf_z_thr_abs)
+
+        df_rfdgc, df_rfndgc = self.get_dataframe_dgc(df=df_rf, response_dir=response_dir, response_type=response_type,
+                                                     dgc_peak_z_thr=dgc_peak_z_thr, dgc_p_anova_thr=dgc_p_anova_thr)
+
+        df_rfdgcds, df_rfdgcnds = self.get_dataframe_ds(df=df_rfdgc, response_dir=response_dir,
+                                                        response_type=response_type, dgc_peak_z_thr=dgc_peak_z_thr,
+                                                        dgc_p_anova_thr=dgc_p_anova_thr,
+                                                        post_process_type=post_process_type, dsi_type=dsi_type,
+                                                        dsi_thr=dsi_thr)
+
+        df_nrfdgc, df_nrfndgc = self.get_dataframe_dgc(df=df_nrf, response_dir=response_dir,
+                                                       response_type=response_type,
+                                                       dgc_peak_z_thr=dgc_peak_z_thr, dgc_p_anova_thr=dgc_p_anova_thr)
+
+        df_nrfdgcds, df_nrfdgcnds = self.get_dataframe_ds(df=df_nrfdgc, response_dir=response_dir,
+                                                          response_type=response_type, dgc_peak_z_thr=dgc_peak_z_thr,
+                                                          dgc_p_anova_thr=dgc_p_anova_thr,
+                                                          post_process_type=post_process_type, dsi_type=dsi_type,
+                                                          dsi_thr=dsi_thr)
+
+        assert(len(df_has_rfdgc) == len(df_rfndgc) + len(df_rfdgcds) + len(df_rfdgcnds) + len(df_nrfndgc) +
+               len(df_nrfdgcds) + len(df_nrfdgcnds))
+
+        return df_rfdgcds, df_rfdgcnds, df_rfndgc, df_nrfdgcds, df_nrfdgcnds, df_nrfndgc
+
+    def get_dataframe_final_groups(self, df, response_dir='pos', rf_z_thr_abs=1.6, response_type='dff',
+                                   dgc_peak_z_thr=3., dgc_p_anova_thr=0.01, post_process_type='ele', dsi_type='gdsi',
+                                   dsi_thr=0.5):
+        """
+        return 3 subsets of the input df (these will be final groups used in the paper)
+            1. rfdgcds + nrfdgcds --> DS group
+            2. rfdgcnds + rfndgc --> RFnDS group
+            3. nrfdgcnds --> nRFnDS group
+
+        rows that do not have rf measurement or do not have dgc measurement will be excluded
+
+        nrfndgc group will also be excluded
+        """
+
+        _ = self.get_dataframe_all_groups(df=df, response_dir=response_dir, rf_z_thr_abs=rf_z_thr_abs,
+                                          response_type=response_type, dgc_peak_z_thr=dgc_peak_z_thr,
+                                          dgc_p_anova_thr=dgc_p_anova_thr, post_process_type=post_process_type,
+                                          dsi_type=dsi_type, dsi_thr=dsi_thr)
+
+        df_rfdgcds, df_rfdgcnds, df_rfndgc, df_nrfdgcds, df_nrfdgcnds, df_nrfndgc = _
+
+        df_DS = df_rfdgcds.append(df_nrfdgcds)
+        df_RFnDS = df_rfdgcnds.append(df_rfndgc)
+        df_nRFnDS = df_nrfdgcnds
+
+        return df_DS, df_RFnDS, df_nRFnDS
 
     @staticmethod
-    def get_dataframe_has_rf_and_dgc(df):
-        """
-        return a subset dataframe of input dataframe the has dgc measurement
-        """
-        return df.dropna(axis=0, how='any', subset=['dgc_pos_peak_z', 'rf_pos_on_peak_z'])
+    def break_into_planes(df):
+        plane_dfs = []
+
+        planes = df[['date', 'mouse_id', 'plane_n']].drop_duplicates().reset_index()
+
+        for plane_i, plane_row in planes.iterrows():
+            date = plane_row['date']
+            mid = plane_row['mouse_id']
+            plane_n = plane_row['plane_n']
+
+            plane_df = df[(df['date'] == date) &
+                          (df['mouse_id'] == mid) &
+                          (df['plane_n'] == plane_n)]
+
+            if len(plane_df) > 0:
+                plane_dfs.append(plane_df)
+
+        return plane_dfs
 
     @staticmethod
-    def get_dataframe_dgc(df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3., dgc_p_anova_thr=0.01):
-        """
-        return a subset of the input df with rows that have significant dgc response
-        """
+    def break_into_volumes(df):
+        vol_dfs = []
 
-        return df[(df['dgc_{}_peak_z'.format(response_dir)] >= dgc_peak_z_thr) &
-                  (df['dgc_p_anova_{}'.format(response_type)] <= dgc_p_anova_thr)]
+        vols = df['vol_n'].drop_duplicates().reset_index()
 
-    @staticmethod
-    def get_dataframe_ndgc(df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3., dgc_p_anova_thr=0.01):
-        """
-        return a subset of the input df with rows that do not have significant dgc response
-        """
+        for vol_i, vol_row in vols.iterrows():
+            vol_df = df[df['vol_n'] == vol_row['vol_n']]
 
-        return df[~((df['dgc_{}_peak_z'.format(response_dir)] >= dgc_peak_z_thr) &
-                    (df['dgc_p_anova_{}'.format(response_type)] <= dgc_p_anova_thr))]
+            if len(vol_df) > 0:
+                vol_dfs.append(vol_df)
 
-    def get_dataframe_ds(self, df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3., dgc_p_anova_thr=0.01,
-                         post_process_type='ele', dsi_type='gdsi', dsi_thr=0.5):
-        """
-        return a subset of the input df with rows that are direction selective
-        """
-
-        df_dgc = self.get_dataframe_dgc(df=df, response_dir=response_dir, response_type=response_type,
-                                        dgc_peak_z_thr=dgc_peak_z_thr, dgc_p_anova_thr=dgc_p_anova_thr)
-
-        df_ds = df_dgc[df_dgc['dgc_{}_{}_{}_{}'.format(response_dir,
-                                                       dsi_type,
-                                                       post_process_type,
-                                                       response_type)] >= dsi_thr]
-
-        return df_ds
-
-    def get_dataframe_nds(self, df, response_dir='pos', response_type='dff', dgc_peak_z_thr=3., dgc_p_anova_thr=0.01,
-                         post_process_type='ele', dsi_type='gdsi', dsi_thr=0.5):
-        """
-        return a subset of the input df with rows that have significant dgc response but not direction selective
-        """
-
-        df_dgc = self.get_dataframe_dgc(df=df, response_dir=response_dir, response_type=response_type,
-                                        dgc_peak_z_thr=dgc_peak_z_thr, dgc_p_anova_thr=dgc_p_anova_thr)
-
-        df_ds = df_dgc[df_dgc['dgc_{}_{}_{}_{}'.format(response_dir,
-                                                       dsi_type,
-                                                       post_process_type,
-                                                       response_type)] < dsi_thr]
-        return df_ds
-
-    @staticmethod
-    def get_dataframe_rf(df, response_dir='pos', rf_z_thr_abs=1.6):
-        """
-        return a subset of the input df with rows that have significant rf response
-        """
-        df_rf = df[(df['rf_{}_on_peak_z'.format(response_dir)] >= rf_z_thr_abs) |
-                   (df['rf_{}_off_peak_z'.format(response_dir)] >= rf_z_thr_abs)]
-        return df_rf
-
-    @staticmethod
-    def get_dataframe_nrf(df, response_dir='pos', rf_z_thr_abs=1.6):
-        """
-        return a subset of the input df with rows that have rf measurement but do not have significant rf response
-        """
-        df_nrf = df[(df['rf_{}_on_peak_z'.format(response_dir)] < rf_z_thr_abs) |
-                    (df['rf_{}_off_peak_z'.format(response_dir)] < rf_z_thr_abs)]
-        return df_nrf
-
-    @staticmethod
-    def get_dataframe_s1on(df, response_dir='pos', rf_z_thr_abs=1.6):
-        """
-        return a subset of the input df with rows that have only ON subfield
-        """
-        df_s1on = df[(df['rf_{}_on_peak_z'.format(response_dir)] >= rf_z_thr_abs) &
-                     (df['rf_{}_off_peak_z'.format(response_dir)] < rf_z_thr_abs)]
-        return df_s1on
-
-    @staticmethod
-    def get_dataframe_s1off(df, response_dir='pos', rf_z_thr_abs=1.6):
-        """
-        return a subset of the input df with rows that have only OFF subfield
-        """
-        df_s1off = df[(df['rf_{}_on_peak_z'.format(response_dir)] < rf_z_thr_abs) &
-                      (df['rf_{}_off_peak_z'.format(response_dir)] >= rf_z_thr_abs)]
-        return df_s1off
-
-    @staticmethod
-    def get_dataframe_s2(df, response_dir='pos', rf_z_thr_abs=1.6):
-        """
-        return a subset of the input df with rows that have both ON and OFF subfield
-        """
-        df_s2 = df[(df['rf_{}_on_peak_z'.format(response_dir)] >= rf_z_thr_abs) &
-                   (df['rf_{}_off_peak_z'.format(response_dir)] >= rf_z_thr_abs)]
-        return df_s2
-
-
-
+        return vol_dfs
 
 
 if __name__ == '__main__':
