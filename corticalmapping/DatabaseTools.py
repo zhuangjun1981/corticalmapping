@@ -6,6 +6,7 @@ import numpy as np
 import h5py
 import matplotlib.pyplot as plt
 from numbers import Number
+import pandas as pd
 import scipy.stats as stats
 import scipy.ndimage as ni
 import scipy.interpolate as ip
@@ -212,7 +213,7 @@ def get_background_img(nwb_f, plane_n):
         return None
 
 
-def get_roi_triplets(nwb_f, overlap_ratio=0.9):
+def get_roi_triplets(nwb_f, overlap_ratio=0.9, size_thr=25.):
     """
     for deepscope imaging session with 3 planes, get overlapping roi triplets
     each triplets contain one roi for each plane and they are highly overlapping
@@ -221,20 +222,39 @@ def get_roi_triplets(nwb_f, overlap_ratio=0.9):
     same cell.
     :param nwb_f:
     :param overlap_ratio:
+    :param size_thr: only rois bigger than this size will be considered, um^2
     :return: list of triplets (tuple of three strings)
     """
 
     roi_grp0 = nwb_f['processing/rois_and_traces_plane0/ImageSegmentation/imaging_plane']
     roi_lst0 = roi_grp0['roi_list'].value
     roi_lst0 = [r for r in roi_lst0 if r[0:4] == 'roi_']
+    roi_lst0_new = []
+    for roi_n0 in roi_lst0:
+        curr_roi = get_roi(nwb_f=nwb_f, plane_n='plane0', roi_n=roi_n0)
+        if curr_roi.get_pixel_area() * 1e12 >= size_thr:
+            roi_lst0_new.append(roi_n0)
+    roi_lst0 = roi_lst0_new
 
     roi_grp1 = nwb_f['processing/rois_and_traces_plane1/ImageSegmentation/imaging_plane']
     roi_lst1 = roi_grp1['roi_list'].value
     roi_lst1 = [r for r in roi_lst1 if r[0:4] == 'roi_']
+    roi_lst1_new = []
+    for roi_n1 in roi_lst1:
+        curr_roi = get_roi(nwb_f=nwb_f, plane_n='plane1', roi_n=roi_n1)
+        if curr_roi.get_pixel_area() * 1e12 >= size_thr:
+            roi_lst1_new.append(roi_n1)
+    roi_lst1 = roi_lst1_new
 
     roi_grp2 = nwb_f['processing/rois_and_traces_plane2/ImageSegmentation/imaging_plane']
     roi_lst2 = roi_grp2['roi_list'].value
     roi_lst2 = [r for r in roi_lst2 if r[0:4] == 'roi_']
+    roi_lst2_new = []
+    for roi_n2 in roi_lst2:
+        curr_roi = get_roi(nwb_f=nwb_f, plane_n='plane2', roi_n=roi_n2)
+        if curr_roi.get_pixel_area() * 1e12 >= size_thr:
+            roi_lst2_new.append(roi_n2)
+    roi_lst2 = roi_lst2_new
 
     triplets = []
 
@@ -3174,7 +3194,7 @@ class BoutonClassifier(object):
         :param kwargs: other inputs to scipy.cluster.hierarchy.dendrogram function
         :return linkage_z: 2d array, the linkage array Z from scipy.cluster.hierarchy.linkage method
         :return mat_dis_reorg: 2d array, reorganized the distance matrix based on the clustering
-        :return c: float, the cophentic correlation distance of the clustering. Value range: [0, 1].
+        :return c: float, the cophenetic correlation distance of the clustering. Value range: [0, 1].
                    Better if it is more close to 1.
         """
 
@@ -4016,10 +4036,11 @@ class BulkPaperFunctions(object):
                                    dgc_peak_z_thr=3., dgc_p_anova_thr=0.01, post_process_type='ele', dsi_type='gdsi',
                                    dsi_thr=0.5):
         """
-        return 3 subsets of the input df (these will be final groups used in the paper)
-            1. rfdgcds + nrfdgcds --> DS group
+        return 4 subsets of the input df (these will be final groups used in the paper)
+            1. nrfdgcds --> DSnRF group
             2. rfdgcnds + rfndgc --> RFnDS group
-            3. nrfdgcnds --> nRFnDS group
+            3. rfdgcds --> RFDS group
+            4. nrfdgcnds --> nRFnDS group
 
         rows that do not have rf measurement or do not have dgc measurement will be excluded
 
@@ -4033,11 +4054,12 @@ class BulkPaperFunctions(object):
 
         df_rfdgcds, df_rfdgcnds, df_rfndgc, df_nrfdgcds, df_nrfdgcnds, df_nrfndgc = _
 
-        df_DS = df_rfdgcds.append(df_nrfdgcds)
-        df_RFnDS = df_rfdgcnds.append(df_rfndgc)
+        df_DSnRF = df_nrfdgcds
+        df_RFnDS = pd.concat([df_rfdgcnds, df_rfndgc])
+        df_RFDS = df_rfdgcds
         df_nRFnDS = df_nrfdgcnds
 
-        return df_DS, df_RFnDS, df_nRFnDS
+        return df_DSnRF, df_RFnDS, df_RFDS, df_nRFnDS
 
     @staticmethod
     def break_into_planes(df):
