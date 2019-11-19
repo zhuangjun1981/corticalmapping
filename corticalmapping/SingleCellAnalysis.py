@@ -1993,6 +1993,7 @@ class DriftingGratingResponseMatrix(DataFrame):
             ax.set_xticks([])
             ax.set_yticks([])
             ax.axvline(x=0, ls='--', color='k', lw=1)
+            ax.axhline(y=0, ls='--', color='K', lw=1)
             for sp in ax.spines.values():
                 sp.set_visible(False)
             vrange = vmax - vmin
@@ -2011,10 +2012,13 @@ class DriftingGratingResponseMatrix(DataFrame):
             f.add_subplot(ax)
 
             if is_display_title:
-                f.suptitle('face color=mean dF; cmap={}; '
-                           'color range=[-{:5.2f}, {:5.2f}]'.format(face_cmap,
-                                                                    df_max_abs,
-                                                                    df_max_abs))
+                if is_plot_face_color:
+                    f.suptitle('face color=mean dF; cmap={}; '
+                               'color range=[-{:5.2f}, {:5.2f}]'.format(face_cmap,
+                                                                        df_max_abs,
+                                                                        df_max_abs))
+                else:
+                    f.suptitle('face color=mean dF; cmap={}'.format(face_cmap))
         return f
 
 
