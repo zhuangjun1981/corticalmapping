@@ -7,6 +7,7 @@ import scipy.stats as stats
 import math
 import h5py
 from pandas import DataFrame
+import matplotlib.gridspec as gridspec
 
 try:
     import core.PlottingTools as pt
@@ -1276,6 +1277,53 @@ class SpatialTemporalReceptiveField(object):
                                                      trace_data_type=self.trace_data_type + '_local_dff')
         return strf_dff
 
+    def get_local_df_strf(self, is_collaps_before_normalize=True, add_to_trace=0.):
+        """
+
+        :param is_collaps_before_normalize: if True, for each location, the traces across multiple trials will be
+                                            averaged before calculating df/f
+        :return:
+        """
+
+        bl_inds = self.time <= 0
+        # print(bl_inds)
+
+        df_traces = []
+        for probe_i, probe in self.data.iterrows():
+            curr_traces = np.array(probe['traces']) + add_to_trace
+
+            if is_collaps_before_normalize:
+                curr_traces = np.mean(curr_traces, axis=0, keepdims=True)
+
+            curr_bl = np.mean(curr_traces[:, bl_inds], axis=1, keepdims=True)
+            curr_df = (curr_traces - curr_bl)
+
+            df_traces.append(list(curr_df))
+
+        locations = zip(list(self.data['altitude']), list(self.data['azimuth']))
+
+        if is_collaps_before_normalize:
+
+            strf_df = SpatialTemporalReceptiveField(locations=locations,
+                                                     signs=list(self.data['sign']),
+                                                     traces=df_traces,
+                                                     trigger_ts=None,
+                                                     time=self.time,
+                                                     name=self.name,
+                                                     locationUnit=self.locationUnit,
+                                                     trace_data_type=self.trace_data_type + '_local_dff')
+
+        else:
+            strf_df = SpatialTemporalReceptiveField(locations=locations,
+                                                     signs=list(self.data['sign']),
+                                                     traces=df_traces,
+                                                     trigger_ts=list(self.data['trigger_ts']),
+                                                     time=self.time,
+                                                     name=self.name,
+                                                     locationUnit=self.locationUnit,
+                                                     trace_data_type=self.trace_data_type + '_local_dff')
+        return strf_df
+
     def get_data_range(self):
 
         v_min = None
@@ -1579,14 +1627,19 @@ class DriftingGratingResponseMatrix(DataFrame):
         _, p_anova = stats.f_oneway(*trial_responses)
 
         df_response_table = DriftingGratingResponseTable(data=dgcrt, trace_type='{}_df'.format(self.trace_type))
-        responses_blank = trial_responses[df_response_table.blank_condi_ind]
-        responses_peak_pos = trial_responses[df_response_table.peak_condi_ind_pos]
-        responses_peak_neg = trial_responses[df_response_table.peak_condi_ind_neg]
 
-        n_min_pos = np.min([len(responses_blank), len(responses_peak_pos)])
-        _, p_ttest_pos = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_pos[0:n_min_pos])
-        n_min_neg = np.min([len(responses_blank), len(responses_peak_neg)])
-        _, p_ttest_neg = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_neg[0:n_min_neg])
+        if df_response_table.blank_condi_ind is None:
+            p_ttest_pos = None
+            p_ttest_neg = None
+        else:
+            responses_blank = trial_responses[df_response_table.blank_condi_ind]
+            responses_peak_pos = trial_responses[df_response_table.peak_condi_ind_pos]
+            responses_peak_neg = trial_responses[df_response_table.peak_condi_ind_neg]
+
+            n_min_pos = np.min([len(responses_blank), len(responses_peak_pos)])
+            _, p_ttest_pos = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_pos[0:n_min_pos])
+            n_min_neg = np.min([len(responses_blank), len(responses_peak_neg)])
+            _, p_ttest_neg = stats.ttest_rel(responses_blank[0:n_min_pos], responses_peak_neg[0:n_min_neg])
 
         return df_response_table, p_anova, p_ttest_pos, p_ttest_neg
 
@@ -1799,6 +1852,170 @@ class DriftingGratingResponseMatrix(DataFrame):
         axis.set_xlim([self.sta_ts[0], self.sta_ts[-1]])
 
         return ymin, ymax
+
+    def get_alt_list(self):
+        return list(self['alt'].drop_duplicates())
+
+    def get_azi_list(self):
+        return list(self['azi'].drop_duplicates())
+
+    def get_sf_list(self):
+        return list(self['sf'].drop_duplicates())
+
+    def get_tf_list(self):
+        return list(self['tf'].drop_duplicates())
+
+    def get_dire_list(self):
+        return list(self['dire'].drop_duplicates())
+
+    def get_con_list(self):
+        return list(self['con'].drop_duplicates())
+
+    def get_rad_list(self):
+        return list(self['rad'].drop_duplicates())
+
+    def get_blank_ind(self):
+        blank_rows = self[(self['sf'] == 0) &
+                         (self['tf'] == 0) &
+                         (self['dire'] == 0) &
+                         (self['con'] == 0) &
+                         (self['rad'] == 0)]
+
+        return blank_rows.index
+
+    def remove_blank_cond(self):
+        return DriftingGratingResponseMatrix(sta_ts=self.sta_ts, trace_type=self.trace_type,
+                                             data=self.drop(index=self.get_blank_ind()))
+
+    def get_min_max_value(self):
+
+        v_min = None
+        v_max = None
+
+        for cond_i, cond_row in self.iterrows():
+            curr_matrix = cond_row['matrix']
+
+            if v_min is None:
+                v_min = np.min(curr_matrix)
+            else:
+                v_min = np.min([v_min, np.min(curr_matrix)])
+
+            if v_max is None:
+                v_max = np.max(curr_matrix)
+            else:
+                v_max = np.max([v_max, np.max(curr_matrix)])
+
+        return v_min, v_max
+
+    def plot_all_traces(self, baseline_win=(-0.5, 0.), response_win=(0., 1.), f=None, trace_lw=1,
+                        is_plot_face_color=True, face_cmap='RdBu_r', face_c_range=None, trace_color='k',
+                        is_display_title=True):
+        """
+        plot all traces for all conditions, except blank condition
+
+        currently this does not work for multiple contrast or multiple radius conditions
+        """
+
+        for_plot = self.remove_blank_cond()
+
+        if len(for_plot.get_alt_list()) > 1:
+            raise NotImplementedError('Plotting all traces for multiple altitudes conditions is not implemented.')
+
+        if len(for_plot.get_azi_list()) > 1:
+            raise NotImplementedError('Plotting all traces for multiple azimuths conditions are not implemented.')
+
+        if len(for_plot.get_con_list()) > 1:
+            raise NotImplementedError('Plotting all traces for multiple contrasts conditions is not implemented.')
+
+        if len(for_plot.get_rad_list()) > 1:
+            raise NotImplementedError('Plotting all traces for multiple radii conditions are is implemented.')
+
+        tf_lst = np.array(for_plot.get_tf_list())
+        tf_lst.sort()
+        # print(tf_lst)
+        sf_lst = np.array(for_plot.get_sf_list())
+        sf_lst.sort()
+        # print(sf_lst)
+        dire_lst = np.array(for_plot.get_dire_list())
+        dire_lst.sort()
+        # print(dire_lst)
+
+        if f is None:
+            f = plt.figure(figsize=(8.5, 11))
+
+        gs_out = gridspec.GridSpec(len(tf_lst), 1)
+        gs_in_dict = {}
+        for gs_ind, gs_o in enumerate(gs_out):
+            curr_gs_in = gridspec.GridSpecFromSubplotSpec(len(sf_lst), len(dire_lst), subplot_spec=gs_o,
+                                                          wspace=0.05, hspace=0.05)
+            gs_in_dict[gs_ind] = curr_gs_in
+
+        vmin, vmax = for_plot.get_min_max_value()
+
+        dgcrt, _, _, _ = for_plot.get_df_response_table(baseline_win=baseline_win, response_win=response_win)
+        if face_c_range is None:
+            df_max_abs = np.max([abs(np.min(dgcrt['resp_mean'])), abs(np.max(dgcrt['resp_mean']))])
+        else:
+            df_max_abs = abs(face_c_range)
+
+        for gs_i, gs in enumerate(gs_out):
+            ax = plt.Subplot(f, gs)
+            ax.set_title('{} Hz'.format(tf_lst[gs_i]))
+            ax.set_axis_off()
+            f.add_subplot(ax)
+
+        for cond_i, cond_row in for_plot.iterrows():
+
+            tf_i = np.where(tf_lst == cond_row['tf'])[0][0]
+            sf_i = np.where(sf_lst == cond_row['sf'])[0][0]
+            dire_i = np.where(dire_lst == cond_row['dire'])[0][0]
+
+            df_mean = dgcrt[(dgcrt['sf'] == cond_row['sf']) &
+                            (dgcrt['tf'] == cond_row['tf']) &
+                            (dgcrt['dire'] == cond_row['dire'])].reset_index()
+
+            if len(df_mean) != 1:
+                raise ValueError
+
+            df_mean = df_mean.loc[0, 'resp_mean']
+
+            ax = plt.Subplot(f, gs_in_dict[tf_i][sf_i * len(dire_lst) + dire_i])
+
+            if is_plot_face_color:
+                f_color = pt.value_2_rgb(value=(df_mean + df_max_abs) / (2 * df_max_abs),
+                                         cmap=face_cmap)
+                ax.set_axis_bgcolor(f_color)
+            ax.axvspan(response_win[0], response_win[1], alpha=0.4, color='#777777', ec='none')
+
+            for trace in cond_row['matrix']:
+                ax.plot(for_plot.sta_ts, trace, ls='-', color=trace_color, lw=trace_lw)
+
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.axvline(x=0, ls='--', color='k', lw=1)
+            for sp in ax.spines.values():
+                sp.set_visible(False)
+            vrange = vmax - vmin
+            ax.set_ylim([vmin - 0.05 * vrange, vmax + 0.05 * vrange])
+            ax.set_xlim([for_plot.sta_ts[0], for_plot.sta_ts[-1]])
+
+            if dire_i == 0:
+                if tf_i == 0 and sf_i == 0:
+                    ax.set_ylabel('{} cpd'.format(cond_row['sf']))
+                else:
+                    ax.set_ylabel('{}'.format(cond_row['sf']))
+
+            if (sf_i == len(sf_lst) - 1) and (tf_i == len(tf_lst) - 1):
+                ax.set_xlabel(r'${}\degree$'.format(cond_row['dire']))
+
+            f.add_subplot(ax)
+
+            if is_display_title:
+                f.suptitle('face color=mean dF; cmap={}; '
+                           'color range=[-{:5.2f}, {:5.2f}]'.format(face_cmap,
+                                                                    df_max_abs,
+                                                                    df_max_abs))
+        return f
 
 
 class DriftingGratingResponseTable(DataFrame):
@@ -2419,7 +2636,7 @@ class DriftingGratingResponseTable(DataFrame):
 
     def plot_dire_tuning(self, axis=None, response_dir='pos', is_collapse_sf=True, is_collapse_tf=False,
                          trace_color='#ff0000', postprocess='raw', is_plot_errbar=False,
-                         is_normalize=False, **kwargs):
+                         is_normalize=False, is_arc=False, **kwargs):
         """
 
         :param axis:
@@ -2445,7 +2662,9 @@ class DriftingGratingResponseTable(DataFrame):
 
         dire_tuning = dire_tuning.sort_values(by='dire')
         dire_tuning = dire_tuning.append(dire_tuning.iloc[0, :])
-        dire_tuning['dire'] = dire_tuning['dire'] * np.pi / 180.
+
+        if not is_arc:
+            dire_tuning['dire'] = dire_tuning['dire'] * np.pi / 180.
 
         if response_dir == 'neg':
             dire_tuning['resp_mean'] = -dire_tuning['resp_mean']
@@ -2482,7 +2701,8 @@ class DriftingGratingResponseTable(DataFrame):
             y1[y1 < 0.] = 0.
             y2 = np.array(resp + dire_tuning['resp_stdev'])
             y2[y2 < 0.] = 0.
-            axis.fill_between(x=np.array(dire_tuning['dire']), y1=y1, y2=y2,
+
+            axis.fill_between(x=np.array(dire_tuning['dire'], dtype=np.float32), y1=y1, y2=y2,
                               edgecolor='none', facecolor='#cccccc')
 
         axis.plot(dire_tuning['dire'], resp, '-', color=trace_color, **kwargs)

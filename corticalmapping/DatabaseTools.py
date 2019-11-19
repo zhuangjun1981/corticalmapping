@@ -34,7 +34,7 @@ ANALYSIS_PARAMS = {
     'rf_z_thr_rel': 0.4, # float, relative threshold for significant zscore receptive field
     'response_window_dgc': [0., 1.], # list of two floats, temporal window for getting response value for drifting grating
     'baseline_window_dgc': [-0.5, 0.], # list of two floats, temporal window for getting baseline value for drifting grating
-    'is_collapse_sf': True, # bool, average across sf or not for direction/tf tuning curve
+    'is_collapse_sf': False, # bool, average across sf or not for direction/tf tuning curve
     'is_collapse_tf': False, # bool, average across tf or not for direction/sf tuning curve
     'is_collapse_dire': False, # bool, average across direction or not for tf/sf tuning curve
     'dgc_elevation_bias': 0., # float, the bias to lift the dgc tuning curves if postprocess is 'elevate'
@@ -2938,9 +2938,262 @@ def roi_page_report(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, plot_params=P
     return f
 
 
-def axon_page_report(clu_f, plane_n, axon_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
-    # todo: finish if necessary
-    pass
+def axon_page_report(nwb_f, clu_f, plane_n, axon_n, params=ANALYSIS_PARAMS, plot_params=PLOTTING_PARAMS):
+    """
+    generate a page of description of an roi
+
+    :param nwb_f: h5py.File object
+    :param plane_n:
+    :param roi_n:
+    :param params:
+    :return:
+    """
+
+    roi_properties, roi, trace, srf_pos_on, srf_pos_off, srf_neg_on, srf_neg_off, dgcrm_df, dgcrm_dff, \
+    dgcrm_z, dgcrt_df, dgcrt_dff, dgcrt_z, dgc_block_dur = get_everything_from_axon(nwb_f=nwb_f,
+                                                                                    clu_f=clu_f,
+                                                                                    plane_n=plane_n,
+                                                                                    axon_n=axon_n,
+                                                                                    params=params)
+
+    segmentation_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane'.format(plane_n)]
+    rf_img_grp = segmentation_grp['reference_images']
+    if 'mean_projection' in rf_img_grp.keys():
+        rf_img = rf_img_grp['mean_projection/data'].value
+    else:
+        rf_img = rf_img_grp['max_projection/data'].value
+
+    f = plt.figure(figsize=plot_params['fig_size'], facecolor=plot_params['fig_facecolor'])
+
+    # plot roi mask
+    f.subplots_adjust(0, 0, 1, 1)
+    ax_roi_img = f.add_axes(plot_params['ax_roi_img_coord'])
+    ax_roi_img.imshow(ia.array_nor(rf_img), cmap='gray', vmin=plot_params['rf_img_vmin'],
+                      vmax=plot_params['rf_img_vmax'], interpolation='nearest')
+    pt.plot_mask_borders(mask=roi.get_binary_mask(), plotAxis=ax_roi_img, color=plot_params['roi_border_color'],
+                         borderWidth=plot_params['roi_border_width'])
+    ax_roi_img.set_axis_off()
+
+    # plot traces
+    trace_chunk_length = trace.shape[0] // plot_params['traces_panels']
+    trace_max = np.max(trace)
+    trace_min = np.min(trace)
+
+    trace_axis_height = (plot_params['field_traces_coord'][3] - (0.01 * (plot_params['traces_panels'] - 1))) \
+                        / plot_params['traces_panels']
+    for trace_i in range(plot_params['traces_panels']):
+        curr_trace_axis = f.add_axes([
+            plot_params['field_traces_coord'][0],
+            plot_params['field_traces_coord'][1] + trace_i * (0.01 + trace_axis_height),
+            plot_params['field_traces_coord'][2],
+            trace_axis_height
+        ])
+        curr_trace_chunk = trace[trace_i * trace_chunk_length: (trace_i + 1) * trace_chunk_length]
+        curr_trace_axis.plot(curr_trace_chunk, color=plot_params['traces_color'],
+                             lw=plot_params['traces_line_width'])
+        curr_trace_axis.set_xlim([0, trace_chunk_length])
+        curr_trace_axis.set_ylim([trace_min, trace_max])
+        curr_trace_axis.set_axis_off()
+
+    # plot receptive field
+    if srf_pos_on is not None:
+        ax_rf_pos = f.add_axes(plot_params['ax_rf_pos_coord'])
+        zscore_pos = render_rb(rf_on=srf_pos_on.get_weighted_mask(),
+                               rf_off=srf_pos_off.get_weighted_mask(), vmax=plot_params['rf_zscore_vmax'])
+        ax_rf_pos.imshow(zscore_pos, interpolation='nearest')
+        ax_rf_pos.set_axis_off()
+
+        # plotting negative ON and OFF receptive fields
+        ax_rf_neg = f.add_axes(plot_params['ax_rf_neg_coord'])
+        zscore_neg = render_rb(rf_on=-srf_neg_on.get_weighted_mask(),
+                               rf_off=-srf_neg_off.get_weighted_mask(), vmax=plot_params['rf_zscore_vmax'])
+        ax_rf_neg.imshow(zscore_neg, interpolation='nearest')
+        ax_rf_neg.set_axis_off()
+
+    # select dgc response matrix and response table for plotting
+    if plot_params['response_type_for_plot'] == 'df':
+        dgcrm_plot = dgcrm_df
+        dgcrt_plot = dgcrt_df
+    elif plot_params['response_type_for_plot'] == 'dff':
+        dgcrm_plot = dgcrm_dff
+        dgcrt_plot = dgcrt_dff
+    elif plot_params['response_type_for_plot'] == 'zscore':
+        dgcrm_plot = dgcrm_z
+        dgcrt_plot = dgcrt_z
+    else:
+        raise LookupError("Do not understand 'response_type_for_plot': {}. Should be "
+                          "'df', 'dff' or 'zscore'.".format(params['response_type_for_plot']))
+
+    if dgcrm_plot is not None:
+        # plot peak condition traces
+        ax_peak_traces_pos = f.add_axes(plot_params['ax_peak_traces_pos_coord'])
+        ax_peak_traces_neg = f.add_axes(plot_params['ax_peak_traces_neg_coord'])
+
+        ymin_pos, ymax_pos = dgcrm_plot.plot_traces(condi_ind=dgcrt_plot.peak_condi_ind_pos,
+                                                    axis=ax_peak_traces_pos,
+                                                    blank_ind=dgcrt_plot.blank_condi_ind,
+                                                    block_dur=dgc_block_dur,
+                                                    response_window=params['response_window_dgc'],
+                                                    baseline_window=params['baseline_window_dgc'],
+                                                    trace_color=plot_params['peak_traces_pos_color'],
+                                                    block_face_color=plot_params['block_face_color'],
+                                                    response_window_color=plot_params['response_window_color'],
+                                                    baseline_window_color=plot_params['baseline_window_color'],
+                                                    blank_trace_color=plot_params['blank_traces_color'],
+                                                    lw_single=plot_params['single_traces_lw'],
+                                                    lw_mean=plot_params['mean_traces_lw'])
+
+        ymin_neg, ymax_neg = dgcrm_plot.plot_traces(condi_ind=dgcrt_plot.peak_condi_ind_neg,
+                                                    axis=ax_peak_traces_neg,
+                                                    blank_ind=dgcrt_plot.blank_condi_ind,
+                                                    block_dur=dgc_block_dur,
+                                                    response_window=params['response_window_dgc'],
+                                                    baseline_window=params['baseline_window_dgc'],
+                                                    trace_color=plot_params['peak_traces_neg_color'],
+                                                    block_face_color=plot_params['block_face_color'],
+                                                    response_window_color=plot_params['response_window_color'],
+                                                    baseline_window_color=plot_params['baseline_window_color'],
+                                                    blank_trace_color=plot_params['blank_traces_color'],
+                                                    lw_single=plot_params['single_traces_lw'],
+                                                    lw_mean=plot_params['mean_traces_lw'])
+
+        ax_peak_traces_pos.set_ylim(min([ymin_pos, ymin_neg]), max([ymax_pos, ymax_neg]))
+        ax_peak_traces_neg.set_ylim(min([ymin_pos, ymin_neg]), max([ymax_pos, ymax_neg]))
+        ax_peak_traces_pos.set_xticks([])
+        ax_peak_traces_pos.set_yticks([])
+        ax_peak_traces_neg.set_xticks([])
+        ax_peak_traces_neg.set_yticks([])
+
+        # plot sf-tf matrix
+        ax_sftf_pos = f.add_axes(plot_params['ax_sftf_pos_coord'])
+        ax_sftf_neg = f.add_axes(plot_params['ax_sftf_neg_coord'])
+
+        dgcrt_plot.plot_sf_tf_matrix(response_dir='pos',
+                                     axis=ax_sftf_pos,
+                                     cmap=plot_params['sftf_cmap'],
+                                     vmax=plot_params['sftf_vmax'],
+                                     vmin=plot_params['sftf_vmin'])
+        dgcrt_plot.plot_sf_tf_matrix(response_dir='neg',
+                                     axis=ax_sftf_neg,
+                                     cmap=plot_params['sftf_cmap'],
+                                     vmax=plot_params['sftf_vmax'],
+                                     vmin=plot_params['sftf_vmin'])
+
+        # plot direction tuning curve
+        ax_dire_pos = f.add_axes(plot_params['ax_dire_pos_coord'], projection='polar')
+        ax_dire_neg = f.add_axes(plot_params['ax_dire_neg_coord'], projection='polar')
+
+        r_max_pos = dgcrt_plot.plot_dire_tuning(response_dir='pos', axis=ax_dire_pos,
+                                                is_collapse_sf=params['is_collapse_sf'],
+                                                is_collapse_tf=params['is_collapse_tf'],
+                                                trace_color=plot_params['dire_color_pos'],
+                                                lw=plot_params['dire_line_width'],
+                                                postprocess=plot_params['dgc_postprocess'])
+
+        r_max_neg = dgcrt_plot.plot_dire_tuning(response_dir='neg', axis=ax_dire_neg,
+                                                is_collapse_sf=params['is_collapse_sf'],
+                                                is_collapse_tf=params['is_collapse_tf'],
+                                                trace_color=plot_params['dire_color_neg'],
+                                                lw=plot_params['dire_line_width'],
+                                                postprocess=plot_params['dgc_postprocess'])
+
+        rmax = max([r_max_pos, r_max_neg])
+
+        ax_dire_pos.set_rlim([0, rmax])
+        ax_dire_pos.set_rticks([rmax])
+        ax_dire_neg.set_rlim([0, rmax])
+        ax_dire_neg.set_rticks([rmax])
+
+    # print text
+    ax_text = f.add_axes(plot_params['ax_text_coord'])
+    ax_text.set_xticks([])
+    ax_text.set_yticks([])
+
+    file_n = os.path.splitext(os.path.split(nwb_f.filename)[1])[0]
+
+    txt = '{}\n'.format(file_n)
+    txt += '\n'
+    txt += 'plane name:          {}\n'.format(plane_n)
+    txt += 'roi name:            {}\n'.format(axon_n)
+    txt += 'depth (um):          {}\n'.format(roi_properties['depth'])
+    txt += 'roi area (um^2):     {:.2f}\n'.format(roi_properties['roi_area'])
+    # txt += '\n'
+    txt += 'trace type:{:>19}\n'.format(params['trace_type'])
+    txt += 'response type:{:>14}\n'.format(plot_params['response_type_for_plot'])
+    txt += 'dgc postprocess:{:>13}\n'.format(plot_params['dgc_postprocess'])
+    txt += '\n'
+    txt += 'skewness raw:        {:.2f}\n'.format(roi_properties['skew_raw'])
+    txt += 'skewness fil:        {:.2f}\n'.format(roi_properties['skew_fil'])
+    # txt += '\n'
+
+    rf_pos_peak_z = max([roi_properties['rf_pos_on_peak_z'],
+                         roi_properties['rf_pos_off_peak_z']])
+    rf_neg_peak_z = max([roi_properties['rf_neg_on_peak_z'],
+                         roi_properties['rf_neg_off_peak_z']])
+
+    if plot_params['response_type_for_plot'] == 'df':
+        surfix1 = 'df'
+    elif plot_params['response_type_for_plot'] == 'dff':
+        surfix1 = 'dff'
+    elif plot_params['response_type_for_plot'] == 'zscore':
+        surfix1 = 'z'
+    else:
+        raise LookupError("Do not ',understand 'response_type_for_plot': {}. Should be "
+                          "'df 'dff' or 'zscore'.".format(plot_params['response_type_for_plot']))
+
+    if plot_params['dgc_postprocess'] == 'raw':
+        surfix2 = 'raw'
+    elif plot_params['dgc_postprocess'] == 'elevate':
+        surfix2 = 'ele'
+    elif plot_params['dgc_postprocess'] == 'rectify':
+        surfix2 = 'rec'
+    else:
+        raise LookupError("Do not ',understand 'response_type_for_plot': {}. Should be "
+                          "'raw', 'elevate' or 'rectify'.".format(plot_params['dgc_postprocess']))
+
+    txt += 'dgc_p_anova:         {:.2f}\n'.format(roi_properties['dgc_p_anova_{}'.format(surfix1)])
+    txt += '\n'
+    txt += 'positive response:\n'
+    txt += 'rf_peak_z:           {:.2f}\n'.format(rf_pos_peak_z)
+    txt += 'rf_lsi:              {:.2f}\n'.format(roi_properties['rf_pos_lsi'])
+    txt += 'dgc_p_ttest:         {:.2f}\n'.format(roi_properties['dgc_pos_p_ttest_{}'.format(surfix1)])
+    txt += 'dgc_peak_resp:       {:.2f}\n'.format(roi_properties['dgc_pos_peak_{}'.format(surfix1)])
+    txt += 'dgc_OSI:             {:.2f}\n'.format(roi_properties['dgc_pos_osi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_gOSI:            {:.2f}\n'.format(roi_properties['dgc_pos_gosi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_DSI:             {:.2f}\n'.format(roi_properties['dgc_pos_dsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_gDSI:            {:.2f}\n'.format(roi_properties['dgc_pos_gdsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_vs_dire:         {:.2f}\n'.format(roi_properties['dgc_pos_vs_dire_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_sf:     {:.2f}\n'.format(roi_properties['dgc_pos_weighted_sf'
+                                                                 '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_sf_log: {:.2f}\n'.format(roi_properties['dgc_pos_weighted_sf_log'
+                                                                 '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_tf:     {:.2f}\n'.format(roi_properties['dgc_pos_weighted_tf'
+                                                                 '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_tf_log: {:.2f}\n'.format(roi_properties['dgc_pos_weighted_tf_log'
+                                                                 '_{}_{}'.format(surfix2, surfix1)])
+    txt += '\nnegative response:\n'
+    txt += 'rf_peak_z:           {:.2f}\n'.format(rf_neg_peak_z)
+    txt += 'rf_lsi:              {:.2f}\n'.format(roi_properties['rf_neg_lsi'])
+    txt += 'dgc_p_ttest:         {:.2f}\n'.format(roi_properties['dgc_neg_p_ttest_{}'.format(surfix1)])
+    txt += 'dgc_peak_resp:       {:.2f}\n'.format(roi_properties['dgc_neg_peak_{}'.format(surfix1)])
+    txt += 'dgc_OSI:             {:.2f}\n'.format(roi_properties['dgc_neg_osi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_gOSI:            {:.2f}\n'.format(roi_properties['dgc_neg_gosi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_DSI:             {:.2f}\n'.format(roi_properties['dgc_neg_dsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_gDSI:            {:.2f}\n'.format(roi_properties['dgc_neg_gdsi_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_vs_dire:         {:.2f}\n'.format(roi_properties['dgc_neg_vs_dire_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_sf:     {:.2f}\n'.format(roi_properties['dgc_neg_weighted_sf'
+                                                                 '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_sf_log: {:.2f}\n'.format(roi_properties['dgc_neg_weighted_sf_log'
+                                                                 '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_tf:     {:.2f}\n'.format(roi_properties['dgc_neg_weighted_tf'
+                                                                 '_{}_{}'.format(surfix2, surfix1)])
+    txt += 'dgc_weighted_tf_log: {:.2f}\n'.format(roi_properties['dgc_neg_weighted_tf_log'
+                                                                 '_{}_{}'.format(surfix2, surfix1)])
+
+    ax_text.text(0.01, 0.99, txt, horizontalalignment='left', verticalalignment='top', family='monospace')
+
+    # plt.show()
+    return f
 
 
 class BoutonClassifier(object):
