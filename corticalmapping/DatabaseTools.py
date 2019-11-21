@@ -4453,10 +4453,9 @@ class BoutonClassifier(object):
                     plane_n = plane_roi_n.split('_')[0]
                     roi_n = '_'.join(plane_roi_n.split('_')[1:3])
                     trace, _ = get_single_trace(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n, trace_type=trace_type)
-                    traces_p.append(trace)
+                    traces_p.append(trace[:len(win_mask)])
 
                 traces_p = np.array(traces_p)
-                traces_p = traces_p[:, :len(win_mask)]
                 traces_p = traces_p[:, win_mask]
 
                 axon_plot_ind = axon_lst.index(axon_n)
