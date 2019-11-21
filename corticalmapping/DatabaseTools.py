@@ -3534,8 +3534,9 @@ class BoutonClassifier(object):
             if len(axon_lst) > 1:
                 axon_num_multi_roi += 1
 
-        print('\ttotal number of axons: {}; '
-              'number of axons with multiple rois: {}'.format(axon_num, axon_num_multi_roi))
+        print('\ttotal number of rois: {}'
+              '\n\ttotal number of axons: {} '
+              '\n\tnumber of axons with multiple rois: {}'.format(len(roi_ns), axon_num, axon_num_multi_roi))
 
         return axon_dict, clu_axon
 
@@ -3776,13 +3777,58 @@ class BoutonClassifier(object):
         save_f.close()
 
         # plot matrices
-        print('\tplotting results ...')
+        sup_title_mat = '{}_{}_{}, {}, dis_thr={:.2f}'.format(date,
+                                                              mid,
+                                                              plane_n,
+                                                              trace_window,
+                                                              self.distance_thr)
+
+        f_mat = self.plot_matrices(mat_corr=mat_corr, mat_corr_thr=mat_corr_thr, mat_dis=mat_dis,
+                                   mat_corr_reorg=mat_corr_reorg, mat_dis_reorg=mat_dis_reorg,
+                                   linkage_z=linkage_z, roi_num_per_axon=roi_num_per_axon,
+                                   distance_thr=self.distance_thr, sup_title=sup_title_mat)
+
+        f_mat.savefig(os.path.join(save_folder,
+                                   '{}_{}_{}_{}_clustering.pdf'.format(date, mid, plane_n, trace_window)))
+
+        plt.close(f_mat)
+
+        # plot contours
+        title_contour = '{}_{}_{}, {}, dis_thr={:.2f}'.format(date, mid, plane_n, trace_window,
+                                                              self.distance_thr)
+        f_contour = self.plot_countours_single_plane(nwb_f=nwb_f, plane_n=plane_n, axon_dict=axon_dict,
+                                                     title_str=title_contour)
+
+        f_contour.savefig(os.path.join(save_folder,
+                                       '{}_{}_{}_{}_axon_contours.pdf'.format(date, mid, plane_n, trace_window)))
+
+        plt.close(f_contour)
+
+        # plot axon traces
+        save_path_trace = os.path.join(save_folder, '{}_{}_{}_{}_axon_traces.pdf'.format(date,
+                                                                                         mid,
+                                                                                         plane_n,
+                                                                                         trace_window))
+
+        self.plot_traces_single_plane(save_path=save_path_trace, axon_dict=axon_dict, nwb_f=nwb_f,
+                                           plane_n=plane_n, roi_num_per_axon=roi_num_per_axon,
+                                           mat_corr_reorg=mat_corr_reorg, mat_dis_reorg=mat_dis_reorg,
+                                           event_masks=event_masks, clu_axon=clu_axon, win_mask=win_mask,
+                                           axon_lst=axon_lst, trace_type=trace_type,
+                                           axon_traces_raw=axon_traces_raw, axon_traces_sub=axon_traces_sub,
+                                           is_normalize_traces=is_normalize_traces)
+
+        print('\tfinished.')
+
+    @staticmethod
+    def plot_matrices(mat_corr, mat_corr_thr, mat_dis, mat_corr_reorg, mat_dis_reorg, linkage_z,
+                      roi_num_per_axon, distance_thr, sup_title=None, is_truncate=False):
+
+        print('\tplotting clustering matrices ...')
+
         f_mat = plt.figure(figsize=(15, 12))
-        f_mat.suptitle('{}_{}_{}, {}, dis_thr={:.2f}'.format(date,
-                                                             mid,
-                                                             plane_n,
-                                                             trace_window,
-                                                             self.distance_thr))
+        if sup_title is not None:
+            f_mat.suptitle(sup_title)
 
         ax_corr = f_mat.add_axes([0.02, 0.66, 0.3, 0.3])
         fig_corr = ax_corr.imshow(mat_corr, cmap='RdBu_r', vmin=-1, vmax=1, interpolation='nearest')
@@ -3804,11 +3850,6 @@ class BoutonClassifier(object):
         ax_dis.set_ylabel('distance')
         ax_dis.set_xticks([])
         ax_dis.set_yticks([])
-
-        ax_mask = f_mat.add_axes([0.02, 0.34, 0.3, 0.3])
-        ax_mask.set_xticks([])
-        ax_mask.set_yticks([])
-        ax_mask.set_ylabel('axons with multiple rois')
 
         ax_corr_reorg = f_mat.add_axes([0.34, 0.34, 0.3, 0.3])
         fig_corr_reorg = ax_corr_reorg.imshow(mat_corr_reorg, cmap='plasma', vmin=0, vmax=1, interpolation='nearest')
@@ -3837,26 +3878,60 @@ class BoutonClassifier(object):
         ax_dis_reorg.set_yticks([])
 
         ax_den = f_mat.add_axes([0.02, 0.02, 0.96, 0.3])
-        _ = cluster.hierarchy.dendrogram(linkage_z, ax=ax_den, color_threshold=self.distance_thr)
-        ax_den.axhline(y=self.distance_thr)
+
+        if not is_truncate:
+            _ = cluster.hierarchy.dendrogram(linkage_z, ax=ax_den, color_threshold=distance_thr, no_labels=True)
+        else:
+            _ = cluster.hierarchy.dendrogram(linkage_z, ax=ax_den, color_threshold=distance_thr, no_labels=True,
+                                             truncate_mode='level', p=20)
+        ax_den.axhline(y=distance_thr)
         ax_den.set_title('dendrogram')
 
-        # plot axon traces
-        trace_f = PdfPages(os.path.join(save_folder,
-                                        '{}_{}_{}_{}_axon_traces.pdf'.format(date, mid, plane_n, trace_window)))
+        return f_mat
 
-        # plot contour image
-        f_contour = plt.figure(figsize=(8, 8))
-        contour_ax = f_contour.add_subplot(111)
-        contour_ax.set_xticks([])
-        contour_ax.set_yticks([])
+    @staticmethod
+    def plot_countours_single_plane(nwb_f, plane_n, axon_dict, title_str=''):
+        print('\tplot axon contours ...')
+        f = plt.figure(figsize=(8, 8))
+        ax = f.add_subplot(111)
+        # ax.set_xticks([])
+        # ax.set_yticks([])
+        ax.set_axis_off()
         bg_img = get_background_img(nwb_f=nwb_f, plane_n=plane_n)
+
         if bg_img is not None:
-            contour_ax.imshow(ia.array_nor(bg_img), vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+            ax.imshow(ia.array_nor(bg_img), vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
         else:
-            contour_ax.imshow(np.zeros(512, 512), vmin=0, vmax=1, cmap='gray', interpolation='nearest')
-        contour_ax.set_title('{}_{}_{}, {}, dis_thr={:.2f}'.format(date, mid, plane_n, trace_window,
-                                                                   self.distance_thr))
+            ax.imshow(np.zeros(512, 512), vmin=0, vmax=1, cmap='gray', interpolation='nearest')
+        ax.set_title(title_str)
+
+        for axon_n, roi_lst in axon_dict.items():
+
+            if len(roi_lst) > 1:
+                curr_color = pt.random_color(1)
+                for roi_n in roi_lst:
+                    curr_roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+                    pt.plot_mask_borders(curr_roi.get_binary_mask(), plotAxis=ax, color=curr_color[0],
+                                         lw=0.5)
+            if len(roi_lst) == 1:
+                curr_roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_lst[0])
+                pt.plot_mask_borders(curr_roi.get_binary_mask(), plotAxis=ax, color='#aaaaaa',
+                                     lw=0.5)
+        return f
+
+    def plot_traces_single_plane(self, save_path, axon_dict, nwb_f, plane_n, roi_num_per_axon, mat_corr_reorg,
+                                 mat_dis_reorg, event_masks, clu_axon, win_mask, axon_lst, trace_type,
+                                 axon_traces_raw, axon_traces_sub, is_normalize_traces):
+
+        # trace_f = PdfPages(os.path.join(save_folder,
+        #                                 '{}_{}_{}_{}_axon_traces.pdf'.format(date, mid, plane_n, trace_window)))
+
+        print('\tplot axon traces ...')
+
+        trace_f = PdfPages(save_path)
+
+        axon_ns = axon_dict.keys()
+        axon_ns.sort()
 
         for axon_n in axon_ns:
 
@@ -3864,18 +3939,6 @@ class BoutonClassifier(object):
 
             if len(roi_lst) > 1:
 
-                # print('\t{}: {} rois.'.format(axon_n, len(roi_lst)))
-
-                # plot contours
-                curr_color = pt.random_color(1)
-                for roi_n in roi_lst:
-                    curr_roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
-                    pt.plot_mask_borders(curr_roi.get_binary_mask(), plotAxis=contour_ax, color=curr_color[0],
-                                         lw=0.5)
-                    pt.plot_mask_borders(curr_roi.get_binary_mask(), plotAxis=ax_mask, color=curr_color[0],
-                                         is_filled=True)
-
-                # plot traces
                 f = plt.figure(figsize=(10, 15), tight_layout=True)
                 axon_int = int(axon_n[-4:])
 
@@ -3922,18 +3985,10 @@ class BoutonClassifier(object):
                 trace_f.savefig(f)
                 plt.close(f)
 
-        f_mat.savefig(os.path.join(save_folder,
-                                   '{}_{}_{}_{}_clustering.pdf'.format(date, mid, plane_n, trace_window)))
-
-        f_contour.savefig(os.path.join(save_folder,
-                                       '{}_{}_{}_{}_axon_contours.pdf'.format(date, mid, plane_n, trace_window)))
-        plt.close(f_mat)
-        plt.close(f_contour)
         trace_f.close()
-        print('\tfinished.')
 
     @staticmethod
-    def add_axon_strf(nwb_f, clu_f, plane_n, t_win, verbose=False):
+    def add_axon_strf_single_plane(nwb_f, clu_f, plane_n, t_win, verbose=False):
         """
         This is a very high level function to add spatial temporal receptive field of grouped axons into saved
         h5 log files.
@@ -4020,7 +4075,7 @@ class BoutonClassifier(object):
                 curr_probe_grp.create_dataset('sta_' + trace_n, data=sta)
 
     @staticmethod
-    def add_axon_dgcrm(nwb_f, clu_f, plane_n, t_win, verbose=False):
+    def add_axon_dgcrm_single_plane(nwb_f, clu_f, plane_n, t_win, verbose=False):
         """
         This is a very high level function to add drifting grating response matrix of grouped axons into saved
         h5 log files.
@@ -4104,6 +4159,334 @@ class BoutonClassifier(object):
                               frame_end=frame_end)
                 # curr_grating_grp.create_dataset('sta_' + trace_n, data=sta, compression='lzf')
                 curr_grating_grp.create_dataset('sta_' + trace_n, data=sta)
+
+
+    def process_file(self, nwb_f, save_folder, trace_type='f_center_subtracted',
+                     trace_window='AllStimuli', is_normalize_traces=False):
+        """
+
+        :param nwb_f:
+        :param save_folder:
+        :param trace_type:
+        :param trace_window:
+        :param is_normalize_traces:
+        :return:
+        """
+
+        print('\tclustering ...')
+
+        nwb_id = nwb_f['identifier'].value
+        date = nwb_id.split('_')[0]
+        mid = nwb_id.split('_')[1]
+
+        # combine all planes
+        plane_ns = get_plane_ns(nwb_f=nwb_f)
+        plane_ns.sort()
+
+        if len(plane_ns) == 1:
+            print('This nwb file has only one plane, please use "process_plane()" method.')
+            return
+
+        # use the middle plane to decide time.
+        plane_n_mid = plane_ns[len(plane_ns) // 2]
+        _, trace_ts = get_traces(nwb_f=nwb_f, plane_n=plane_n_mid, trace_type=trace_type)
+        sample_dur = np.mean(np.diff(trace_ts))
+
+        if trace_window == 'AllStimuli':
+            win_mask = np.ones(trace_ts.shape, dtype=np.bool)
+            has_stim = True
+        elif trace_window == 'UniformContrast':
+            win_mask, has_stim = get_UC_ts_mask(nwb_f=nwb_f, plane_n=plane_n_mid)
+        elif trace_window == 'LocallySparseNoise':
+            win_mask, has_stim = get_LSN_ts_mask(nwb_f=nwb_f, plane_n=plane_n_mid)
+        elif trace_window == 'DriftingGratingSpont':
+            win_mask, has_stim = get_DGC_spont_ts_mask(nwb_f=nwb_f, plane_n=plane_n_mid)
+        else:
+            raise LookupError('do not understand input "trace_window".')
+
+        if not has_stim:
+            print('the nwb file does not contain the specified stimulus: {}. Do nothing.'.format(trace_window))
+            return
+
+        # combine planes
+        roi_ns = []
+        traces = []
+        min_len = [len(trace_ts)]
+
+        for plane_n in plane_ns:
+
+            curr_traces, _ = get_traces(nwb_f=nwb_f, plane_n=plane_n, trace_type=trace_type)
+            traces.append(curr_traces)
+            min_len.append(curr_traces.shape[1])
+
+            curr_roi_ns = get_roi_ns(nwb_f=nwb_f, plane_n=plane_n)
+            curr_roi_ns = ['{}_{}'.format(plane_n, r) for r in curr_roi_ns]
+            roi_ns = roi_ns + curr_roi_ns
+
+        min_len = np.min(min_len)
+        traces = [t[:, 0: min_len] for t in traces]
+        traces = np.concatenate(traces, axis=0)
+        trace_ts = trace_ts[:min_len]
+        win_mask = win_mask[:min_len]
+
+        traces_sub = traces[:, win_mask]
+
+        # # for debugging
+        # traces_sub = traces_sub[:100]
+        # roi_ns = roi_ns[:100]
+
+        traces_res, roi_ns_res, event_masks = self.filter_traces(traces=traces_sub, roi_ns=roi_ns,
+                                                                 sample_dur=sample_dur)
+        mat_corr = self.get_correlation_coefficient_matrix(traces=traces_res, event_masks=event_masks,
+                                                           sample_dur=sample_dur, is_plot=False)
+        mat_corr_thr = self.threshold_correlation_coefficient_matrix(mat_corr=mat_corr, is_plot=False)
+        mat_dis = self.get_distance_matrix(mat_corr=mat_corr_thr, is_plot=False)
+        linkage_z, mat_dis_reorg, c = self.hierarchy_clustering(mat_dis=mat_dis, is_plot=False)
+        mat_corr_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_corr)
+        axon_dict, clu_axon = self.get_axon_dict(linkage_z=linkage_z, roi_ns=roi_ns_res)
+
+        axon_ns = axon_dict.keys()
+        axon_ns.sort()
+        roi_num_per_axon = [len(axon_dict[axon_n]) for axon_n in axon_ns]
+        # print(roi_num_per_axon)
+
+        # save data
+        print('\tsaving results ...')
+        save_f = h5py.File(os.path.join(save_folder, '{}_{}_axon_grouping_multiplane.hdf5'.format(date, mid)))
+
+        meta_grp = save_f.create_group('meta')
+        meta_grp.create_dataset('date', data=date)
+        meta_grp.create_dataset('mouse_id', data=mid)
+        meta_grp.create_dataset('trace_type', data=trace_type)
+        meta_grp.create_dataset('trace_window', data=trace_window)
+
+        bc_grp = save_f.create_group('classifier_parameters')
+        for attr_n, attr in self.__dict__.items():
+            bc_grp.create_dataset(attr_n, data=attr)
+
+        save_f.create_dataset('matrix_corr_coef', data=mat_corr)
+        save_f.create_dataset('matrix_corr_coef_thr', data=mat_corr_thr)
+        save_f.create_dataset('matrix_distance', data=mat_dis)
+        save_f.create_dataset('matrix_distance_reorg', data=mat_dis_reorg)
+        save_f.create_dataset('matrix_corr_coef_thr_reorg', data=mat_corr_reorg)
+        save_f.create_dataset('linkage_z', data=linkage_z)
+        save_f.create_dataset('responsive_roi_ns', data=roi_ns_res)
+        save_f.create_dataset('cluster_indices', data=clu_axon)
+        axon_grp = save_f.create_group('axons')
+        for axon_n, roi_lst in axon_dict.items():
+            axon_grp.create_dataset(axon_n, data=roi_lst)
+
+        # adding rois and traces
+        axon_lst = []
+        axon_traces_raw = []
+        axon_traces_sub = []
+
+        for axon_n in axon_ns:
+            roi_lst = axon_dict[axon_n]
+
+            if len(roi_lst) > 1:
+
+                curr_trace_raw = None
+                curr_trace_sub = None
+                total_weight = 0.
+
+                for plane_roi_n in roi_lst:
+
+                    plane_n = plane_roi_n.split('_')[0]
+                    roi_n = '_'.join(plane_roi_n.split('_')[1:3])
+
+                    trace_grp = nwb_f['processing/rois_and_traces_{}/Fluorescence'.format(plane_n)]
+                    seg_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane'.format(plane_n)]
+
+                    roi_i = int(roi_n[-4:])
+                    curr_weight = np.sum(seg_grp[roi_n]['pix_mask_weight'])
+                    total_weight = total_weight + curr_weight
+
+                    if curr_trace_raw is None:
+                        curr_trace_raw = trace_grp['f_center_raw/data'][roi_i, :] * curr_weight
+                    else:
+                        curr_trace_raw = curr_trace_raw + trace_grp['f_center_raw/data'][roi_i, :] * curr_weight
+
+                    if curr_trace_sub is None:
+                        curr_trace_sub = trace_grp['f_center_subtracted/data'][roi_i, :] * curr_weight
+                    else:
+                        curr_trace_sub = curr_trace_sub + trace_grp['f_center_subtracted/data'][roi_i,
+                                                          :] * curr_weight
+
+                axon_lst.append(axon_n)
+                axon_traces_raw.append(curr_trace_raw / total_weight)
+                axon_traces_sub.append(curr_trace_sub / total_weight)
+
+        axon_traces_raw = np.array(axon_traces_raw[0: min_len])
+        axon_traces_sub = np.array(axon_traces_sub[0: min_len])
+        rat_grp = save_f.create_group('rois_and_traces')
+        rat_grp.attrs['description'] = 'this group only list axons with more than one rois'
+        rat_grp.create_dataset('axon_list', data=axon_lst)
+        rat_grp.create_dataset('traces_center_raw', data=axon_traces_raw)
+        rat_grp.create_dataset('traces_center_subtracted', data=axon_traces_sub)
+        save_f.close()
+
+        # plot matrices
+        sup_title_mat = '{}_{}, {}, dis_thr={:.2f}'.format(date, mid, trace_window, self.distance_thr)
+
+        f_mat = self.plot_matrices(mat_corr=mat_corr, mat_corr_thr=mat_corr_thr, mat_dis=mat_dis,
+                                   mat_corr_reorg=mat_corr_reorg, mat_dis_reorg=mat_dis_reorg,
+                                   linkage_z=linkage_z, roi_num_per_axon=roi_num_per_axon,
+                                   distance_thr=self.distance_thr, sup_title=sup_title_mat,
+                                   is_truncate=True)
+
+        f_mat.savefig(os.path.join(save_folder,
+                                   '{}_{}_{}_clustering.pdf'.format(date, mid, trace_window)))
+
+        plt.close(f_mat)
+
+        # plot contours
+        title_contour = '{}_{}, {}, dis_thr={:.2f}'.format(date, mid, trace_window, self.distance_thr)
+        f_contour = self.plot_countours_multiplane(nwb_f=nwb_f, plane_ns=plane_ns, axon_dict=axon_dict,
+                                                   title_str=title_contour)
+
+        f_contour.savefig(os.path.join(save_folder,
+                                       '{}_{}_{}_axon_contours.pdf'.format(date, mid, trace_window)))
+
+        plt.close(f_contour)
+
+        # plot axon traces
+        save_path_trace = os.path.join(save_folder, '{}_{}_{}_axon_traces.pdf'.format(date,
+                                                                                      mid,
+                                                                                      trace_window))
+
+        self.plot_traces_multiplane(save_path=save_path_trace, axon_dict=axon_dict, nwb_f=nwb_f,
+                                    roi_num_per_axon=roi_num_per_axon, mat_corr_reorg=mat_corr_reorg,
+                                    mat_dis_reorg=mat_dis_reorg, event_masks=event_masks, clu_axon=clu_axon,
+                                    win_mask=win_mask, axon_lst=axon_lst, trace_type=trace_type,
+                                    axon_traces_raw=axon_traces_raw, axon_traces_sub=axon_traces_sub,
+                                    is_normalize_traces=is_normalize_traces)
+
+    @staticmethod
+    def plot_countours_multiplane(nwb_f, plane_ns, axon_dict, title_str=None):
+
+        print('\tplot axon contours ...')
+
+        f, ax = plt.subplots(1, len(plane_ns), figsize=(4 * len(plane_ns) + 1, 4))
+        if title_str is not None:
+            f.suptitle(title_str)
+
+        for plane_i, plane_n in enumerate(plane_ns):
+            curr_ax = ax[plane_i]
+            curr_ax.set_xticks([])
+            curr_ax.set_yticks([])
+            curr_ax.set_title(plane_n)
+
+            bg_img = get_background_img(nwb_f=nwb_f, plane_n=plane_n)
+
+            if bg_img is not None:
+                curr_ax.imshow(ia.array_nor(bg_img), vmin=0, vmax=0.8, cmap='gray', interpolation='nearest')
+            else:
+                curr_ax.imshow(np.zeros(512, 512), vmin=0, vmax=1, cmap='gray', interpolation='nearest')
+            curr_ax.set_title(plane_n)
+
+        for axon_n, roi_lst in axon_dict.items():
+
+            if len(roi_lst) == 1:
+                plane_n = roi_lst[0].split('_')[0]
+                roi_n = '_'.join(roi_lst[0].split('_')[1:3])
+                curr_roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+                plane_i = plane_ns.index(plane_n)
+                pt.plot_mask_borders(curr_roi.get_binary_mask(), plotAxis=ax[plane_i], color='#aaaaaa',
+                                     lw=0.5)
+            elif len(roi_lst) > 1:
+                curr_color = pt.random_color(1)
+                for plane_roi_n in roi_lst:
+                    plane_n = plane_roi_n.split('_')[0]
+                    roi_n = '_'.join(plane_roi_n.split('_')[1:3])
+                    curr_roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
+                    plane_i = plane_ns.index(plane_n)
+                    pt.plot_mask_borders(curr_roi.get_binary_mask(), plotAxis=ax[plane_i], color=curr_color[0],
+                                         lw=0.5)
+            else:
+                raise ValueError('no roi in the axon.')
+
+        return f
+
+    def plot_traces_multiplane(self, save_path, axon_dict, nwb_f, roi_num_per_axon, mat_corr_reorg,
+                               mat_dis_reorg, event_masks, clu_axon, win_mask, axon_lst, trace_type,
+                               axon_traces_raw, axon_traces_sub, is_normalize_traces):
+
+        # trace_f = PdfPages(os.path.join(save_folder,
+        #                                 '{}_{}_{}_{}_axon_traces.pdf'.format(date, mid, plane_n, trace_window)))
+
+        print('\tplot axon traces ...')
+
+        trace_f = PdfPages(save_path)
+
+        axon_ns = axon_dict.keys()
+        axon_ns.sort()
+
+        for axon_n in axon_ns:
+
+            roi_lst = axon_dict[axon_n]
+
+            if len(roi_lst) > 1:
+
+                f = plt.figure(figsize=(10, 15), tight_layout=True)
+                axon_int = int(axon_n[-4:])
+
+                # get the mean correlation coefficient for an axon
+                roi_ind_start = int(np.sum(roi_num_per_axon[0: axon_int]))
+                roi_num = len(roi_lst)
+                mean_corr = np.mean(mat_corr_reorg[roi_ind_start: roi_ind_start + roi_num,
+                                    roi_ind_start: roi_ind_start + roi_num].flat)
+
+                mean_dis = np.mean(mat_dis_reorg[roi_ind_start: roi_ind_start + roi_num,
+                                   roi_ind_start: roi_ind_start + roi_num].flat)
+
+                f.suptitle(
+                    '{}: {} rois; mean corr coef: {:4.2f}; mean distance: {:6.4f}'.format(axon_n, len(roi_lst),
+                                                                                          mean_corr,
+                                                                                          mean_dis))
+
+                axon_event_masks = event_masks[clu_axon == axon_int]
+
+                traces_p = []
+                for plane_roi_n in roi_lst:
+                    plane_n = plane_roi_n.split('_')[0]
+                    roi_n = '_'.join(plane_roi_n.split('_')[1:3])
+                    trace, _ = get_single_trace(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n, trace_type=trace_type)
+                    traces_p.append(trace)
+
+                traces_p = np.array(traces_p)
+                traces_p = traces_p[:, :len(win_mask)]
+                traces_p = traces_p[:, win_mask]
+
+                axon_plot_ind = axon_lst.index(axon_n)
+                if trace_type == 'f_center_raw':
+                    trace_center = axon_traces_raw[axon_plot_ind, :]
+                elif trace_type == 'f_center_subtracted':
+                    trace_center = axon_traces_sub[axon_plot_ind, :]
+                else:
+                    raise LookupError("do not under stand 'trace_type' ({}). Should be "
+                                      "'f_center_raw' or 'f_center_subtracted'.".format(trace_type))
+
+                self.plot_chunked_traces_with_intervals(traces_p,
+                                                        trace_center=trace_center,
+                                                        event_masks=axon_event_masks,
+                                                        chunk_num=10,
+                                                        fig_obj=f,
+                                                        lw=0.5,
+                                                        is_normalize_traces=is_normalize_traces)
+
+                trace_f.savefig(f)
+                plt.close(f)
+
+        trace_f.close()
+
+    @staticmethod
+    def add_axon_strf_multiplane(nwb_f, clu_f, t_win, verbose=False):
+        pass
+
+    @staticmethod
+    def add_axon_dgcrm_multiplane(nwb_f, clu_f, t_win, verbose=False):
+        pass
 
 
 class BulkPaperFunctions(object):

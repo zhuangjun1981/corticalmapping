@@ -1990,12 +1990,9 @@ class DriftingGratingResponseMatrix(DataFrame):
             for trace in cond_row['matrix']:
                 ax.plot(for_plot.sta_ts, trace, ls='-', color=trace_color, lw=trace_lw)
 
-            ax.set_xticks([])
-            ax.set_yticks([])
             ax.axvline(x=0, ls='--', color='k', lw=1)
-            ax.axhline(y=0, ls='--', color='K', lw=1)
-            for sp in ax.spines.values():
-                sp.set_visible(False)
+            ax.axhline(y=0, ls='--', color='k', lw=1)
+
             vrange = vmax - vmin
             ax.set_ylim([vmin - 0.05 * vrange, vmax + 0.05 * vrange])
             ax.set_xlim([for_plot.sta_ts[0], for_plot.sta_ts[-1]])
@@ -2009,16 +2006,22 @@ class DriftingGratingResponseMatrix(DataFrame):
             if (sf_i == len(sf_lst) - 1) and (tf_i == len(tf_lst) - 1):
                 ax.set_xlabel(r'${}\degree$'.format(cond_row['dire']))
 
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for sp in ax.spines.values():
+                sp.set_visible(False)
+            # ax.set_axis_off()
+
             f.add_subplot(ax)
 
             if is_display_title:
                 if is_plot_face_color:
-                    f.suptitle('face color=mean dF; cmap={}; '
+                    f.suptitle('face color cmap={}; '
                                'color range=[-{:5.2f}, {:5.2f}]'.format(face_cmap,
                                                                         df_max_abs,
                                                                         df_max_abs))
                 else:
-                    f.suptitle('face color=mean dF; cmap={}'.format(face_cmap))
+                    pass
         return f
 
 
