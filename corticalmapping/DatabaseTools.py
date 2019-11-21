@@ -4302,23 +4302,24 @@ class BoutonClassifier(object):
                     curr_weight = np.sum(seg_grp[roi_n]['pix_mask_weight'])
                     total_weight = total_weight + curr_weight
 
+                    roi_trace_raw = trace_grp['f_center_raw/data'][roi_i, :min_len] * curr_weight
                     if curr_trace_raw is None:
-                        curr_trace_raw = trace_grp['f_center_raw/data'][roi_i, :] * curr_weight
+                        curr_trace_raw = roi_trace_raw
                     else:
-                        curr_trace_raw = curr_trace_raw + trace_grp['f_center_raw/data'][roi_i, :] * curr_weight
+                        curr_trace_raw = curr_trace_raw + roi_trace_raw
 
+                    roi_trace_sub = trace_grp['f_center_subtracted/data'][roi_i, :min_len] * curr_weight
                     if curr_trace_sub is None:
-                        curr_trace_sub = trace_grp['f_center_subtracted/data'][roi_i, :] * curr_weight
+                        curr_trace_sub = roi_trace_sub
                     else:
-                        curr_trace_sub = curr_trace_sub + trace_grp['f_center_subtracted/data'][roi_i,
-                                                          :] * curr_weight
+                        curr_trace_sub = curr_trace_sub + roi_trace_sub
 
                 axon_lst.append(axon_n)
                 axon_traces_raw.append(curr_trace_raw / total_weight)
                 axon_traces_sub.append(curr_trace_sub / total_weight)
 
-        axon_traces_raw = np.array(axon_traces_raw[0: min_len])
-        axon_traces_sub = np.array(axon_traces_sub[0: min_len])
+        axon_traces_raw = np.array(axon_traces_raw)
+        axon_traces_sub = np.array(axon_traces_sub)
         rat_grp = save_f.create_group('rois_and_traces')
         rat_grp.attrs['description'] = 'this group only list axons with more than one rois'
         rat_grp.create_dataset('axon_list', data=axon_lst)
