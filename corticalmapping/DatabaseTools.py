@@ -3440,10 +3440,10 @@ class BoutonClassifier(object):
                         cos = spatial.distance.cosine(row_i, row_j)
                         mat_dis[i, j] = 1 - cos
                         mat_dis[j, i] = 1 - cos
-        elif self.distance_measure == 'dis_corr_coef':
-            mat_dis = 1 - mat_corr
         elif self.distance_measure == 'corr_coef':
-            mat_dis = spatial.distance.squareform(spatial.distance.pdist(1 - mat_corr, metric=self.distance_metric))
+            mat_dis = 1 - mat_corr
+        elif self.distance_measure == 'dis_corr_coef':
+            mat_dis = spatial.distance.squareform(spatial.distance.pdist(mat_corr, metric=self.distance_metric))
         else:
             raise LookupError('do not understand self.distance_measure: {}. should be in '
                               '["cosine_similarity", "corr_coef", "dis_corr_coef"].'.format(self.distance_measure))
@@ -3705,8 +3705,7 @@ class BoutonClassifier(object):
 
         mat_corr_thr = self.threshold_correlation_coefficient_matrix(mat_corr=mat_corr, is_plot=False)
         mat_dis = self.get_distance_matrix(mat_corr=mat_corr_thr, is_plot=False)
-
-        mat_dis_dense = mat_dis[np.triu_indices(n=mat_dis.shape[0], k=1)]
+        mat_dis_dense = spatial.distance.squareform(mat_dis)
         linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis_dense, is_plot=False)
 
         # reorganize matrix
@@ -4255,7 +4254,7 @@ class BoutonClassifier(object):
 
         traces_sub = traces[:, win_mask]
 
-        # for debugging
+        # # for debugging
         # traces_sub = traces_sub[:100]
         # roi_ns = roi_ns[:100]
 
@@ -4266,8 +4265,7 @@ class BoutonClassifier(object):
 
         mat_corr_thr = self.threshold_correlation_coefficient_matrix(mat_corr=mat_corr, is_plot=False)
         mat_dis = self.get_distance_matrix(mat_corr=mat_corr_thr, is_plot=False)
-
-        mat_dis_dense = mat_dis[np.triu_indices(n=mat_dis.shape[0], k=1)]
+        mat_dis_dense = spatial.distance.squareform(mat_dis)
         linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis_dense, is_plot=False)
 
         # if self.is_cosine_similarity:
