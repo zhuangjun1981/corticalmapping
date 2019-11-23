@@ -3200,7 +3200,7 @@ class BoutonClassifier(object):
 
     def __init__(self, skew_filter_sigma=5., skew_thr=0.6, lowpass_sigma=0.1, detrend_sigma=3.,
                  event_std_thr=3., peri_event_dur=(-3., 3.), corr_len_thr=300., corr_abs_thr=0.5,
-                 corr_std_thr=3., is_cosine_similarity=False, distance_metric='euclidean',
+                 corr_std_thr=3., distance_measure='corr_coef', distance_metric='euclidean',
                  linkage_method='weighted', distance_thr=1.0):
         """
         initiate the object. setup a bunch of analysis parameters.
@@ -3228,9 +3228,13 @@ class BoutonClassifier(object):
         :param corr_abs_thr: float, [0, 1], absolute threshold to treat correlation coefficient matrix
         :param corr_std_thr: float, how many standard deviation above the mean to threshold correlation
                                     coefficient matrix for each roi (currently not implemented)
-        :param is_cosine_similarity: bool, if True: use cosine similarity to calculate distance matrix
-                                           if False: use 1 - thresholded correlation coefficient matrix as distance
-                                           matrix
+        :param distance_measure: str, options 'cosine_similarity', 'corr_coef', 'dis_corr_coef'. Default: 'corr_coef'
+                                 'corr_coef': use '1 -  correlation coefficient' as distance directly
+                                 'dis_corr_coef': use correlation coefficient as observation and calculate euclidean
+                                                  distance between each pair
+                                 'cosine_similarity': use '1 - cosine_similarity' as distance, this is described in
+                                                      Liang et al., 2018 cell paper, but did not work well for my
+                                                      data.
         :param distance_metric: str, metric for scipy to get distance. "metric" input to scipy.spatial.distance.pdist()
                                 method and scipy.cluster.hierarchy.linkage method.
         :param linkage_method: str, method argument to the scipy.cluster.hierarchy.linkage() method
@@ -3255,7 +3259,13 @@ class BoutonClassifier(object):
             self.corr_abs_thr = float(corr_abs_thr)
 
         self.corr_std_thr = float(corr_std_thr)
-        self.is_cosine_similarity = bool(is_cosine_similarity)
+
+        if distance_measure in ['cosine_similarity', 'corr_coef', 'dis_corr_coef']:
+            self.distance_measure = str(distance_measure)
+        else:
+            raise LookupError("the input 'distance measure' should be in "
+                              "['cosine_similarity', 'corr_coef', 'dis_corr_coef'].")
+
         self.distance_metric = str(distance_metric)
         self.linkage_method = str(linkage_method)
         self.distance_thr = float(distance_thr)
@@ -3401,16 +3411,14 @@ class BoutonClassifier(object):
 
     def get_distance_matrix(self, mat_corr, is_plot=False):
         """
-        calculated the distance matrix from correlation coefficient matrix.
-        if self.is_cosine_similarity is True, use the cosine similarity method described in the paper
-        if self.is_cosine_similarity is False, simply use 1 - corr coeff as distance
+        calculated the square form of distance matrix based on self.distance_measure and self.distance_metric
 
         :param mat_corr:
         :param is_plot:
         :return:
         """
 
-        if self.is_cosine_similarity:
+        if self.distance_measure == 'cosine_similarity':
 
             mat_dis = np.zeros(mat_corr.shape)
             roi_num = mat_dis.shape[0]
@@ -3432,8 +3440,13 @@ class BoutonClassifier(object):
                         cos = spatial.distance.cosine(row_i, row_j)
                         mat_dis[i, j] = 1 - cos
                         mat_dis[j, i] = 1 - cos
-        else:
+        elif self.distance_measure == 'dis_corr_coef':
             mat_dis = 1 - mat_corr
+        elif self.distance_measure == 'corr_coef':
+            mat_dis = spatial.distance.squareform(spatial.distance.pdist(1 - mat_corr, metric=self.distance_metric))
+        else:
+            raise LookupError('do not understand self.distance_measure: {}. should be in '
+                              '["cosine_similarity", "corr_coef", "dis_corr_coef"].'.format(self.distance_measure))
 
         if is_plot:
             f = plt.figure(figsize=(8, 6))
@@ -3693,11 +3706,8 @@ class BoutonClassifier(object):
         mat_corr_thr = self.threshold_correlation_coefficient_matrix(mat_corr=mat_corr, is_plot=False)
         mat_dis = self.get_distance_matrix(mat_corr=mat_corr_thr, is_plot=False)
 
-        if self.is_cosine_similarity:
-            mat_dis_dense = mat_dis[np.triu_indices(n=mat_dis.shape[0], k=1)]
-            linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis_dense, is_plot=False)
-        else:
-            linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis, is_plot=False)
+        mat_dis_dense = mat_dis[np.triu_indices(n=mat_dis.shape[0], k=1)]
+        linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis_dense, is_plot=False)
 
         # reorganize matrix
         mat_dis_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_dis)
@@ -4246,8 +4256,8 @@ class BoutonClassifier(object):
         traces_sub = traces[:, win_mask]
 
         # for debugging
-        # traces_sub = traces_sub[:500]
-        # roi_ns = roi_ns[:500]
+        # traces_sub = traces_sub[:100]
+        # roi_ns = roi_ns[:100]
 
         traces_res, roi_ns_res, event_masks = self.filter_traces(traces=traces_sub, roi_ns=roi_ns,
                                                                  sample_dur=sample_dur)
@@ -4257,11 +4267,14 @@ class BoutonClassifier(object):
         mat_corr_thr = self.threshold_correlation_coefficient_matrix(mat_corr=mat_corr, is_plot=False)
         mat_dis = self.get_distance_matrix(mat_corr=mat_corr_thr, is_plot=False)
 
-        if self.is_cosine_similarity:
-            mat_dis_dense = mat_dis[np.triu_indices(n=mat_dis.shape[0], k=1)]
-            linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis_dense, is_plot=False)
-        else:
-            linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis, is_plot=False)
+        mat_dis_dense = mat_dis[np.triu_indices(n=mat_dis.shape[0], k=1)]
+        linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis_dense, is_plot=False)
+
+        # if self.is_cosine_similarity:
+        #     mat_dis_dense = mat_dis[np.triu_indices(n=mat_dis.shape[0], k=1)]
+        #     linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis_dense, is_plot=False)
+        # else:
+        #     linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis, is_plot=False)
 
         # reorganize matrix
         mat_dis_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_dis)
