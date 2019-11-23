@@ -3245,7 +3245,15 @@ class BoutonClassifier(object):
         self.event_std_thr = float(event_std_thr)
         self.peri_event_dur = tuple(peri_event_dur)
         self.corr_len_thr = float(corr_len_thr)
-        self.corr_abs_thr = float(corr_abs_thr)
+
+        if corr_abs_thr >= 1.:
+            raise ValueError('input "corr_abs_thr" should be smaller than 1.')
+        elif corr_abs_thr < 0.:
+            print('input "corr_abs_thr" is less than 0. Setting it to be 0.')
+            self.corr_abs_thr = 0.
+        else:
+            self.corr_abs_thr = float(corr_abs_thr)
+
         self.corr_std_thr = float(corr_std_thr)
         self.is_cosine_similarity = bool(is_cosine_similarity)
         self.distance_metric = str(distance_metric)
@@ -3298,14 +3306,15 @@ class BoutonClassifier(object):
                                                             thr=trace_mean + self.event_std_thr * trace_std,
                                                             comparison='>=')
 
-                for inte in event_intervals:
-                    start_ind = max([0, inte[0] + event_start_pt])
-                    end_ind = min([inte[1] + event_end_pt, traces.shape[1]])
-                    event_mask[start_ind : end_ind] = True
+                if len(event_intervals) != 0: # filter out the rois that have no detected event
+                    for inte in event_intervals:
+                        start_ind = max([0, inte[0] + event_start_pt])
+                        end_ind = min([inte[1] + event_end_pt, traces.shape[1]])
+                        event_mask[start_ind : end_ind] = True
 
-                roi_ns_res.append(roi_ns[trace_i])
-                traces_res.append(trace_d)
-                event_masks.append(event_mask)
+                    roi_ns_res.append(roi_ns[trace_i])
+                    traces_res.append(trace_d)
+                    event_masks.append(event_mask)
 
         return np.array(traces_res), roi_ns_res, np.array(event_masks)
 
@@ -3416,9 +3425,9 @@ class BoutonClassifier(object):
                     row_i = mat_corr[i][ind]
                     row_j = mat_corr[j][ind]
 
-                    if max(row_i) == 0 or max(row_j) == 0:
-                        mat_dis[i, j] = 1
-                        mat_dis[j, i] = 1
+                    if ((row_i * row_j) == 0).all():
+                            mat_dis[i, j] = 1
+                            mat_dis[j, i] = 1
                     else:
                         cos = spatial.distance.cosine(row_i, row_j)
                         mat_dis[i, j] = 1 - cos
@@ -3453,28 +3462,22 @@ class BoutonClassifier(object):
 
         linkage_z = cluster.hierarchy.linkage(mat_dis, method=self.linkage_method, metric=self.distance_metric)
 
-        c, _ = cluster.hierarchy.cophenet(linkage_z, spatial.distance.pdist(mat_dis, metric=self.distance_metric))
+        if len(mat_dis.shape) == 1:
+            c, _ = cluster.hierarchy.cophenet(linkage_z, mat_dis)
+        else:
+            c, _ = cluster.hierarchy.cophenet(linkage_z, spatial.distance.pdist(mat_dis, metric=self.distance_metric))
 
         print('\tCophentic correlation distance of clustering: {}'.format(c))
 
-        # reorganize distance matrix
-        mat_dis_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_dis)
 
         if is_plot:
             f_den = plt.figure(figsize=(20, 8))
             ax_den = f_den.add_subplot(111)
             _ = cluster.hierarchy.dendrogram(linkage_z, ax=ax_den, **kwargs)
             ax_den.axhline(y=self.distance_thr)
-
-            f_mat = plt.figure(figsize=(8, 6))
-            ax_mat = f_mat.add_subplot(111)
-            fig = ax_mat.imshow(mat_dis_reorg, cmap='plasma_r', vmin=0, vmax=1, interpolation='nearest')
-            ax_mat.set_title('clustered distance matrix')
-            f_mat.colorbar(fig)
-
             plt.show()
 
-        return linkage_z, mat_dis_reorg, c
+        return linkage_z, c
 
     @staticmethod
     def reorganize_matrix_by_cluster(linkage_z, mat):
@@ -3686,10 +3689,21 @@ class BoutonClassifier(object):
                                                                  sample_dur=sample_dur)
         mat_corr = self.get_correlation_coefficient_matrix(traces=traces_res, event_masks=event_masks,
                                                            sample_dur=sample_dur, is_plot=False)
+
         mat_corr_thr = self.threshold_correlation_coefficient_matrix(mat_corr=mat_corr, is_plot=False)
         mat_dis = self.get_distance_matrix(mat_corr=mat_corr_thr, is_plot=False)
-        linkage_z, mat_dis_reorg, c = self.hierarchy_clustering(mat_dis=mat_dis, is_plot=False)
+
+        if self.is_cosine_similarity:
+            mat_dis_dense = mat_dis[np.triu_indices(n=mat_dis.shape[0], k=1)]
+            linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis_dense, is_plot=False)
+        else:
+            linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis, is_plot=False)
+
+        # reorganize matrix
+        mat_dis_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_dis)
         mat_corr_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_corr)
+
+        # get axon clusters
         axon_dict, clu_axon = self.get_axon_dict(linkage_z=linkage_z, roi_ns=roi_ns_res)
 
         axon_ns = axon_dict.keys()
@@ -4231,18 +4245,29 @@ class BoutonClassifier(object):
 
         traces_sub = traces[:, win_mask]
 
-        # # for debugging
-        # traces_sub = traces_sub[:100]
-        # roi_ns = roi_ns[:100]
+        # for debugging
+        # traces_sub = traces_sub[:500]
+        # roi_ns = roi_ns[:500]
 
         traces_res, roi_ns_res, event_masks = self.filter_traces(traces=traces_sub, roi_ns=roi_ns,
                                                                  sample_dur=sample_dur)
         mat_corr = self.get_correlation_coefficient_matrix(traces=traces_res, event_masks=event_masks,
                                                            sample_dur=sample_dur, is_plot=False)
+
         mat_corr_thr = self.threshold_correlation_coefficient_matrix(mat_corr=mat_corr, is_plot=False)
         mat_dis = self.get_distance_matrix(mat_corr=mat_corr_thr, is_plot=False)
-        linkage_z, mat_dis_reorg, c = self.hierarchy_clustering(mat_dis=mat_dis, is_plot=False)
+
+        if self.is_cosine_similarity:
+            mat_dis_dense = mat_dis[np.triu_indices(n=mat_dis.shape[0], k=1)]
+            linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis_dense, is_plot=False)
+        else:
+            linkage_z, c = self.hierarchy_clustering(mat_dis=mat_dis, is_plot=False)
+
+        # reorganize matrix
+        mat_dis_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_dis)
         mat_corr_reorg = self.reorganize_matrix_by_cluster(linkage_z=linkage_z, mat=mat_corr)
+
+        # get axon clusters
         axon_dict, clu_axon = self.get_axon_dict(linkage_z=linkage_z, roi_ns=roi_ns_res)
 
         axon_ns = axon_dict.keys()
@@ -4334,7 +4359,7 @@ class BoutonClassifier(object):
                                    mat_corr_reorg=mat_corr_reorg, mat_dis_reorg=mat_dis_reorg,
                                    linkage_z=linkage_z, roi_num_per_axon=roi_num_per_axon,
                                    distance_thr=self.distance_thr, sup_title=sup_title_mat,
-                                   is_truncate=True)
+                                   is_truncate=False)
 
         f_mat.savefig(os.path.join(save_folder,
                                    '{}_{}_{}_clustering.pdf'.format(date, mid, trace_window)))
