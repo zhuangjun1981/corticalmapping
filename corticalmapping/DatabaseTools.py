@@ -201,6 +201,10 @@ def get_scope(nwb_f):
         raise LookupError('Do not understand device ({}). should be "deepscope" or "sutter"'.format(device))
 
 
+def get_depth(nwb_f, plane_n):
+    return nwb_f['processing/rois_and_traces_{}/imaging_depth_micron'.format(plane_n)].value
+
+
 def get_background_img(nwb_f, plane_n):
 
     rf_grp = nwb_f['processing/rois_and_traces_{}/ImageSegmentation/imaging_plane/reference_images'.format(plane_n)]
@@ -818,7 +822,7 @@ def get_everything_from_roi(nwb_f, plane_n, roi_n, params=ANALYSIS_PARAMS, verbo
                       'mouse_id': nwb_f['identifier'].value[7:14],
                       'plane_n': plane_n,
                       'roi_n': roi_n,
-                      'depth': nwb_f['processing/rois_and_traces_{}/imaging_depth_micron'.format(plane_n)].value}
+                      'depth': get_depth(nwb_f=nwb_f, plane_n=plane_n)}
 
     # get roi properties
     roi = get_roi(nwb_f=nwb_f, plane_n=plane_n, roi_n=roi_n)
