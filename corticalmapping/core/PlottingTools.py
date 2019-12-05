@@ -46,7 +46,15 @@ def get_color_str(R, G, B):
 
     if not ((0 <= R <= 255) and (0 <= G <= 255) and (
             0 <= B <= 255)): raise ValueError('Input R, G and B should between 0 and 255!')
-    return '#' + ''.join(map(chr, (R, G, B))).encode('hex')
+
+    # ================== old =========================
+    # return '#' + ''.join(map(chr, (R, G, B))).encode('hex')
+    # ================================================
+
+    cstrs = [R, G, B]
+    cstrs = ['{:02x}'.format(x) for x in cstrs]
+
+    return '#' + ''.join(cstrs)
 
 
 def binary_2_rgba(img, foregroundColor='#ff0000', backgroundColor='#000000', foregroundAlpha=255, backgroundAlpha=0):
