@@ -30,7 +30,7 @@ def test_mergeROIs():
 def test_getSparseNoiseOnsetIndex():
     allOnsetInd, onsetIndWithLocationSign = sca.get_sparse_noise_onset_index(ft.loadFile(sparseNoiseDisplayLogPath))
     # print list(allOnsetInd[0:10])
-    # print onsetIndWithLocationSign[2][0]
+    print onsetIndWithLocationSign[2]
     assert(list(allOnsetInd[0:10])==[0, 6, 12, 18, 24, 30, 36, 42, 48, 54])
     assert(np.array_equal(onsetIndWithLocationSign[2][0],np.array([0.,  70.])))
 
@@ -49,6 +49,12 @@ def test_SpatialTemporalReceptiveField():
     traces=[np.array(t) for t in traces]
     time = np.arange(4,8)
     STRF = sca.SpatialTemporalReceptiveField(locations,signs,traces,time)
+
+    print(signs)
+    print(locations)
+    print(traces)
+    print(STRF.data)
+
     assert(STRF.data['traces'][0][0][1]==8)
     assert(STRF.data['sign'][4]==1)
     assert(np.array_equal(STRF.get_locations()[2], np.array([3., 4., -1.])))
@@ -220,5 +226,5 @@ def test_get_orientation_properties():
 plt.show()
 
 if __name__ == '__main__':
-    test_get_orientation_properties()
+    test_getSparseNoiseOnsetIndex()
 
