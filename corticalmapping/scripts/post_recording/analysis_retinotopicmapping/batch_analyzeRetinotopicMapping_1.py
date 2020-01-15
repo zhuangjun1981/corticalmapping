@@ -61,7 +61,7 @@ pdFilterSize=0.01
 pdSegmentThr=0.02
 
 #image read signal parameters
-readThreshold = 3.
+readThreshold = 1.5
 readOnsetType='raising'
 
 #pos map and power map parameters
