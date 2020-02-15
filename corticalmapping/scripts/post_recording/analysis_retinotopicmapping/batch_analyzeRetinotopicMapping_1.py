@@ -4,7 +4,7 @@ __author__ = 'junz'
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from toolbox.misc import BinarySlicer
+from toolbox.misc.slicer import BinarySlicer
 import warnings
 import tifffile as tf
 import corticalmapping.core.FileTools as ft
@@ -93,6 +93,7 @@ pd = jphys['photodiode']
 displayOnsets = hl.segmentPhotodiodeSignal(pd, digitizeThr=pdDigitizeThr, filterSize=pdFilterSize, segmentThr=pdSegmentThr, Fs=jphysFs)
 
 imgFrameTS = ta.get_onset_timeStamps(jphys['read'], Fs=jphysFs, threshold=readThreshold, onsetType=readOnsetType)
+print('total number of image frames: {}'.format(len(imgFrameTS)))
 
 logPath = hl.findLogPath(date=dateRecorded,mouseID=mouseID,stimulus='KSstimAllDir',userID=userID,fileNumber=str(fileNum),displayFolder=dataFolder)
 

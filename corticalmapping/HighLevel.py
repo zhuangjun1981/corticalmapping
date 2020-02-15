@@ -12,8 +12,7 @@ import scipy.sparse as sparse
 import scipy.interpolate as ip
 import matplotlib.pyplot as plt
 import tifffile as tf
-from toolbox.misc import BinarySlicer
-import allensdk_internal.brain_observatory.mask_set as mask_set
+from toolbox.misc.slicer import BinarySlicer
 import corticalmapping.core.ImageAnalysis as ia
 import corticalmapping.core.TimingAnalysis as ta
 import corticalmapping.core.PlottingTools as pt
@@ -22,10 +21,16 @@ import corticalmapping.SingleCellAnalysis as sca
 import corticalmapping.RetinotopicMapping as rm
 
 try:
+    import allensdk_internal.brain_observatory.mask_set as mask_set
+except Exception as e:
+    print 'fail to import allensdk_internal.brain_observatory.mask_set.'
+    print e
+
+try:
     # from r_neuropil import NeuropilSubtract as NS
     from allensdk.brain_observatory.r_neuropil import NeuropilSubtract as NS
 except Exception as e:
-    print 'fail to import neural pil subtraction module ...'
+    print 'fail to import neural pil subtraction module.'
     print e
 
 
