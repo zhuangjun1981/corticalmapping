@@ -21,7 +21,7 @@ mouseType='Rorb-Cre;Camk2a-tTA;Ai94(TITL-GCaMP6s)'
 trialNum='1' # str
 vasfileNums = [100, 101] # file numbers of vasculature images, should be a list
 fileNum = 103 # file number of the imaged movie
-FFTmode='peak' # detecting peak of valley of the signal, GCaMP:'peak'; intrinsic signal: 'valley'
+FFTmode='valley' # detecting peak of valley of the signal, GCaMP:'peak'; intrinsic signal: 'valley'
 
 
 # dataFolder = r"\\aibsdata2\nc-ophys\CorticalMapping\IntrinsicImageData"
